@@ -3,6 +3,7 @@ dist/
 build/
 .turbo/
 .vite/
+.npm-cache/
 coverage/
 *.log
 
