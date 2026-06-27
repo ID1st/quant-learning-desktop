@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/api-client" },
+    { "path": "./packages/chart" },
+    { "path": "./packages/plugin-loader" },
+    { "path": "./packages/strategy-engine" },
+    { "path": "./packages/ui" },
+    { "path": "./apps/desktop" }
+  ]
+}

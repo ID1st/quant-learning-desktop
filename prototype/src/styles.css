@@ -469,34 +469,66 @@ button {
   background: var(--red);
 }
 
-.ma-line {
+.smooth-lines {
   position: absolute;
   right: 82px;
+  bottom: 106px;
   left: 34px;
-  height: 2px;
-  border-radius: 999px;
-  opacity: 0.88;
+  z-index: 3;
+  width: calc(100% - 116px);
+  height: 270px;
+  overflow: visible;
+  pointer-events: none;
 }
 
-.ma-line.blue {
-  top: 52%;
-  background: var(--blue);
-  transform: rotate(-3deg);
+.smooth-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
-.ma-line.yellow {
-  top: 63%;
-  background: var(--gold);
-  transform: rotate(-4deg);
+.smooth-line.blue {
+  stroke: var(--blue);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px rgba(31, 125, 242, 0.25));
+}
+
+.smooth-line.yellow {
+  stroke: var(--gold);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 4px rgba(227, 181, 45, 0.2));
+}
+
+.smooth-line.signal-trail {
+  stroke: rgba(33, 192, 139, 0.42);
+  stroke-dasharray: 6 8;
+  stroke-width: 1.4;
 }
 
 .signal {
   position: absolute;
   z-index: 7;
-  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  min-height: 38px;
+  padding: 3px 7px 4px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: rgba(8, 13, 18, 0.78);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
   text-align: center;
   font-size: 11px;
   font-weight: 700;
+  line-height: 1.15;
+  transform: translate(-50%, -50%);
+}
+
+.signal svg {
+  margin-right: 4px;
+  fill: currentColor;
 }
 
 .signal.long {
@@ -504,13 +536,13 @@ button {
 }
 
 .signal.short {
-  color: var(--violet);
+  color: var(--red);
 }
 
-.s1 { left: 37%; top: 64%; }
-.s2 { left: 52%; top: 31%; }
-.s3 { left: 73%; top: 59%; }
-.s4 { left: 72%; top: 30%; }
+.s1 { left: 36%; top: 65%; }
+.s2 { left: 52%; top: 30%; }
+.s3 { left: 73%; top: 57%; }
+.s4 { left: 72%; top: 29%; }
 
 .chart-footer {
   position: absolute;

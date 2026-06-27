@@ -1,0 +1,19 @@
+{
+  "name": "@quant/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@quant/api-client": "*",
+    "@quant/chart": "*",
+    "@quant/plugin-loader": "*",
+    "@quant/shared": "*",
+    "@quant/strategy-engine": "*",
+    "@quant/ui": "*"
+  }
+}

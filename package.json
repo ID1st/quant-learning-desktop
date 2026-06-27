@@ -1,0 +1,30 @@
+{
+  "name": "quant-learning-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.12.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @quant/desktop",
+    "build": "npm run build -w @quant/desktop",
+    "typecheck": "tsc -p tsconfig.check.json --noEmit",
+    "clean": "node scripts/clean.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.4",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.2"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.12",
+    "lucide-react": "^0.562.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zustand": "^5.0.9"
+  }
+}

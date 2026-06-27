@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import {
   Activity,
   AlertCircle,
+  ArrowDown,
+  ArrowUp,
   BarChart3,
   Bell,
   BookOpen,
@@ -180,13 +182,25 @@ function ChartArea({ selectedSymbol }) {
             <span key={p} className={p.includes(".79") ? "price-now" : ""}>{p}</span>
           ))}
         </div>
-        <div className="ma-line blue" />
-        <div className="ma-line yellow" />
+        <svg className="smooth-lines" viewBox="0 0 1000 420" preserveAspectRatio="none" aria-hidden="true">
+          <path
+            className="smooth-line blue"
+            d="M 0 270 C 95 250, 145 238, 220 246 S 360 272, 450 230 S 580 178, 680 202 S 810 232, 1000 155"
+          />
+          <path
+            className="smooth-line yellow"
+            d="M 0 314 C 115 292, 215 276, 330 280 S 510 292, 610 255 S 760 235, 1000 218"
+          />
+          <path
+            className="smooth-line signal-trail"
+            d="M 210 285 C 315 230, 420 185, 530 232 S 710 318, 790 232 S 920 155, 1000 120"
+          />
+        </svg>
         <div className="price-marker">192.79</div>
-        <div className="signal long s1">Long<br />+1</div>
-        <div className="signal short s2">Short<br />-1</div>
-        <div className="signal long s3">Long<br />+1</div>
-        <div className="signal short s4">Short<br />-1</div>
+        <div className="signal long s1"><ArrowUp size={16} /> Buy<br />+1</div>
+        <div className="signal short s2"><ArrowDown size={16} /> Sell<br />-1</div>
+        <div className="signal long s3"><ArrowUp size={16} /> Buy<br />+1</div>
+        <div className="signal short s4"><ArrowDown size={16} /> Sell<br />-1</div>
         <div className="candles">
           {bars.map((bar, index) => {
             const up = bar.close >= bar.open;

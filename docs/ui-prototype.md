@@ -17,7 +17,7 @@ Primary characteristics:
 - Dark professional trading terminal.
 - Top symbol search, timeframe selector, indicators, alerts, replay, strategy selector, publish action.
 - Left chart drawing toolbar.
-- Central chart-first workspace with quote strip, simulated K-line chart, moving averages, volume bars, and strategy signal markers.
+- Central chart-first workspace with quote strip, simulated K-line chart, smoother moving-average lines, volume bars, and buy/sell arrow signal markers.
 - Right strategy configuration panel for preset strategy parameters.
 - Far-right watchlist and selected-symbol details.
 - Bottom strategy tester with metrics, equity curve, trade summary, and terminal-like tabs.
@@ -43,6 +43,8 @@ The prototype uses React, Vite, and `lucide-react` for UI icons. It is intention
 - Strategy selector and publish button.
 - Left drawing toolbar.
 - Central chart surface.
+- Buy/sell arrow markers after strategy signals.
+- Smooth visual overlays for moving averages and signal trail.
 - Right strategy settings panel.
 - Watchlist panel.
 - Symbol detail card.
