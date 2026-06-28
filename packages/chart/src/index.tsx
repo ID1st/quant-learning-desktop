@@ -25,6 +25,7 @@ export interface CandlePoint {
 }
 
 export type ChartLayerTone = "buy" | "sell" | "range" | "risk" | "target" | "stop" | "neutral";
+export type ChartTrendTone = "bullish" | "bearish" | "neutral";
 
 export type ChartLayerElement =
   | {
@@ -42,6 +43,13 @@ export type ChartLayerElement =
       price: number;
       label: string;
       tone: Extract<ChartLayerTone, "target" | "stop" | "range" | "neutral">;
+      visible?: boolean;
+    }
+  | {
+      id: string;
+      kind: "trend-line";
+      points: Array<{ timestamp: number; price: number }>;
+      tone: ChartTrendTone;
       visible?: boolean;
     }
   | {
@@ -144,6 +152,10 @@ function getLayerPriceRange(strategyLayers: ChartLayer[]) {
 
           if (element.kind === "band") {
             return [element.fromPrice, element.toPrice].filter(isFiniteNumber);
+          }
+
+          if (element.kind === "trend-line") {
+            return element.points.map((point) => point.price).filter(isFiniteNumber);
           }
 
           return isFiniteNumber(element.price) ? [element.price] : [];
@@ -327,6 +339,24 @@ export function ChartViewport({
                         {element.label}
                       </text>
                     </g>
+                  );
+                }
+
+                if (element.kind === "trend-line") {
+                  const trendPoints = element.points
+                    .filter((point) => isFiniteNumber(point.timestamp) && isFiniteNumber(point.price))
+                    .map((point) => ({ x: timestampToX(point.timestamp), y: priceToY(point.price) }));
+
+                  if (trendPoints.length < 2) {
+                    return null;
+                  }
+
+                  return (
+                    <path
+                      className={`strategy-trend-line ${element.tone}`}
+                      d={createSmoothPath(trendPoints)}
+                      key={`${layer.strategyId}-${element.id}`}
+                    />
                   );
                 }
 

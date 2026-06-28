@@ -719,6 +719,26 @@ input {
   stroke: rgba(239, 75, 69, 0.72);
 }
 
+.strategy-trend-line {
+  fill: none;
+  pointer-events: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.6;
+}
+
+.strategy-trend-line.bullish {
+  stroke: rgba(44, 224, 167, 0.82);
+}
+
+.strategy-trend-line.bearish {
+  stroke: rgba(255, 95, 87, 0.78);
+}
+
+.strategy-trend-line.neutral {
+  stroke: rgba(203, 213, 225, 0.64);
+}
+
 .candle-wick.up,
 .candle-body.up {
   fill: #21c08b;

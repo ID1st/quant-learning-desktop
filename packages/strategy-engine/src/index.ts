@@ -223,6 +223,14 @@ function getBooleanParameter(parameters: Record<string, unknown>, key: string, f
   return typeof value === "boolean" ? value : fallback;
 }
 
+function averageRange(bars: Bar[]) {
+  if (bars.length === 0) {
+    return 0;
+  }
+
+  return bars.reduce((total, bar) => total + Math.max(0, bar.high - bar.low), 0) / bars.length;
+}
+
 function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): StrategyOutput {
   const enabled = input.enabled ?? true;
   const openingRangeMinutes = getPositiveNumberParameter(input.parameters, "openingRangeMinutes", 30);
@@ -349,6 +357,138 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   };
 }
 
+function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyInput): StrategyOutput {
+  const enabled = input.enabled ?? true;
+  const trendLength = Math.max(2, Math.round(getPositiveNumberParameter(input.parameters, "trendLength", 10)));
+  const targetMultiplier = getPositiveNumberParameter(input.parameters, "targetMultiplier", 1.5);
+  const showStopLoss = getBooleanParameter(input.parameters, "showStopLoss", true);
+
+  if (!enabled) {
+    return createPlaceholderOutput(strategy, false);
+  }
+
+  if (input.bars.length < 3) {
+    const output = createPlaceholderOutput(strategy, true);
+    return {
+      ...output,
+      logs: ["Trend Targets 需要至少 3 根 K 线才能计算趋势基准和目标位。"],
+    };
+  }
+
+  const lastBar = input.bars[input.bars.length - 1];
+  const startIndex = Math.max(0, input.bars.length - trendLength - 1);
+  const trendStartBar = input.bars[startIndex];
+  const priorBars = input.bars.slice(Math.max(0, input.bars.length - trendLength - 1), -1);
+  const comparisonBars = priorBars.length > 0 ? priorBars : input.bars.slice(0, -1);
+  const priorHigh = Math.max(...comparisonBars.map((bar) => bar.high));
+  const priorLow = Math.min(...comparisonBars.map((bar) => bar.low));
+  const slope = (lastBar.close - trendStartBar.close) / Math.max(1, input.bars.length - 1 - startIndex);
+  const direction = slope >= 0 ? "bullish" : "bearish";
+  const signalType = lastBar.close > priorHigh ? "buy" : lastBar.close < priorLow ? "sell" : null;
+  const setupSide = signalType ?? (direction === "bullish" ? "buy" : "sell");
+  const riskRange = Math.max(0.01, averageRange(input.bars.slice(Math.max(0, input.bars.length - trendLength))));
+  const entryPrice = lastBar.close;
+  const stopPrice = setupSide === "buy" ? lastBar.low - riskRange : lastBar.high + riskRange;
+  const riskDistance = Math.abs(entryPrice - stopPrice);
+  const targetOne = setupSide === "buy" ? entryPrice + riskDistance * 0.5 : entryPrice - riskDistance * 0.5;
+  const targetTwo = setupSide === "buy" ? entryPrice + riskDistance : entryPrice - riskDistance;
+  const targetThree = setupSide === "buy" ? entryPrice + riskDistance * targetMultiplier : entryPrice - riskDistance * targetMultiplier;
+  const elements: StrategyVisualElement[] = [
+    {
+      id: "trend-targets-baseline",
+      kind: "trend-line",
+      points: [
+        { timestamp: trendStartBar.timestamp, price: trendStartBar.close },
+        { timestamp: lastBar.timestamp, price: lastBar.close },
+      ],
+      tone: direction,
+    },
+    {
+      id: "trend-targets-entry",
+      kind: "price-line",
+      price: entryPrice,
+      label: "入场参考",
+      tone: "neutral",
+    },
+    {
+      id: "trend-targets-target-1",
+      kind: "price-line",
+      price: targetOne,
+      label: "目标 1",
+      tone: "target",
+    },
+    {
+      id: "trend-targets-target-2",
+      kind: "price-line",
+      price: targetTwo,
+      label: "目标 2",
+      tone: "target",
+    },
+    {
+      id: "trend-targets-target-3",
+      kind: "price-line",
+      price: targetThree,
+      label: "目标 3",
+      tone: "target",
+    },
+  ];
+  const signals: StrategySignal[] = [];
+
+  if (showStopLoss) {
+    elements.push({
+      id: "trend-targets-stop",
+      kind: "price-line",
+      price: stopPrice,
+      label: "止损",
+      tone: "stop",
+    });
+  }
+
+  if (signalType) {
+    signals.push({
+      timestamp: lastBar.timestamp,
+      type: signalType,
+      price: lastBar.close,
+      label: signalType === "buy" ? "趋势目标多头突破" : "趋势目标空头跌破",
+    });
+    elements.push({
+      id: `trend-targets-${signalType}-${lastBar.timestamp}`,
+      kind: "signal-marker",
+      timestamp: lastBar.timestamp,
+      price: signalType === "buy" ? lastBar.low : lastBar.high,
+      direction: signalType === "buy" ? "up" : "down",
+      tone: signalType,
+    });
+  }
+
+  return {
+    signals,
+    overlays: elements,
+    render: {
+      strategyId: strategy.key,
+      strategyName: strategy.name,
+      enabled,
+      zIndex: 11,
+      elements,
+    },
+    metrics: {
+      trendSlope: slope,
+      averageRange: riskRange,
+      entryPrice,
+      stopPrice,
+      targetOne,
+      targetTwo,
+      targetThree,
+      signalCount: signals.length,
+    },
+    logs: [
+      `Trend Targets 已生成 ${direction === "bullish" ? "多头" : "空头"}基准线和目标位。`,
+      `当前入场参考 ${entryPrice.toFixed(2)}，止损 ${stopPrice.toFixed(2)}，目标3 ${targetThree.toFixed(2)}。`,
+    ],
+    alerts: signals.map((signal) => signal.label ?? signal.type),
+  };
+}
+
 export function createPresetStrategyRegistry(): StrategyRegistry {
   const registry = new StrategyRegistry();
 
@@ -394,7 +534,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
     key: "trend-targets",
     name: "Trend Targets 趋势目标",
     version: "0.1.0",
-    description: "从 trend-targets.md 规划转译的趋势目标策略，后续输出趋势线、入场、止损和目标价。",
+    description: "从 trend-targets.md 最小转译的趋势目标策略，输出趋势基准线、入场参考、止损和三档目标位。",
     sourceType: "preset",
     sourceFile: "trading-strategies/trend-targets.md",
     supportedMarkets: ["US", "HK", "CN"],
@@ -419,7 +559,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
         defaultValue: true,
       },
     ],
-    run: (input) => createPlaceholderOutput(trendTargetsStrategy, input.enabled ?? true),
+    run: (input) => runTrendTargetsStrategy(trendTargetsStrategy, input),
   };
 
   registry.register(utorbStrategy);

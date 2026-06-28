@@ -194,7 +194,7 @@ function saveWorkspacePreferences(preferences: ChartWorkspacePreferences) {
 }
 
 function toChartLayerElement(element: ReturnType<typeof runRegisteredStrategy>["output"]["render"]["elements"][number]): ChartLayerElement | null {
-  if (element.kind === "signal-marker" || element.kind === "price-line" || element.kind === "band") {
+  if (element.kind === "signal-marker" || element.kind === "price-line" || element.kind === "trend-line" || element.kind === "band") {
     return element;
   }
 
