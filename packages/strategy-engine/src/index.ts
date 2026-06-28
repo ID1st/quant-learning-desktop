@@ -72,6 +72,7 @@ export interface StrategyPriceLine extends StrategyVisualBase {
   price: number;
   label: string;
   tone: "target" | "stop" | "range" | "neutral";
+  fromTimestamp?: number;
 }
 
 export interface StrategyTrendLine extends StrategyVisualBase {
@@ -86,6 +87,7 @@ export interface StrategyBand extends StrategyVisualBase {
   toPrice: number;
   label?: string;
   tone: "range" | "risk" | "target";
+  fromTimestamp?: number;
 }
 
 export interface StrategyLabel extends StrategyVisualBase {
@@ -375,89 +377,128 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
     };
   }
 
-  const lastBar = input.bars[input.bars.length - 1];
   const startIndex = Math.max(0, input.bars.length - trendLength - 1);
-  const trendStartBar = input.bars[startIndex];
-  const priorBars = input.bars.slice(Math.max(0, input.bars.length - trendLength - 1), -1);
-  const comparisonBars = priorBars.length > 0 ? priorBars : input.bars.slice(0, -1);
-  const priorHigh = Math.max(...comparisonBars.map((bar) => bar.high));
-  const priorLow = Math.min(...comparisonBars.map((bar) => bar.low));
+  const lastBar = input.bars[input.bars.length - 1];
+  const trendBars = input.bars.slice(startIndex);
+  const trendStartBar = trendBars[0];
   const slope = (lastBar.close - trendStartBar.close) / Math.max(1, input.bars.length - 1 - startIndex);
   const direction = slope >= 0 ? "bullish" : "bearish";
-  const signalType = lastBar.close > priorHigh ? "buy" : lastBar.close < priorLow ? "sell" : null;
-  const setupSide = signalType ?? (direction === "bullish" ? "buy" : "sell");
-  const riskRange = Math.max(0.01, averageRange(input.bars.slice(Math.max(0, input.bars.length - trendLength))));
-  const entryPrice = lastBar.close;
-  const stopPrice = setupSide === "buy" ? lastBar.low - riskRange : lastBar.high + riskRange;
-  const riskDistance = Math.abs(entryPrice - stopPrice);
-  const targetOne = setupSide === "buy" ? entryPrice + riskDistance * 0.5 : entryPrice - riskDistance * 0.5;
-  const targetTwo = setupSide === "buy" ? entryPrice + riskDistance : entryPrice - riskDistance;
-  const targetThree = setupSide === "buy" ? entryPrice + riskDistance * targetMultiplier : entryPrice - riskDistance * targetMultiplier;
   const elements: StrategyVisualElement[] = [
     {
       id: "trend-targets-baseline",
       kind: "trend-line",
-      points: [
-        { timestamp: trendStartBar.timestamp, price: trendStartBar.close },
-        { timestamp: lastBar.timestamp, price: lastBar.close },
-      ],
+      points: trendBars.map((bar) => ({ timestamp: bar.timestamp, price: bar.close })),
       tone: direction,
+    },
+  ];
+  const signals: StrategySignal[] = [];
+  let previousSignalType: StrategySignal["type"] | null = null;
+
+  input.bars.forEach((bar, index) => {
+    if (index < 2) {
+      return;
+    }
+
+    const comparisonBars = input.bars.slice(Math.max(0, index - trendLength), index);
+    const priorHigh = Math.max(...comparisonBars.map((item) => item.high));
+    const priorLow = Math.min(...comparisonBars.map((item) => item.low));
+    const signalType = bar.close > priorHigh ? "buy" : bar.close < priorLow ? "sell" : null;
+
+    if (!signalType || signalType === previousSignalType) {
+      return;
+    }
+
+    previousSignalType = signalType;
+    signals.push({
+      timestamp: bar.timestamp,
+      type: signalType,
+      price: bar.close,
+      label: signalType === "buy" ? "趋势目标多头突破" : "趋势目标空头跌破",
+    });
+    elements.push({
+      id: `trend-targets-${signalType}-${bar.timestamp}`,
+      kind: "signal-marker",
+      timestamp: bar.timestamp,
+      price: signalType === "buy" ? bar.low : bar.high,
+      direction: signalType === "buy" ? "up" : "down",
+      tone: signalType,
+    });
+  });
+
+  const latestSignal = signals[signals.length - 1];
+  const latestSignalBar = latestSignal ? input.bars.find((bar) => bar.timestamp === latestSignal.timestamp) : undefined;
+  const setupSide = latestSignal?.type === "sell" ? "sell" : "buy";
+  const projectionBar = latestSignalBar ?? lastBar;
+  const projectionIndex = input.bars.indexOf(projectionBar);
+  const riskBars = input.bars.slice(Math.max(0, projectionIndex - trendLength + 1), projectionIndex + 1);
+  const riskRange = Math.max(0.01, averageRange(riskBars));
+  const entryPrice = projectionBar.close;
+  const stopPrice = setupSide === "buy" ? projectionBar.low - riskRange : projectionBar.high + riskRange;
+  const riskDistance = Math.abs(entryPrice - stopPrice);
+  const targetOne = setupSide === "buy" ? entryPrice + riskDistance * 0.5 : entryPrice - riskDistance * 0.5;
+  const targetTwo = setupSide === "buy" ? entryPrice + riskDistance : entryPrice - riskDistance;
+  const targetThree = setupSide === "buy" ? entryPrice + riskDistance * targetMultiplier : entryPrice - riskDistance * targetMultiplier;
+  const projectionStart = projectionBar.timestamp;
+
+  elements.push(
+    {
+      id: "trend-targets-target-zone",
+      kind: "band",
+      fromPrice: Math.min(entryPrice, targetThree),
+      toPrice: Math.max(entryPrice, targetThree),
+      tone: "target",
+      fromTimestamp: projectionStart,
+    },
+    {
+      id: "trend-targets-risk-zone",
+      kind: "band",
+      fromPrice: Math.min(entryPrice, stopPrice),
+      toPrice: Math.max(entryPrice, stopPrice),
+      tone: "risk",
+      fromTimestamp: projectionStart,
     },
     {
       id: "trend-targets-entry",
       kind: "price-line",
       price: entryPrice,
-      label: "入场参考",
+      label: `Entry ▸ ${entryPrice.toFixed(2)}`,
       tone: "neutral",
+      fromTimestamp: projectionStart,
     },
     {
       id: "trend-targets-target-1",
       kind: "price-line",
       price: targetOne,
-      label: "目标 1",
+      label: `✓ TP1 ▸ ${targetOne.toFixed(2)}`,
       tone: "target",
+      fromTimestamp: projectionStart,
     },
     {
       id: "trend-targets-target-2",
       kind: "price-line",
       price: targetTwo,
-      label: "目标 2",
+      label: `✓ TP2 ▸ ${targetTwo.toFixed(2)}`,
       tone: "target",
+      fromTimestamp: projectionStart,
     },
     {
       id: "trend-targets-target-3",
       kind: "price-line",
       price: targetThree,
-      label: "目标 3",
+      label: `✓ TP3 ▸ ${targetThree.toFixed(2)}`,
       tone: "target",
+      fromTimestamp: projectionStart,
     },
-  ];
-  const signals: StrategySignal[] = [];
+  );
 
   if (showStopLoss) {
     elements.push({
       id: "trend-targets-stop",
       kind: "price-line",
       price: stopPrice,
-      label: "止损",
+      label: `✕ SL ▸ ${stopPrice.toFixed(2)}`,
       tone: "stop",
-    });
-  }
-
-  if (signalType) {
-    signals.push({
-      timestamp: lastBar.timestamp,
-      type: signalType,
-      price: lastBar.close,
-      label: signalType === "buy" ? "趋势目标多头突破" : "趋势目标空头跌破",
-    });
-    elements.push({
-      id: `trend-targets-${signalType}-${lastBar.timestamp}`,
-      kind: "signal-marker",
-      timestamp: lastBar.timestamp,
-      price: signalType === "buy" ? lastBar.low : lastBar.high,
-      direction: signalType === "buy" ? "up" : "down",
-      tone: signalType,
+      fromTimestamp: projectionStart,
     });
   }
 

@@ -43,6 +43,7 @@ export type ChartLayerElement =
       price: number;
       label: string;
       tone: Extract<ChartLayerTone, "target" | "stop" | "range" | "neutral">;
+      fromTimestamp?: number;
       visible?: boolean;
     }
   | {
@@ -59,6 +60,7 @@ export type ChartLayerElement =
       toPrice: number;
       label?: string;
       tone: Extract<ChartLayerTone, "range" | "risk" | "target" | "stop">;
+      fromTimestamp?: number;
       visible?: boolean;
     };
 
@@ -314,13 +316,14 @@ export function ChartViewport({
 
                   const y = priceToY(Math.max(element.fromPrice, element.toPrice));
                   const bandHeight = Math.max(2, Math.abs(priceToY(element.fromPrice) - priceToY(element.toPrice)));
+                  const x = isFiniteNumber(element.fromTimestamp ?? Number.NaN) ? timestampToX(element.fromTimestamp ?? 0) : paddingX;
                   return (
                     <rect
                       className={`strategy-band ${element.tone}`}
                       height={bandHeight}
                       key={`${layer.strategyId}-${element.id}`}
-                      width={width - paddingX * 2}
-                      x={paddingX}
+                      width={Math.max(2, width - paddingX - x)}
+                      x={x}
                       y={y}
                     />
                   );
@@ -332,10 +335,20 @@ export function ChartViewport({
                   }
 
                   const y = priceToY(element.price);
+                  const isProjected = isFiniteNumber(element.fromTimestamp ?? Number.NaN);
+                  const lineStartX = isProjected ? timestampToX(element.fromTimestamp ?? 0) : paddingX;
+                  const labelWidth = Math.max(86, element.label.length * 6.4 + 20);
+                  const labelX = width - paddingX - labelWidth + 6;
+                  const labelY = y - 20;
+
                   return (
-                    <g className={`strategy-price-line ${element.tone}`} key={`${layer.strategyId}-${element.id}`}>
-                      <line x1={paddingX} x2={width - paddingX} y1={y} y2={y} />
-                      <text x={width - paddingX - 8} y={y - 6}>
+                    <g
+                      className={`strategy-price-line ${element.tone}${isProjected ? " projected" : ""}`}
+                      key={`${layer.strategyId}-${element.id}`}
+                    >
+                      <line x1={lineStartX} x2={width - paddingX} y1={y} y2={y} />
+                      {isProjected && <rect height={30} rx={4} width={labelWidth} x={labelX} y={labelY} />}
+                      <text x={isProjected ? labelX + labelWidth - 10 : width - paddingX - 8} y={isProjected ? y + 5 : y - 6}>
                         {element.label}
                       </text>
                     </g>

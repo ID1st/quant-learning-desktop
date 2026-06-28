@@ -694,9 +694,27 @@ input {
   fill: rgba(245, 178, 66, 0.06);
 }
 
+.strategy-band.target {
+  fill: rgba(44, 224, 167, 0.08);
+}
+
+.strategy-band.risk {
+  fill: rgba(255, 95, 87, 0.06);
+}
+
 .strategy-price-line line {
   stroke-width: 1.4;
   stroke-dasharray: 7 5;
+}
+
+.strategy-price-line.projected line {
+  stroke-dasharray: none;
+  stroke-width: 2.8;
+}
+
+.strategy-price-line rect {
+  fill: rgba(23, 34, 46, 0.86);
+  stroke: rgba(148, 163, 184, 0.22);
 }
 
 .strategy-price-line text {
@@ -714,9 +732,43 @@ input {
   stroke: rgba(245, 178, 66, 0.78);
 }
 
+.strategy-price-line.target.projected line {
+  stroke: rgba(44, 224, 167, 0.86);
+}
+
+.strategy-price-line.target.projected rect {
+  fill: rgba(44, 224, 167, 0.3);
+  stroke: rgba(44, 224, 167, 0.5);
+}
+
+.strategy-price-line.neutral.projected line {
+  stroke: rgba(0, 204, 177, 0.95);
+}
+
+.strategy-price-line.neutral.projected rect {
+  fill: rgba(0, 204, 177, 0.9);
+  stroke: rgba(0, 204, 177, 0.95);
+}
+
+.strategy-price-line.neutral.projected text,
+.strategy-price-line.target.projected text,
+.strategy-price-line.stop.projected text {
+  fill: #f8fafc;
+  font-size: 12px;
+}
+
 .strategy-price-line.stop line,
 .strategy-price-line.risk line {
   stroke: rgba(239, 75, 69, 0.72);
+}
+
+.strategy-price-line.stop.projected line {
+  stroke: rgba(255, 154, 138, 0.86);
+}
+
+.strategy-price-line.stop.projected rect {
+  fill: rgba(255, 154, 138, 0.3);
+  stroke: rgba(255, 154, 138, 0.52);
 }
 
 .strategy-trend-line {
