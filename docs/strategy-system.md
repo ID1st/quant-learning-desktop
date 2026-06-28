@@ -102,6 +102,7 @@ Bar
 StrategyOutput
   - signals
   - overlays
+  - render
   - metrics
   - logs
   - alerts
@@ -124,6 +125,35 @@ Overlay examples:
 - label
 - region
 - volume_profile
+
+### Strategy Visualization Layer
+
+Strategies must not call chart APIs directly. A strategy should emit declarative visualization data, and the chart renderer decides how to draw it.
+
+```text
+StrategyRenderOutput
+  - strategyId
+  - strategyName
+  - enabled
+  - zIndex
+  - elements
+```
+
+Supported visual element types:
+
+- `SignalMarker`: buy/sell/alert arrows.
+- `PriceLine`: stop loss, take profit, opening range, support/resistance.
+- `TrendLine`: strategy-generated trend or moving guide lines.
+- `Band`: opening range, risk zone, target zone.
+- `Label`: compact strategy notes.
+
+Layering rules:
+
+- Each strategy owns one render layer by `strategyId`.
+- Enabling or disabling a strategy toggles the whole layer.
+- Parameter changes recompute the strategy output and replace that layer.
+- Multiple strategies can be rendered at the same time by sorting `zIndex`.
+- Chart packages consume `StrategyRenderOutput[]`, not strategy internals.
 
 Metric examples:
 
