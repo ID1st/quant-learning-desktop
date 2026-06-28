@@ -15,6 +15,7 @@ import {
   PencilLine,
   Plus,
   Ruler,
+  ShieldCheck,
   Settings2,
   TerminalSquare,
 } from "lucide-react";
@@ -114,6 +115,13 @@ function formatLogTime(timestamp: number) {
   }).format(timestamp);
 }
 
+function formatSignalTime(timestamp: number) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(timestamp);
+}
+
 export function ChartWorkspacePage() {
   const workspacePreferences = useMemo(() => readWorkspacePreferences(), []);
   const [activeSymbol, setActiveSymbol] = useState(symbols[0]);
@@ -156,6 +164,14 @@ export function ChartWorkspacePage() {
     ...utorbRun.output.logs,
     ...utorbRun.output.alerts.map((alert) => `提醒：${alert}`),
   ];
+  const signalRows = utorbRun.output.signals.map((signal, index) => ({
+    id: `${signal.type}-${signal.timestamp}-${index}`,
+    time: formatSignalTime(signal.timestamp),
+    direction: signal.type === "buy" ? "买入" : signal.type === "sell" ? "卖出" : "提醒",
+    tone: signal.type,
+    price: signal.price === undefined ? "-" : signal.price.toFixed(2),
+    label: signal.label ?? "策略信号",
+  }));
   const handleOpeningRangeChange = (value: number) => {
     setOpeningRangeMinutes(normalizeOpeningRangeMinutes(value));
   };
@@ -337,9 +353,23 @@ export function ChartWorkspacePage() {
           </span>
         </div>
         <div>
-          <p>订单信息</p>
-          <strong>无活动订单</strong>
-          <span>真实交易接口将在后续交易模块开放。</span>
+          <p>信号明细</p>
+          <strong>{signalRows.length > 0 ? `${signalRows.length} 个策略信号` : "暂无策略信号"}</strong>
+          {signalRows.length > 0 ? (
+            <div className="signal-detail-list" aria-label="策略信号明细">
+              {signalRows.map((signal) => (
+                <div className={`signal-detail-row ${signal.tone}`} key={signal.id}>
+                  <ShieldCheck size={14} />
+                  <span>{signal.time}</span>
+                  <strong>{signal.direction}</strong>
+                  <small>{signal.price}</small>
+                  <em>{signal.label}</em>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span>当前参数下没有触发买卖信号。</span>
+          )}
         </div>
         <div>
           <p>日志窗口</p>

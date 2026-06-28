@@ -1002,6 +1002,61 @@ input {
   font-size: 13px;
 }
 
+.signal-detail-list {
+  display: grid;
+  gap: 7px;
+  max-height: 118px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.signal-detail-row {
+  display: grid;
+  grid-template-columns: auto auto auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(73, 91, 112, 0.3);
+  border-radius: 6px;
+  background: rgba(8, 13, 20, 0.38);
+  padding: 7px 8px;
+}
+
+.signal-detail-row svg {
+  color: #8f9caf;
+}
+
+.signal-detail-row.buy svg,
+.signal-detail-row.buy strong {
+  color: #42dfad;
+}
+
+.signal-detail-row.sell svg,
+.signal-detail-row.sell strong {
+  color: #ffaaa6;
+}
+
+.signal-detail-row span,
+.signal-detail-row small {
+  color: #8f9caf;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.signal-detail-row strong {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.signal-detail-row em {
+  min-width: 0;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chart-log-list {
   display: grid;
   gap: 7px;
