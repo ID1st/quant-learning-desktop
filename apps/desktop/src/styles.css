@@ -1311,13 +1311,13 @@ input {
 
 .strategy-page {
   display: grid;
-  gap: 22px;
+  gap: 16px;
 }
 
 .strategy-summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .strategy-stat-card {
@@ -1340,8 +1340,8 @@ input {
 
 .strategy-workspace-grid {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 260px;
-  gap: 16px;
+  grid-template-columns: 300px minmax(0, 1fr) 280px;
+  gap: 12px;
   align-items: start;
 }
 
@@ -1353,7 +1353,57 @@ input {
 
 .strategy-list {
   display: grid;
+  gap: 7px;
+}
+
+.strategy-filter-bar {
+  display: grid;
   gap: 8px;
+  margin-bottom: 10px;
+}
+
+.strategy-filter-bar label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(73, 91, 112, 0.4);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.48);
+  color: #8f9caf;
+  padding: 0 10px;
+}
+
+.strategy-filter-bar input {
+  min-width: 0;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  color: #f5f8ff;
+  outline: none;
+}
+
+.strategy-filter-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.strategy-filter-tabs button {
+  height: 30px;
+  border: 1px solid rgba(73, 91, 112, 0.4);
+  border-radius: 6px;
+  background: rgba(8, 13, 20, 0.44);
+  color: #8f9caf;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.strategy-filter-tabs button.active,
+.strategy-filter-tabs button:hover {
+  border-color: rgba(66, 223, 173, 0.54);
+  background: rgba(66, 223, 173, 0.12);
+  color: #f5f8ff;
 }
 
 .strategy-list button {
@@ -1361,13 +1411,13 @@ input {
   grid-template-columns: 1fr auto;
   gap: 12px;
   align-items: center;
-  min-height: 78px;
+  min-height: 70px;
   border: 1px solid rgba(73, 91, 112, 0.38);
   border-radius: 8px;
   background: rgba(8, 13, 20, 0.48);
   color: #d9e2ea;
   cursor: pointer;
-  padding: 12px;
+  padding: 10px;
   text-align: left;
 }
 
@@ -1412,6 +1462,14 @@ input {
   color: #9ca8b8;
 }
 
+.strategy-empty-state {
+  border: 1px dashed rgba(73, 91, 112, 0.44);
+  border-radius: 8px;
+  color: #8f9caf;
+  padding: 18px;
+  text-align: center;
+}
+
 .strategy-detail-header {
   display: grid;
   grid-template-columns: 1fr 112px;
@@ -1452,7 +1510,7 @@ input {
 
 .strategy-meta-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1526,7 +1584,8 @@ input {
   gap: 8px;
 }
 
-.visual-spec-grid span {
+.visual-spec-grid span,
+.strategy-capability-grid span {
   border: 1px solid rgba(66, 223, 173, 0.26);
   border-radius: 999px;
   background: rgba(66, 223, 173, 0.08);
@@ -1534,6 +1593,12 @@ input {
   font-size: 12px;
   font-weight: 800;
   padding: 7px 10px;
+}
+
+.strategy-capability-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .runtime-status {
@@ -1553,6 +1618,90 @@ input {
 .runtime-status span {
   color: #8f9caf;
   line-height: 1.6;
+}
+
+.runtime-result-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(73, 91, 112, 0.34);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.45);
+  padding: 14px;
+}
+
+.runtime-result-card strong {
+  color: #f5f8ff;
+}
+
+.runtime-result-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.runtime-result-card dl div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(73, 91, 112, 0.28);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.runtime-result-card dt {
+  color: #8f9caf;
+  font-size: 12px;
+}
+
+.runtime-result-card dd {
+  margin: 0;
+  color: #f5f8ff;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.runtime-signal-list {
+  display: grid;
+  gap: 7px;
+}
+
+.runtime-signal-list div {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(73, 91, 112, 0.3);
+  border-radius: 7px;
+  background: rgba(8, 13, 20, 0.38);
+  padding: 7px 8px;
+}
+
+.runtime-signal-list strong {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.runtime-signal-list .buy strong {
+  color: #42dfad;
+}
+
+.runtime-signal-list .sell strong {
+  color: #ffaaa6;
+}
+
+.runtime-signal-list span {
+  color: #f5f8ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.runtime-signal-list small {
+  min-width: 0;
+  color: #8f9caf;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .strategy-log-list {

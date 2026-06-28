@@ -5,9 +5,21 @@ import {
   type Bar,
   type StrategyDefinition,
 } from "@quant/strategy-engine";
-import { Activity, FileCode2, Layers3, ListChecks, Play, Power, SlidersHorizontal } from "lucide-react";
+import {
+  Activity,
+  FileCode2,
+  Layers3,
+  ListChecks,
+  Play,
+  Power,
+  Search,
+  ShieldCheck,
+  SlidersHorizontal,
+  Tags,
+} from "lucide-react";
 
 type StrategyStatus = "enabled" | "disabled";
+type StrategyFilter = "all" | StrategyStatus;
 
 const registry = createPresetStrategyRegistry();
 
@@ -18,6 +30,8 @@ const sampleBars: Bar[] = [
   { timestamp: sampleStart + 15 * sampleMinute, open: 101, high: 104, low: 100, close: 102, volume: 110000 },
   { timestamp: sampleStart + 30 * sampleMinute, open: 102, high: 105, low: 101, close: 105, volume: 125000 },
   { timestamp: sampleStart + 45 * sampleMinute, open: 105, high: 106, low: 97, close: 98, volume: 135000 },
+  { timestamp: sampleStart + 60 * sampleMinute, open: 98, high: 101, low: 96, close: 100, volume: 118000 },
+  { timestamp: sampleStart + 75 * sampleMinute, open: 100, high: 103, low: 98, close: 102, volume: 122000 },
 ];
 
 function createInitialStatus(strategies: StrategyDefinition[]) {
@@ -30,9 +44,46 @@ function createInitialStatus(strategies: StrategyDefinition[]) {
 export function StrategyManagementPage() {
   const strategies = useMemo(() => registry.list(), []);
   const [selectedKey, setSelectedKey] = useState(strategies[0]?.key ?? "");
+  const [filter, setFilter] = useState<StrategyFilter>("all");
+  const [keyword, setKeyword] = useState("");
   const [strategyStatus, setStrategyStatus] = useState(() => createInitialStatus(strategies));
   const selectedStrategy = strategies.find((strategy) => strategy.key === selectedKey) ?? strategies[0];
   const enabledCount = Object.values(strategyStatus).filter((status) => status === "enabled").length;
+  const strategyRuns = useMemo(
+    () =>
+      strategies.map((strategy) => {
+        const result = runRegisteredStrategy(registry, {
+          strategyKey: strategy.key,
+          symbol: "AAPL",
+          market: "US",
+          timeframe: "15m",
+          bars: sampleBars,
+          runMode: "backtest",
+          enabled: strategyStatus[strategy.key] === "enabled",
+        });
+
+        return {
+          strategy,
+          status: strategyStatus[strategy.key],
+          result,
+        };
+      }),
+    [strategies, strategyStatus],
+  );
+  const totalSignalCount = strategyRuns.reduce((total, item) => total + item.result.output.signals.length, 0);
+  const totalLayerElementCount = strategyRuns.reduce((total, item) => total + item.result.output.render.elements.length, 0);
+  const filteredStrategies = strategies.filter((strategy) => {
+    const status = strategyStatus[strategy.key];
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    const matchesFilter = filter === "all" || status === filter;
+    const matchesKeyword =
+      normalizedKeyword.length === 0 ||
+      strategy.name.toLowerCase().includes(normalizedKeyword) ||
+      strategy.key.toLowerCase().includes(normalizedKeyword) ||
+      (strategy.sourceFile?.toLowerCase().includes(normalizedKeyword) ?? false);
+
+    return matchesFilter && matchesKeyword;
+  });
   const runResult = selectedStrategy
     ? runRegisteredStrategy(registry, {
         strategyKey: selectedStrategy.key,
@@ -56,8 +107,8 @@ export function StrategyManagementPage() {
     <section className="strategy-page">
       <header className="module-header">
         <p>策略管理</p>
-        <h1>预制策略与可视化图层</h1>
-        <span>当前阶段建立策略注册、启停、参数占位和图表可视化输出协议，Pine Script 转译将在后续模块进行。</span>
+        <h1>策略库与运行管理</h1>
+        <span>集中查看预制策略、Pine 来源、参数协议、图层输出与最小运行结果。后续用户策略和插件策略会接入同一管理界面。</span>
       </header>
 
       <div className="strategy-summary-grid">
@@ -73,8 +124,13 @@ export function StrategyManagementPage() {
         </div>
         <div className="module-card strategy-stat-card">
           <Layers3 size={20} />
-          <span>可视化协议</span>
-          <strong>已建立</strong>
+          <span>图层元素</span>
+          <strong>{totalLayerElementCount}</strong>
+        </div>
+        <div className="module-card strategy-stat-card">
+          <ShieldCheck size={20} />
+          <span>样例信号</span>
+          <strong>{totalSignalCount}</strong>
         </div>
       </div>
 
@@ -84,12 +140,40 @@ export function StrategyManagementPage() {
             <ListChecks size={20} />
             <div>
               <h2>策略列表</h2>
-              <p>内置策略先注册元数据，后续接入真实运行器。</p>
+              <p>按状态和关键字定位策略。</p>
+            </div>
+          </div>
+
+          <div className="strategy-filter-bar">
+            <label>
+              <Search size={15} />
+              <input
+                onChange={(event) => setKeyword(event.currentTarget.value)}
+                placeholder="搜索策略或源文件"
+                type="search"
+                value={keyword}
+              />
+            </label>
+            <div aria-label="策略状态筛选" className="strategy-filter-tabs">
+              {[
+                { label: "全部", value: "all" },
+                { label: "启用", value: "enabled" },
+                { label: "停用", value: "disabled" },
+              ].map((item) => (
+                <button
+                  className={filter === item.value ? "active" : ""}
+                  key={item.value}
+                  onClick={() => setFilter(item.value as StrategyFilter)}
+                  type="button"
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
           </div>
 
           <div className="strategy-list">
-            {strategies.map((strategy) => {
+            {filteredStrategies.map((strategy) => {
               const isSelected = strategy.key === selectedStrategy.key;
               const isEnabled = strategyStatus[strategy.key] === "enabled";
 
@@ -103,6 +187,7 @@ export function StrategyManagementPage() {
                 </button>
               );
             })}
+            {filteredStrategies.length === 0 && <div className="strategy-empty-state">没有匹配的策略。</div>}
           </div>
         </aside>
 
@@ -126,6 +211,9 @@ export function StrategyManagementPage() {
             <span>版本：{selectedStrategy.version}</span>
             <span>市场：{selectedStrategy.supportedMarkets.join(" / ")}</span>
             <span>周期：{selectedStrategy.supportedTimeframes.join(" / ")}</span>
+            <span>参数：{selectedStrategy.parameterSchema.length} 项</span>
+            <span>来源：{selectedStrategy.sourceFile}</span>
+            <span>类型：{selectedStrategy.sourceType}</span>
           </div>
 
           <section className="strategy-section">
@@ -138,7 +226,7 @@ export function StrategyManagementPage() {
                 <label key={parameter.key}>
                   <span>{parameter.label}</span>
                   <input readOnly value={String(parameter.defaultValue)} />
-                  {parameter.description && <small>{parameter.description}</small>}
+                  <small>{parameter.description ?? `${parameter.type} / ${parameter.key}`}</small>
                 </label>
               ))}
             </div>
@@ -157,6 +245,21 @@ export function StrategyManagementPage() {
               <span>Label</span>
             </div>
           </section>
+
+          <section className="strategy-section">
+            <div className="section-title">
+              <Tags size={18} />
+              <h3>能力边界</h3>
+            </div>
+            <div className="strategy-capability-grid">
+              <span>预制策略</span>
+              <span>可启停</span>
+              <span>参数协议</span>
+              <span>图表叠加</span>
+              <span>样例运行</span>
+              <span>Pine 来源追踪</span>
+            </div>
+          </section>
         </main>
 
         <aside className="module-card strategy-runtime-panel">
@@ -169,17 +272,39 @@ export function StrategyManagementPage() {
           </div>
 
           <div className="runtime-status">
-            <strong>{strategyStatus[selectedStrategy.key] === "enabled" ? "等待行情" : "未启用"}</strong>
-            <span>{strategyStatus[selectedStrategy.key] === "enabled" ? "策略已加入图表图层队列。" : "启用后才会生成可视化输出。"}</span>
+            <strong>{strategyStatus[selectedStrategy.key] === "enabled" ? "已加入运行队列" : "未启用"}</strong>
+            <span>{strategyStatus[selectedStrategy.key] === "enabled" ? "策略会在超级图表中按 strategyId 输出图层。" : "启用后才会参与样例运行。"}</span>
           </div>
 
           {runResult && (
-            <div className="runtime-status">
+            <div className="runtime-result-card">
               <strong>运行器结果</strong>
-              <span>
-                参数 {Object.keys(runResult.input.parameters).length} 项，信号 {runResult.output.signals.length} 个，图层元素{" "}
-                {runResult.output.render.elements.length} 个。
-              </span>
+              <dl>
+                <div>
+                  <dt>参数</dt>
+                  <dd>{Object.keys(runResult.input.parameters).length}</dd>
+                </div>
+                <div>
+                  <dt>信号</dt>
+                  <dd>{runResult.output.signals.length}</dd>
+                </div>
+                <div>
+                  <dt>图层</dt>
+                  <dd>{runResult.output.render.elements.length}</dd>
+                </div>
+              </dl>
+            </div>
+          )}
+
+          {runResult && runResult.output.signals.length > 0 && (
+            <div className="runtime-signal-list">
+              {runResult.output.signals.map((signal, index) => (
+                <div className={signal.type} key={`${signal.timestamp}-${signal.type}-${index}`}>
+                  <strong>{signal.type === "buy" ? "买入" : signal.type === "sell" ? "卖出" : "提醒"}</strong>
+                  <span>{signal.price?.toFixed(2) ?? "-"}</span>
+                  <small>{signal.label ?? "策略信号"}</small>
+                </div>
+              ))}
             </div>
           )}
 
@@ -194,7 +319,7 @@ export function StrategyManagementPage() {
             </div>
             <div>
               <ListChecks size={16} />
-              <span>下一步将接入参数保存与图表叠加渲染。</span>
+              <span>下一步可接入用户策略导入和插件策略注册。</span>
             </div>
           </div>
         </aside>
