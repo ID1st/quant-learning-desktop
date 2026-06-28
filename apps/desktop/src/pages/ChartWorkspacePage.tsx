@@ -480,25 +480,23 @@ export function ChartWorkspacePage() {
                   <small>{timeframe === "15m" ? `${result.output.render.elements.length} 个元素` : "仅 15m 样例可用"}</small>
                 </span>
                 <div className="layer-actions">
-                  <label htmlFor={`${strategy.key}-enabled`}>
-                    <input
-                      checked={settings.enabled}
-                      id={`${strategy.key}-enabled`}
-                      onChange={(event) => updateStrategyState(strategy.key, (state) => ({ ...state, enabled: event.currentTarget.checked }))}
-                      type="checkbox"
-                    />
+                  <button
+                    aria-pressed={settings.enabled}
+                    className={settings.enabled ? "active" : ""}
+                    onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, enabled: !state.enabled, showLayer: !state.enabled }))}
+                    type="button"
+                  >
                     启用
-                  </label>
-                  <label htmlFor={`${strategy.key}-layer`}>
-                    <input
-                      checked={settings.showLayer}
-                      disabled={!settings.enabled}
-                      id={`${strategy.key}-layer`}
-                      onChange={(event) => updateStrategyState(strategy.key, (state) => ({ ...state, showLayer: event.currentTarget.checked }))}
-                      type="checkbox"
-                    />
+                  </button>
+                  <button
+                    aria-pressed={settings.showLayer}
+                    className={settings.showLayer ? "active" : ""}
+                    disabled={!settings.enabled}
+                    onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, showLayer: !state.showLayer }))}
+                    type="button"
+                  >
                     图层
-                  </label>
+                  </button>
                 </div>
               </div>
             ))}

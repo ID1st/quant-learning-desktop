@@ -925,17 +925,31 @@ input {
   gap: 8px;
 }
 
-.layer-actions label {
+.layer-actions button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
+  min-height: 28px;
+  border: 1px solid rgba(73, 91, 112, 0.48);
+  border-radius: 6px;
+  background: rgba(8, 13, 20, 0.58);
   color: #8f9caf;
+  cursor: pointer;
   font-size: 12px;
   font-weight: 700;
+  padding: 0 9px;
 }
 
-.layer-actions input {
-  accent-color: #42dfad;
+.layer-actions button.active {
+  border-color: rgba(66, 223, 173, 0.58);
+  background: rgba(66, 223, 173, 0.14);
+  color: #f5f8ff;
+}
+
+.layer-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .strategy-parameter-panel {
