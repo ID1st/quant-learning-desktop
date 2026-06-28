@@ -213,6 +213,11 @@ function getNumberParameter(parameters: Record<string, unknown>, key: string, fa
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function getPositiveNumberParameter(parameters: Record<string, unknown>, key: string, fallback: number) {
+  const value = getNumberParameter(parameters, key, fallback);
+  return value > 0 ? value : fallback;
+}
+
 function getBooleanParameter(parameters: Record<string, unknown>, key: string, fallback: boolean) {
   const value = parameters[key];
   return typeof value === "boolean" ? value : fallback;
@@ -220,7 +225,7 @@ function getBooleanParameter(parameters: Record<string, unknown>, key: string, f
 
 function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): StrategyOutput {
   const enabled = input.enabled ?? true;
-  const openingRangeMinutes = getNumberParameter(input.parameters, "openingRangeMinutes", 30);
+  const openingRangeMinutes = getPositiveNumberParameter(input.parameters, "openingRangeMinutes", 30);
   const showTargets = getBooleanParameter(input.parameters, "showTargets", true);
 
   if (!enabled) {

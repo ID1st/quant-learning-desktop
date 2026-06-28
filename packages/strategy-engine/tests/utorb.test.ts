@@ -61,3 +61,26 @@ test("UTORB disabled run keeps render layer disabled", () => {
   assert.equal(result.output.render.enabled, false);
   assert.equal(result.output.render.elements.length, 0);
 });
+
+test("UTORB falls back when opening range minutes is not positive", () => {
+  const registry = createPresetStrategyRegistry();
+  const result = runRegisteredStrategy(registry, {
+    strategyKey: "utorb",
+    symbol: "AAPL",
+    market: "US",
+    timeframe: "15m",
+    runMode: "backtest",
+    bars: [
+      bar(0, 100, 103, 99, 101),
+      bar(15, 101, 104, 100, 102),
+      bar(30, 102, 105, 101, 105),
+    ],
+    parameters: {
+      openingRangeMinutes: 0,
+    },
+  });
+
+  assert.equal(result.output.metrics.openingRangeHigh, 104);
+  assert.equal(result.output.metrics.openingRangeLow, 99);
+  assert.equal(result.input.parameters.openingRangeMinutes, 0);
+});
