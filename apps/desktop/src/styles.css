@@ -713,27 +713,12 @@ input {
   stroke-width: 1;
 }
 
-.signal-marker text {
-  dominant-baseline: middle;
-  font-size: 12px;
-  font-weight: 800;
-  text-anchor: middle;
-}
-
 .signal-marker.buy polygon {
   fill: #21c08b;
 }
 
-.signal-marker.buy text {
-  fill: #9af5d2;
-}
-
 .signal-marker.sell polygon {
   fill: #ef4b45;
-}
-
-.signal-marker.sell text {
-  fill: #ffc1bd;
 }
 
 .watchlist-panel {

@@ -197,17 +197,11 @@ export function ChartViewport({
               {showSignals && candle.signal === "buy" && (
                 <g className="signal-marker buy">
                   <polygon points={`${x},${lowY + 24} ${x - 9},${lowY + 40} ${x + 9},${lowY + 40}`} />
-                  <text x={x} y={lowY + 56}>
-                    买
-                  </text>
                 </g>
               )}
               {showSignals && candle.signal === "sell" && (
                 <g className="signal-marker sell">
                   <polygon points={`${x},${highY - 24} ${x - 9},${highY - 40} ${x + 9},${highY - 40}`} />
-                  <text x={x} y={highY - 46}>
-                    卖
-                  </text>
                 </g>
               )}
             </g>
