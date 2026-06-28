@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChartViewport, type CandlePoint, type ChartLayer, type ChartLayerElement } from "@quant/chart";
 import type { Market, Timeframe } from "@quant/shared";
 import { createPresetStrategyRegistry, runRegisteredStrategy, type Bar } from "@quant/strategy-engine";
@@ -27,6 +27,61 @@ const chartCandles: CandlePoint[] = chartBars.map((bar, index) => ({
   time: `15m #${index + 1}`,
 }));
 const strategyRegistry = createPresetStrategyRegistry();
+const WORKSPACE_PREFERENCES_KEY = "quant-learning.chart-workspace-preferences";
+
+interface ChartWorkspacePreferences {
+  version: 1;
+  showSignals: boolean;
+  showStrategyLayers: boolean;
+  showMovingAverage: boolean;
+  openingRangeMinutes: number;
+  showTargets: boolean;
+}
+
+const defaultWorkspacePreferences: ChartWorkspacePreferences = {
+  version: 1,
+  showSignals: true,
+  showStrategyLayers: true,
+  showMovingAverage: true,
+  openingRangeMinutes: 30,
+  showTargets: true,
+};
+
+function normalizeOpeningRangeMinutes(value: unknown) {
+  const numericValue = typeof value === "number" && Number.isFinite(value) ? value : defaultWorkspacePreferences.openingRangeMinutes;
+  return Math.min(60, Math.max(15, numericValue));
+}
+
+function readWorkspacePreferences() {
+  try {
+    const value = window.localStorage.getItem(WORKSPACE_PREFERENCES_KEY);
+    const parsed = value ? (JSON.parse(value) as Partial<ChartWorkspacePreferences>) : null;
+
+    if (!parsed || parsed.version !== 1) {
+      return defaultWorkspacePreferences;
+    }
+
+    return {
+      version: 1,
+      showSignals: typeof parsed.showSignals === "boolean" ? parsed.showSignals : defaultWorkspacePreferences.showSignals,
+      showStrategyLayers:
+        typeof parsed.showStrategyLayers === "boolean" ? parsed.showStrategyLayers : defaultWorkspacePreferences.showStrategyLayers,
+      showMovingAverage: typeof parsed.showMovingAverage === "boolean" ? parsed.showMovingAverage : defaultWorkspacePreferences.showMovingAverage,
+      openingRangeMinutes: normalizeOpeningRangeMinutes(parsed.openingRangeMinutes),
+      showTargets: typeof parsed.showTargets === "boolean" ? parsed.showTargets : defaultWorkspacePreferences.showTargets,
+    };
+  } catch {
+    return defaultWorkspacePreferences;
+  }
+}
+
+function saveWorkspacePreferences(preferences: ChartWorkspacePreferences) {
+  try {
+    window.localStorage.setItem(WORKSPACE_PREFERENCES_KEY, JSON.stringify(preferences));
+  } catch {
+    // 本地偏好保存失败不应影响图表工作台的主要交互。
+  }
+}
 
 function toChartLayerElement(element: ReturnType<typeof runRegisteredStrategy>["output"]["render"]["elements"][number]): ChartLayerElement | null {
   if (element.kind === "signal-marker" || element.kind === "price-line" || element.kind === "band") {
@@ -37,13 +92,14 @@ function toChartLayerElement(element: ReturnType<typeof runRegisteredStrategy>["
 }
 
 export function ChartWorkspacePage() {
+  const workspacePreferences = useMemo(() => readWorkspacePreferences(), []);
   const [activeSymbol, setActiveSymbol] = useState(symbols[0]);
   const [timeframe, setTimeframe] = useState<Timeframe>("15m");
-  const [showSignals, setShowSignals] = useState(true);
-  const [showStrategyLayers, setShowStrategyLayers] = useState(true);
-  const [showMovingAverage, setShowMovingAverage] = useState(true);
-  const [openingRangeMinutes, setOpeningRangeMinutes] = useState(30);
-  const [showTargets, setShowTargets] = useState(true);
+  const [showSignals, setShowSignals] = useState(workspacePreferences.showSignals);
+  const [showStrategyLayers, setShowStrategyLayers] = useState(workspacePreferences.showStrategyLayers);
+  const [showMovingAverage, setShowMovingAverage] = useState(workspacePreferences.showMovingAverage);
+  const [openingRangeMinutes, setOpeningRangeMinutes] = useState(workspacePreferences.openingRangeMinutes);
+  const [showTargets, setShowTargets] = useState(workspacePreferences.showTargets);
   const utorbRun = useMemo(
     () =>
       runRegisteredStrategy(strategyRegistry, {
@@ -72,9 +128,21 @@ export function ChartWorkspacePage() {
   const canShowStrategyLayers = showStrategyLayers && timeframe === "15m";
   const strategyLayerElementCount = strategyLayers.reduce((total, layer) => total + layer.elements.length, 0);
   const handleOpeningRangeChange = (value: number) => {
-    const nextValue = Number.isFinite(value) ? value : 30;
-    setOpeningRangeMinutes(Math.min(60, Math.max(15, nextValue)));
+    setOpeningRangeMinutes(normalizeOpeningRangeMinutes(value));
   };
+
+  useEffect(() => {
+    const preferences: ChartWorkspacePreferences = {
+      version: 1,
+      showSignals,
+      showStrategyLayers,
+      showMovingAverage,
+      openingRangeMinutes,
+      showTargets,
+    };
+
+    saveWorkspacePreferences(preferences);
+  }, [openingRangeMinutes, showMovingAverage, showSignals, showStrategyLayers, showTargets]);
 
   return (
     <section className="chart-workspace-page">
