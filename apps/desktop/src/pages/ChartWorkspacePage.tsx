@@ -287,6 +287,7 @@ export function ChartWorkspacePage() {
   const [showStrategyLayers, setShowStrategyLayers] = useState(workspacePreferences.showStrategyLayers);
   const [showMovingAverage, setShowMovingAverage] = useState(workspacePreferences.showMovingAverage);
   const [strategySettings, setStrategySettings] = useState(workspacePreferences.strategies);
+  const [activeConfigStrategyKey, setActiveConfigStrategyKey] = useState<string | null>(null);
   const strategyRuns = useMemo(
     () =>
       presetStrategies.map((strategy, index) => {
@@ -329,6 +330,7 @@ export function ChartWorkspacePage() {
   const strategyLayerElementCount = strategyLayers.reduce((total, layer) => total + (layer.enabled ? layer.elements.length : 0), 0);
   const enabledStrategyCount = strategyRuns.filter(({ settings }) => settings.enabled).length;
   const totalSignalCount = strategyRuns.reduce((total, { result }) => total + result.output.signals.length, 0);
+  const activeConfigStrategyRun = strategyRuns.find(({ strategy }) => strategy.key === activeConfigStrategyKey);
   const strategyLogTime = formatLogTime(sampleStart + 30 * sampleMinute);
   const strategyLogItems = strategyRuns.flatMap(({ result, settings }) =>
     settings.enabled
@@ -484,19 +486,108 @@ export function ChartWorkspacePage() {
               </button>
             ))}
           </div>
+        </aside>
+      </div>
 
-          <div className="layer-list">
-            <div className="layer-list-heading">
-              <span>策略图层</span>
-              <button
-                aria-label={showStrategyLayers ? "隐藏策略图层" : "显示策略图层"}
-                onClick={() => setShowStrategyLayers((value) => !value)}
-                type="button"
-              >
-                {showStrategyLayers ? <Eye size={16} /> : <EyeOff size={16} />}
+      {activeConfigStrategyRun && (
+        <div className="strategy-config-backdrop" role="presentation" onClick={() => setActiveConfigStrategyKey(null)}>
+          <section
+            aria-label={`${activeConfigStrategyRun.strategy.name} 参数配置`}
+            className="strategy-config-dialog"
+            role="dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="strategy-config-heading">
+              <div>
+                <p>策略参数</p>
+                <strong>{activeConfigStrategyRun.strategy.name}</strong>
+              </div>
+              <button onClick={() => setActiveConfigStrategyKey(null)} type="button">
+                关闭
               </button>
             </div>
 
+            <div className="strategy-config-grid">
+              {activeConfigStrategyRun.strategy.parameterSchema.map((parameter) => {
+                const value = activeConfigStrategyRun.settings.parameters[parameter.key] ?? parameter.defaultValue;
+
+                if (parameter.type === "boolean") {
+                  return (
+                    <label className="parameter-toggle" htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`} key={parameter.key}>
+                      <span>
+                        <strong>{parameter.label}</strong>
+                        <small>{value ? "已开启" : "已关闭"}</small>
+                      </span>
+                      <input
+                        checked={Boolean(value)}
+                        id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
+                        onChange={(event) => updateStrategyParameter(activeConfigStrategyRun.strategy, parameter, event.currentTarget.checked)}
+                        type="checkbox"
+                      />
+                    </label>
+                  );
+                }
+
+                if (parameter.type === "select") {
+                  return (
+                    <label className="parameter-control" htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`} key={parameter.key}>
+                      <span>{parameter.label}</span>
+                      <select
+                        id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
+                        onChange={(event) => updateStrategyParameter(activeConfigStrategyRun.strategy, parameter, event.currentTarget.value)}
+                        value={String(value)}
+                      >
+                        {parameter.options?.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  );
+                }
+
+                return (
+                  <label className="parameter-control" htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`} key={parameter.key}>
+                    <span>{parameter.label}</span>
+                    <input
+                      id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
+                      max={parameter.key === "openingRangeMinutes" ? "60" : undefined}
+                      min={getNumberInputMinimum(parameter.key)}
+                      onChange={(event) => updateStrategyParameter(activeConfigStrategyRun.strategy, parameter, event.currentTarget.valueAsNumber)}
+                      step={getNumberInputStep(parameter.key)}
+                      type={parameter.key === "openingRangeMinutes" ? "range" : "number"}
+                      value={Number(value)}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      )}
+
+      <footer className="chart-bottom-panel">
+        <div className="bottom-strategy-panel">
+          <p>策略面板</p>
+          <div className="bottom-panel-heading">
+            <strong>{enabledStrategyCount} 个策略启用</strong>
+            <span>
+              {canShowStrategyLayers
+                ? `${totalSignalCount} 个信号，${strategyLayerElementCount} 个图层元素`
+                : timeframe === "15m"
+                  ? "策略图层已隐藏"
+                  : "切换到 15m 周期可查看策略图层"}
+            </span>
+            <button
+              aria-label={showStrategyLayers ? "隐藏策略图层" : "显示策略图层"}
+              onClick={() => setShowStrategyLayers((value) => !value)}
+              type="button"
+            >
+              {showStrategyLayers ? <Eye size={14} /> : <EyeOff size={14} />}
+            </button>
+          </div>
+          <div className="bottom-layer-list">
             {strategyRuns.map(({ strategy, settings, result }) => (
               <div className={settings.enabled && canShowStrategyLayers && settings.showLayer ? "layer-item active" : "layer-item"} key={strategy.key}>
                 <span>
@@ -521,88 +612,14 @@ export function ChartWorkspacePage() {
                   >
                     图层
                   </button>
+                  <button onClick={() => setActiveConfigStrategyKey(strategy.key)} type="button">
+                    <Settings2 size={13} />
+                    参数
+                  </button>
                 </div>
-              </div>
-            ))}
-
-            {strategyRuns.map(({ strategy, settings }) => (
-              <div className="strategy-parameter-panel" key={`${strategy.key}-parameters`}>
-                <div className="parameter-heading">
-                  <span>{strategy.name} 参数</span>
-                  <small>{settings.enabled ? "运行中" : "已停用"}</small>
-                </div>
-
-                {strategy.parameterSchema.map((parameter) => {
-                  const value = settings.parameters[parameter.key] ?? parameter.defaultValue;
-
-                  if (parameter.type === "boolean") {
-                    return (
-                      <label className="parameter-toggle" htmlFor={`${strategy.key}-${parameter.key}`} key={parameter.key}>
-                        <span>
-                          <strong>{parameter.label}</strong>
-                          <small>{value ? "已开启" : "已关闭"}</small>
-                        </span>
-                        <input
-                          checked={Boolean(value)}
-                          id={`${strategy.key}-${parameter.key}`}
-                          onChange={(event) => updateStrategyParameter(strategy, parameter, event.currentTarget.checked)}
-                          type="checkbox"
-                        />
-                      </label>
-                    );
-                  }
-
-                  if (parameter.type === "select") {
-                    return (
-                      <label className="parameter-control" htmlFor={`${strategy.key}-${parameter.key}`} key={parameter.key}>
-                        <span>{parameter.label}</span>
-                        <select
-                          id={`${strategy.key}-${parameter.key}`}
-                          onChange={(event) => updateStrategyParameter(strategy, parameter, event.currentTarget.value)}
-                          value={String(value)}
-                        >
-                          {parameter.options?.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    );
-                  }
-
-                  return (
-                    <label className="parameter-control" htmlFor={`${strategy.key}-${parameter.key}`} key={parameter.key}>
-                      <span>{parameter.label}</span>
-                      <input
-                        id={`${strategy.key}-${parameter.key}`}
-                        max={parameter.key === "openingRangeMinutes" ? "60" : undefined}
-                        min={getNumberInputMinimum(parameter.key)}
-                        onChange={(event) => updateStrategyParameter(strategy, parameter, event.currentTarget.valueAsNumber)}
-                        step={getNumberInputStep(parameter.key)}
-                        type={parameter.key === "openingRangeMinutes" ? "range" : "number"}
-                        value={Number(value)}
-                      />
-                    </label>
-                  );
-                })}
               </div>
             ))}
           </div>
-        </aside>
-      </div>
-
-      <footer className="chart-bottom-panel">
-        <div>
-          <p>策略面板</p>
-          <strong>多策略图层已接入</strong>
-          <span>
-            {canShowStrategyLayers
-              ? `启用 ${enabledStrategyCount} 个策略，信号 ${totalSignalCount} 个，图层元素 ${strategyLayerElementCount} 个。`
-              : timeframe === "15m"
-                ? "策略图层已隐藏，可在右侧图层面板重新显示。"
-                : "切换到 15m 周期可查看策略图层样例。"}
-          </span>
         </div>
         <div>
           <p>信号明细</p>

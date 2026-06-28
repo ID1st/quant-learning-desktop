@@ -511,20 +511,22 @@ input {
 
 .chart-workspace-page {
   display: grid;
-  grid-template-rows: auto minmax(520px, 1fr) auto;
-  gap: 12px;
-  min-height: calc(100vh - 48px);
+  grid-template-rows: 46px minmax(0, 1fr) 136px;
+  gap: 6px;
+  height: calc(100vh - 48px);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chart-topbar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto auto;
-  gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 8px;
   align-items: center;
   border: 1px solid rgba(73, 91, 112, 0.44);
   border-radius: 8px;
   background: rgba(12, 18, 26, 0.92);
-  padding: 10px;
+  padding: 6px 8px;
 }
 
 .symbol-search {
@@ -570,8 +572,8 @@ input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 34px;
-  height: 34px;
+  min-width: 30px;
+  height: 30px;
   border: 1px solid rgba(73, 91, 112, 0.44);
   border-radius: 6px;
   background: rgba(8, 13, 20, 0.54);
@@ -593,14 +595,14 @@ input {
 }
 
 .chart-toggle-group button {
-  gap: 7px;
-  padding: 0 10px;
+  gap: 6px;
+  padding: 0 8px;
 }
 
 .chart-workspace-grid {
   display: grid;
-  grid-template-columns: 46px minmax(520px, 1fr) 280px;
-  gap: 12px;
+  grid-template-columns: 40px minmax(640px, 1fr) 224px;
+  gap: 6px;
   min-height: 0;
 }
 
@@ -616,12 +618,13 @@ input {
 .chart-tool-rail {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 5px;
+  gap: 6px;
+  padding: 6px 5px;
 }
 
 .chart-main-panel {
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -629,7 +632,7 @@ input {
   display: grid;
   grid-template-rows: auto 1fr;
   height: 100%;
-  min-height: 520px;
+  min-height: 0;
   background: #080d12;
 }
 
@@ -637,23 +640,23 @@ input {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 42px;
+  min-height: 34px;
   border-bottom: 1px solid rgba(73, 91, 112, 0.34);
   color: #8f9caf;
-  padding: 0 14px;
-  font-size: 13px;
+  padding: 0 12px;
+  font-size: 12px;
   overflow-x: auto;
 }
 
 .chart-legend strong {
   color: #f5f8ff;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .chart-canvas {
   width: 100%;
   height: 100%;
-  min-height: 470px;
+  min-height: 0;
   display: block;
   cursor: crosshair;
 }
@@ -857,11 +860,12 @@ input {
 
 .watchlist-panel {
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto 1fr;
   align-content: start;
-  gap: 12px;
+  gap: 8px;
   min-width: 0;
-  padding: 14px;
+  min-height: 0;
+  padding: 10px;
 }
 
 .panel-heading {
@@ -869,7 +873,7 @@ input {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 12px;
+  padding-bottom: 6px;
 }
 
 .panel-heading p,
@@ -883,26 +887,27 @@ input {
 .panel-heading h2 {
   margin: 0;
   color: #f5f8ff;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .watchlist-items {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 6px;
+  overflow: auto;
 }
 
 .watchlist-items button {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 12px;
-  min-height: 64px;
+  min-height: 52px;
   border: 1px solid rgba(73, 91, 112, 0.36);
   border-radius: 8px;
   background: rgba(8, 13, 20, 0.44);
   color: #d9e2ea;
   cursor: pointer;
-  padding: 10px;
+  padding: 8px;
   text-align: left;
 }
 
@@ -919,10 +924,12 @@ input {
 
 .watchlist-items strong {
   color: #f5f8ff;
+  font-size: 13px;
 }
 
 .watchlist-items small {
   color: #8f9caf;
+  font-size: 12px;
 }
 
 .watchlist-items small.positive {
@@ -957,13 +964,13 @@ input {
 
 .layer-item {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border: 1px solid rgba(73, 91, 112, 0.34);
   border-radius: 8px;
   background: rgba(8, 13, 20, 0.42);
-  padding: 10px;
+  padding: 8px;
 }
 
 .layer-item.active {
@@ -979,7 +986,7 @@ input {
 
 .layer-item strong {
   color: #f5f8ff;
-  font-size: 13px;
+  font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -987,14 +994,14 @@ input {
 
 .layer-item small {
   color: #8f9caf;
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
 .layer-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .layer-actions button {
@@ -1002,15 +1009,15 @@ input {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-height: 28px;
+  min-height: 26px;
   border: 1px solid rgba(73, 91, 112, 0.48);
   border-radius: 6px;
   background: rgba(8, 13, 20, 0.58);
   color: #8f9caf;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 0 9px;
+  padding: 0 8px;
 }
 
 .layer-actions button.active {
@@ -1087,23 +1094,78 @@ input {
   cursor: pointer;
 }
 
+.strategy-config-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(3, 7, 12, 0.58);
+  padding: 24px;
+}
+
+.strategy-config-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  width: min(760px, calc(100vw - 48px));
+  max-height: min(620px, calc(100vh - 80px));
+  border: 1px solid rgba(73, 91, 112, 0.62);
+  border-radius: 8px;
+  background: #0b1118;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+  padding: 16px;
+}
+
+.strategy-config-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid rgba(73, 91, 112, 0.34);
+  padding-bottom: 12px;
+}
+
+.strategy-config-heading p {
+  margin: 0 0 4px;
+  color: #42dfad;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.strategy-config-heading strong {
+  color: #f5f8ff;
+  font-size: 16px;
+}
+
+.strategy-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 10px 12px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
 .watchlist-items small.negative {
   color: #ffaaa6;
 }
 
 .chart-bottom-panel {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: minmax(430px, 1.4fr) minmax(260px, 0.9fr) minmax(320px, 1fr);
   gap: 0;
   overflow: hidden;
 }
 
 .chart-bottom-panel > div {
   display: grid;
-  gap: 4px;
-  min-height: 94px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 5px;
+  min-height: 0;
   border-right: 1px solid rgba(73, 91, 112, 0.34);
-  padding: 14px;
+  padding: 10px;
 }
 
 .chart-bottom-panel > div:last-child {
@@ -1112,17 +1174,50 @@ input {
 
 .chart-bottom-panel strong {
   color: #f5f8ff;
+  font-size: 13px;
 }
 
 .chart-bottom-panel span {
   color: #8f9caf;
-  font-size: 13px;
+  font-size: 12px;
+}
+
+.bottom-panel-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.bottom-panel-heading button,
+.strategy-config-heading button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  border: 1px solid rgba(73, 91, 112, 0.48);
+  border-radius: 6px;
+  background: rgba(8, 13, 20, 0.58);
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 9px;
+}
+
+.bottom-layer-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .signal-detail-list {
   display: grid;
-  gap: 7px;
-  max-height: 118px;
+  align-content: start;
+  gap: 5px;
+  min-height: 0;
   overflow: auto;
   padding-right: 4px;
 }
@@ -1135,7 +1230,7 @@ input {
   border: 1px solid rgba(73, 91, 112, 0.3);
   border-radius: 6px;
   background: rgba(8, 13, 20, 0.38);
-  padding: 7px 8px;
+  padding: 5px 7px;
 }
 
 .signal-detail-row svg {
@@ -1176,8 +1271,9 @@ input {
 
 .chart-log-list {
   display: grid;
-  gap: 7px;
-  max-height: 118px;
+  align-content: start;
+  gap: 5px;
+  min-height: 0;
   overflow: auto;
   padding-right: 4px;
 }
