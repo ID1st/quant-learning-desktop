@@ -64,11 +64,11 @@ export async function register(payload: RegisterPayload): Promise<AuthSession> {
   await waitForNetworkBoundary();
 
   if (payload.inviteCode.trim().toUpperCase() !== VALID_INVITE_CODE) {
-    throw new Error("邀请码验证失败。当前占位验证码为 QUANT2026。");
+    throw new Error("邀请码验证失败。");
   }
 
   if (payload.emailCode.trim() !== VALID_EMAIL_CODE) {
-    throw new Error("邮箱验证码错误。当前占位验证码为 123456。");
+    throw new Error("邮箱验证码错误。");
   }
 
   return {
