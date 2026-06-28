@@ -28,6 +28,23 @@ export interface StrategyInput {
   enabled?: boolean;
 }
 
+export interface StrategyRunRequest {
+  strategyKey: string;
+  symbol: string;
+  market: Market;
+  timeframe: Timeframe;
+  bars: Bar[];
+  parameters?: Record<string, unknown>;
+  runMode: "backtest" | "realtime";
+  enabled?: boolean;
+}
+
+export interface StrategyRunResult {
+  strategy: StrategyDefinition;
+  input: StrategyInput;
+  output: StrategyOutput;
+}
+
 export interface StrategySignal {
   timestamp: number;
   type: "buy" | "sell" | "exit" | "alert";
@@ -129,6 +146,48 @@ export class StrategyRegistry {
   list(): StrategyDefinition[] {
     return Array.from(this.strategies.values());
   }
+}
+
+export function resolveStrategyParameters(strategy: StrategyDefinition, parameters: Record<string, unknown> = {}) {
+  return strategy.parameterSchema.reduce<Record<string, unknown>>((resolved, parameter) => {
+    resolved[parameter.key] = parameters[parameter.key] ?? parameter.defaultValue;
+    return resolved;
+  }, {});
+}
+
+export function createStrategyInput(strategy: StrategyDefinition, request: StrategyRunRequest): StrategyInput {
+  return {
+    symbol: request.symbol,
+    market: request.market,
+    timeframe: request.timeframe,
+    bars: request.bars,
+    parameters: resolveStrategyParameters(strategy, request.parameters),
+    runMode: request.runMode,
+    enabled: request.enabled ?? true,
+  };
+}
+
+export function runRegisteredStrategy(registry: StrategyRegistry, request: StrategyRunRequest): StrategyRunResult {
+  const strategy = registry.get(request.strategyKey);
+
+  if (!strategy) {
+    throw new Error(`策略不存在：${request.strategyKey}`);
+  }
+
+  const input = createStrategyInput(strategy, request);
+  const output = strategy.run(input);
+
+  return {
+    strategy,
+    input,
+    output: {
+      ...output,
+      render: {
+        ...output.render,
+        enabled: input.enabled ?? output.render.enabled,
+      },
+    },
+  };
 }
 
 function createPlaceholderOutput(strategy: StrategyDefinition, enabled = true): StrategyOutput {

@@ -1,10 +1,24 @@
 import { useMemo, useState } from "react";
-import { createPresetStrategyRegistry, type StrategyDefinition } from "@quant/strategy-engine";
+import {
+  createPresetStrategyRegistry,
+  runRegisteredStrategy,
+  type Bar,
+  type StrategyDefinition,
+} from "@quant/strategy-engine";
 import { Activity, FileCode2, Layers3, ListChecks, Play, Power, SlidersHorizontal } from "lucide-react";
 
 type StrategyStatus = "enabled" | "disabled";
 
 const registry = createPresetStrategyRegistry();
+
+const sampleBars: Bar[] = Array.from({ length: 12 }, (_, index) => ({
+  timestamp: Date.UTC(2026, 0, index + 1),
+  open: 100 + index,
+  high: 102 + index,
+  low: 98 + index,
+  close: 101 + index,
+  volume: 100000 + index * 1500,
+}));
 
 function createInitialStatus(strategies: StrategyDefinition[]) {
   return strategies.reduce<Record<string, StrategyStatus>>((current, strategy, index) => {
@@ -19,6 +33,17 @@ export function StrategyManagementPage() {
   const [strategyStatus, setStrategyStatus] = useState(() => createInitialStatus(strategies));
   const selectedStrategy = strategies.find((strategy) => strategy.key === selectedKey) ?? strategies[0];
   const enabledCount = Object.values(strategyStatus).filter((status) => status === "enabled").length;
+  const runResult = selectedStrategy
+    ? runRegisteredStrategy(registry, {
+        strategyKey: selectedStrategy.key,
+        symbol: "AAPL",
+        market: "US",
+        timeframe: "1d",
+        bars: sampleBars,
+        runMode: "backtest",
+        enabled: strategyStatus[selectedStrategy.key] === "enabled",
+      })
+    : null;
 
   const toggleStrategy = (strategyKey: string) => {
     setStrategyStatus((current) => ({
@@ -147,6 +172,13 @@ export function StrategyManagementPage() {
             <strong>{strategyStatus[selectedStrategy.key] === "enabled" ? "等待行情" : "未启用"}</strong>
             <span>{strategyStatus[selectedStrategy.key] === "enabled" ? "策略已加入图表图层队列。" : "启用后才会生成可视化输出。"}</span>
           </div>
+
+          {runResult && (
+            <div className="runtime-status">
+              <strong>运行器占位</strong>
+              <span>参数 {Object.keys(runResult.input.parameters).length} 项，图层 {runResult.output.render.enabled ? "启用" : "停用"}。</span>
+            </div>
+          )}
 
           <div className="strategy-log-list">
             <div>
