@@ -8,7 +8,7 @@ export interface DesktopWindowOptions {
 
 export function createMainWindowConfig(): DesktopWindowOptions {
   return {
-    title: "Quant Learning Desktop",
+    title: "量化学习桌面版",
     width: 1440,
     height: 960,
     preloadEntry: "preload.js",

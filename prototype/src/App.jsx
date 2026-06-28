@@ -46,20 +46,20 @@ import {
 } from "lucide-react";
 
 const symbols = [
-  { code: "AAPL", name: "Apple Inc.", last: "192.79", change: "1.96", pct: "1.03%", up: true },
-  { code: "MSFT", name: "Microsoft", last: "415.10", change: "-0.42", pct: "-0.10%", up: false },
-  { code: "NVDA", name: "NVIDIA", last: "135.98", change: "3.19", pct: "2.40%", up: true },
-  { code: "AMZN", name: "Amazon", last: "205.18", change: "1.21", pct: "0.59%", up: true },
-  { code: "GOOG", name: "Alphabet", last: "173.72", change: "-0.55", pct: "-0.32%", up: false },
-  { code: "TSLA", name: "Tesla", last: "350.09", change: "-3.19", pct: "-0.90%", up: false },
-  { code: "9988.HK", name: "Alibaba HK", last: "122.60", change: "1.80", pct: "1.49%", up: true },
-  { code: "600519.SS", name: "Kweichow Moutai", last: "1541.83", change: "8.35", pct: "0.54%", up: true },
+  { code: "AAPL", name: "苹果公司", last: "192.79", change: "1.96", pct: "1.03%", up: true },
+  { code: "MSFT", name: "微软", last: "415.10", change: "-0.42", pct: "-0.10%", up: false },
+  { code: "NVDA", name: "英伟达", last: "135.98", change: "3.19", pct: "2.40%", up: true },
+  { code: "AMZN", name: "亚马逊", last: "205.18", change: "1.21", pct: "0.59%", up: true },
+  { code: "GOOG", name: "谷歌", last: "173.72", change: "-0.55", pct: "-0.32%", up: false },
+  { code: "TSLA", name: "特斯拉", last: "350.09", change: "-3.19", pct: "-0.90%", up: false },
+  { code: "9988.HK", name: "阿里巴巴港股", last: "122.60", change: "1.80", pct: "1.49%", up: true },
+  { code: "600519.SS", name: "贵州茅台", last: "1541.83", change: "8.35", pct: "0.54%", up: true },
 ];
 
 const strategies = [
-  { id: "utorb", name: "Ultimate Opening Range Breakout", active: true, starred: true },
-  { id: "trend", name: "Trend Targets", active: false, starred: false },
-  { id: "ml", name: "ML Price Target Signals", active: false, starred: false },
+  { id: "utorb", name: "终极开盘区间突破", active: true, starred: true },
+  { id: "trend", name: "趋势目标", active: false, starred: false },
+  { id: "ml", name: "机器学习价格目标信号", active: false, starred: false },
 ];
 
 const candles = [
@@ -69,14 +69,14 @@ const candles = [
 ];
 
 const backtestRows = [
-  ["Net Profit", "$ 28,450.00", "positive"],
-  ["Total Closed Trades", "78", ""],
-  ["Percent Profitable", "62.82%", "positive"],
-  ["Profit Factor", "1.68", "positive"],
-  ["Max Drawdown", "$ 7,320.00", "negative"],
-  ["Avg Winning Trade", "$ 364.74", "positive"],
-  ["Avg Losing Trade", "-$ 412.87", "negative"],
-  ["Expectancy", "$ 364.74", "positive"],
+  ["净利润", "$ 28,450.00", "positive"],
+  ["已平仓交易", "78", ""],
+  ["盈利交易占比", "62.82%", "positive"],
+  ["利润因子", "1.68", "positive"],
+  ["最大回撤", "$ 7,320.00", "negative"],
+  ["平均盈利交易", "$ 364.74", "positive"],
+  ["平均亏损交易", "-$ 412.87", "negative"],
+  ["期望收益", "$ 364.74", "positive"],
 ];
 
 function IconButton({ icon: Icon, label, active = false }) {
@@ -88,51 +88,51 @@ function IconButton({ icon: Icon, label, active = false }) {
 }
 
 function TopBar() {
-  const intervals = ["1m", "5m", "15m", "30m", "1h", "2h", "4h", "D", "W", "M"];
+  const intervals = ["1分", "5分", "15分", "30分", "1小时", "2小时", "4小时", "日", "周", "月"];
 
   return (
     <header className="topbar">
       <div className="brand-mark">T</div>
       <label className="searchbox">
         <Search size={16} />
-        <input value="AAPL" readOnly aria-label="Search symbol" />
+        <input value="AAPL" readOnly aria-label="搜索证券代码" />
       </label>
-      <nav className="intervals" aria-label="Timeframe">
+      <nav className="intervals" aria-label="周期">
         {intervals.map((item) => (
-          <button key={item} className={item === "D" ? "active" : ""}>{item}</button>
+          <button key={item} className={item === "日" ? "active" : ""}>{item}</button>
         ))}
       </nav>
       <div className="top-actions">
-        <button><CandlestickChart size={16} /> Indicators</button>
-        <button><Grid2X2 size={16} /> Layout</button>
-        <button><Bell size={16} /> Alert</button>
-        <button><Play size={16} /> Replay</button>
+        <button><CandlestickChart size={16} /> 指标</button>
+        <button><Grid2X2 size={16} /> 布局</button>
+        <button><Bell size={16} /> 提醒</button>
+        <button><Play size={16} /> 回放</button>
       </div>
       <div className="spacer" />
-      <button className="strategy-select">Strategies <ChevronDown size={15} /></button>
-      <button className="publish">Publish</button>
-      <IconButton icon={Settings} label="Settings" />
+      <button className="strategy-select">策略 <ChevronDown size={15} /></button>
+      <button className="publish">发布</button>
+      <IconButton icon={Settings} label="设置" />
     </header>
   );
 }
 
 function LeftToolbar() {
   const tools = [
-    [Crosshair, "Crosshair"],
-    [MousePointer2, "Cursor"],
-    [PenLine, "Trend line"],
-    [GitBranch, "Projection"],
-    [Target, "Price target"],
-    [Triangle, "Pattern"],
-    [Magnet, "Magnet"],
-    [BoxSelect, "Measure"],
-    [Eye, "Visibility"],
-    [Lock, "Lock"],
-    [Minus, "Remove"],
+    [Crosshair, "十字光标"],
+    [MousePointer2, "光标"],
+    [PenLine, "趋势线"],
+    [GitBranch, "预测路径"],
+    [Target, "价格目标"],
+    [Triangle, "形态"],
+    [Magnet, "磁吸"],
+    [BoxSelect, "测量"],
+    [Eye, "显示隐藏"],
+    [Lock, "锁定"],
+    [Minus, "删除"],
   ];
 
   return (
-    <aside className="left-tools" aria-label="Chart tools">
+    <aside className="left-tools" aria-label="图表工具">
       {tools.map(([Icon, label], index) => (
         <IconButton key={label} icon={Icon} label={label} active={index === 0} />
       ))}
@@ -155,25 +155,25 @@ function ChartArea({ selectedSymbol }) {
           <span>{selectedSymbol.name} · 1D · NASDAQ</span>
         </div>
         <div className="quote-line">
-          <span>O 190.86</span>
-          <span>H 193.34</span>
-          <span>L 190.21</span>
-          <span>C 192.79</span>
+          <span>开 190.86</span>
+          <span>高 193.34</span>
+          <span>低 190.21</span>
+          <span>收 192.79</span>
           <strong className="positive">+1.96 (+1.03%)</strong>
         </div>
       </div>
 
       <div className="trade-buttons">
-        <button className="sell">192.79 <span>SELL</span></button>
-        <button className="buy">192.80 <span>BUY</span></button>
+        <button className="sell">192.79 <span>卖出</span></button>
+        <button className="buy">192.80 <span>买入</span></button>
       </div>
 
       <div className="indicator-stack">
-        <p>Ultimate Opening Range Breakout (UORB) 20 1.5 9:30-10:00</p>
-        <p>Trend Targets (TT) 5 20 1.5 2.0</p>
-        <p>MA 20 close <strong>184.52</strong></p>
-        <p>MA 50 close <strong className="gold">179.41</strong></p>
-        <p>Vol <strong>52.34M</strong></p>
+        <p>终极开盘区间突破 (UORB) 20 1.5 9:30-10:00</p>
+        <p>趋势目标 (TT) 5 20 1.5 2.0</p>
+        <p>20日均线 收盘价 <strong>184.52</strong></p>
+        <p>50日均线 收盘价 <strong className="gold">179.41</strong></p>
+        <p>成交量 <strong>52.34M</strong></p>
       </div>
 
       <div className="chart-grid">
@@ -197,10 +197,10 @@ function ChartArea({ selectedSymbol }) {
           />
         </svg>
         <div className="price-marker">192.79</div>
-        <div className="signal long s1"><ArrowUp size={16} /> Buy<br />+1</div>
-        <div className="signal short s2"><ArrowDown size={16} /> Sell<br />-1</div>
-        <div className="signal long s3"><ArrowUp size={16} /> Buy<br />+1</div>
-        <div className="signal short s4"><ArrowDown size={16} /> Sell<br />-1</div>
+        <div className="signal long s1"><ArrowUp size={16} /> 买入<br />+1</div>
+        <div className="signal short s2"><ArrowDown size={16} /> 卖出<br />-1</div>
+        <div className="signal long s3"><ArrowUp size={16} /> 买入<br />+1</div>
+        <div className="signal short s4"><ArrowDown size={16} /> 卖出<br />-1</div>
         <div className="candles">
           {bars.map((bar, index) => {
             const up = bar.close >= bar.open;
@@ -228,14 +228,14 @@ function ChartArea({ selectedSymbol }) {
       </div>
 
       <div className="chart-footer">
-        {["1D", "5D", "1M", "3M", "6M", "YTD", "1Y", "5Y", "All"].map((item) => (
+        {["1日", "5日", "1月", "3月", "6月", "今年", "1年", "5年", "全部"].map((item) => (
           <button key={item}>{item}</button>
         ))}
         <span className="chart-clock">15:59:42 (UTC-4)</span>
-        <button>adj</button>
+        <button>复权</button>
         <button>%</button>
-        <button>log</button>
-        <button>auto</button>
+        <button>对数</button>
+        <button>自动</button>
       </div>
     </section>
   );
@@ -245,12 +245,12 @@ function StrategyPanel() {
   return (
     <aside className="strategy-panel">
       <div className="panel-title">
-        <strong>Strategy</strong>
-        <IconButton icon={X} label="Close strategy panel" />
+        <strong>策略</strong>
+        <IconButton icon={X} label="关闭策略面板" />
       </div>
       <div className="panel-row between">
-        <span>Presets</span>
-        <button className="mini-action"><Plus size={14} /> New</button>
+        <span>预设</span>
+        <button className="mini-action"><Plus size={14} /> 新建</button>
       </div>
       <div className="strategy-list">
         {strategies.map((item) => (
@@ -262,24 +262,24 @@ function StrategyPanel() {
       </div>
 
       <div className="form-block">
-        <label>Session <select value="09:30 - 10:00" readOnly><option>09:30 - 10:00</option></select></label>
-        <label>Lookback Days <input value="20" readOnly /></label>
-        <label>Range Multiplier <input value="1.50" readOnly /></label>
+        <label>交易时段 <select value="09:30 - 10:00" readOnly><option>09:30 - 10:00</option></select></label>
+        <label>回看天数 <input value="20" readOnly /></label>
+        <label>区间倍数 <input value="1.50" readOnly /></label>
       </div>
       <div className="form-block">
-        <h4>Entry</h4>
-        <label>Direction <select value="Both" readOnly><option>Both</option></select></label>
-        <label className="check"><input type="checkbox" defaultChecked /> Long Breakout</label>
-        <label className="check"><input type="checkbox" defaultChecked /> Short Breakout</label>
-        <label>Volume Filter <input value="1.20" readOnly /></label>
+        <h4>入场</h4>
+        <label>方向 <select value="双向" readOnly><option>双向</option></select></label>
+        <label className="check"><input type="checkbox" defaultChecked /> 向上突破</label>
+        <label className="check"><input type="checkbox" defaultChecked /> 向下突破</label>
+        <label>成交量过滤 <input value="1.20" readOnly /></label>
       </div>
       <div className="form-block">
-        <h4>Risk Management</h4>
-        <label>Stop Loss (ATR) <input value="1.50" readOnly /></label>
-        <label>Take Profit (R:R) <input value="2.00" readOnly /></label>
-        <label>Max Positions <input value="1" readOnly /></label>
+        <h4>风险管理</h4>
+        <label>止损 (ATR) <input value="1.50" readOnly /></label>
+        <label>止盈 (盈亏比) <input value="2.00" readOnly /></label>
+        <label>最大持仓 <input value="1" readOnly /></label>
       </div>
-      <button className="apply">Apply to Chart</button>
+      <button className="apply">应用到图表</button>
     </aside>
   );
 }
@@ -288,19 +288,19 @@ function Watchlist({ selectedSymbol, setSelectedSymbol }) {
   return (
     <aside className="watch-panel">
       <div className="panel-title">
-        <strong>Watchlist</strong>
+        <strong>观察列表</strong>
         <div>
-          <IconButton icon={Plus} label="Add symbol" />
-          <IconButton icon={Menu} label="Watchlist menu" />
+          <IconButton icon={Plus} label="添加证券" />
+          <IconButton icon={Menu} label="观察列表菜单" />
         </div>
       </div>
       <div className="market-tabs">
-        {["US", "HK", "A-Share", "ETF", "Futures"].map((item) => (
-          <button className={item === "US" ? "active" : ""} key={item}>{item}</button>
+        {["美股", "港股", "A股", "ETF", "期货"].map((item) => (
+          <button className={item === "美股" ? "active" : ""} key={item}>{item}</button>
         ))}
       </div>
       <div className="watch-table">
-        <div className="watch-head"><span>Symbol</span><span>Last</span><span>Chg</span><span>Chg%</span></div>
+        <div className="watch-head"><span>代码</span><span>最新价</span><span>涨跌</span><span>涨跌幅</span></div>
         {symbols.map((item) => (
           <button
             className={selectedSymbol.code === item.code ? "selected" : ""}
@@ -322,7 +322,7 @@ function Watchlist({ selectedSymbol, setSelectedSymbol }) {
             <h3>{selectedSymbol.code}</h3>
             <p>{selectedSymbol.name} · NASDAQ</p>
           </div>
-          <IconButton icon={Settings} label="Symbol settings" />
+          <IconButton icon={Settings} label="标的设置" />
         </div>
         <div className="big-price">
           {selectedSymbol.last}
@@ -335,10 +335,10 @@ function Watchlist({ selectedSymbol, setSelectedSymbol }) {
           <i />
         </div>
         <dl>
-          <div><dt>Volume</dt><dd>52.34M</dd></div>
-          <div><dt>Average Volume (30D)</dt><dd>58.67M</dd></div>
-          <div><dt>Market Cap</dt><dd>2.96T</dd></div>
-          <div><dt>Next Earnings</dt><dd>Jul 31, 2025</dd></div>
+          <div><dt>成交量</dt><dd>52.34M</dd></div>
+          <div><dt>30日平均成交量</dt><dd>58.67M</dd></div>
+          <div><dt>市值</dt><dd>2.96T</dd></div>
+          <div><dt>下次财报</dt><dd>2025-07-31</dd></div>
         </dl>
       </div>
     </aside>
@@ -346,8 +346,8 @@ function Watchlist({ selectedSymbol, setSelectedSymbol }) {
 }
 
 function BottomPanel() {
-  const [tab, setTab] = useState("Backtest");
-  const tabs = ["Strategy", "Backtest", "Orders", "Logs"];
+  const [tab, setTab] = useState("回测");
+  const tabs = ["策略", "回测", "订单", "日志"];
 
   return (
     <section className="bottom-panel">
@@ -359,8 +359,8 @@ function BottomPanel() {
       </div>
       <div className="tester-grid">
         <div className="metrics-card">
-          <div className="select-line">Ultimate Opening Range Breakout <ChevronDown size={14} /></div>
-          <div className="date-row"><span>From 2024-01-01</span><span>To 2025-06-02</span></div>
+          <div className="select-line">终极开盘区间突破 <ChevronDown size={14} /></div>
+          <div className="date-row"><span>起始 2024-01-01</span><span>结束 2025-06-02</span></div>
           {backtestRows.map(([label, value, tone]) => (
             <div className="metric-row" key={label}>
               <span>{label}</span>
@@ -370,8 +370,8 @@ function BottomPanel() {
         </div>
         <div className="equity-card">
           <div className="subtabs">
-            {["Overview", "Performance", "Trades List", "Distribution"].map((item) => (
-              <button className={item === "Overview" ? "active" : ""} key={item}>{item}</button>
+            {["概览", "表现", "交易列表", "分布"].map((item) => (
+              <button className={item === "概览" ? "active" : ""} key={item}>{item}</button>
             ))}
           </div>
           <div className="equity-chart">
@@ -381,24 +381,24 @@ function BottomPanel() {
           </div>
         </div>
         <div className="trade-summary">
-          <div><span>Total Trades</span><strong>78</strong></div>
-          <div><span>Winning Trades</span><strong>49 (62.82%)</strong></div>
-          <div><span>Losing Trades</span><strong>29 (37.18%)</strong></div>
-          <div><span>Best Trade</span><strong className="positive">$ 2,150.00</strong></div>
-          <div><span>Worst Trade</span><strong className="negative">-$ 1,420.00</strong></div>
-          <div><span>Avg Duration</span><strong>1d 3h</strong></div>
+          <div><span>总交易数</span><strong>78</strong></div>
+          <div><span>盈利交易</span><strong>49 (62.82%)</strong></div>
+          <div><span>亏损交易</span><strong>29 (37.18%)</strong></div>
+          <div><span>最佳交易</span><strong className="positive">$ 2,150.00</strong></div>
+          <div><span>最差交易</span><strong className="negative">-$ 1,420.00</strong></div>
+          <div><span>平均持仓时长</span><strong>1天3小时</strong></div>
         </div>
       </div>
       <div className="terminal-tabs">
         {[
-          [Terminal, "Pine Editor"],
-          [Gauge, "Strategy Tester"],
-          [Database, "Market Scanner"],
-          [Activity, "Paper Trading"],
+          [Terminal, "Pine 编辑器"],
+          [Gauge, "策略测试器"],
+          [Database, "市场扫描器"],
+          [Activity, "模拟交易"],
         ].map(([Icon, label], index) => (
           <button className={index === 1 ? "active" : ""} key={label}><Icon size={15} /> {label}</button>
         ))}
-        <span className="connection">Connected <CircleDot size={12} /></span>
+        <span className="connection">已连接 <CircleDot size={12} /></span>
       </div>
     </section>
   );
@@ -416,9 +416,9 @@ export function App() {
         <div className="center-stack">
           <div className="mobile-switch">
             <button onClick={() => setStrategyOpen((value) => !value)}>
-              <PanelRight size={16} /> {strategyOpen ? "Hide" : "Show"} Strategy Panel
+              <PanelRight size={16} /> {strategyOpen ? "隐藏" : "显示"}策略面板
             </button>
-            <button><Maximize2 size={16} /> Focus Chart</button>
+            <button><Maximize2 size={16} /> 专注图表</button>
           </div>
           <div className="main-grid" data-strategy-open={strategyOpen}>
             <ChartArea selectedSymbol={selectedSymbol} />
@@ -430,12 +430,12 @@ export function App() {
       </div>
       <div className="statusbar">
         <span><Clock3 size={14} /> 15:59:42 (UTC-4)</span>
-        <span><RefreshCcw size={14} /> Market data synced 24s ago</span>
-        <span><Zap size={14} /> UORB running in paper mode</span>
-        <span><BookOpen size={14} /> Learning checkpoint: Breakout validation</span>
-        <span><AlertCircle size={14} /> No live orders</span>
-        <button><Download size={14} /> Export Report</button>
-        <button><SlidersHorizontal size={14} /> Layout</button>
+        <span><RefreshCcw size={14} /> 行情数据已于 24 秒前同步</span>
+        <span><Zap size={14} /> UORB 正在模拟模式运行</span>
+        <span><BookOpen size={14} /> 学习检查点：突破有效性验证</span>
+        <span><AlertCircle size={14} /> 当前无实时订单</span>
+        <button><Download size={14} /> 导出报告</button>
+        <button><SlidersHorizontal size={14} /> 布局</button>
       </div>
     </main>
   );

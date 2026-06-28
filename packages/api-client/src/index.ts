@@ -12,10 +12,10 @@ export interface ApiRequest {
 }
 
 class UnconfiguredTransport implements ApiTransport {
-  readonly name = "unconfigured";
+  readonly name = "未配置";
 
   async request<TResponse>(): Promise<ApiResult<TResponse>> {
-    throw new Error("API transport is not configured in Phase 3 scaffold.");
+    throw new Error("第三阶段基础框架尚未配置 API 通信通道。");
   }
 }
 

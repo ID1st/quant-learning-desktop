@@ -3,7 +3,7 @@ import { PlaceholderPage } from "../ui/PlaceholderPage";
 
 export function ChartWorkspacePage() {
   return (
-    <PlaceholderPage title="Chart Workspace" description="Chart shell placeholder; no market data is loaded.">
+    <PlaceholderPage title="超级图表" description="图表外壳占位页，当前不加载真实行情数据。">
       <ChartViewport />
     </PlaceholderPage>
   );

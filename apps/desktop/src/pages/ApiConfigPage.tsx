@@ -6,8 +6,8 @@ const apiClient = createApiClient();
 export function ApiConfigPage() {
   return (
     <PlaceholderPage
-      title="API Configuration"
-      description={`API client placeholder using ${apiClient.transportName}. LongPort binding starts in a later phase.`}
+      title="接口配置"
+      description={`当前接口客户端为占位状态：${apiClient.transportName}。长桥绑定将在后续阶段实现。`}
     />
   );
 }

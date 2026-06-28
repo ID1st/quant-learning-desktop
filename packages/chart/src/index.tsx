@@ -14,8 +14,8 @@ export interface ChartAdapter {
 
 export function ChartViewport() {
   return (
-    <section className="chart-placeholder" aria-label="Chart viewport placeholder">
-      Chart adapter placeholder
+    <section className="chart-placeholder" aria-label="图表视图占位区域">
+      图表适配器占位区域
     </section>
   );
 }

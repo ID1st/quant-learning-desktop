@@ -4,11 +4,11 @@ import type { AppRoute } from "@quant/shared";
 import { useAppStore } from "../state/appStore";
 
 const navItems: Array<{ route: AppRoute; label: string; icon: typeof LayoutDashboard }> = [
-  { route: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { route: "chart", label: "Chart", icon: BarChart3 },
-  { route: "strategies", label: "Strategies", icon: Activity },
-  { route: "apiConfig", label: "API", icon: KeyRound },
-  { route: "settings", label: "Settings", icon: Settings },
+  { route: "dashboard", label: "仪表盘", icon: LayoutDashboard },
+  { route: "chart", label: "超级图表", icon: BarChart3 },
+  { route: "strategies", label: "策略管理", icon: Activity },
+  { route: "apiConfig", label: "接口配置", icon: KeyRound },
+  { route: "settings", label: "设置", icon: Settings },
 ];
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -20,7 +20,7 @@ export function AppShell({ children }: PropsWithChildren) {
       <aside className="app-sidebar">
         <div className="app-logo">
           <TerminalSquare size={20} />
-          <span>Quant</span>
+          <span>量化学习</span>
         </div>
         <nav>
           {navItems.map((item) => {

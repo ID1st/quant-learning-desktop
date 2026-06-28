@@ -9,7 +9,7 @@ export function PlaceholderPage({ title, description, children }: PlaceholderPag
   return (
     <article className="placeholder-page">
       <header>
-        <p>Phase 3 scaffold</p>
+        <p>第三阶段基础框架</p>
         <h1>{title}</h1>
         <span>{description}</span>
       </header>
