@@ -130,6 +130,10 @@ function formatPrice(value: number) {
   return value.toFixed(2);
 }
 
+function isFiniteNumber(value: number) {
+  return Number.isFinite(value);
+}
+
 function getLayerPriceRange(strategyLayers: ChartLayer[]) {
   return strategyLayers.flatMap((layer) =>
     layer.enabled
@@ -139,10 +143,10 @@ function getLayerPriceRange(strategyLayers: ChartLayer[]) {
           }
 
           if (element.kind === "band") {
-            return [element.fromPrice, element.toPrice];
+            return [element.fromPrice, element.toPrice].filter(isFiniteNumber);
           }
 
-          return [element.price];
+          return isFiniteNumber(element.price) ? [element.price] : [];
         })
       : [],
   );
@@ -185,9 +189,13 @@ export function ChartViewport({
   const candleGap = (width - paddingX * 2) / candles.length;
   const candleWidth = Math.max(5, candleGap * 0.58);
   const layerPrices = showStrategyLayers ? getLayerPriceRange(strategyLayers) : [];
-  const maxPrice = Math.max(...candles.map((candle) => candle.high), ...layerPrices);
-  const minPrice = Math.min(...candles.map((candle) => candle.low), ...layerPrices);
-  const maxVolume = Math.max(...candles.map((candle) => candle.volume));
+  const candleHighs = candles.map((candle) => candle.high).filter(isFiniteNumber);
+  const candleLows = candles.map((candle) => candle.low).filter(isFiniteNumber);
+  const candleVolumes = candles.map((candle) => candle.volume).filter(isFiniteNumber);
+  const priceCandidates = [...candleHighs, ...candleLows, ...layerPrices];
+  const maxPrice = Math.max(...priceCandidates);
+  const minPrice = Math.min(...priceCandidates);
+  const maxVolume = Math.max(1, ...candleVolumes);
   const priceRange = Math.max(1, maxPrice - minPrice);
   const safeHoverIndex = hoverIndex === null ? null : Math.min(hoverIndex, candles.length - 1);
   const hoveredCandle = safeHoverIndex === null ? candles[candles.length - 1] : candles[safeHoverIndex];
@@ -226,6 +234,19 @@ export function ChartViewport({
     const nextIndex = Math.round((x - paddingX - candleGap / 2) / candleGap);
     setHoverIndex(Math.min(candles.length - 1, Math.max(0, nextIndex)));
   };
+
+  if (!isFiniteNumber(maxPrice) || !isFiniteNumber(minPrice)) {
+    return (
+      <section className="chart-viewport" aria-label={`${context.symbol} ${context.timeframe} K 线图`}>
+        <div className="chart-legend">
+          <strong>{context.symbol}</strong>
+          <span>{context.market}</span>
+          <span>{context.timeframe}</span>
+        </div>
+        <div className="chart-empty-state">行情或策略图层数据异常，无法渲染图表</div>
+      </section>
+    );
+  }
 
   return (
     <section className="chart-viewport" aria-label={`${context.symbol} ${context.timeframe} K 线图`}>
@@ -275,6 +296,10 @@ export function ChartViewport({
                 }
 
                 if (element.kind === "band") {
+                  if (!isFiniteNumber(element.fromPrice) || !isFiniteNumber(element.toPrice)) {
+                    return null;
+                  }
+
                   const y = priceToY(Math.max(element.fromPrice, element.toPrice));
                   const bandHeight = Math.max(2, Math.abs(priceToY(element.fromPrice) - priceToY(element.toPrice)));
                   return (
@@ -290,6 +315,10 @@ export function ChartViewport({
                 }
 
                 if (element.kind === "price-line") {
+                  if (!isFiniteNumber(element.price)) {
+                    return null;
+                  }
+
                   const y = priceToY(element.price);
                   return (
                     <g className={`strategy-price-line ${element.tone}`} key={`${layer.strategyId}-${element.id}`}>
@@ -299,6 +328,10 @@ export function ChartViewport({
                       </text>
                     </g>
                   );
+                }
+
+                if (!isFiniteNumber(element.timestamp) || !isFiniteNumber(element.price)) {
+                  return null;
                 }
 
                 const x = timestampToX(element.timestamp);

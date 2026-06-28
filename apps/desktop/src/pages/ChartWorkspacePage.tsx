@@ -7,6 +7,7 @@ import {
   type Bar,
   type StrategyDefinition,
   type StrategyParameterDefinition,
+  type StrategyRunResult,
 } from "@quant/strategy-engine";
 import {
   Bell,
@@ -200,6 +201,45 @@ function toChartLayerElement(element: ReturnType<typeof runRegisteredStrategy>["
   return null;
 }
 
+function createFailedStrategyRunResult(
+  strategy: StrategyDefinition,
+  settings: StrategyWorkspaceState,
+  symbol: string,
+  market: Market,
+  message: string,
+): StrategyRunResult {
+  return {
+    strategy,
+    input: {
+      symbol,
+      market,
+      timeframe: "15m",
+      bars: [],
+      parameters: settings.parameters,
+      runMode: "backtest",
+      enabled: settings.enabled,
+    },
+    output: {
+      signals: [],
+      overlays: [],
+      render: {
+        strategyId: strategy.key,
+        strategyName: strategy.name,
+        enabled: false,
+        zIndex: 10,
+        elements: [],
+      },
+      metrics: {},
+      logs: [`${strategy.name} 运行失败：${message}`],
+      alerts: [],
+    },
+  };
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "未知错误";
+}
+
 function formatLogTime(timestamp: number) {
   return new Intl.DateTimeFormat("zh-CN", {
     hour: "2-digit",
@@ -227,11 +267,10 @@ export function ChartWorkspacePage() {
     () =>
       presetStrategies.map((strategy, index) => {
         const settings = strategySettings[strategy.key] ?? getDefaultStrategyState(strategy, index);
+        let result: StrategyRunResult;
 
-        return {
-          strategy,
-          settings,
-          result: runRegisteredStrategy(strategyRegistry, {
+        try {
+          result = runRegisteredStrategy(strategyRegistry, {
             strategyKey: strategy.key,
             symbol: activeSymbol.symbol,
             market: activeSymbol.market,
@@ -240,7 +279,15 @@ export function ChartWorkspacePage() {
             runMode: "backtest",
             enabled: settings.enabled,
             parameters: settings.parameters,
-          }),
+          });
+        } catch (error) {
+          result = createFailedStrategyRunResult(strategy, settings, activeSymbol.symbol, activeSymbol.market, getErrorMessage(error));
+        }
+
+        return {
+          strategy,
+          settings,
+          result,
         };
       }),
     [activeSymbol.market, activeSymbol.symbol, strategySettings],
