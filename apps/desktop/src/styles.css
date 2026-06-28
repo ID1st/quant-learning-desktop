@@ -373,6 +373,142 @@ input {
   text-align: center;
 }
 
+.api-config-page {
+  display: grid;
+  gap: 24px;
+}
+
+.module-header {
+  max-width: 780px;
+}
+
+.module-header p {
+  margin: 0 0 8px;
+  color: #42dfad;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.module-header h1 {
+  margin: 0 0 10px;
+  color: #f5f8ff;
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.module-header span {
+  color: #9ca8b8;
+  line-height: 1.7;
+}
+
+.api-config-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 520px) minmax(320px, 420px);
+  gap: 20px;
+  align-items: start;
+}
+
+.module-card {
+  display: grid;
+  gap: 18px;
+  border: 1px solid rgba(73, 91, 112, 0.52);
+  border-radius: 8px;
+  background: rgba(14, 20, 30, 0.92);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+  padding: 22px;
+}
+
+.module-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.module-card-header svg {
+  margin-top: 3px;
+  color: #42dfad;
+}
+
+.module-card-header h2 {
+  margin: 0 0 6px;
+  color: #f5f8ff;
+  font-size: 18px;
+}
+
+.module-card-header p {
+  margin: 0;
+  color: #8f9caf;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.api-config-form label {
+  display: grid;
+  gap: 8px;
+  color: #b9c4d2;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.binding-summary {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(73, 91, 112, 0.42);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.5);
+  padding: 14px;
+}
+
+.binding-summary span,
+.binding-summary small {
+  color: #8f9caf;
+}
+
+.binding-summary strong {
+  color: #f5f8ff;
+  font-size: 22px;
+}
+
+.sync-step-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sync-step-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  border: 1px solid rgba(73, 91, 112, 0.36);
+  border-radius: 8px;
+  color: #8f9caf;
+  padding: 0 12px;
+}
+
+.sync-step-list li.completed {
+  border-color: rgba(33, 192, 139, 0.44);
+  background: rgba(33, 192, 139, 0.09);
+  color: #dffcef;
+}
+
+.sync-step-list svg {
+  color: #4f5f74;
+}
+
+.sync-step-list li.completed svg {
+  color: #42dfad;
+}
+
+.security-note {
+  margin: 0;
+  color: #738095;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
 .app-content {
   min-width: 0;
   padding: 24px;
@@ -439,6 +575,10 @@ input {
 
   .auth-card {
     padding: 24px;
+  }
+
+  .api-config-grid {
+    grid-template-columns: 1fr;
   }
 }
 

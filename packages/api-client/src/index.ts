@@ -15,7 +15,7 @@ class UnconfiguredTransport implements ApiTransport {
   readonly name = "未配置";
 
   async request<TResponse>(): Promise<ApiResult<TResponse>> {
-    throw new Error("第三阶段基础框架尚未配置 API 通信通道。");
+    throw new Error("API 通信通道尚未配置。");
   }
 }
 
