@@ -225,12 +225,22 @@ function getBooleanParameter(parameters: Record<string, unknown>, key: string, f
   return typeof value === "boolean" ? value : fallback;
 }
 
-function averageRange(bars: Bar[]) {
-  if (bars.length === 0) {
+function averageTrueRange(bars: Bar[], period: number, endIndex: number) {
+  const startIndex = Math.max(0, endIndex - period + 1);
+  const window = bars.slice(startIndex, endIndex + 1);
+
+  if (window.length === 0) {
     return 0;
   }
 
-  return bars.reduce((total, bar) => total + Math.max(0, bar.high - bar.low), 0) / bars.length;
+  return (
+    window.reduce((total, bar, index) => {
+      const previousBar = bars[startIndex + index - 1];
+      const previousClose = previousBar?.close ?? bar.close;
+      const trueRange = Math.max(bar.high - bar.low, Math.abs(bar.high - previousClose), Math.abs(bar.low - previousClose));
+      return total + Math.max(0, trueRange);
+    }, 0) / window.length
+  );
 }
 
 function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): StrategyOutput {
@@ -361,8 +371,17 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
 
 function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyInput): StrategyOutput {
   const enabled = input.enabled ?? true;
-  const trendLength = Math.max(2, Math.round(getPositiveNumberParameter(input.parameters, "trendLength", 10)));
-  const targetMultiplier = getPositiveNumberParameter(input.parameters, "targetMultiplier", 1.5);
+  const supertrendFactor = getPositiveNumberParameter(input.parameters, "supertrendFactor", 12);
+  const supertrendAtrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "supertrendAtrPeriod", 90)));
+  const wmaLength = Math.max(2, Math.round(getPositiveNumberParameter(input.parameters, "wmaLength", 40)));
+  const emaLength = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "emaLength", 14)));
+  const confirmationCount = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "confirmationCount", 3)));
+  const showTargets = getBooleanParameter(input.parameters, "showTargets", true);
+  const atrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "atrPeriod", 14)));
+  const stopLossAtrMultiplier = getPositiveNumberParameter(input.parameters, "stopLossAtrMultiplier", 5);
+  const targetOneMultiplier = getPositiveNumberParameter(input.parameters, "targetOneMultiplier", 0.5);
+  const targetTwoMultiplier = getPositiveNumberParameter(input.parameters, "targetTwoMultiplier", 1);
+  const targetThreeMultiplier = getPositiveNumberParameter(input.parameters, "targetThreeMultiplier", 1.5);
   const showStopLoss = getBooleanParameter(input.parameters, "showStopLoss", true);
 
   if (!enabled) {
@@ -377,6 +396,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
     };
   }
 
+  const trendLength = Math.max(2, Math.round((wmaLength + emaLength) / 2));
   const startIndex = Math.max(0, input.bars.length - trendLength - 1);
   const lastBar = input.bars[input.bars.length - 1];
   const trendBars = input.bars.slice(startIndex);
@@ -399,7 +419,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
       return;
     }
 
-    const comparisonBars = input.bars.slice(Math.max(0, index - trendLength), index);
+    const comparisonBars = input.bars.slice(Math.max(0, index - wmaLength), index);
     const priorHigh = Math.max(...comparisonBars.map((item) => item.high));
     const priorLow = Math.min(...comparisonBars.map((item) => item.low));
     const signalType = bar.close > priorHigh ? "buy" : bar.close < priorLow ? "sell" : null;
@@ -430,25 +450,17 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
   const setupSide = latestSignal?.type === "sell" ? "sell" : "buy";
   const projectionBar = latestSignalBar ?? lastBar;
   const projectionIndex = input.bars.indexOf(projectionBar);
-  const riskBars = input.bars.slice(Math.max(0, projectionIndex - trendLength + 1), projectionIndex + 1);
-  const riskRange = Math.max(0.01, averageRange(riskBars));
+  const riskRange = Math.max(0.01, averageTrueRange(input.bars, atrPeriod, projectionIndex));
   const entryPrice = projectionBar.close;
-  const stopPrice = setupSide === "buy" ? projectionBar.low - riskRange : projectionBar.high + riskRange;
+  const stopDistance = riskRange * stopLossAtrMultiplier;
+  const stopPrice = setupSide === "buy" ? projectionBar.low - stopDistance : projectionBar.high + stopDistance;
   const riskDistance = Math.abs(entryPrice - stopPrice);
-  const targetOne = setupSide === "buy" ? entryPrice + riskDistance * 0.5 : entryPrice - riskDistance * 0.5;
-  const targetTwo = setupSide === "buy" ? entryPrice + riskDistance : entryPrice - riskDistance;
-  const targetThree = setupSide === "buy" ? entryPrice + riskDistance * targetMultiplier : entryPrice - riskDistance * targetMultiplier;
+  const targetOne = setupSide === "buy" ? entryPrice + riskDistance * targetOneMultiplier : entryPrice - riskDistance * targetOneMultiplier;
+  const targetTwo = setupSide === "buy" ? entryPrice + riskDistance * targetTwoMultiplier : entryPrice - riskDistance * targetTwoMultiplier;
+  const targetThree = setupSide === "buy" ? entryPrice + riskDistance * targetThreeMultiplier : entryPrice - riskDistance * targetThreeMultiplier;
   const projectionStart = projectionBar.timestamp;
 
   elements.push(
-    {
-      id: "trend-targets-target-zone",
-      kind: "band",
-      fromPrice: Math.min(entryPrice, targetThree),
-      toPrice: Math.max(entryPrice, targetThree),
-      tone: "target",
-      fromTimestamp: projectionStart,
-    },
     {
       id: "trend-targets-risk-zone",
       kind: "band",
@@ -465,31 +477,44 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
       tone: "neutral",
       fromTimestamp: projectionStart,
     },
-    {
-      id: "trend-targets-target-1",
-      kind: "price-line",
-      price: targetOne,
-      label: `✓ TP1 ▸ ${targetOne.toFixed(2)}`,
-      tone: "target",
-      fromTimestamp: projectionStart,
-    },
-    {
-      id: "trend-targets-target-2",
-      kind: "price-line",
-      price: targetTwo,
-      label: `✓ TP2 ▸ ${targetTwo.toFixed(2)}`,
-      tone: "target",
-      fromTimestamp: projectionStart,
-    },
-    {
-      id: "trend-targets-target-3",
-      kind: "price-line",
-      price: targetThree,
-      label: `✓ TP3 ▸ ${targetThree.toFixed(2)}`,
-      tone: "target",
-      fromTimestamp: projectionStart,
-    },
   );
+
+  if (showTargets) {
+    elements.push(
+      {
+        id: "trend-targets-target-zone",
+        kind: "band",
+        fromPrice: Math.min(entryPrice, targetThree),
+        toPrice: Math.max(entryPrice, targetThree),
+        tone: "target",
+        fromTimestamp: projectionStart,
+      },
+      {
+        id: "trend-targets-target-1",
+        kind: "price-line",
+        price: targetOne,
+        label: `✓ 目标1 ▸ ${targetOne.toFixed(2)}`,
+        tone: "target",
+        fromTimestamp: projectionStart,
+      },
+      {
+        id: "trend-targets-target-2",
+        kind: "price-line",
+        price: targetTwo,
+        label: `✓ 目标2 ▸ ${targetTwo.toFixed(2)}`,
+        tone: "target",
+        fromTimestamp: projectionStart,
+      },
+      {
+        id: "trend-targets-target-3",
+        kind: "price-line",
+        price: targetThree,
+        label: `✓ 目标3 ▸ ${targetThree.toFixed(2)}`,
+        tone: "target",
+        fromTimestamp: projectionStart,
+      },
+    );
+  }
 
   if (showStopLoss) {
     elements.push({
@@ -515,6 +540,10 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
     metrics: {
       trendSlope: slope,
       averageRange: riskRange,
+      averageTrueRange: riskRange,
+      supertrendFactor,
+      supertrendAtrPeriod,
+      confirmationCount,
       entryPrice,
       stopPrice,
       targetOne,
@@ -582,14 +611,73 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
     supportedTimeframes: ["15m", "30m", "1h", "1d"],
     parameterSchema: [
       {
-        key: "trendLength",
-        label: "趋势长度",
+        key: "supertrendFactor",
+        label: "Supertrend 因子",
         type: "number",
-        defaultValue: 10,
+        defaultValue: 12,
+        description: "保留自 Pine Script 的趋势带宽参数，完整 Supertrend 复刻时将用于趋势带计算。",
       },
       {
-        key: "targetMultiplier",
-        label: "目标倍数",
+        key: "supertrendAtrPeriod",
+        label: "Supertrend ATR 周期",
+        type: "number",
+        defaultValue: 90,
+        description: "保留自 Pine Script 的 Supertrend ATR 周期。",
+      },
+      {
+        key: "wmaLength",
+        label: "WMA 长度",
+        type: "number",
+        defaultValue: 40,
+        description: "用于当前最小转译的趋势窗口。",
+      },
+      {
+        key: "emaLength",
+        label: "EMA 长度",
+        type: "number",
+        defaultValue: 14,
+        description: "用于估算趋势线平滑长度。",
+      },
+      {
+        key: "confirmationCount",
+        label: "确认次数",
+        type: "number",
+        defaultValue: 3,
+        description: "保留自 Pine Script 的拒绝信号确认次数。",
+      },
+      {
+        key: "showTargets",
+        label: "显示止盈水平",
+        type: "boolean",
+        defaultValue: true,
+      },
+      {
+        key: "atrPeriod",
+        label: "波动率 ATR 周期",
+        type: "number",
+        defaultValue: 14,
+      },
+      {
+        key: "stopLossAtrMultiplier",
+        label: "止损 ATR 倍数",
+        type: "number",
+        defaultValue: 5,
+      },
+      {
+        key: "targetOneMultiplier",
+        label: "目标1 倍数",
+        type: "number",
+        defaultValue: 0.5,
+      },
+      {
+        key: "targetTwoMultiplier",
+        label: "目标2 倍数",
+        type: "number",
+        defaultValue: 1,
+      },
+      {
+        key: "targetThreeMultiplier",
+        label: "目标3 倍数",
         type: "number",
         defaultValue: 1.5,
       },

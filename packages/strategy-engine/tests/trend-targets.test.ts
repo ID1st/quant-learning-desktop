@@ -45,6 +45,27 @@ test("Trend Targets creates bullish breakout target visuals", () => {
   assert.equal(result.output.render.elements.filter((element) => element.kind === "signal-marker").length, 1);
 });
 
+test("Trend Targets exposes Pine-style core parameters", () => {
+  const registry = createPresetStrategyRegistry();
+  const strategy = registry.get("trend-targets");
+  const parameterKeys = strategy?.parameterSchema.map((parameter) => parameter.key) ?? [];
+
+  assert.deepEqual(parameterKeys, [
+    "supertrendFactor",
+    "supertrendAtrPeriod",
+    "wmaLength",
+    "emaLength",
+    "confirmationCount",
+    "showTargets",
+    "atrPeriod",
+    "stopLossAtrMultiplier",
+    "targetOneMultiplier",
+    "targetTwoMultiplier",
+    "targetThreeMultiplier",
+    "showStopLoss",
+  ]);
+});
+
 test("Trend Targets creates bearish breakout target visuals", () => {
   const registry = createPresetStrategyRegistry();
   const result = runRegisteredStrategy(registry, {
@@ -60,8 +81,8 @@ test("Trend Targets creates bearish breakout target visuals", () => {
       bar(45, 103, 104, 99, 100),
     ],
     parameters: {
-      trendLength: 3,
-      targetMultiplier: 1.5,
+      wmaLength: 3,
+      targetThreeMultiplier: 1.5,
       showStopLoss: false,
     },
   });
@@ -92,8 +113,8 @@ test("Trend Targets projects target lines from the latest signal", () => {
       bar(75, 100, 103, 98, 102),
     ],
     parameters: {
-      trendLength: 3,
-      targetMultiplier: 1.5,
+      wmaLength: 3,
+      targetThreeMultiplier: 1.5,
       showStopLoss: true,
     },
   });
@@ -113,8 +134,44 @@ test("Trend Targets projects target lines from the latest signal", () => {
   assert.equal(projectedPriceLines.length, 5);
   assert.equal(projectedBands.length, 2);
   assert.equal(projectedPriceLines.some((element) => element.label.startsWith("Entry")), true);
-  assert.equal(projectedPriceLines.some((element) => element.label.startsWith("✓ TP3")), true);
+  assert.equal(projectedPriceLines.some((element) => element.label.startsWith("✓ 目标3")), true);
+  assert.equal(projectedPriceLines.some((element) => element.label.includes("TP")), false);
   assert.equal(projectedPriceLines.some((element) => element.label.startsWith("✕ SL")), true);
+});
+
+test("Trend Targets applies ATR stop and target multipliers", () => {
+  const registry = createPresetStrategyRegistry();
+  const result = runRegisteredStrategy(registry, {
+    strategyKey: "trend-targets",
+    symbol: "AAPL",
+    market: "US",
+    timeframe: "15m",
+    runMode: "backtest",
+    bars: [
+      bar(0, 100, 101, 99, 100),
+      bar(15, 100, 102, 99, 101),
+      bar(30, 101, 103, 100, 102),
+      bar(45, 102, 106, 101, 105),
+    ],
+    parameters: {
+      wmaLength: 3,
+      atrPeriod: 2,
+      stopLossAtrMultiplier: 2,
+      targetOneMultiplier: 0.25,
+      targetTwoMultiplier: 0.75,
+      targetThreeMultiplier: 1.25,
+      showTargets: true,
+      showStopLoss: true,
+    },
+  });
+
+  const entryPrice = Number(result.output.metrics.entryPrice);
+  const stopPrice = Number(result.output.metrics.stopPrice);
+  const riskDistance = Math.abs(entryPrice - stopPrice);
+
+  assert.equal(result.output.metrics.targetOne, entryPrice + riskDistance * 0.25);
+  assert.equal(result.output.metrics.targetTwo, entryPrice + riskDistance * 0.75);
+  assert.equal(result.output.metrics.targetThree, entryPrice + riskDistance * 1.25);
 });
 
 test("Trend Targets disabled run keeps render layer disabled", () => {

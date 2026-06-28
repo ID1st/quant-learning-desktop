@@ -110,7 +110,31 @@ function sanitizeParameterValue(parameter: StrategyParameterDefinition, value: u
     return Math.min(60, Math.max(15, numericValue));
   }
 
-  return typeof value === "number" && Number.isFinite(value) ? value : parameter.defaultValue;
+  if (parameter.type === "number") {
+    const numericValue = typeof value === "number" && Number.isFinite(value) ? value : Number(parameter.defaultValue);
+    const minimumValue = isFractionalStrategyParameter(parameter.key) ? 0.1 : 1;
+    return Math.max(minimumValue, numericValue);
+  }
+
+  return parameter.defaultValue;
+}
+
+function isFractionalStrategyParameter(parameterKey: string) {
+  return ["supertrendFactor", "stopLossAtrMultiplier", "targetOneMultiplier", "targetTwoMultiplier", "targetThreeMultiplier"].includes(
+    parameterKey,
+  );
+}
+
+function getNumberInputMinimum(parameterKey: string) {
+  if (parameterKey === "openingRangeMinutes") {
+    return "15";
+  }
+
+  return isFractionalStrategyParameter(parameterKey) ? "0.1" : "1";
+}
+
+function getNumberInputStep(parameterKey: string) {
+  return isFractionalStrategyParameter(parameterKey) ? "0.1" : "1";
 }
 
 function normalizeStrategyState(strategy: StrategyDefinition, index: number, state?: Partial<StrategyWorkspaceState>): StrategyWorkspaceState {
@@ -553,9 +577,9 @@ export function ChartWorkspacePage() {
                       <input
                         id={`${strategy.key}-${parameter.key}`}
                         max={parameter.key === "openingRangeMinutes" ? "60" : undefined}
-                        min={parameter.key === "openingRangeMinutes" ? "15" : "1"}
+                        min={getNumberInputMinimum(parameter.key)}
                         onChange={(event) => updateStrategyParameter(strategy, parameter, event.currentTarget.valueAsNumber)}
-                        step={parameter.key === "targetMultiplier" ? "0.1" : "1"}
+                        step={getNumberInputStep(parameter.key)}
                         type={parameter.key === "openingRangeMinutes" ? "range" : "number"}
                         value={Number(value)}
                       />
