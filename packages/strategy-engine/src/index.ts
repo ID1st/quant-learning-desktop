@@ -1,3 +1,4 @@
+import { crossover, crossunder } from "@quant/pine-runtime";
 import type { Market, Timeframe } from "@quant/shared";
 
 export interface Bar {
@@ -207,6 +208,142 @@ function createPlaceholderOutput(strategy: StrategyDefinition, enabled = true): 
   };
 }
 
+function getNumberParameter(parameters: Record<string, unknown>, key: string, fallback: number) {
+  const value = parameters[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function getBooleanParameter(parameters: Record<string, unknown>, key: string, fallback: boolean) {
+  const value = parameters[key];
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): StrategyOutput {
+  const enabled = input.enabled ?? true;
+  const openingRangeMinutes = getNumberParameter(input.parameters, "openingRangeMinutes", 30);
+  const showTargets = getBooleanParameter(input.parameters, "showTargets", true);
+
+  if (!enabled) {
+    return createPlaceholderOutput(strategy, false);
+  }
+
+  if (input.bars.length < 2) {
+    const output = createPlaceholderOutput(strategy, true);
+    return {
+      ...output,
+      logs: ["UTORB 需要至少 2 根 K 线才能计算开盘区间和突破信号。"],
+    };
+  }
+
+  const sessionStart = input.bars[0].timestamp;
+  const sessionEnd = sessionStart + openingRangeMinutes * 60 * 1000;
+  const openingBars = input.bars.filter((bar) => bar.timestamp < sessionEnd);
+  const effectiveOpeningBars = openingBars.length > 0 ? openingBars : [input.bars[0]];
+  const openingRangeHigh = Math.max(...effectiveOpeningBars.map((bar) => bar.high));
+  const openingRangeLow = Math.min(...effectiveOpeningBars.map((bar) => bar.low));
+  const openingRange = openingRangeHigh - openingRangeLow;
+  const closes = input.bars.map((bar) => bar.close);
+  const highLine = input.bars.map(() => openingRangeHigh);
+  const lowLine = input.bars.map(() => openingRangeLow);
+  const breakoutUp = crossover(closes, highLine);
+  const breakoutDown = crossunder(closes, lowLine);
+  const firstUpIndex = breakoutUp.findIndex((value, index) => value && input.bars[index].timestamp >= sessionEnd);
+  const firstDownIndex = breakoutDown.findIndex((value, index) => value && input.bars[index].timestamp >= sessionEnd);
+  const elements: StrategyVisualElement[] = [
+    {
+      id: "utorb-opening-range-high",
+      kind: "price-line",
+      price: openingRangeHigh,
+      label: "开盘区间高点",
+      tone: "range",
+    },
+    {
+      id: "utorb-opening-range-low",
+      kind: "price-line",
+      price: openingRangeLow,
+      label: "开盘区间低点",
+      tone: "range",
+    },
+    {
+      id: "utorb-opening-range-band",
+      kind: "band",
+      fromPrice: openingRangeLow,
+      toPrice: openingRangeHigh,
+      label: "开盘区间",
+      tone: "range",
+    },
+  ];
+  const signals: StrategySignal[] = [];
+
+  if (showTargets && openingRange > 0) {
+    elements.push(
+      {
+        id: "utorb-target-up-1",
+        kind: "price-line",
+        price: openingRangeHigh + openingRange,
+        label: "上方目标 1",
+        tone: "target",
+      },
+      {
+        id: "utorb-target-down-1",
+        kind: "price-line",
+        price: openingRangeLow - openingRange,
+        label: "下方目标 1",
+        tone: "target",
+      },
+    );
+  }
+
+  if (firstUpIndex >= 0) {
+    const bar = input.bars[firstUpIndex];
+    signals.push({ timestamp: bar.timestamp, type: "buy", price: bar.close, label: "开盘区间上破" });
+    elements.push({
+      id: `utorb-buy-${bar.timestamp}`,
+      kind: "signal-marker",
+      timestamp: bar.timestamp,
+      price: bar.low,
+      direction: "up",
+      tone: "buy",
+    });
+  }
+
+  if (firstDownIndex >= 0) {
+    const bar = input.bars[firstDownIndex];
+    signals.push({ timestamp: bar.timestamp, type: "sell", price: bar.close, label: "开盘区间下破" });
+    elements.push({
+      id: `utorb-sell-${bar.timestamp}`,
+      kind: "signal-marker",
+      timestamp: bar.timestamp,
+      price: bar.high,
+      direction: "down",
+      tone: "sell",
+    });
+  }
+
+  return {
+    signals,
+    overlays: elements,
+    render: {
+      strategyId: strategy.key,
+      strategyName: strategy.name,
+      enabled,
+      zIndex: 10,
+      elements,
+    },
+    metrics: {
+      openingRangeHigh,
+      openingRangeLow,
+      openingRange,
+      signalCount: signals.length,
+    },
+    logs: [
+      `UTORB 已计算开盘区间：${openingRangeLow.toFixed(2)} - ${openingRangeHigh.toFixed(2)}。`,
+      `已生成 ${signals.length} 个突破信号和 ${elements.length} 个图表元素。`,
+    ],
+    alerts: signals.map((signal) => signal.label ?? signal.type),
+  };
+}
+
 export function createPresetStrategyRegistry(): StrategyRegistry {
   const registry = new StrategyRegistry();
 
@@ -245,7 +382,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
         ],
       },
     ],
-    run: (input) => createPlaceholderOutput(utorbStrategy, input.enabled ?? true),
+    run: (input) => runUtorbStrategy(utorbStrategy, input),
   };
 
   const trendTargetsStrategy: StrategyDefinition = {

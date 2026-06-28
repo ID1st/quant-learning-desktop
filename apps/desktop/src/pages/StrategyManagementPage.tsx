@@ -11,14 +11,14 @@ type StrategyStatus = "enabled" | "disabled";
 
 const registry = createPresetStrategyRegistry();
 
-const sampleBars: Bar[] = Array.from({ length: 12 }, (_, index) => ({
-  timestamp: Date.UTC(2026, 0, index + 1),
-  open: 100 + index,
-  high: 102 + index,
-  low: 98 + index,
-  close: 101 + index,
-  volume: 100000 + index * 1500,
-}));
+const sampleStart = Date.UTC(2026, 0, 2, 14, 30);
+const sampleMinute = 60 * 1000;
+const sampleBars: Bar[] = [
+  { timestamp: sampleStart, open: 100, high: 103, low: 99, close: 101, volume: 100000 },
+  { timestamp: sampleStart + 15 * sampleMinute, open: 101, high: 104, low: 100, close: 102, volume: 110000 },
+  { timestamp: sampleStart + 30 * sampleMinute, open: 102, high: 105, low: 101, close: 105, volume: 125000 },
+  { timestamp: sampleStart + 45 * sampleMinute, open: 105, high: 106, low: 97, close: 98, volume: 135000 },
+];
 
 function createInitialStatus(strategies: StrategyDefinition[]) {
   return strategies.reduce<Record<string, StrategyStatus>>((current, strategy, index) => {
@@ -38,7 +38,7 @@ export function StrategyManagementPage() {
         strategyKey: selectedStrategy.key,
         symbol: "AAPL",
         market: "US",
-        timeframe: "1d",
+        timeframe: "15m",
         bars: sampleBars,
         runMode: "backtest",
         enabled: strategyStatus[selectedStrategy.key] === "enabled",
@@ -164,7 +164,7 @@ export function StrategyManagementPage() {
             <Play size={20} />
             <div>
               <h2>运行状态</h2>
-              <p>当前为策略运行占位，不执行 Pine 转译代码。</p>
+              <p>当前执行最小策略运行链路，完整 Pine 转译将在后续模块继续。</p>
             </div>
           </div>
 
@@ -175,8 +175,11 @@ export function StrategyManagementPage() {
 
           {runResult && (
             <div className="runtime-status">
-              <strong>运行器占位</strong>
-              <span>参数 {Object.keys(runResult.input.parameters).length} 项，图层 {runResult.output.render.enabled ? "启用" : "停用"}。</span>
+              <strong>运行器结果</strong>
+              <span>
+                参数 {Object.keys(runResult.input.parameters).length} 项，信号 {runResult.output.signals.length} 个，图层元素{" "}
+                {runResult.output.render.elements.length} 个。
+              </span>
             </div>
           )}
 
@@ -191,7 +194,7 @@ export function StrategyManagementPage() {
             </div>
             <div>
               <ListChecks size={16} />
-              <span>下一步将接入参数保存与策略运行器。</span>
+              <span>下一步将接入参数保存与图表叠加渲染。</span>
             </div>
           </div>
         </aside>

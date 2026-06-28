@@ -5,5 +5,5 @@
     "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/strategy-engine.tsbuildinfo"
   },
   "include": ["src"],
-  "references": [{ "path": "../shared" }]
+  "references": [{ "path": "../shared" }, { "path": "../pine-runtime" }]
 }
