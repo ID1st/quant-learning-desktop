@@ -20,6 +20,7 @@
       "@quant/shared": ["packages/shared/src/index.ts"],
       "@quant/api-client": ["packages/api-client/src/index.ts"],
       "@quant/chart": ["packages/chart/src/index.tsx"],
+      "@quant/pine-runtime": ["packages/pine-runtime/src/index.ts"],
       "@quant/plugin-loader": ["packages/plugin-loader/src/index.ts"],
       "@quant/strategy-engine": ["packages/strategy-engine/src/index.ts"],
       "@quant/ui": ["packages/ui/src/index.ts"]

@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/pine-runtime.tsbuildinfo"
+  },
+  "include": ["src", "tests"],
+  "references": [{ "path": "../shared" }]
+}

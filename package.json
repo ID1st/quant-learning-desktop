@@ -11,6 +11,7 @@
     "dev": "npm run dev -w @quant/desktop",
     "build": "npm run build -w @quant/desktop",
     "typecheck": "tsc -p tsconfig.check.json --noEmit",
+    "test:pine-runtime": "node --test --experimental-strip-types packages/pine-runtime/tests/*.test.ts",
     "clean": "node scripts/clean.mjs"
   },
   "devDependencies": {
