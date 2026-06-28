@@ -1,6 +1,7 @@
-import { Activity, BarChart3, KeyRound, LayoutDashboard, Settings, TerminalSquare } from "lucide-react";
+import { Activity, BarChart3, KeyRound, LayoutDashboard, LogOut, Settings, TerminalSquare } from "lucide-react";
 import type { PropsWithChildren } from "react";
 import type { AppRoute } from "@quant/shared";
+import { useAuthStore } from "../features/auth/authStore";
 import { useAppStore } from "../state/appStore";
 
 const navItems: Array<{ route: AppRoute; label: string; icon: typeof LayoutDashboard }> = [
@@ -14,6 +15,16 @@ const navItems: Array<{ route: AppRoute; label: string; icon: typeof LayoutDashb
 export function AppShell({ children }: PropsWithChildren) {
   const currentRoute = useAppStore((state) => state.currentRoute);
   const navigate = useAppStore((state) => state.navigate);
+  const clearSession = useAuthStore((state) => state.clearSession);
+
+  if (currentRoute === "login") {
+    return <main className="auth-shell">{children}</main>;
+  }
+
+  const handleLogout = () => {
+    clearSession();
+    navigate("login");
+  };
 
   return (
     <main className="app-shell">
@@ -38,6 +49,10 @@ export function AppShell({ children }: PropsWithChildren) {
             );
           })}
         </nav>
+        <button className="logout-button" onClick={handleLogout} type="button">
+          <LogOut size={18} />
+          <span>退出登录</span>
+        </button>
       </aside>
       <section className="app-content">{children}</section>
     </main>

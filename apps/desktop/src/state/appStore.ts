@@ -9,7 +9,7 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  currentRoute: "dashboard",
+  currentRoute: "login",
   theme: "dark",
   navigate: (route) => set({ currentRoute: route }),
   setTheme: (theme) => set({ theme }),

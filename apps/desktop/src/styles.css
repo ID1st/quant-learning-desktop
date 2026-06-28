@@ -20,6 +20,10 @@ button {
   font: inherit;
 }
 
+input {
+  font: inherit;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 248px 1fr;
@@ -27,6 +31,8 @@ button {
 }
 
 .app-sidebar {
+  display: flex;
+  flex-direction: column;
   border-right: 1px solid #25303a;
   background: #0b1117;
   padding: 16px;
@@ -68,6 +74,176 @@ button {
   color: #d9e2ea;
 }
 
+.logout-button {
+  margin-top: auto;
+}
+
+.auth-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 22% 20%, rgba(31, 125, 242, 0.16), transparent 26%),
+    #080d12;
+}
+
+.login-page {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(360px, 440px);
+  align-items: center;
+  gap: 48px;
+  width: min(1080px, calc(100vw - 40px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.login-brand {
+  display: grid;
+  gap: 14px;
+}
+
+.login-mark {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 1px solid #25303a;
+  border-radius: 8px;
+  background: #10161d;
+  color: #d9e2ea;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.login-brand p,
+.auth-note {
+  margin: 0;
+  color: #1f7df2;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.login-brand h1 {
+  margin: 0;
+  color: #f4f7fb;
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 1.05;
+}
+
+.login-brand span,
+.auth-card label span,
+.auth-note {
+  color: #8d9aa8;
+}
+
+.auth-card {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #25303a;
+  border-radius: 8px;
+  background: rgba(16, 22, 29, 0.94);
+  padding: 22px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #25303a;
+  border-radius: 6px;
+  background: #0b1117;
+}
+
+.auth-tabs button,
+.primary-auth-action,
+.inline-input button {
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #8d9aa8;
+  cursor: pointer;
+}
+
+.auth-tabs button.active,
+.primary-auth-action {
+  background: #1f7df2;
+  color: #fff;
+}
+
+.auth-card label {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.input-shell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  border: 1px solid #25303a;
+  border-radius: 6px;
+  background: #0b1117;
+  padding: 0 10px;
+  color: #8d9aa8;
+}
+
+.input-shell input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #d9e2ea;
+}
+
+.inline-input {
+  display: grid;
+  grid-template-columns: 1fr 112px;
+  gap: 8px;
+}
+
+.inline-input button {
+  border-color: #25303a;
+  background: #111821;
+  color: #d9e2ea;
+}
+
+.auth-note {
+  line-height: 1.6;
+}
+
+.auth-message {
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.auth-message.error {
+  border: 1px solid rgba(239, 75, 69, 0.36);
+  background: rgba(239, 75, 69, 0.12);
+  color: #ffaaa6;
+}
+
+.auth-message.success {
+  border: 1px solid rgba(33, 192, 139, 0.34);
+  background: rgba(33, 192, 139, 0.1);
+  color: #7ee4bf;
+}
+
+.primary-auth-action {
+  height: 42px;
+  font-weight: 700;
+}
+
+.primary-auth-action:disabled,
+.inline-input button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .app-content {
   min-width: 0;
   padding: 24px;
@@ -106,5 +282,10 @@ button {
   .app-sidebar {
     border-right: 0;
     border-bottom: 1px solid #25303a;
+  }
+
+  .login-page {
+    grid-template-columns: 1fr;
+    gap: 28px;
   }
 }
