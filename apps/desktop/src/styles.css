@@ -565,7 +565,8 @@ input {
 .timeframe-tabs button,
 .chart-toggle-group button,
 .chart-tool-rail button,
-.panel-heading button {
+.panel-heading button,
+.layer-list-heading button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -584,7 +585,8 @@ input {
 .timeframe-tabs button:hover,
 .chart-toggle-group button:hover,
 .chart-tool-rail button:hover,
-.panel-heading button:hover {
+.panel-heading button:hover,
+.layer-list-heading button:hover {
   border-color: rgba(51, 112, 255, 0.72);
   background: rgba(51, 112, 255, 0.16);
   color: #f5f8ff;
@@ -783,7 +785,9 @@ input {
 
 .watchlist-panel {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
+  align-content: start;
+  gap: 12px;
   min-width: 0;
   padding: 14px;
 }
@@ -851,6 +855,68 @@ input {
 
 .watchlist-items small.positive {
   color: #42dfad;
+}
+
+.layer-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  border-top: 1px solid rgba(73, 91, 112, 0.34);
+  padding-top: 12px;
+}
+
+.layer-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.layer-list-heading span {
+  color: #f5f8ff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.layer-list-heading button {
+  min-width: 30px;
+  height: 30px;
+}
+
+.layer-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(73, 91, 112, 0.34);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.42);
+  padding: 10px;
+}
+
+.layer-item.active {
+  border-color: rgba(66, 223, 173, 0.48);
+  background: rgba(66, 223, 173, 0.08);
+}
+
+.layer-item span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.layer-item strong {
+  color: #f5f8ff;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layer-item small {
+  color: #8f9caf;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .watchlist-items small.negative {

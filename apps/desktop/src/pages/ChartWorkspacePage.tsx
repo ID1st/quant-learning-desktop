@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ChartViewport, type CandlePoint, type ChartLayer, type ChartLayerElement } from "@quant/chart";
 import type { Market, Timeframe } from "@quant/shared";
 import { createPresetStrategyRegistry, runRegisteredStrategy, type Bar } from "@quant/strategy-engine";
-import { Crosshair, Gauge, LineChart, MousePointer2, PencilLine, Plus, Ruler, Settings2 } from "lucide-react";
+import { Crosshair, Eye, EyeOff, Gauge, Layers3, LineChart, MousePointer2, PencilLine, Plus, Ruler, Settings2 } from "lucide-react";
 
 const symbols: Array<{ symbol: string; name: string; market: Market; price: string; change: string }> = [
   { symbol: "AAPL", name: "Apple Inc.", market: "US", price: "219.48", change: "+1.03%" },
@@ -40,6 +40,7 @@ export function ChartWorkspacePage() {
   const [activeSymbol, setActiveSymbol] = useState(symbols[0]);
   const [timeframe, setTimeframe] = useState<Timeframe>("15m");
   const [showSignals, setShowSignals] = useState(true);
+  const [showStrategyLayers, setShowStrategyLayers] = useState(true);
   const [showMovingAverage, setShowMovingAverage] = useState(true);
   const utorbRun = useMemo(
     () =>
@@ -66,6 +67,8 @@ export function ChartWorkspacePage() {
     ],
     [utorbRun],
   );
+  const canShowStrategyLayers = showStrategyLayers && timeframe === "15m";
+  const strategyLayerElementCount = strategyLayers.reduce((total, layer) => total + layer.elements.length, 0);
 
   return (
     <section className="chart-workspace-page">
@@ -92,6 +95,14 @@ export function ChartWorkspacePage() {
           <button className={showSignals ? "active" : ""} onClick={() => setShowSignals((value) => !value)} type="button">
             <Gauge size={16} />
             <span>信号</span>
+          </button>
+          <button
+            className={canShowStrategyLayers ? "active" : ""}
+            onClick={() => setShowStrategyLayers((value) => !value)}
+            type="button"
+          >
+            <Layers3 size={16} />
+            <span>策略图层</span>
           </button>
         </div>
       </header>
@@ -121,7 +132,7 @@ export function ChartWorkspacePage() {
             context={{ symbol: activeSymbol.symbol, market: activeSymbol.market, timeframe }}
             showMovingAverage={showMovingAverage}
             showSignals={showSignals}
-            showStrategyLayers={showSignals && timeframe === "15m"}
+            showStrategyLayers={canShowStrategyLayers}
             strategyLayers={strategyLayers}
           />
         </main>
@@ -156,6 +167,29 @@ export function ChartWorkspacePage() {
               </button>
             ))}
           </div>
+
+          <div className="layer-list">
+            <div className="layer-list-heading">
+              <span>策略图层</span>
+              <button
+                aria-label={showStrategyLayers ? "隐藏策略图层" : "显示策略图层"}
+                onClick={() => setShowStrategyLayers((value) => !value)}
+                type="button"
+              >
+                {showStrategyLayers ? <Eye size={16} /> : <EyeOff size={16} />}
+              </button>
+            </div>
+
+            {strategyLayers.map((layer) => (
+              <div className={canShowStrategyLayers ? "layer-item active" : "layer-item"} key={layer.strategyId}>
+                <span>
+                  <strong>{layer.strategyName}</strong>
+                  <small>{timeframe === "15m" ? `${layer.elements.length} 个元素` : "仅 15m 样例可用"}</small>
+                </span>
+                <small>{canShowStrategyLayers ? "显示中" : "已隐藏"}</small>
+              </div>
+            ))}
+          </div>
         </aside>
       </div>
 
@@ -164,9 +198,11 @@ export function ChartWorkspacePage() {
           <p>策略面板</p>
           <strong>UTORB 图层已接入</strong>
           <span>
-            {timeframe === "15m"
-              ? `信号 ${utorbRun.output.signals.length} 个，图层元素 ${strategyLayers[0]?.elements.length ?? 0} 个。`
-              : "切换到 15m 周期可查看 UTORB 图层样例。"}
+            {canShowStrategyLayers
+              ? `信号 ${utorbRun.output.signals.length} 个，图层元素 ${strategyLayerElementCount} 个。`
+              : timeframe === "15m"
+                ? "策略图层已隐藏，可在右侧图层面板重新显示。"
+                : "切换到 15m 周期可查看 UTORB 图层样例。"}
           </span>
         </div>
         <div>
