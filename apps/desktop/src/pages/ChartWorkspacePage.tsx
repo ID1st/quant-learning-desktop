@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChartViewport, type CandlePoint, type ChartLayer, type ChartLayerElement } from "@quant/chart";
 import type { Market, Timeframe } from "@quant/shared";
-import { createPresetStrategyRegistry, runRegisteredStrategy, type Bar } from "@quant/strategy-engine";
+import {
+  createPresetStrategyRegistry,
+  runRegisteredStrategy,
+  type Bar,
+  type StrategyDefinition,
+  type StrategyParameterDefinition,
+} from "@quant/strategy-engine";
 import {
   Bell,
   CheckCircle2,
@@ -43,51 +49,138 @@ const chartCandles: CandlePoint[] = chartBars.map((bar, index) => ({
   time: `15m #${index + 1}`,
 }));
 const strategyRegistry = createPresetStrategyRegistry();
+const presetStrategies = strategyRegistry.list();
 const WORKSPACE_PREFERENCES_KEY = "quant-learning.chart-workspace-preferences";
 
+interface StrategyWorkspaceState {
+  enabled: boolean;
+  showLayer: boolean;
+  parameters: Record<string, unknown>;
+}
+
 interface ChartWorkspacePreferences {
-  version: 1;
+  version: 2;
   showSignals: boolean;
   showStrategyLayers: boolean;
   showMovingAverage: boolean;
-  openingRangeMinutes: number;
-  showTargets: boolean;
+  strategies: Record<string, StrategyWorkspaceState>;
 }
 
-const defaultWorkspacePreferences: ChartWorkspacePreferences = {
-  version: 1,
-  showSignals: true,
-  showStrategyLayers: true,
-  showMovingAverage: true,
-  openingRangeMinutes: 30,
-  showTargets: true,
-};
-
-function normalizeOpeningRangeMinutes(value: unknown) {
-  const numericValue = typeof value === "number" && Number.isFinite(value) ? value : defaultWorkspacePreferences.openingRangeMinutes;
-  return Math.min(60, Math.max(15, numericValue));
+function getDefaultParameters(strategy: StrategyDefinition) {
+  return strategy.parameterSchema.reduce<Record<string, unknown>>((parameters, parameter) => {
+    parameters[parameter.key] = parameter.defaultValue;
+    return parameters;
+  }, {});
 }
 
-function readWorkspacePreferences() {
+function getDefaultStrategyState(strategy: StrategyDefinition, index: number): StrategyWorkspaceState {
+  return {
+    enabled: index === 0,
+    showLayer: true,
+    parameters: getDefaultParameters(strategy),
+  };
+}
+
+function createDefaultWorkspacePreferences(): ChartWorkspacePreferences {
+  return {
+    version: 2,
+    showSignals: true,
+    showStrategyLayers: true,
+    showMovingAverage: true,
+    strategies: presetStrategies.reduce<Record<string, StrategyWorkspaceState>>((settings, strategy, index) => {
+      settings[strategy.key] = getDefaultStrategyState(strategy, index);
+      return settings;
+    }, {}),
+  };
+}
+
+function sanitizeParameterValue(parameter: StrategyParameterDefinition, value: unknown) {
+  if (parameter.type === "boolean") {
+    return typeof value === "boolean" ? value : parameter.defaultValue;
+  }
+
+  if (parameter.type === "select") {
+    const optionValues = parameter.options?.map((option) => option.value) ?? [];
+    return typeof value === "string" && optionValues.includes(value) ? value : parameter.defaultValue;
+  }
+
+  if (parameter.key === "openingRangeMinutes") {
+    const numericValue = typeof value === "number" && Number.isFinite(value) ? value : Number(parameter.defaultValue);
+    return Math.min(60, Math.max(15, numericValue));
+  }
+
+  return typeof value === "number" && Number.isFinite(value) ? value : parameter.defaultValue;
+}
+
+function normalizeStrategyState(strategy: StrategyDefinition, index: number, state?: Partial<StrategyWorkspaceState>): StrategyWorkspaceState {
+  const defaultState = getDefaultStrategyState(strategy, index);
+  const incomingParameters = state?.parameters ?? {};
+
+  return {
+    enabled: typeof state?.enabled === "boolean" ? state.enabled : defaultState.enabled,
+    showLayer: typeof state?.showLayer === "boolean" ? state.showLayer : defaultState.showLayer,
+    parameters: strategy.parameterSchema.reduce<Record<string, unknown>>((parameters, parameter) => {
+      parameters[parameter.key] = sanitizeParameterValue(parameter, incomingParameters[parameter.key]);
+      return parameters;
+    }, {}),
+  };
+}
+
+function readWorkspacePreferences(): ChartWorkspacePreferences {
+  const defaultPreferences = createDefaultWorkspacePreferences();
+
   try {
     const value = window.localStorage.getItem(WORKSPACE_PREFERENCES_KEY);
-    const parsed = value ? (JSON.parse(value) as Partial<ChartWorkspacePreferences>) : null;
+    const parsed = value ? JSON.parse(value) : null;
 
-    if (!parsed || parsed.version !== 1) {
-      return defaultWorkspacePreferences;
+    if (!parsed) {
+      return defaultPreferences;
+    }
+
+    if (parsed.version === 1) {
+      const migratedStrategies = { ...defaultPreferences.strategies };
+      const utorbIndex = presetStrategies.findIndex((strategy) => strategy.key === "utorb");
+      const utorbStrategy = presetStrategies[utorbIndex];
+      const utorbState = migratedStrategies.utorb;
+
+      if (utorbState && utorbStrategy) {
+        migratedStrategies.utorb = normalizeStrategyState(utorbStrategy, utorbIndex, {
+          ...utorbState,
+          parameters: {
+            ...utorbState.parameters,
+            openingRangeMinutes: parsed.openingRangeMinutes,
+            showTargets: parsed.showTargets,
+          },
+        });
+      }
+
+      return {
+        ...defaultPreferences,
+        showSignals: typeof parsed.showSignals === "boolean" ? parsed.showSignals : defaultPreferences.showSignals,
+        showStrategyLayers:
+          typeof parsed.showStrategyLayers === "boolean" ? parsed.showStrategyLayers : defaultPreferences.showStrategyLayers,
+        showMovingAverage: typeof parsed.showMovingAverage === "boolean" ? parsed.showMovingAverage : defaultPreferences.showMovingAverage,
+        strategies: migratedStrategies,
+      };
+    }
+
+    if (parsed.version !== 2) {
+      return defaultPreferences;
     }
 
     return {
-      version: 1,
-      showSignals: typeof parsed.showSignals === "boolean" ? parsed.showSignals : defaultWorkspacePreferences.showSignals,
+      version: 2,
+      showSignals: typeof parsed.showSignals === "boolean" ? parsed.showSignals : defaultPreferences.showSignals,
       showStrategyLayers:
-        typeof parsed.showStrategyLayers === "boolean" ? parsed.showStrategyLayers : defaultWorkspacePreferences.showStrategyLayers,
-      showMovingAverage: typeof parsed.showMovingAverage === "boolean" ? parsed.showMovingAverage : defaultWorkspacePreferences.showMovingAverage,
-      openingRangeMinutes: normalizeOpeningRangeMinutes(parsed.openingRangeMinutes),
-      showTargets: typeof parsed.showTargets === "boolean" ? parsed.showTargets : defaultWorkspacePreferences.showTargets,
+        typeof parsed.showStrategyLayers === "boolean" ? parsed.showStrategyLayers : defaultPreferences.showStrategyLayers,
+      showMovingAverage: typeof parsed.showMovingAverage === "boolean" ? parsed.showMovingAverage : defaultPreferences.showMovingAverage,
+      strategies: presetStrategies.reduce<Record<string, StrategyWorkspaceState>>((settings, strategy, index) => {
+        settings[strategy.key] = normalizeStrategyState(strategy, index, parsed.strategies?.[strategy.key]);
+        return settings;
+      }, {}),
     };
   } catch {
-    return defaultWorkspacePreferences;
+    return defaultPreferences;
   }
 }
 
@@ -129,65 +222,99 @@ export function ChartWorkspacePage() {
   const [showSignals, setShowSignals] = useState(workspacePreferences.showSignals);
   const [showStrategyLayers, setShowStrategyLayers] = useState(workspacePreferences.showStrategyLayers);
   const [showMovingAverage, setShowMovingAverage] = useState(workspacePreferences.showMovingAverage);
-  const [openingRangeMinutes, setOpeningRangeMinutes] = useState(workspacePreferences.openingRangeMinutes);
-  const [showTargets, setShowTargets] = useState(workspacePreferences.showTargets);
-  const utorbRun = useMemo(
+  const [strategySettings, setStrategySettings] = useState(workspacePreferences.strategies);
+  const strategyRuns = useMemo(
     () =>
-      runRegisteredStrategy(strategyRegistry, {
-        strategyKey: "utorb",
-        symbol: activeSymbol.symbol,
-        market: activeSymbol.market,
-        timeframe: "15m",
-        bars: chartBars,
-        runMode: "backtest",
-        parameters: {
-          openingRangeMinutes,
-          showTargets,
-        },
+      presetStrategies.map((strategy, index) => {
+        const settings = strategySettings[strategy.key] ?? getDefaultStrategyState(strategy, index);
+
+        return {
+          strategy,
+          settings,
+          result: runRegisteredStrategy(strategyRegistry, {
+            strategyKey: strategy.key,
+            symbol: activeSymbol.symbol,
+            market: activeSymbol.market,
+            timeframe: "15m",
+            bars: chartBars,
+            runMode: "backtest",
+            enabled: settings.enabled,
+            parameters: settings.parameters,
+          }),
+        };
       }),
-    [activeSymbol.market, activeSymbol.symbol, openingRangeMinutes, showTargets],
+    [activeSymbol.market, activeSymbol.symbol, strategySettings],
   );
   const strategyLayers = useMemo<ChartLayer[]>(
-    () => [
-      {
-        ...utorbRun.output.render,
-        elements: utorbRun.output.render.elements.map(toChartLayerElement).filter((element): element is ChartLayerElement => element !== null),
-      },
-    ],
-    [utorbRun],
+    () =>
+      strategyRuns.map(({ result, settings }) => ({
+        ...result.output.render,
+        enabled: result.output.render.enabled && settings.enabled && settings.showLayer,
+        elements: result.output.render.elements.map(toChartLayerElement).filter((element): element is ChartLayerElement => element !== null),
+      })),
+    [strategyRuns],
   );
   const canShowStrategyLayers = showStrategyLayers && timeframe === "15m";
-  const strategyLayerElementCount = strategyLayers.reduce((total, layer) => total + layer.elements.length, 0);
-  const strategyLogTime = formatLogTime(sampleStart + openingRangeMinutes * sampleMinute);
-  const strategyLogItems = [
-    `运行 ${utorbRun.strategy.name}，标的 ${activeSymbol.symbol}，周期 15m。`,
-    ...utorbRun.output.logs,
-    ...utorbRun.output.alerts.map((alert) => `提醒：${alert}`),
-  ];
-  const signalRows = utorbRun.output.signals.map((signal, index) => ({
-    id: `${signal.type}-${signal.timestamp}-${index}`,
-    time: formatSignalTime(signal.timestamp),
-    direction: signal.type === "buy" ? "买入" : signal.type === "sell" ? "卖出" : "提醒",
-    tone: signal.type,
-    price: signal.price === undefined ? "-" : signal.price.toFixed(2),
-    label: signal.label ?? "策略信号",
-  }));
-  const handleOpeningRangeChange = (value: number) => {
-    setOpeningRangeMinutes(normalizeOpeningRangeMinutes(value));
+  const strategyLayerElementCount = strategyLayers.reduce((total, layer) => total + (layer.enabled ? layer.elements.length : 0), 0);
+  const enabledStrategyCount = strategyRuns.filter(({ settings }) => settings.enabled).length;
+  const totalSignalCount = strategyRuns.reduce((total, { result }) => total + result.output.signals.length, 0);
+  const strategyLogTime = formatLogTime(sampleStart + 30 * sampleMinute);
+  const strategyLogItems = strategyRuns.flatMap(({ result, settings }) =>
+    settings.enabled
+      ? [
+          `运行 ${result.strategy.name}，标的 ${activeSymbol.symbol}，周期 15m。`,
+          ...result.output.logs,
+          ...result.output.alerts.map((alert) => `提醒：${alert}`),
+        ]
+      : [`${result.strategy.name} 当前已停用。`],
+  );
+  const signalRows = strategyRuns.flatMap(({ result }) =>
+    result.output.signals.map((signal, index) => ({
+      id: `${result.strategy.key}-${signal.type}-${signal.timestamp}-${index}`,
+      strategyName: result.strategy.name,
+      time: formatSignalTime(signal.timestamp),
+      direction: signal.type === "buy" ? "买入" : signal.type === "sell" ? "卖出" : "提醒",
+      tone: signal.type,
+      price: signal.price === undefined ? "-" : signal.price.toFixed(2),
+      label: signal.label ?? "策略信号",
+    })),
+  );
+  const updateStrategyState = (strategyKey: string, updater: (state: StrategyWorkspaceState) => StrategyWorkspaceState) => {
+    setStrategySettings((current) => {
+      const strategyIndex = presetStrategies.findIndex((strategy) => strategy.key === strategyKey);
+      const strategy = presetStrategies[strategyIndex];
+
+      if (!strategy) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [strategyKey]: updater(current[strategyKey] ?? getDefaultStrategyState(strategy, strategyIndex)),
+      };
+    });
+  };
+  const updateStrategyParameter = (strategy: StrategyDefinition, parameter: StrategyParameterDefinition, value: unknown) => {
+    updateStrategyState(strategy.key, (state) => ({
+      ...state,
+      parameters: {
+        ...state.parameters,
+        [parameter.key]: sanitizeParameterValue(parameter, value),
+      },
+    }));
   };
 
   useEffect(() => {
     const preferences: ChartWorkspacePreferences = {
-      version: 1,
+      version: 2,
       showSignals,
       showStrategyLayers,
       showMovingAverage,
-      openingRangeMinutes,
-      showTargets,
+      strategies: strategySettings,
     };
 
     saveWorkspacePreferences(preferences);
-  }, [openingRangeMinutes, showMovingAverage, showSignals, showStrategyLayers, showTargets]);
+  }, [showMovingAverage, showSignals, showStrategyLayers, strategySettings]);
 
   return (
     <section className="chart-workspace-page">
@@ -299,43 +426,99 @@ export function ChartWorkspacePage() {
               </button>
             </div>
 
-            {strategyLayers.map((layer) => (
-              <div className={canShowStrategyLayers ? "layer-item active" : "layer-item"} key={layer.strategyId}>
+            {strategyRuns.map(({ strategy, settings, result }) => (
+              <div className={settings.enabled && canShowStrategyLayers && settings.showLayer ? "layer-item active" : "layer-item"} key={strategy.key}>
                 <span>
-                  <strong>{layer.strategyName}</strong>
-                  <small>{timeframe === "15m" ? `${layer.elements.length} 个元素` : "仅 15m 样例可用"}</small>
+                  <strong>{strategy.name}</strong>
+                  <small>{timeframe === "15m" ? `${result.output.render.elements.length} 个元素` : "仅 15m 样例可用"}</small>
                 </span>
-                <small>{canShowStrategyLayers ? "显示中" : "已隐藏"}</small>
+                <div className="layer-actions">
+                  <label htmlFor={`${strategy.key}-enabled`}>
+                    <input
+                      checked={settings.enabled}
+                      id={`${strategy.key}-enabled`}
+                      onChange={(event) => updateStrategyState(strategy.key, (state) => ({ ...state, enabled: event.currentTarget.checked }))}
+                      type="checkbox"
+                    />
+                    启用
+                  </label>
+                  <label htmlFor={`${strategy.key}-layer`}>
+                    <input
+                      checked={settings.showLayer}
+                      disabled={!settings.enabled}
+                      id={`${strategy.key}-layer`}
+                      onChange={(event) => updateStrategyState(strategy.key, (state) => ({ ...state, showLayer: event.currentTarget.checked }))}
+                      type="checkbox"
+                    />
+                    图层
+                  </label>
+                </div>
               </div>
             ))}
 
-            <div className="strategy-parameter-panel">
-              <div className="parameter-heading">
-                <span>UTORB 参数</span>
-                <small>{openingRangeMinutes} 分钟</small>
+            {strategyRuns.map(({ strategy, settings }) => (
+              <div className="strategy-parameter-panel" key={`${strategy.key}-parameters`}>
+                <div className="parameter-heading">
+                  <span>{strategy.name} 参数</span>
+                  <small>{settings.enabled ? "运行中" : "已停用"}</small>
+                </div>
+
+                {strategy.parameterSchema.map((parameter) => {
+                  const value = settings.parameters[parameter.key] ?? parameter.defaultValue;
+
+                  if (parameter.type === "boolean") {
+                    return (
+                      <label className="parameter-toggle" htmlFor={`${strategy.key}-${parameter.key}`} key={parameter.key}>
+                        <span>
+                          <strong>{parameter.label}</strong>
+                          <small>{value ? "已开启" : "已关闭"}</small>
+                        </span>
+                        <input
+                          checked={Boolean(value)}
+                          id={`${strategy.key}-${parameter.key}`}
+                          onChange={(event) => updateStrategyParameter(strategy, parameter, event.currentTarget.checked)}
+                          type="checkbox"
+                        />
+                      </label>
+                    );
+                  }
+
+                  if (parameter.type === "select") {
+                    return (
+                      <label className="parameter-control" htmlFor={`${strategy.key}-${parameter.key}`} key={parameter.key}>
+                        <span>{parameter.label}</span>
+                        <select
+                          id={`${strategy.key}-${parameter.key}`}
+                          onChange={(event) => updateStrategyParameter(strategy, parameter, event.currentTarget.value)}
+                          value={String(value)}
+                        >
+                          {parameter.options?.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  }
+
+                  return (
+                    <label className="parameter-control" htmlFor={`${strategy.key}-${parameter.key}`} key={parameter.key}>
+                      <span>{parameter.label}</span>
+                      <input
+                        id={`${strategy.key}-${parameter.key}`}
+                        max={parameter.key === "openingRangeMinutes" ? "60" : undefined}
+                        min={parameter.key === "openingRangeMinutes" ? "15" : "1"}
+                        onChange={(event) => updateStrategyParameter(strategy, parameter, event.currentTarget.valueAsNumber)}
+                        step={parameter.key === "targetMultiplier" ? "0.1" : "1"}
+                        type={parameter.key === "openingRangeMinutes" ? "range" : "number"}
+                        value={Number(value)}
+                      />
+                    </label>
+                  );
+                })}
               </div>
-
-              <label className="parameter-control" htmlFor="opening-range-minutes">
-                <span>开盘区间</span>
-                <input
-                  id="opening-range-minutes"
-                  max="60"
-                  min="15"
-                  onChange={(event) => handleOpeningRangeChange(event.currentTarget.valueAsNumber)}
-                  step="15"
-                  type="range"
-                  value={openingRangeMinutes}
-                />
-              </label>
-
-              <label className="parameter-toggle" htmlFor="show-targets">
-                <span>
-                  <strong>显示目标位</strong>
-                  <small>{showTargets ? "上/下目标线参与渲染" : "仅显示区间与信号箭头"}</small>
-                </span>
-                <input id="show-targets" checked={showTargets} onChange={(event) => setShowTargets(event.currentTarget.checked)} type="checkbox" />
-              </label>
-            </div>
+            ))}
           </div>
         </aside>
       </div>
@@ -343,13 +526,13 @@ export function ChartWorkspacePage() {
       <footer className="chart-bottom-panel">
         <div>
           <p>策略面板</p>
-          <strong>UTORB 图层已接入</strong>
+          <strong>多策略图层已接入</strong>
           <span>
             {canShowStrategyLayers
-              ? `开盘区间 ${openingRangeMinutes} 分钟，信号 ${utorbRun.output.signals.length} 个，图层元素 ${strategyLayerElementCount} 个。`
+              ? `启用 ${enabledStrategyCount} 个策略，信号 ${totalSignalCount} 个，图层元素 ${strategyLayerElementCount} 个。`
               : timeframe === "15m"
                 ? "策略图层已隐藏，可在右侧图层面板重新显示。"
-                : "切换到 15m 周期可查看 UTORB 图层样例。"}
+                : "切换到 15m 周期可查看策略图层样例。"}
           </span>
         </div>
         <div>
@@ -363,7 +546,7 @@ export function ChartWorkspacePage() {
                   <span>{signal.time}</span>
                   <strong>{signal.direction}</strong>
                   <small>{signal.price}</small>
-                  <em>{signal.label}</em>
+                  <em>{signal.strategyName} / {signal.label}</em>
                 </div>
               ))}
             </div>

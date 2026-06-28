@@ -885,7 +885,7 @@ input {
 
 .layer-item {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr;
   align-items: center;
   gap: 10px;
   border: 1px solid rgba(73, 91, 112, 0.34);
@@ -917,6 +917,25 @@ input {
   color: #8f9caf;
   font-size: 12px;
   white-space: nowrap;
+}
+
+.layer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.layer-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #8f9caf;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.layer-actions input {
+  accent-color: #42dfad;
 }
 
 .strategy-parameter-panel {
@@ -955,6 +974,18 @@ input {
   flex: 1;
   min-width: 110px;
   accent-color: #42dfad;
+}
+
+.parameter-control input[type="number"],
+.parameter-control select {
+  width: 112px;
+  min-width: 0;
+  border: 1px solid rgba(73, 91, 112, 0.48);
+  border-radius: 6px;
+  background: rgba(8, 13, 20, 0.68);
+  color: #f5f8ff;
+  font: inherit;
+  padding: 7px 8px;
 }
 
 .parameter-toggle > span {
