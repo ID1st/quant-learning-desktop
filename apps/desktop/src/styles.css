@@ -1002,6 +1002,45 @@ input {
   font-size: 13px;
 }
 
+.chart-log-list {
+  display: grid;
+  gap: 7px;
+  max-height: 118px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.chart-log-list div {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  color: #8f9caf;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.chart-log-list svg {
+  margin-top: 2px;
+  color: #42dfad;
+}
+
+.chart-log-list div.alert svg {
+  color: #f5b242;
+}
+
+.chart-log-list span {
+  color: #64748b;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
+.chart-log-list small {
+  min-width: 0;
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
 .strategy-page {
   display: grid;
   gap: 22px;

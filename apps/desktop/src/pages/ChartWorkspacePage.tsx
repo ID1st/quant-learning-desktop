@@ -2,7 +2,22 @@ import { useEffect, useMemo, useState } from "react";
 import { ChartViewport, type CandlePoint, type ChartLayer, type ChartLayerElement } from "@quant/chart";
 import type { Market, Timeframe } from "@quant/shared";
 import { createPresetStrategyRegistry, runRegisteredStrategy, type Bar } from "@quant/strategy-engine";
-import { Crosshair, Eye, EyeOff, Gauge, Layers3, LineChart, MousePointer2, PencilLine, Plus, Ruler, Settings2 } from "lucide-react";
+import {
+  Bell,
+  CheckCircle2,
+  Crosshair,
+  Eye,
+  EyeOff,
+  Gauge,
+  Layers3,
+  LineChart,
+  MousePointer2,
+  PencilLine,
+  Plus,
+  Ruler,
+  Settings2,
+  TerminalSquare,
+} from "lucide-react";
 
 const symbols: Array<{ symbol: string; name: string; market: Market; price: string; change: string }> = [
   { symbol: "AAPL", name: "Apple Inc.", market: "US", price: "219.48", change: "+1.03%" },
@@ -91,6 +106,14 @@ function toChartLayerElement(element: ReturnType<typeof runRegisteredStrategy>["
   return null;
 }
 
+function formatLogTime(timestamp: number) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(timestamp);
+}
+
 export function ChartWorkspacePage() {
   const workspacePreferences = useMemo(() => readWorkspacePreferences(), []);
   const [activeSymbol, setActiveSymbol] = useState(symbols[0]);
@@ -127,6 +150,12 @@ export function ChartWorkspacePage() {
   );
   const canShowStrategyLayers = showStrategyLayers && timeframe === "15m";
   const strategyLayerElementCount = strategyLayers.reduce((total, layer) => total + layer.elements.length, 0);
+  const strategyLogTime = formatLogTime(sampleStart + openingRangeMinutes * sampleMinute);
+  const strategyLogItems = [
+    `运行 ${utorbRun.strategy.name}，标的 ${activeSymbol.symbol}，周期 15m。`,
+    ...utorbRun.output.logs,
+    ...utorbRun.output.alerts.map((alert) => `提醒：${alert}`),
+  ];
   const handleOpeningRangeChange = (value: number) => {
     setOpeningRangeMinutes(normalizeOpeningRangeMinutes(value));
   };
@@ -314,8 +343,21 @@ export function ChartWorkspacePage() {
         </div>
         <div>
           <p>日志窗口</p>
-          <strong>图表工作台已就绪</strong>
-          <span>等待真实行情同步模块接入。</span>
+          <strong>策略运行日志</strong>
+          <div className="chart-log-list" role="log" aria-label="策略运行日志">
+            {strategyLogItems.map((item, index) => {
+              const isAlert = item.startsWith("提醒：");
+              const Icon = isAlert ? Bell : index === 0 ? TerminalSquare : CheckCircle2;
+
+              return (
+                <div className={isAlert ? "alert" : ""} key={`${item}-${index}`}>
+                  <Icon size={14} />
+                  <span>{strategyLogTime}</span>
+                  <small>{item}</small>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </footer>
     </section>
