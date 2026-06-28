@@ -656,6 +656,13 @@ input {
   cursor: crosshair;
 }
 
+.chart-empty-state {
+  display: grid;
+  min-height: 470px;
+  place-items: center;
+  color: #8f9caf;
+}
+
 .chart-bg {
   fill: #080d12;
 }

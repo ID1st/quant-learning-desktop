@@ -21,7 +21,6 @@ export function ApiConfigPage() {
   const [form, setForm] = useState<LongPortApiForm>({
     ...defaultForm,
     apiUrl: storedBinding?.apiUrl ?? defaultForm.apiUrl,
-    apiKey: storedBinding?.apiKey ?? "",
   });
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [status, setStatus] = useState(storedBinding ? "当前设备已有长桥 API 绑定记录。" : "");

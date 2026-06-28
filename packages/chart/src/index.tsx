@@ -25,6 +25,7 @@ export interface CandlePoint {
 
 export interface ChartViewportProps {
   context?: ChartContext;
+  candles?: CandlePoint[];
   showSignals?: boolean;
   showMovingAverage?: boolean;
 }
@@ -89,15 +90,32 @@ function formatPrice(value: number) {
 }
 
 export function ChartViewport({
+  candles: providedCandles,
   context = defaultContext,
   showSignals = true,
   showMovingAverage = true,
 }: ChartViewportProps) {
-  const candles = useMemo(() => generateCandles(context), [context]);
+  const generatedCandles = useMemo(() => generateCandles(context), [context]);
+  const candles = providedCandles ?? generatedCandles;
   const [hoverIndex, setHoverIndex] = useState<number | null>(candles.length - 1);
 
   const width = 980;
   const height = 520;
+  const hasCandles = candles.length > 0;
+
+  if (!hasCandles) {
+    return (
+      <section className="chart-viewport" aria-label={`${context.symbol} ${context.timeframe} K 线图`}>
+        <div className="chart-legend">
+          <strong>{context.symbol}</strong>
+          <span>{context.market}</span>
+          <span>{context.timeframe}</span>
+        </div>
+        <div className="chart-empty-state">暂无可用行情数据</div>
+      </section>
+    );
+  }
+
   const chartTop = 34;
   const priceHeight = 338;
   const volumeTop = 410;
@@ -109,14 +127,15 @@ export function ChartViewport({
   const minPrice = Math.min(...candles.map((candle) => candle.low));
   const maxVolume = Math.max(...candles.map((candle) => candle.volume));
   const priceRange = maxPrice - minPrice;
-  const hoveredCandle = hoverIndex === null ? candles[candles.length - 1] : candles[hoverIndex];
+  const safeHoverIndex = hoverIndex === null ? null : Math.min(hoverIndex, candles.length - 1);
+  const hoveredCandle = safeHoverIndex === null ? candles[candles.length - 1] : candles[safeHoverIndex];
 
   const priceToY = (price: number) => chartTop + ((maxPrice - price) / priceRange) * priceHeight;
   const volumeToY = (volume: number) => volumeTop + volumeHeight - (volume / maxVolume) * volumeHeight;
   const indexToX = (index: number) => paddingX + index * candleGap + candleGap / 2;
   const maPoints = movingAverage(candles, 9).map((price, index) => ({ x: indexToX(index), y: priceToY(price) }));
   const maPath = createSmoothPath(maPoints);
-  const hoverX = hoverIndex === null ? null : indexToX(hoverIndex);
+  const hoverX = safeHoverIndex === null ? null : indexToX(safeHoverIndex);
 
   const handleMouseMove = (event: MouseEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();

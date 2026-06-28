@@ -8,7 +8,6 @@ export interface LongPortApiForm {
 
 export interface LongPortApiBinding {
   apiUrl: string;
-  apiKey: string;
   keyPreview: string;
   markets: Market[];
   boundAt: string;
@@ -49,10 +48,37 @@ function createKeyPreview(apiKey: string) {
   return `${normalized.slice(0, 4)}****${normalized.slice(-4)}`;
 }
 
+function sanitizeBinding(value: unknown): LongPortApiBinding | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const binding = value as Partial<LongPortApiBinding>;
+  if (!binding.apiUrl || !binding.keyPreview || !binding.boundAt || !binding.markets) {
+    return null;
+  }
+
+  return {
+    apiUrl: binding.apiUrl,
+    keyPreview: binding.keyPreview,
+    markets: binding.markets,
+    boundAt: binding.boundAt,
+  };
+}
+
 export function readLongPortApiBinding(): LongPortApiBinding | null {
   try {
     const value = window.localStorage.getItem(STORAGE_KEY);
-    return value ? (JSON.parse(value) as LongPortApiBinding) : null;
+    if (!value) {
+      return null;
+    }
+
+    const binding = sanitizeBinding(JSON.parse(value));
+    if (binding) {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(binding));
+    }
+
+    return binding;
   } catch {
     return null;
   }
@@ -70,7 +96,6 @@ export async function verifyLongPortApiConfig(form: LongPortApiForm): Promise<Lo
 
   const binding: LongPortApiBinding = {
     apiUrl: form.apiUrl.trim(),
-    apiKey: form.apiKey.trim(),
     keyPreview: createKeyPreview(form.apiKey),
     markets: ["US", "HK", "CN"],
     boundAt: new Date().toISOString(),

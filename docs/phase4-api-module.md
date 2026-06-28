@@ -22,6 +22,7 @@
 - API URL 需要以 `http` 或 `https` 开头。
 - API Key 至少 8 位。
 - API Secret 至少 8 位。
+- API Key 仅保存脱敏预览，不保存完整值。
 - API Secret 仅用于本次验证，不写入浏览器本地存储。
 
 后续接入桌面正式版时，应将 `apps/desktop/src/features/api/apiConfigService.ts` 替换为真实长桥 SDK 适配层，并使用系统安全凭据存储保存敏感信息。

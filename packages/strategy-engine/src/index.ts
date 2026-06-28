@@ -25,6 +25,7 @@ export interface StrategyInput {
   bars: Bar[];
   parameters: Record<string, unknown>;
   runMode: "backtest" | "realtime";
+  enabled?: boolean;
 }
 
 export interface StrategySignal {
@@ -130,14 +131,14 @@ export class StrategyRegistry {
   }
 }
 
-function createPlaceholderOutput(strategy: StrategyDefinition): StrategyOutput {
+function createPlaceholderOutput(strategy: StrategyDefinition, enabled = true): StrategyOutput {
   return {
     signals: [],
     overlays: [],
     render: {
       strategyId: strategy.key,
       strategyName: strategy.name,
-      enabled: true,
+      enabled,
       zIndex: 10,
       elements: [],
     },
@@ -185,7 +186,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
         ],
       },
     ],
-    run: () => createPlaceholderOutput(utorbStrategy),
+    run: (input) => createPlaceholderOutput(utorbStrategy, input.enabled ?? true),
   };
 
   const trendTargetsStrategy: StrategyDefinition = {
@@ -217,7 +218,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
         defaultValue: true,
       },
     ],
-    run: () => createPlaceholderOutput(trendTargetsStrategy),
+    run: (input) => createPlaceholderOutput(trendTargetsStrategy, input.enabled ?? true),
   };
 
   registry.register(utorbStrategy);
