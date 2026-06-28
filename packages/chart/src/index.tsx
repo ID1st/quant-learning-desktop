@@ -15,6 +15,7 @@ export interface ChartAdapter {
 
 export interface CandlePoint {
   time: string;
+  timestamp?: number;
   open: number;
   high: number;
   low: number;
@@ -23,11 +24,51 @@ export interface CandlePoint {
   signal?: "buy" | "sell";
 }
 
+export type ChartLayerTone = "buy" | "sell" | "range" | "risk" | "target" | "stop" | "neutral";
+
+export type ChartLayerElement =
+  | {
+      id: string;
+      kind: "signal-marker";
+      timestamp: number;
+      price: number;
+      direction: "up" | "down";
+      tone: Extract<ChartLayerTone, "buy" | "sell" | "neutral">;
+      visible?: boolean;
+    }
+  | {
+      id: string;
+      kind: "price-line";
+      price: number;
+      label: string;
+      tone: Extract<ChartLayerTone, "target" | "stop" | "range" | "neutral">;
+      visible?: boolean;
+    }
+  | {
+      id: string;
+      kind: "band";
+      fromPrice: number;
+      toPrice: number;
+      label?: string;
+      tone: Extract<ChartLayerTone, "range" | "risk" | "target" | "stop">;
+      visible?: boolean;
+    };
+
+export interface ChartLayer {
+  strategyId: string;
+  strategyName: string;
+  enabled: boolean;
+  zIndex: number;
+  elements: ChartLayerElement[];
+}
+
 export interface ChartViewportProps {
   context?: ChartContext;
   candles?: CandlePoint[];
   showSignals?: boolean;
   showMovingAverage?: boolean;
+  strategyLayers?: ChartLayer[];
+  showStrategyLayers?: boolean;
 }
 
 const defaultContext: ChartContext = {
@@ -89,11 +130,31 @@ function formatPrice(value: number) {
   return value.toFixed(2);
 }
 
+function getLayerPriceRange(strategyLayers: ChartLayer[]) {
+  return strategyLayers.flatMap((layer) =>
+    layer.enabled
+      ? layer.elements.flatMap((element) => {
+          if (element.visible === false) {
+            return [];
+          }
+
+          if (element.kind === "band") {
+            return [element.fromPrice, element.toPrice];
+          }
+
+          return [element.price];
+        })
+      : [],
+  );
+}
+
 export function ChartViewport({
   candles: providedCandles,
   context = defaultContext,
   showSignals = true,
   showMovingAverage = true,
+  strategyLayers = [],
+  showStrategyLayers = true,
 }: ChartViewportProps) {
   const generatedCandles = useMemo(() => generateCandles(context), [context]);
   const candles = providedCandles ?? generatedCandles;
@@ -123,16 +184,37 @@ export function ChartViewport({
   const paddingX = 54;
   const candleGap = (width - paddingX * 2) / candles.length;
   const candleWidth = Math.max(5, candleGap * 0.58);
-  const maxPrice = Math.max(...candles.map((candle) => candle.high));
-  const minPrice = Math.min(...candles.map((candle) => candle.low));
+  const layerPrices = showStrategyLayers ? getLayerPriceRange(strategyLayers) : [];
+  const maxPrice = Math.max(...candles.map((candle) => candle.high), ...layerPrices);
+  const minPrice = Math.min(...candles.map((candle) => candle.low), ...layerPrices);
   const maxVolume = Math.max(...candles.map((candle) => candle.volume));
-  const priceRange = maxPrice - minPrice;
+  const priceRange = Math.max(1, maxPrice - minPrice);
   const safeHoverIndex = hoverIndex === null ? null : Math.min(hoverIndex, candles.length - 1);
   const hoveredCandle = safeHoverIndex === null ? candles[candles.length - 1] : candles[safeHoverIndex];
 
   const priceToY = (price: number) => chartTop + ((maxPrice - price) / priceRange) * priceHeight;
   const volumeToY = (volume: number) => volumeTop + volumeHeight - (volume / maxVolume) * volumeHeight;
   const indexToX = (index: number) => paddingX + index * candleGap + candleGap / 2;
+  const timestampToX = (timestamp: number) => {
+    const exactIndex = candles.findIndex((candle) => candle.timestamp === timestamp);
+
+    if (exactIndex >= 0) {
+      return indexToX(exactIndex);
+    }
+
+    const nearestIndex = candles.reduce((nearest, candle, index) => {
+      if (candle.timestamp === undefined) {
+        return nearest;
+      }
+
+      const currentDistance = Math.abs(candle.timestamp - timestamp);
+      const nearestTimestamp = candles[nearest]?.timestamp;
+      const nearestDistance = nearestTimestamp === undefined ? Number.POSITIVE_INFINITY : Math.abs(nearestTimestamp - timestamp);
+      return currentDistance < nearestDistance ? index : nearest;
+    }, 0);
+
+    return indexToX(nearestIndex);
+  };
   const maPoints = movingAverage(candles, 9).map((price, index) => ({ x: indexToX(index), y: priceToY(price) }));
   const maPath = createSmoothPath(maPoints);
   const hoverX = safeHoverIndex === null ? null : indexToX(safeHoverIndex);
@@ -182,6 +264,57 @@ export function ChartViewport({
         })}
 
         <path className="chart-depth" d={`${maPath} L ${width - paddingX} ${volumeTop - 26} L ${paddingX} ${volumeTop - 26} Z`} />
+
+        {showStrategyLayers &&
+          strategyLayers
+            .filter((layer) => layer.enabled)
+            .flatMap((layer) =>
+              layer.elements.map((element) => {
+                if (element.visible === false) {
+                  return null;
+                }
+
+                if (element.kind === "band") {
+                  const y = priceToY(Math.max(element.fromPrice, element.toPrice));
+                  const bandHeight = Math.max(2, Math.abs(priceToY(element.fromPrice) - priceToY(element.toPrice)));
+                  return (
+                    <rect
+                      className={`strategy-band ${element.tone}`}
+                      height={bandHeight}
+                      key={`${layer.strategyId}-${element.id}`}
+                      width={width - paddingX * 2}
+                      x={paddingX}
+                      y={y}
+                    />
+                  );
+                }
+
+                if (element.kind === "price-line") {
+                  const y = priceToY(element.price);
+                  return (
+                    <g className={`strategy-price-line ${element.tone}`} key={`${layer.strategyId}-${element.id}`}>
+                      <line x1={paddingX} x2={width - paddingX} y1={y} y2={y} />
+                      <text x={width - paddingX - 8} y={y - 6}>
+                        {element.label}
+                      </text>
+                    </g>
+                  );
+                }
+
+                const x = timestampToX(element.timestamp);
+                const y = priceToY(element.price);
+                const points =
+                  element.direction === "up"
+                    ? `${x},${y - 18} ${x - 8},${y - 3} ${x + 8},${y - 3}`
+                    : `${x},${y + 18} ${x - 8},${y + 3} ${x + 8},${y + 3}`;
+
+                return (
+                  <g className={`strategy-signal-marker ${element.tone}`} key={`${layer.strategyId}-${element.id}`}>
+                    <polygon points={points} />
+                  </g>
+                );
+              }),
+            )}
 
         {candles.map((candle, index) => {
           const x = indexToX(index);

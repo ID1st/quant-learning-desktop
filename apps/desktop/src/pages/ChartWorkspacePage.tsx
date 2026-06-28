@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { ChartViewport } from "@quant/chart";
+import { useMemo, useState } from "react";
+import { ChartViewport, type CandlePoint, type ChartLayer, type ChartLayerElement } from "@quant/chart";
 import type { Market, Timeframe } from "@quant/shared";
+import { createPresetStrategyRegistry, runRegisteredStrategy, type Bar } from "@quant/strategy-engine";
 import { Crosshair, Gauge, LineChart, MousePointer2, PencilLine, Plus, Ruler, Settings2 } from "lucide-react";
 
 const symbols: Array<{ symbol: string; name: string; market: Market; price: string; change: string }> = [
@@ -11,12 +12,60 @@ const symbols: Array<{ symbol: string; name: string; market: Market; price: stri
 ];
 
 const timeframes: Timeframe[] = ["1m", "5m", "15m", "1h", "1d", "1w"];
+const sampleStart = Date.UTC(2026, 0, 2, 14, 30);
+const sampleMinute = 60 * 1000;
+const chartBars: Bar[] = [
+  { timestamp: sampleStart, open: 100, high: 103, low: 99, close: 101, volume: 100000 },
+  { timestamp: sampleStart + 15 * sampleMinute, open: 101, high: 104, low: 100, close: 102, volume: 110000 },
+  { timestamp: sampleStart + 30 * sampleMinute, open: 102, high: 105, low: 101, close: 105, volume: 125000 },
+  { timestamp: sampleStart + 45 * sampleMinute, open: 105, high: 106, low: 97, close: 98, volume: 135000 },
+  { timestamp: sampleStart + 60 * sampleMinute, open: 98, high: 101, low: 96, close: 100, volume: 118000 },
+  { timestamp: sampleStart + 75 * sampleMinute, open: 100, high: 103, low: 98, close: 102, volume: 122000 },
+];
+const chartCandles: CandlePoint[] = chartBars.map((bar, index) => ({
+  ...bar,
+  time: `15m #${index + 1}`,
+}));
+const strategyRegistry = createPresetStrategyRegistry();
+
+function toChartLayerElement(element: ReturnType<typeof runRegisteredStrategy>["output"]["render"]["elements"][number]): ChartLayerElement | null {
+  if (element.kind === "signal-marker" || element.kind === "price-line" || element.kind === "band") {
+    return element;
+  }
+
+  return null;
+}
 
 export function ChartWorkspacePage() {
   const [activeSymbol, setActiveSymbol] = useState(symbols[0]);
-  const [timeframe, setTimeframe] = useState<Timeframe>("1d");
+  const [timeframe, setTimeframe] = useState<Timeframe>("15m");
   const [showSignals, setShowSignals] = useState(true);
   const [showMovingAverage, setShowMovingAverage] = useState(true);
+  const utorbRun = useMemo(
+    () =>
+      runRegisteredStrategy(strategyRegistry, {
+        strategyKey: "utorb",
+        symbol: activeSymbol.symbol,
+        market: activeSymbol.market,
+        timeframe: "15m",
+        bars: chartBars,
+        runMode: "backtest",
+        parameters: {
+          openingRangeMinutes: 30,
+          showTargets: true,
+        },
+      }),
+    [activeSymbol.market, activeSymbol.symbol],
+  );
+  const strategyLayers = useMemo<ChartLayer[]>(
+    () => [
+      {
+        ...utorbRun.output.render,
+        elements: utorbRun.output.render.elements.map(toChartLayerElement).filter((element): element is ChartLayerElement => element !== null),
+      },
+    ],
+    [utorbRun],
+  );
 
   return (
     <section className="chart-workspace-page">
@@ -68,9 +117,12 @@ export function ChartWorkspacePage() {
 
         <main className="chart-main-panel">
           <ChartViewport
+            candles={timeframe === "15m" ? chartCandles : undefined}
             context={{ symbol: activeSymbol.symbol, market: activeSymbol.market, timeframe }}
             showMovingAverage={showMovingAverage}
             showSignals={showSignals}
+            showStrategyLayers={showSignals && timeframe === "15m"}
+            strategyLayers={strategyLayers}
           />
         </main>
 
@@ -110,8 +162,12 @@ export function ChartWorkspacePage() {
       <footer className="chart-bottom-panel">
         <div>
           <p>策略面板</p>
-          <strong>UTORB / Trend Targets 信号预览</strong>
-          <span>当前仅展示图表信号标记，策略执行将在策略模块中接入。</span>
+          <strong>UTORB 图层已接入</strong>
+          <span>
+            {timeframe === "15m"
+              ? `信号 ${utorbRun.output.signals.length} 个，图层元素 ${strategyLayers[0]?.elements.length ?? 0} 个。`
+              : "切换到 15m 周期可查看 UTORB 图层样例。"}
+          </span>
         </div>
         <div>
           <p>订单信息</p>
