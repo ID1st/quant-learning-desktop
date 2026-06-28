@@ -919,6 +919,57 @@ input {
   white-space: nowrap;
 }
 
+.strategy-parameter-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(73, 91, 112, 0.34);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.42);
+  padding: 10px;
+}
+
+.parameter-heading,
+.parameter-control,
+.parameter-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.parameter-heading span,
+.parameter-control span,
+.parameter-toggle strong {
+  color: #f5f8ff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.parameter-heading small,
+.parameter-toggle small {
+  color: #8f9caf;
+  font-size: 12px;
+}
+
+.parameter-control input[type="range"] {
+  flex: 1;
+  min-width: 110px;
+  accent-color: #42dfad;
+}
+
+.parameter-toggle > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.parameter-toggle input[type="checkbox"] {
+  width: 34px;
+  height: 18px;
+  accent-color: #42dfad;
+  cursor: pointer;
+}
+
 .watchlist-items small.negative {
   color: #ffaaa6;
 }

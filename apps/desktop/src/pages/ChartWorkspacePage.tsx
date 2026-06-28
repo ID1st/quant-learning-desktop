@@ -42,6 +42,8 @@ export function ChartWorkspacePage() {
   const [showSignals, setShowSignals] = useState(true);
   const [showStrategyLayers, setShowStrategyLayers] = useState(true);
   const [showMovingAverage, setShowMovingAverage] = useState(true);
+  const [openingRangeMinutes, setOpeningRangeMinutes] = useState(30);
+  const [showTargets, setShowTargets] = useState(true);
   const utorbRun = useMemo(
     () =>
       runRegisteredStrategy(strategyRegistry, {
@@ -52,11 +54,11 @@ export function ChartWorkspacePage() {
         bars: chartBars,
         runMode: "backtest",
         parameters: {
-          openingRangeMinutes: 30,
-          showTargets: true,
+          openingRangeMinutes,
+          showTargets,
         },
       }),
-    [activeSymbol.market, activeSymbol.symbol],
+    [activeSymbol.market, activeSymbol.symbol, openingRangeMinutes, showTargets],
   );
   const strategyLayers = useMemo<ChartLayer[]>(
     () => [
@@ -69,6 +71,10 @@ export function ChartWorkspacePage() {
   );
   const canShowStrategyLayers = showStrategyLayers && timeframe === "15m";
   const strategyLayerElementCount = strategyLayers.reduce((total, layer) => total + layer.elements.length, 0);
+  const handleOpeningRangeChange = (value: number) => {
+    const nextValue = Number.isFinite(value) ? value : 30;
+    setOpeningRangeMinutes(Math.min(60, Math.max(15, nextValue)));
+  };
 
   return (
     <section className="chart-workspace-page">
@@ -189,6 +195,34 @@ export function ChartWorkspacePage() {
                 <small>{canShowStrategyLayers ? "显示中" : "已隐藏"}</small>
               </div>
             ))}
+
+            <div className="strategy-parameter-panel">
+              <div className="parameter-heading">
+                <span>UTORB 参数</span>
+                <small>{openingRangeMinutes} 分钟</small>
+              </div>
+
+              <label className="parameter-control" htmlFor="opening-range-minutes">
+                <span>开盘区间</span>
+                <input
+                  id="opening-range-minutes"
+                  max="60"
+                  min="15"
+                  onChange={(event) => handleOpeningRangeChange(event.currentTarget.valueAsNumber)}
+                  step="15"
+                  type="range"
+                  value={openingRangeMinutes}
+                />
+              </label>
+
+              <label className="parameter-toggle" htmlFor="show-targets">
+                <span>
+                  <strong>显示目标位</strong>
+                  <small>{showTargets ? "上/下目标线参与渲染" : "仅显示区间与信号箭头"}</small>
+                </span>
+                <input id="show-targets" checked={showTargets} onChange={(event) => setShowTargets(event.currentTarget.checked)} type="checkbox" />
+              </label>
+            </div>
           </div>
         </aside>
       </div>
@@ -199,7 +233,7 @@ export function ChartWorkspacePage() {
           <strong>UTORB 图层已接入</strong>
           <span>
             {canShowStrategyLayers
-              ? `信号 ${utorbRun.output.signals.length} 个，图层元素 ${strategyLayerElementCount} 个。`
+              ? `开盘区间 ${openingRangeMinutes} 分钟，信号 ${utorbRun.output.signals.length} 个，图层元素 ${strategyLayerElementCount} 个。`
               : timeframe === "15m"
                 ? "策略图层已隐藏，可在右侧图层面板重新显示。"
                 : "切换到 15m 周期可查看 UTORB 图层样例。"}
