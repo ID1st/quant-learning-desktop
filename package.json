@@ -12,6 +12,7 @@
     "build": "npm run build -w @quant/desktop",
     "typecheck": "tsc -p tsconfig.check.json --noEmit",
     "test:pine-runtime": "node --test --experimental-strip-types packages/pine-runtime/tests/*.test.ts",
+    "test:plugin-loader": "node --test --experimental-strip-types packages/plugin-loader/tests/*.test.ts",
     "test:strategy-engine": "node --test --experimental-strip-types packages/strategy-engine/tests/*.test.ts",
     "clean": "node scripts/clean.mjs"
   },
