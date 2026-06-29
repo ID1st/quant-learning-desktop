@@ -1,6 +1,7 @@
 import { AlertTriangle, Boxes, CheckCircle2, FileInput, PackageCheck, PlugZap, ShieldCheck } from "lucide-react";
-import { useMemo, useState } from "react";
-import { PluginLoader, validatePluginManifest, type PluginCapability, type PluginManifest, type PluginPermission } from "@quant/plugin-loader";
+import { useEffect, useMemo, useState } from "react";
+import { createLocalPluginInstallBridge, type PluginManifestPreflightResult } from "@quant/api-client";
+import { PluginLoader, validatePluginManifest, type PluginCapability, type PluginPermission } from "@quant/plugin-loader";
 
 const capabilityLabels: Record<PluginCapability, string> = {
   strategy: "策略",
@@ -88,22 +89,32 @@ const sampleManifest = JSON.stringify(
   2,
 );
 
-function parseManifestDraft(value: string): { manifest?: PluginManifest; error?: string } {
-  if (value.trim().length === 0) {
-    return { error: "请粘贴 plugin.json 内容后再进行预检。" };
-  }
-
-  try {
-    return { manifest: validatePluginManifest(JSON.parse(value)) };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "插件清单解析失败。" };
-  }
-}
+const pluginInstallBridge = createLocalPluginInstallBridge();
 
 export function SettingsPage() {
   const registeredPlugins = loader.list();
   const [manifestDraft, setManifestDraft] = useState(sampleManifest);
-  const manifestPreview = useMemo(() => parseManifestDraft(manifestDraft), [manifestDraft]);
+  const [manifestPreview, setManifestPreview] = useState<PluginManifestPreflightResult>({
+    ok: false,
+    error: {
+      code: "EMPTY_MANIFEST",
+      message: "请粘贴 plugin.json 内容后再进行预检。",
+    },
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    pluginInstallBridge.preflightManifest({ manifestText: manifestDraft }).then((result) => {
+      if (!cancelled) {
+        setManifestPreview(result);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [manifestDraft]);
 
   return (
     <article className="settings-page">
@@ -189,8 +200,8 @@ export function SettingsPage() {
             <textarea aria-label="插件清单 JSON" onChange={(event) => setManifestDraft(event.target.value)} spellCheck={false} value={manifestDraft} />
           </label>
 
-          <div className={manifestPreview.manifest ? "manifest-result valid" : "manifest-result invalid"}>
-            {manifestPreview.manifest ? (
+          <div className={manifestPreview.ok ? "manifest-result valid" : "manifest-result invalid"}>
+            {manifestPreview.ok ? (
               <>
                 <CheckCircle2 size={20} />
                 <strong>清单预检通过</strong>
@@ -222,7 +233,7 @@ export function SettingsPage() {
               <>
                 <AlertTriangle size={20} />
                 <strong>清单预检未通过</strong>
-                <span>{manifestPreview.error}</span>
+                <span>{manifestPreview.error.message}</span>
               </>
             )}
           </div>

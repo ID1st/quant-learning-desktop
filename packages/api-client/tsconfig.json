@@ -5,5 +5,5 @@
     "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/api-client.tsbuildinfo"
   },
   "include": ["src"],
-  "references": [{ "path": "../shared" }]
+  "references": [{ "path": "../plugin-loader" }, { "path": "../shared" }]
 }
