@@ -196,6 +196,30 @@ export type PineTranslationPlanResult =
       error: PineStrategyPreflightError;
     };
 
+export interface UserStrategyDraftDefinition {
+  key: string;
+  name: string;
+  version: string;
+  description: string;
+  sourceType: "user";
+  sourceFile: string;
+  runnable: false;
+  supportedMarkets: Market[];
+  supportedTimeframes: Timeframe[];
+  parameterSchema: StrategyParameterDefinition[];
+  translation: PineTranslationPlanOutput;
+}
+
+export type UserStrategyDraftDefinitionResult =
+  | {
+      ok: true;
+      draft: UserStrategyDraftDefinition;
+    }
+  | {
+      ok: false;
+      error: PineStrategyPreflightError;
+    };
+
 export interface PineStrategyPreflightSummary {
   fileName: string;
   title: string;
@@ -315,6 +339,46 @@ function parseAlerts(sourceText: string): PineTranslationAlertIR[] {
   return alerts;
 }
 
+function createDraftKey(title: string) {
+  const normalized = title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/gi, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `user-${normalized || "pine-strategy"}`;
+}
+
+function parseInputDefaultValue(input: PineStrategyInputDraft, sourceText: string): number | boolean | string {
+  const pattern = new RegExp(`^\\s*${input.key}\\s*=\\s*input(?:\\.${input.type})?\\s*\\(([^)]*)\\)`, "im");
+  const args = sourceText.match(pattern)?.[1] ?? "";
+  const firstArg = args.split(",")[0]?.trim() ?? "";
+
+  if (input.type === "bool") {
+    return firstArg.toLowerCase() === "true";
+  }
+
+  if (["int", "float"].includes(input.type)) {
+    const value = Number(firstArg);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  return firstArg.replace(/^["']|["']$/g, "") || "";
+}
+
+function mapPineInputToParameter(input: PineStrategyInputDraft, sourceText: string): StrategyParameterDefinition {
+  const isNumber = ["int", "float"].includes(input.type);
+  const isBoolean = input.type === "bool";
+
+  return {
+    key: input.key,
+    label: input.label,
+    type: isNumber ? "number" : isBoolean ? "boolean" : "select",
+    defaultValue: parseInputDefaultValue(input, sourceText),
+    description: `从 Pine input.${input.type} 自动生成的草稿参数。`,
+  };
+}
+
 export function preflightPineStrategySource(input: PineStrategyPreflightInput): PineStrategyPreflightResult {
   const sourceText = input.sourceText.trim();
 
@@ -409,6 +473,34 @@ export function createPineTranslationPlan(input: PineStrategyPreflightInput): Pi
         alerts: parseAlerts(sourceText),
         unsupportedCalls: findUnsupportedOrderCalls(sourceText),
       },
+    },
+  };
+}
+
+export function createUserStrategyDraftDefinition(input: PineStrategyPreflightInput): UserStrategyDraftDefinitionResult {
+  const translationPlan = createPineTranslationPlan(input);
+
+  if (!translationPlan.ok) {
+    return translationPlan;
+  }
+
+  const sourceText = input.sourceText.trim();
+  const { ir } = translationPlan.plan;
+
+  return {
+    ok: true,
+    draft: {
+      key: createDraftKey(ir.declaration.title),
+      name: ir.declaration.title,
+      version: "0.0.0-draft",
+      description: "由 Pine Script 导入生成的用户策略草稿，等待后续子集转译为可运行策略。",
+      sourceType: "user",
+      sourceFile: ir.fileName,
+      runnable: false,
+      supportedMarkets: ["US", "HK", "CN"],
+      supportedTimeframes: ["1m", "5m", "15m", "30m", "1h", "1d", "1w"],
+      parameterSchema: ir.inputs.map((pineInput) => mapPineInputToParameter(pineInput, sourceText)),
+      translation: translationPlan.plan,
     },
   };
 }

@@ -207,6 +207,11 @@ User-imported Pine scripts enter the system through staged analysis:
    - `manual-review`: contains supported metadata but includes behavior that needs human review.
    - `unsupported`: cannot become a runnable strategy without a separate implementation path.
 
+4. **User strategy draft definition**
+   - A draft can be mapped from the translation plan into `UserStrategyDraftDefinition`.
+   - Draft definitions expose metadata, generated parameter schema, supported markets/timeframes, and the translation IR.
+   - Draft definitions are explicitly non-runnable and must not be registered as `StrategyDefinition` until a future translation step supplies a safe `run()` implementation.
+
 Initial supported subset for plan extraction:
 
 - `//@version=...`

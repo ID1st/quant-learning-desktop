@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createPineTranslationPlan, preflightPineStrategySource } from "../src/index.ts";
+import { createPineTranslationPlan, createUserStrategyDraftDefinition, preflightPineStrategySource } from "../src/index.ts";
 
 test("Pine preflight summarizes a valid indicator script", () => {
   const result = preflightPineStrategySource({
@@ -103,4 +103,47 @@ plot(close)
   assert.equal(result.ok, true);
   assert.equal(result.plan.status, "manual-review");
   assert.deepEqual(result.plan.ir.unsupportedCalls, ["strategy.entry"]);
+});
+
+test("User strategy draft definition maps a ready Pine plan without becoming runnable", () => {
+  const result = createUserStrategyDraftDefinition({
+    fileName: "demo.pine",
+    sourceText: `//@version=5
+indicator("Demo", overlay=true)
+length = input.int(20, "Length")
+enabled = input.bool(true, "Enabled")
+plot(close)
+alertcondition(close > open, "Up")
+`,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.draft.key, "user-demo");
+  assert.equal(result.draft.name, "Demo");
+  assert.equal(result.draft.sourceType, "user");
+  assert.equal(result.draft.runnable, false);
+  assert.equal(result.draft.translation.status, "ready");
+  assert.deepEqual(
+    result.draft.parameterSchema.map((parameter) => [parameter.key, parameter.type, parameter.defaultValue]),
+    [
+      ["length", "number", 20],
+      ["enabled", "boolean", true],
+    ],
+  );
+});
+
+test("User strategy draft definition preserves manual review status", () => {
+  const result = createUserStrategyDraftDefinition({
+    fileName: "orders.pine",
+    sourceText: `//@version=5
+strategy("Order Demo")
+strategy.entry("L", strategy.long)
+plot(close)
+`,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.draft.runnable, false);
+  assert.equal(result.draft.translation.status, "manual-review");
+  assert.deepEqual(result.draft.translation.ir.unsupportedCalls, ["strategy.entry"]);
 });
