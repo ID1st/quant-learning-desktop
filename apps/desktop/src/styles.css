@@ -1623,6 +1623,49 @@ input {
   padding: 8px;
 }
 
+.draft-ir-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.draft-ir-grid section {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid rgba(73, 91, 112, 0.28);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.34);
+  padding: 10px;
+}
+
+.draft-ir-grid h4 {
+  margin: 0;
+  color: #f5f8ff;
+  font-size: 13px;
+}
+
+.draft-ir-grid code,
+.draft-ir-grid small {
+  min-width: 0;
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.draft-ir-grid code {
+  background: rgba(12, 18, 26, 0.82);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  padding: 6px 7px;
+}
+
+.draft-ir-grid small {
+  color: #8f9caf;
+}
+
 .strategy-list-panel,
 .strategy-detail-panel,
 .strategy-runtime-panel {
@@ -2555,6 +2598,7 @@ input {
   .strategy-meta-grid,
   .parameter-grid,
   .draft-detail-grid,
+  .draft-ir-grid,
   .settings-summary-grid,
   .settings-grid,
   .manifest-preview-grid,

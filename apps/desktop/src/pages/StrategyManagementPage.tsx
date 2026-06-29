@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import {
+  createPineTranslationPlan,
   createPresetStrategyRegistry,
   preflightPineStrategySource,
   runRegisteredStrategy,
   type Bar,
   type PineStrategyPreflightSummary,
+  type PineTranslationPlanOutput,
   type StrategyDefinition,
 } from "@quant/strategy-engine";
 import {
@@ -31,6 +33,7 @@ type StrategyFilter = "all" | StrategyStatus;
 interface ImportedStrategyDraft {
   id: string;
   summary: PineStrategyPreflightSummary;
+  plan: PineTranslationPlanOutput;
 }
 
 const registry = createPresetStrategyRegistry();
@@ -99,6 +102,10 @@ export function StrategyManagementPage() {
     () => preflightPineStrategySource({ fileName: "user-strategy.pine", sourceText: pineSourceDraft }),
     [pineSourceDraft],
   );
+  const pineTranslationPlan = useMemo(
+    () => createPineTranslationPlan({ fileName: "user-strategy.pine", sourceText: pineSourceDraft }),
+    [pineSourceDraft],
+  );
   const selectedDraft = importedDrafts.find((draft) => draft.id === selectedDraftId) ?? importedDrafts[0] ?? null;
   const filteredStrategies = strategies.filter((strategy) => {
     const status = strategyStatus[strategy.key];
@@ -132,12 +139,12 @@ export function StrategyManagementPage() {
   };
 
   const handleCreateDraft = () => {
-    if (!pinePreflight.ok || !pinePreflight.summary.canCreateDraft) {
+    if (!pinePreflight.ok || !pineTranslationPlan.ok || !pinePreflight.summary.canCreateDraft) {
       return;
     }
 
     const draftId = `${pinePreflight.summary.fileName}-${importedDrafts.length + 1}`;
-    setImportedDrafts((drafts) => [...drafts, { id: draftId, summary: pinePreflight.summary }]);
+    setImportedDrafts((drafts) => [...drafts, { id: draftId, summary: pinePreflight.summary, plan: pineTranslationPlan.plan }]);
     setSelectedDraftId(draftId);
   };
 
@@ -301,6 +308,40 @@ export function StrategyManagementPage() {
               <span>Overlay：{selectedDraft.summary.overlay === null ? "未声明" : selectedDraft.summary.overlay ? "是" : "否"}</span>
               <span>参数：{selectedDraft.summary.inputCount}</span>
               <span>绘图：{selectedDraft.summary.plotCount}</span>
+            </div>
+            <div className="draft-ir-grid">
+              <section>
+                <h4>可视化声明</h4>
+                {selectedDraft.plan.ir.visuals.length > 0 ? (
+                  selectedDraft.plan.ir.visuals.map((visual, index) => (
+                    <code key={`${visual.kind}-${index}`}>
+                      {visual.kind}({visual.expression})
+                    </code>
+                  ))
+                ) : (
+                  <small>未发现可视化声明。</small>
+                )}
+              </section>
+              <section>
+                <h4>告警声明</h4>
+                {selectedDraft.plan.ir.alerts.length > 0 ? (
+                  selectedDraft.plan.ir.alerts.map((alert, index) => (
+                    <code key={`${alert.title}-${index}`}>
+                      {alert.title}: {alert.condition}
+                    </code>
+                  ))
+                ) : (
+                  <small>未发现告警声明。</small>
+                )}
+              </section>
+              <section>
+                <h4>不支持调用</h4>
+                {selectedDraft.plan.ir.unsupportedCalls.length > 0 ? (
+                  selectedDraft.plan.ir.unsupportedCalls.map((call) => <code key={call}>{call}</code>)
+                ) : (
+                  <small>当前草稿未发现阻断调用。</small>
+                )}
+              </section>
             </div>
           </div>
         )}
