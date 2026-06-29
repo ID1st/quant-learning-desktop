@@ -135,6 +135,42 @@ export interface StrategyDefinition {
   run(input: StrategyInput): StrategyOutput;
 }
 
+export interface PineStrategyPreflightInput {
+  fileName: string;
+  sourceText: string;
+}
+
+export type PineStrategyDeclaration = "indicator" | "strategy" | "library" | "unknown";
+
+export interface PineStrategyPreflightSummary {
+  fileName: string;
+  version: string | null;
+  declaration: PineStrategyDeclaration;
+  lineCount: number;
+  inputCount: number;
+  plotCount: number;
+  alertCount: number;
+  canCreateDraft: boolean;
+  warnings: string[];
+}
+
+export type PineStrategyPreflightErrorCode = "EMPTY_SOURCE" | "NOT_PINE_SCRIPT";
+
+export interface PineStrategyPreflightError {
+  code: PineStrategyPreflightErrorCode;
+  message: string;
+}
+
+export type PineStrategyPreflightResult =
+  | {
+      ok: true;
+      summary: PineStrategyPreflightSummary;
+    }
+  | {
+      ok: false;
+      error: PineStrategyPreflightError;
+    };
+
 export class StrategyRegistry {
   private readonly strategies = new Map<string, StrategyDefinition>();
 
@@ -149,6 +185,66 @@ export class StrategyRegistry {
   list(): StrategyDefinition[] {
     return Array.from(this.strategies.values());
   }
+}
+
+function countMatches(sourceText: string, pattern: RegExp) {
+  return sourceText.match(pattern)?.length ?? 0;
+}
+
+export function preflightPineStrategySource(input: PineStrategyPreflightInput): PineStrategyPreflightResult {
+  const sourceText = input.sourceText.trim();
+
+  if (sourceText.length === 0) {
+    return {
+      ok: false,
+      error: {
+        code: "EMPTY_SOURCE",
+        message: "请粘贴 Pine Script 源码后再进行预检。",
+      },
+    };
+  }
+
+  const version = sourceText.match(/\/\/@version\s*=\s*(\d+)/i)?.[1] ?? null;
+  const declarationMatch = sourceText.match(/\b(indicator|strategy|library)\s*\(/i);
+  const declaration = (declarationMatch?.[1]?.toLowerCase() as PineStrategyDeclaration | undefined) ?? "unknown";
+
+  if (!version && declaration === "unknown") {
+    return {
+      ok: false,
+      error: {
+        code: "NOT_PINE_SCRIPT",
+        message: "未识别到 Pine Script 版本或 indicator/strategy/library 声明。",
+      },
+    };
+  }
+
+  const warnings: string[] = [];
+  const unsupportedOrderCalls = ["strategy.entry", "strategy.exit", "strategy.order", "strategy.close"].filter((call) =>
+    sourceText.includes(call),
+  );
+
+  if (unsupportedOrderCalls.length > 0) {
+    warnings.push(`检测到暂不支持的交易下单调用：${unsupportedOrderCalls.join(" / ")}。`);
+  }
+
+  if (declaration === "library") {
+    warnings.push("library 脚本不能直接作为可运行策略导入。");
+  }
+
+  return {
+    ok: true,
+    summary: {
+      fileName: input.fileName.trim() || "未命名 Pine 策略",
+      version,
+      declaration,
+      lineCount: sourceText.split(/\r?\n/).length,
+      inputCount: countMatches(sourceText, /\binput(?:\.\w+)?\s*\(/gi),
+      plotCount: countMatches(sourceText, /\b(?:plot|plotshape|plotchar|plotbar|plotcandle)\s*\(/gi),
+      alertCount: countMatches(sourceText, /\balertcondition\s*\(/gi),
+      canCreateDraft: declaration !== "library" && unsupportedOrderCalls.length === 0,
+      warnings,
+    },
+  };
 }
 
 export function resolveStrategyParameters(strategy: StrategyDefinition, parameters: Record<string, unknown> = {}) {

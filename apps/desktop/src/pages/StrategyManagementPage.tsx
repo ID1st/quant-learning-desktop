@@ -1,13 +1,18 @@
 import { useMemo, useState } from "react";
 import {
   createPresetStrategyRegistry,
+  preflightPineStrategySource,
   runRegisteredStrategy,
   type Bar,
+  type PineStrategyPreflightSummary,
   type StrategyDefinition,
 } from "@quant/strategy-engine";
 import {
   Activity,
+  AlertTriangle,
+  CheckCircle2,
   FileCode2,
+  FilePlus2,
   Layers3,
   ListChecks,
   Play,
@@ -20,6 +25,11 @@ import {
 
 type StrategyStatus = "enabled" | "disabled";
 type StrategyFilter = "all" | StrategyStatus;
+
+interface ImportedStrategyDraft {
+  id: string;
+  summary: PineStrategyPreflightSummary;
+}
 
 const registry = createPresetStrategyRegistry();
 
@@ -34,6 +44,14 @@ const sampleBars: Bar[] = [
   { timestamp: sampleStart + 75 * sampleMinute, open: 100, high: 103, low: 98, close: 102, volume: 122000 },
 ];
 
+const samplePineSource = `//@version=5
+indicator("用户策略示例", overlay=true)
+length = input.int(20, "均线长度")
+basis = ta.sma(close, length)
+plot(basis)
+alertcondition(close > basis, "上穿均线")
+`;
+
 function createInitialStatus(strategies: StrategyDefinition[]) {
   return strategies.reduce<Record<string, StrategyStatus>>((current, strategy, index) => {
     current[strategy.key] = index === 0 ? "enabled" : "disabled";
@@ -46,6 +64,8 @@ export function StrategyManagementPage() {
   const [selectedKey, setSelectedKey] = useState(strategies[0]?.key ?? "");
   const [filter, setFilter] = useState<StrategyFilter>("all");
   const [keyword, setKeyword] = useState("");
+  const [pineSourceDraft, setPineSourceDraft] = useState(samplePineSource);
+  const [importedDrafts, setImportedDrafts] = useState<ImportedStrategyDraft[]>([]);
   const [strategyStatus, setStrategyStatus] = useState(() => createInitialStatus(strategies));
   const selectedStrategy = strategies.find((strategy) => strategy.key === selectedKey) ?? strategies[0];
   const enabledCount = Object.values(strategyStatus).filter((status) => status === "enabled").length;
@@ -72,6 +92,10 @@ export function StrategyManagementPage() {
   );
   const totalSignalCount = strategyRuns.reduce((total, item) => total + item.result.output.signals.length, 0);
   const totalLayerElementCount = strategyRuns.reduce((total, item) => total + item.result.output.render.elements.length, 0);
+  const pinePreflight = useMemo(
+    () => preflightPineStrategySource({ fileName: "user-strategy.pine", sourceText: pineSourceDraft }),
+    [pineSourceDraft],
+  );
   const filteredStrategies = strategies.filter((strategy) => {
     const status = strategyStatus[strategy.key];
     const normalizedKeyword = keyword.trim().toLowerCase();
@@ -103,6 +127,15 @@ export function StrategyManagementPage() {
     }));
   };
 
+  const handleCreateDraft = () => {
+    if (!pinePreflight.ok || !pinePreflight.summary.canCreateDraft) {
+      return;
+    }
+
+    const draftId = `${pinePreflight.summary.fileName}-${importedDrafts.length + 1}`;
+    setImportedDrafts((drafts) => [...drafts, { id: draftId, summary: pinePreflight.summary }]);
+  };
+
   return (
     <section className="strategy-page">
       <header className="module-header">
@@ -132,7 +165,92 @@ export function StrategyManagementPage() {
           <span>样例信号</span>
           <strong>{totalSignalCount}</strong>
         </div>
+        <div className="module-card strategy-stat-card">
+          <FilePlus2 size={20} />
+          <span>导入草稿</span>
+          <strong>{importedDrafts.length}</strong>
+        </div>
       </div>
+
+      <section className="module-card strategy-import-panel">
+        <div className="module-card-header">
+          <FilePlus2 size={20} />
+          <div>
+            <h2>Pine 策略导入预检</h2>
+            <p>先做源码结构检查和草稿登记，不进行 Pine 转译、不注册运行器、不执行用户代码。</p>
+          </div>
+        </div>
+
+        <div className="strategy-import-grid">
+          <label className="pine-source-editor">
+            <span>Pine Script 源码</span>
+            <textarea aria-label="Pine Script 源码" onChange={(event) => setPineSourceDraft(event.currentTarget.value)} spellCheck={false} value={pineSourceDraft} />
+          </label>
+
+          <div className={pinePreflight.ok ? "pine-preflight-result valid" : "pine-preflight-result invalid"}>
+            {pinePreflight.ok ? (
+              <>
+                <CheckCircle2 size={20} />
+                <strong>源码预检通过</strong>
+                <span>{pinePreflight.summary.declaration === "strategy" ? "策略脚本" : pinePreflight.summary.declaration === "indicator" ? "指标脚本" : "Pine 脚本"}</span>
+                <dl>
+                  <div>
+                    <dt>版本</dt>
+                    <dd>{pinePreflight.summary.version ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt>输入</dt>
+                    <dd>{pinePreflight.summary.inputCount}</dd>
+                  </div>
+                  <div>
+                    <dt>绘图</dt>
+                    <dd>{pinePreflight.summary.plotCount}</dd>
+                  </div>
+                  <div>
+                    <dt>告警</dt>
+                    <dd>{pinePreflight.summary.alertCount}</dd>
+                  </div>
+                </dl>
+                {pinePreflight.summary.warnings.length > 0 && (
+                  <div className="pine-warning-list">
+                    {pinePreflight.summary.warnings.map((warning) => (
+                      <span key={warning}>{warning}</span>
+                    ))}
+                  </div>
+                )}
+                <button disabled={!pinePreflight.summary.canCreateDraft} onClick={handleCreateDraft} type="button">
+                  {pinePreflight.summary.canCreateDraft ? "加入导入草稿" : "暂不能导入"}
+                </button>
+              </>
+            ) : (
+              <>
+                <AlertTriangle size={20} />
+                <strong>源码预检未通过</strong>
+                <span>{pinePreflight.error.message}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="imported-draft-list">
+          {importedDrafts.length > 0 ? (
+            importedDrafts.map((draft) => (
+              <div className="imported-draft-row" key={draft.id}>
+                <FileCode2 size={16} />
+                <span>
+                  <strong>{draft.summary.fileName}</strong>
+                  <small>
+                    Pine v{draft.summary.version ?? "-"} / {draft.summary.declaration} / {draft.summary.lineCount} 行
+                  </small>
+                </span>
+                <em>草稿</em>
+              </div>
+            ))
+          ) : (
+            <div className="strategy-empty-state">暂无用户策略草稿。</div>
+          )}
+        </div>
+      </section>
 
       <div className="strategy-workspace-grid">
         <aside className="module-card strategy-list-panel">
