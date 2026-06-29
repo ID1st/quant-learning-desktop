@@ -1723,6 +1723,227 @@ input {
   color: #42dfad;
 }
 
+.settings-page {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-stat-card {
+  gap: 8px;
+}
+
+.settings-stat-card svg {
+  color: #42dfad;
+}
+
+.settings-stat-card span {
+  color: #8f9caf;
+  font-size: 13px;
+}
+
+.settings-stat-card strong {
+  color: #f5f8ff;
+  font-size: 24px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.1fr) minmax(320px, 0.9fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.plugin-install-panel,
+.plugin-security-panel,
+.plugin-registry-panel {
+  min-width: 0;
+}
+
+.plugin-drop-zone {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  border: 1px dashed rgba(66, 223, 173, 0.42);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(66, 223, 173, 0.08), transparent 42%),
+    rgba(8, 13, 20, 0.48);
+  padding: 22px;
+  text-align: center;
+}
+
+.plugin-drop-zone svg {
+  color: #42dfad;
+}
+
+.plugin-drop-zone strong {
+  color: #f5f8ff;
+  font-size: 17px;
+}
+
+.plugin-drop-zone span {
+  max-width: 420px;
+  color: #8f9caf;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.plugin-drop-zone button {
+  height: 34px;
+  border: 1px solid rgba(66, 223, 173, 0.46);
+  border-radius: 6px;
+  background: rgba(66, 223, 173, 0.14);
+  color: #dffcef;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0 14px;
+}
+
+.plugin-drop-zone button:hover {
+  border-color: rgba(66, 223, 173, 0.72);
+  background: rgba(66, 223, 173, 0.22);
+}
+
+.plugin-step-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plugin-step-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(73, 91, 112, 0.34);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.42);
+  padding: 9px 10px;
+}
+
+.plugin-step-list span {
+  color: #42dfad;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.plugin-step-list p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.permission-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.permission-grid span {
+  border: 1px solid rgba(73, 91, 112, 0.42);
+  border-radius: 999px;
+  background: rgba(8, 13, 20, 0.42);
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 10px;
+}
+
+.settings-note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  border-radius: 8px;
+  padding: 11px 12px;
+}
+
+.settings-note.warning {
+  border: 1px solid rgba(245, 178, 66, 0.34);
+  background: rgba(245, 178, 66, 0.1);
+  color: #ffe0a6;
+}
+
+.settings-note svg {
+  margin-top: 2px;
+}
+
+.settings-note span {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.plugin-registry-list {
+  display: grid;
+  gap: 8px;
+}
+
+.plugin-registry-row {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) auto minmax(120px, auto) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(73, 91, 112, 0.34);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.42);
+  padding: 10px 12px;
+}
+
+.plugin-registry-row svg {
+  color: #42dfad;
+}
+
+.plugin-registry-row > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.plugin-registry-row strong {
+  color: #f5f8ff;
+  font-size: 14px;
+}
+
+.plugin-registry-row small {
+  color: #8f9caf;
+  font-size: 12px;
+}
+
+.plugin-registry-row span small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-registry-row em {
+  color: #cbd5e1;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.plugin-registry-row div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plugin-registry-row b {
+  border: 1px solid rgba(66, 223, 173, 0.26);
+  border-radius: 999px;
+  background: rgba(66, 223, 173, 0.08);
+  color: #9af5d2;
+  font-size: 12px;
+  padding: 5px 8px;
+}
+
 .app-content {
   min-width: 0;
   padding: 24px;
@@ -1813,7 +2034,10 @@ input {
   .strategy-workspace-grid,
   .strategy-detail-header,
   .strategy-meta-grid,
-  .parameter-grid {
+  .parameter-grid,
+  .settings-summary-grid,
+  .settings-grid,
+  .plugin-registry-row {
     grid-template-columns: 1fr;
   }
 }
