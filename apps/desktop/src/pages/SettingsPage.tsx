@@ -1,7 +1,7 @@
 import { AlertTriangle, Boxes, CheckCircle2, FileInput, PackageCheck, PlugZap, ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createLocalPluginInstallBridge, type PluginManifestPreflightResult } from "@quant/api-client";
-import { PluginLoader, validatePluginManifest, type PluginCapability, type PluginPermission } from "@quant/plugin-loader";
+import { PluginLoader, validatePluginManifest, type PluginCapability, type PluginManifest, type PluginPermission } from "@quant/plugin-loader";
 
 const capabilityLabels: Record<PluginCapability, string> = {
   strategy: "策略",
@@ -94,6 +94,7 @@ const pluginInstallBridge = createLocalPluginInstallBridge();
 export function SettingsPage() {
   const registeredPlugins = loader.list();
   const [manifestDraft, setManifestDraft] = useState(sampleManifest);
+  const [pendingInstalls, setPendingInstalls] = useState<PluginManifest[]>([]);
   const [manifestPreview, setManifestPreview] = useState<PluginManifestPreflightResult>({
     ok: false,
     error: {
@@ -115,6 +116,17 @@ export function SettingsPage() {
       cancelled = true;
     };
   }, [manifestDraft]);
+
+  const previewManifest = manifestPreview.ok ? manifestPreview.manifest : null;
+  const alreadyPending = previewManifest ? pendingInstalls.some((plugin) => plugin.id === previewManifest.id) : false;
+
+  const handleConfirmInstall = () => {
+    if (!previewManifest || alreadyPending) {
+      return;
+    }
+
+    setPendingInstalls((plugins) => [...plugins, previewManifest]);
+  };
 
   return (
     <article className="settings-page">
@@ -228,6 +240,12 @@ export function SettingsPage() {
                     <em key={permission}>{permissionLabels[permission]}</em>
                   ))}
                 </div>
+                <div className="plugin-confirm-actions">
+                  <button disabled={alreadyPending} onClick={handleConfirmInstall} type="button">
+                    {alreadyPending ? "已加入待安装" : "确认模拟安装"}
+                  </button>
+                  <small>{manifestPreview.summary.requiresPermissionApproval ? "该插件声明了权限，真实安装时需要再次确认。" : "该插件未声明额外权限。"}</small>
+                </div>
               </>
             ) : (
               <>
@@ -238,6 +256,41 @@ export function SettingsPage() {
             )}
           </div>
         </div>
+      </section>
+
+      <section className="module-card plugin-pending-panel">
+        <div className="module-card-header">
+          <PackageCheck size={20} />
+          <div>
+            <h2>待安装队列</h2>
+            <p>当前只记录模拟安装结果，不写入本地插件目录，也不会加载或执行插件入口。</p>
+          </div>
+        </div>
+
+        {pendingInstalls.length > 0 ? (
+          <div className="plugin-pending-list">
+            {pendingInstalls.map((plugin) => (
+              <div className="plugin-pending-row" key={plugin.id}>
+                <CheckCircle2 size={17} />
+                <span>
+                  <strong>{plugin.name}</strong>
+                  <small>{plugin.id}</small>
+                </span>
+                <em>{plugin.version}</em>
+                <div>
+                  {plugin.capabilities.map((capability) => (
+                    <b key={capability}>{capabilityLabels[capability]}</b>
+                  ))}
+                </div>
+                <small>模拟安装</small>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="plugin-empty-state">
+            <span>暂无待安装插件。清单预检通过后，可先加入模拟安装队列。</span>
+          </div>
+        )}
       </section>
 
       <section className="module-card plugin-registry-panel">

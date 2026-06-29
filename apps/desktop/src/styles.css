@@ -2077,6 +2077,113 @@ input {
   color: #cbd5e1;
 }
 
+.plugin-confirm-actions {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid rgba(73, 91, 112, 0.28);
+  padding-top: 10px;
+}
+
+.plugin-confirm-actions button {
+  height: 36px;
+  border: 1px solid rgba(66, 223, 173, 0.5);
+  border-radius: 6px;
+  background: rgba(66, 223, 173, 0.16);
+  color: #dffcef;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.plugin-confirm-actions button:hover:not(:disabled) {
+  background: rgba(66, 223, 173, 0.24);
+}
+
+.plugin-confirm-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.plugin-confirm-actions small {
+  color: #8f9caf;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.plugin-pending-panel {
+  min-width: 0;
+}
+
+.plugin-pending-list {
+  display: grid;
+  gap: 8px;
+}
+
+.plugin-pending-row {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) auto minmax(120px, auto) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(66, 223, 173, 0.3);
+  border-radius: 8px;
+  background: rgba(66, 223, 173, 0.07);
+  padding: 10px 12px;
+}
+
+.plugin-pending-row svg {
+  color: #42dfad;
+}
+
+.plugin-pending-row > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.plugin-pending-row strong {
+  color: #f5f8ff;
+  font-size: 14px;
+}
+
+.plugin-pending-row small {
+  color: #8f9caf;
+  font-size: 12px;
+}
+
+.plugin-pending-row span small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-pending-row em {
+  color: #cbd5e1;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.plugin-pending-row div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plugin-pending-row b {
+  border: 1px solid rgba(66, 223, 173, 0.26);
+  border-radius: 999px;
+  background: rgba(66, 223, 173, 0.08);
+  color: #9af5d2;
+  font-size: 12px;
+  padding: 5px 8px;
+}
+
+.plugin-empty-state {
+  border: 1px dashed rgba(73, 91, 112, 0.42);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.34);
+  color: #8f9caf;
+  padding: 14px;
+}
+
 .app-content {
   min-width: 0;
   padding: 24px;
@@ -2171,6 +2278,7 @@ input {
   .settings-summary-grid,
   .settings-grid,
   .manifest-preview-grid,
+  .plugin-pending-row,
   .plugin-registry-row {
     grid-template-columns: 1fr;
   }
