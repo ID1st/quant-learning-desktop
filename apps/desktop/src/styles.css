@@ -1446,8 +1446,9 @@ input {
 .pine-preflight-result dd {
   margin: 0;
   color: #f5f8ff;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .pine-preflight-result button {
@@ -1483,6 +1484,30 @@ input {
   padding: 7px 8px;
 }
 
+.pine-input-draft-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.pine-input-draft-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(66, 223, 173, 0.28);
+  border-radius: 999px;
+  background: rgba(66, 223, 173, 0.08);
+  color: #dffcef;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+
+.pine-input-draft-list small {
+  color: #8f9caf;
+  font-size: 11px;
+}
+
 .imported-draft-list {
   display: grid;
   gap: 8px;
@@ -1490,13 +1515,23 @@ input {
 
 .imported-draft-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
+  width: 100%;
   border: 1px solid rgba(73, 91, 112, 0.34);
   border-radius: 8px;
   background: rgba(8, 13, 20, 0.42);
+  color: inherit;
+  cursor: pointer;
   padding: 9px 10px;
+  text-align: left;
+}
+
+.imported-draft-row.active,
+.imported-draft-row:hover {
+  border-color: rgba(66, 223, 173, 0.46);
+  background: rgba(66, 223, 173, 0.08);
 }
 
 .imported-draft-row svg {
@@ -1527,6 +1562,65 @@ input {
   font-style: normal;
   font-weight: 800;
   padding: 5px 8px;
+}
+
+.draft-detail-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(73, 91, 112, 0.34);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.42);
+  padding: 12px;
+}
+
+.draft-detail-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.draft-detail-heading span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.draft-detail-heading strong {
+  color: #f5f8ff;
+  font-size: 15px;
+}
+
+.draft-detail-heading small {
+  color: #8f9caf;
+  line-height: 1.5;
+}
+
+.draft-detail-heading button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(239, 75, 69, 0.34);
+  border-radius: 6px;
+  background: rgba(239, 75, 69, 0.1);
+  color: #ffaaa6;
+  cursor: pointer;
+}
+
+.draft-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.draft-detail-grid span {
+  border: 1px solid rgba(73, 91, 112, 0.28);
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-size: 12px;
+  padding: 8px;
 }
 
 .strategy-list-panel,
@@ -2460,6 +2554,7 @@ input {
   .strategy-detail-header,
   .strategy-meta-grid,
   .parameter-grid,
+  .draft-detail-grid,
   .settings-summary-grid,
   .settings-grid,
   .manifest-preview-grid,

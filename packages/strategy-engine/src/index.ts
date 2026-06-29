@@ -141,16 +141,32 @@ export interface PineStrategyPreflightInput {
 }
 
 export type PineStrategyDeclaration = "indicator" | "strategy" | "library" | "unknown";
+export type PineStrategyTranslationStatus = "ready" | "manual-review" | "unsupported";
+
+export interface PineStrategyInputDraft {
+  key: string;
+  type: string;
+  label: string;
+}
+
+export interface PineStrategyTranslationPlan {
+  status: PineStrategyTranslationStatus;
+  reasons: string[];
+}
 
 export interface PineStrategyPreflightSummary {
   fileName: string;
+  title: string;
   version: string | null;
   declaration: PineStrategyDeclaration;
+  overlay: boolean | null;
   lineCount: number;
   inputCount: number;
   plotCount: number;
   alertCount: number;
+  inputs: PineStrategyInputDraft[];
   canCreateDraft: boolean;
+  translationPlan: PineStrategyTranslationPlan;
   warnings: string[];
 }
 
@@ -191,6 +207,37 @@ function countMatches(sourceText: string, pattern: RegExp) {
   return sourceText.match(pattern)?.length ?? 0;
 }
 
+function parseDeclarationArgs(sourceText: string) {
+  const match = sourceText.match(/\b(?:indicator|strategy|library)\s*\(([^)]*)\)/i);
+  return match?.[1] ?? "";
+}
+
+function parseQuotedTitle(args: string) {
+  return args.match(/["']([^"']+)["']/)?.[1] ?? "未命名 Pine 策略";
+}
+
+function parseOverlay(args: string) {
+  const match = args.match(/\boverlay\s*=\s*(true|false)/i);
+  return match ? match[1].toLowerCase() === "true" : null;
+}
+
+function parsePineInputs(sourceText: string): PineStrategyInputDraft[] {
+  const inputs: PineStrategyInputDraft[] = [];
+  const pattern = /^\s*(\w+)\s*=\s*input(?:\.(\w+))?\s*\(([^)]*)\)/gim;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(sourceText)) !== null) {
+    const args = match[3] ?? "";
+    inputs.push({
+      key: match[1],
+      type: match[2] ?? "any",
+      label: args.match(/["']([^"']+)["']/)?.[1] ?? match[1],
+    });
+  }
+
+  return inputs;
+}
+
 export function preflightPineStrategySource(input: PineStrategyPreflightInput): PineStrategyPreflightResult {
   const sourceText = input.sourceText.trim();
 
@@ -207,6 +254,8 @@ export function preflightPineStrategySource(input: PineStrategyPreflightInput): 
   const version = sourceText.match(/\/\/@version\s*=\s*(\d+)/i)?.[1] ?? null;
   const declarationMatch = sourceText.match(/\b(indicator|strategy|library)\s*\(/i);
   const declaration = (declarationMatch?.[1]?.toLowerCase() as PineStrategyDeclaration | undefined) ?? "unknown";
+  const declarationArgs = parseDeclarationArgs(sourceText);
+  const inputs = parsePineInputs(sourceText);
 
   if (!version && declaration === "unknown") {
     return {
@@ -231,17 +280,28 @@ export function preflightPineStrategySource(input: PineStrategyPreflightInput): 
     warnings.push("library 脚本不能直接作为可运行策略导入。");
   }
 
+  const reasons = [...warnings];
+  const translationStatus: PineStrategyTranslationStatus =
+    declaration === "library" ? "unsupported" : unsupportedOrderCalls.length > 0 ? "manual-review" : "ready";
+
   return {
     ok: true,
     summary: {
       fileName: input.fileName.trim() || "未命名 Pine 策略",
+      title: parseQuotedTitle(declarationArgs),
       version,
       declaration,
+      overlay: parseOverlay(declarationArgs),
       lineCount: sourceText.split(/\r?\n/).length,
-      inputCount: countMatches(sourceText, /\binput(?:\.\w+)?\s*\(/gi),
+      inputCount: inputs.length || countMatches(sourceText, /\binput(?:\.\w+)?\s*\(/gi),
       plotCount: countMatches(sourceText, /\b(?:plot|plotshape|plotchar|plotbar|plotcandle)\s*\(/gi),
       alertCount: countMatches(sourceText, /\balertcondition\s*\(/gi),
-      canCreateDraft: declaration !== "library" && unsupportedOrderCalls.length === 0,
+      inputs,
+      canCreateDraft: translationStatus === "ready",
+      translationPlan: {
+        status: translationStatus,
+        reasons: reasons.length > 0 ? reasons : ["可进入用户策略草稿，等待后续 Pine 子集转译。"],
+      },
       warnings,
     },
   };

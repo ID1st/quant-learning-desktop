@@ -11,6 +11,7 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
+  ChevronRight,
   FileCode2,
   FilePlus2,
   Layers3,
@@ -21,6 +22,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Tags,
+  Trash2,
 } from "lucide-react";
 
 type StrategyStatus = "enabled" | "disabled";
@@ -66,6 +68,7 @@ export function StrategyManagementPage() {
   const [keyword, setKeyword] = useState("");
   const [pineSourceDraft, setPineSourceDraft] = useState(samplePineSource);
   const [importedDrafts, setImportedDrafts] = useState<ImportedStrategyDraft[]>([]);
+  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
   const [strategyStatus, setStrategyStatus] = useState(() => createInitialStatus(strategies));
   const selectedStrategy = strategies.find((strategy) => strategy.key === selectedKey) ?? strategies[0];
   const enabledCount = Object.values(strategyStatus).filter((status) => status === "enabled").length;
@@ -96,6 +99,7 @@ export function StrategyManagementPage() {
     () => preflightPineStrategySource({ fileName: "user-strategy.pine", sourceText: pineSourceDraft }),
     [pineSourceDraft],
   );
+  const selectedDraft = importedDrafts.find((draft) => draft.id === selectedDraftId) ?? importedDrafts[0] ?? null;
   const filteredStrategies = strategies.filter((strategy) => {
     const status = strategyStatus[strategy.key];
     const normalizedKeyword = keyword.trim().toLowerCase();
@@ -134,6 +138,12 @@ export function StrategyManagementPage() {
 
     const draftId = `${pinePreflight.summary.fileName}-${importedDrafts.length + 1}`;
     setImportedDrafts((drafts) => [...drafts, { id: draftId, summary: pinePreflight.summary }]);
+    setSelectedDraftId(draftId);
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    setImportedDrafts((drafts) => drafts.filter((draft) => draft.id !== draftId));
+    setSelectedDraftId((current) => (current === draftId ? null : current));
   };
 
   return (
@@ -195,6 +205,10 @@ export function StrategyManagementPage() {
                 <span>{pinePreflight.summary.declaration === "strategy" ? "策略脚本" : pinePreflight.summary.declaration === "indicator" ? "指标脚本" : "Pine 脚本"}</span>
                 <dl>
                   <div>
+                    <dt>名称</dt>
+                    <dd>{pinePreflight.summary.title}</dd>
+                  </div>
+                  <div>
                     <dt>版本</dt>
                     <dd>{pinePreflight.summary.version ?? "-"}</dd>
                   </div>
@@ -210,7 +224,21 @@ export function StrategyManagementPage() {
                     <dt>告警</dt>
                     <dd>{pinePreflight.summary.alertCount}</dd>
                   </div>
+                  <div>
+                    <dt>转译计划</dt>
+                    <dd>{pinePreflight.summary.translationPlan.status === "ready" ? "可建草稿" : pinePreflight.summary.translationPlan.status === "manual-review" ? "需复核" : "暂不支持"}</dd>
+                  </div>
                 </dl>
+                {pinePreflight.summary.inputs.length > 0 && (
+                  <div className="pine-input-draft-list">
+                    {pinePreflight.summary.inputs.map((input) => (
+                      <span key={input.key}>
+                        {input.label}
+                        <small>{input.type}</small>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {pinePreflight.summary.warnings.length > 0 && (
                   <div className="pine-warning-list">
                     {pinePreflight.summary.warnings.map((warning) => (
@@ -235,21 +263,47 @@ export function StrategyManagementPage() {
         <div className="imported-draft-list">
           {importedDrafts.length > 0 ? (
             importedDrafts.map((draft) => (
-              <div className="imported-draft-row" key={draft.id}>
+              <button
+                className={draft.id === selectedDraft?.id ? "imported-draft-row active" : "imported-draft-row"}
+                key={draft.id}
+                onClick={() => setSelectedDraftId(draft.id)}
+                type="button"
+              >
                 <FileCode2 size={16} />
                 <span>
-                  <strong>{draft.summary.fileName}</strong>
+                  <strong>{draft.summary.title}</strong>
                   <small>
-                    Pine v{draft.summary.version ?? "-"} / {draft.summary.declaration} / {draft.summary.lineCount} 行
+                    {draft.summary.fileName} / Pine v{draft.summary.version ?? "-"} / {draft.summary.declaration}
                   </small>
                 </span>
-                <em>草稿</em>
-              </div>
+                <em>{draft.summary.translationPlan.status === "ready" ? "待转译" : "需复核"}</em>
+                <ChevronRight size={15} />
+              </button>
             ))
           ) : (
             <div className="strategy-empty-state">暂无用户策略草稿。</div>
           )}
         </div>
+
+        {selectedDraft && (
+          <div className="draft-detail-panel">
+            <div className="draft-detail-heading">
+              <span>
+                <strong>{selectedDraft.summary.title}</strong>
+                <small>{selectedDraft.summary.translationPlan.reasons[0]}</small>
+              </span>
+              <button aria-label="删除草稿" onClick={() => handleDeleteDraft(selectedDraft.id)} type="button">
+                <Trash2 size={15} />
+              </button>
+            </div>
+            <div className="draft-detail-grid">
+              <span>状态：{selectedDraft.summary.translationPlan.status === "ready" ? "待转译" : selectedDraft.summary.translationPlan.status === "manual-review" ? "需人工复核" : "暂不支持"}</span>
+              <span>Overlay：{selectedDraft.summary.overlay === null ? "未声明" : selectedDraft.summary.overlay ? "是" : "否"}</span>
+              <span>参数：{selectedDraft.summary.inputCount}</span>
+              <span>绘图：{selectedDraft.summary.plotCount}</span>
+            </div>
+          </div>
+        )}
       </section>
 
       <div className="strategy-workspace-grid">
