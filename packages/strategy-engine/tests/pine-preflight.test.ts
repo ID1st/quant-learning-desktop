@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { preflightPineStrategySource } from "../src/index.ts";
+import { createPineTranslationPlan, preflightPineStrategySource } from "../src/index.ts";
 
 test("Pine preflight summarizes a valid indicator script", () => {
   const result = preflightPineStrategySource({
@@ -63,4 +63,44 @@ export double(x) => x * 2
   assert.equal(result.summary.declaration, "library");
   assert.equal(result.summary.canCreateDraft, false);
   assert.equal(result.summary.translationPlan.status, "unsupported");
+});
+
+test("Pine translation plan creates a supported subset IR", () => {
+  const result = createPineTranslationPlan({
+    fileName: "demo.pine",
+    sourceText: `//@version=5
+indicator("Demo", overlay=true)
+length = input.int(20, "Length")
+enabled = input.bool(true, "Enabled")
+plot(close)
+plotshape(close > open)
+alertcondition(close > open, "Up")
+`,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.plan.status, "ready");
+  assert.equal(result.plan.ir.declaration.title, "Demo");
+  assert.equal(result.plan.ir.inputs.length, 2);
+  assert.deepEqual(
+    result.plan.ir.visuals.map((visual) => visual.kind),
+    ["plot", "plotshape"],
+  );
+  assert.equal(result.plan.ir.alerts.length, 1);
+  assert.equal(result.plan.ir.unsupportedCalls.length, 0);
+});
+
+test("Pine translation plan requires manual review for strategy order calls", () => {
+  const result = createPineTranslationPlan({
+    fileName: "orders.pine",
+    sourceText: `//@version=5
+strategy("Order Demo")
+strategy.entry("L", strategy.long)
+plot(close)
+`,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.plan.status, "manual-review");
+  assert.deepEqual(result.plan.ir.unsupportedCalls, ["strategy.entry"]);
 });

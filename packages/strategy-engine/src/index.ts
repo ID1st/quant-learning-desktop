@@ -154,6 +154,48 @@ export interface PineStrategyTranslationPlan {
   reasons: string[];
 }
 
+export interface PineTranslationDeclarationIR {
+  type: PineStrategyDeclaration;
+  title: string;
+  overlay: boolean | null;
+  version: string | null;
+}
+
+export interface PineTranslationVisualIR {
+  kind: "plot" | "plotshape" | "plotchar" | "plotbar" | "plotcandle";
+  expression: string;
+}
+
+export interface PineTranslationAlertIR {
+  condition: string;
+  title: string;
+}
+
+export interface PineTranslationIR {
+  fileName: string;
+  declaration: PineTranslationDeclarationIR;
+  inputs: PineStrategyInputDraft[];
+  visuals: PineTranslationVisualIR[];
+  alerts: PineTranslationAlertIR[];
+  unsupportedCalls: string[];
+}
+
+export interface PineTranslationPlanOutput {
+  status: PineStrategyTranslationStatus;
+  reasons: string[];
+  ir: PineTranslationIR;
+}
+
+export type PineTranslationPlanResult =
+  | {
+      ok: true;
+      plan: PineTranslationPlanOutput;
+    }
+  | {
+      ok: false;
+      error: PineStrategyPreflightError;
+    };
+
 export interface PineStrategyPreflightSummary {
   fileName: string;
   title: string;
@@ -238,6 +280,41 @@ function parsePineInputs(sourceText: string): PineStrategyInputDraft[] {
   return inputs;
 }
 
+function findUnsupportedOrderCalls(sourceText: string) {
+  return ["strategy.entry", "strategy.exit", "strategy.order", "strategy.close"].filter((call) => sourceText.includes(call));
+}
+
+function parseVisuals(sourceText: string): PineTranslationVisualIR[] {
+  const visuals: PineTranslationVisualIR[] = [];
+  const pattern = /\b(plot|plotshape|plotchar|plotbar|plotcandle)\s*\(([^)]*)\)/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(sourceText)) !== null) {
+    visuals.push({
+      kind: match[1].toLowerCase() as PineTranslationVisualIR["kind"],
+      expression: (match[2] ?? "").trim(),
+    });
+  }
+
+  return visuals;
+}
+
+function parseAlerts(sourceText: string): PineTranslationAlertIR[] {
+  const alerts: PineTranslationAlertIR[] = [];
+  const pattern = /\balertcondition\s*\(([^)]*)\)/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(sourceText)) !== null) {
+    const args = match[1] ?? "";
+    alerts.push({
+      condition: args.split(",")[0]?.trim() ?? "",
+      title: args.match(/["']([^"']+)["']/)?.[1] ?? "未命名告警",
+    });
+  }
+
+  return alerts;
+}
+
 export function preflightPineStrategySource(input: PineStrategyPreflightInput): PineStrategyPreflightResult {
   const sourceText = input.sourceText.trim();
 
@@ -268,9 +345,7 @@ export function preflightPineStrategySource(input: PineStrategyPreflightInput): 
   }
 
   const warnings: string[] = [];
-  const unsupportedOrderCalls = ["strategy.entry", "strategy.exit", "strategy.order", "strategy.close"].filter((call) =>
-    sourceText.includes(call),
-  );
+  const unsupportedOrderCalls = findUnsupportedOrderCalls(sourceText);
 
   if (unsupportedOrderCalls.length > 0) {
     warnings.push(`检测到暂不支持的交易下单调用：${unsupportedOrderCalls.join(" / ")}。`);
@@ -303,6 +378,37 @@ export function preflightPineStrategySource(input: PineStrategyPreflightInput): 
         reasons: reasons.length > 0 ? reasons : ["可进入用户策略草稿，等待后续 Pine 子集转译。"],
       },
       warnings,
+    },
+  };
+}
+
+export function createPineTranslationPlan(input: PineStrategyPreflightInput): PineTranslationPlanResult {
+  const preflight = preflightPineStrategySource(input);
+
+  if (!preflight.ok) {
+    return preflight;
+  }
+
+  const sourceText = input.sourceText.trim();
+
+  return {
+    ok: true,
+    plan: {
+      status: preflight.summary.translationPlan.status,
+      reasons: preflight.summary.translationPlan.reasons,
+      ir: {
+        fileName: preflight.summary.fileName,
+        declaration: {
+          type: preflight.summary.declaration,
+          title: preflight.summary.title,
+          overlay: preflight.summary.overlay,
+          version: preflight.summary.version,
+        },
+        inputs: preflight.summary.inputs,
+        visuals: parseVisuals(sourceText),
+        alerts: parseAlerts(sourceText),
+        unsupportedCalls: findUnsupportedOrderCalls(sourceText),
+      },
     },
   };
 }

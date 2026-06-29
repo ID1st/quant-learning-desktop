@@ -187,6 +187,47 @@ Initial Pine helper functions:
 - lowest
 - historical indexing helper
 
+### Pine Import And Translation Plan
+
+User-imported Pine scripts enter the system through staged analysis:
+
+1. **Preflight**
+   - Detect Pine version.
+   - Detect `indicator()`, `strategy()`, or `library()` declaration.
+   - Extract script title, `overlay`, `input.*` drafts, plot counts, and alert counts.
+   - Mark unsupported calls such as `strategy.entry`, `strategy.exit`, `strategy.order`, and `strategy.close`.
+
+2. **Translation plan IR**
+   - Build a non-executable intermediate representation.
+   - The IR may include declaration metadata, input drafts, visual declarations, alert declarations, and unsupported calls.
+   - This IR is safe to show in the UI because it does not execute user code.
+
+3. **Manual or automatic translation**
+   - `ready`: can become a user strategy draft and later enter Pine subset translation.
+   - `manual-review`: contains supported metadata but includes behavior that needs human review.
+   - `unsupported`: cannot become a runnable strategy without a separate implementation path.
+
+Initial supported subset for plan extraction:
+
+- `//@version=...`
+- `indicator(...)`
+- `strategy(...)`
+- `input(...)` and `input.*(...)`
+- `plot(...)`
+- `plotshape(...)`
+- `plotchar(...)`
+- `plotbar(...)`
+- `plotcandle(...)`
+- `alertcondition(...)`
+
+Explicitly deferred:
+
+- Full Pine grammar parsing.
+- Historical series semantics beyond helper functions.
+- `strategy.entry/exit/order/close` execution semantics.
+- Drawing object lifecycle such as `line.new`, `label.new`, and updates.
+- `request.security` and multi-symbol data access.
+
 ## 8. Built-In Strategy 1: Ultimate Opening Range Breakout
 
 Source:
