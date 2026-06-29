@@ -1,5 +1,6 @@
 import { AlertTriangle, Boxes, CheckCircle2, FileInput, PackageCheck, PlugZap, ShieldCheck } from "lucide-react";
-import { PluginLoader, validatePluginManifest, type PluginCapability, type PluginPermission } from "@quant/plugin-loader";
+import { useMemo, useState } from "react";
+import { PluginLoader, validatePluginManifest, type PluginCapability, type PluginManifest, type PluginPermission } from "@quant/plugin-loader";
 
 const capabilityLabels: Record<PluginCapability, string> = {
   strategy: "策略",
@@ -69,8 +70,40 @@ const installSteps = [
   "注册能力到策略、指标或数据源模块",
 ];
 
+const sampleManifest = JSON.stringify(
+  {
+    id: "com.example.strategy.pine-demo",
+    name: "Pine 策略示例",
+    version: "1.0.0",
+    type: "strategy",
+    main: "dist/index.js",
+    engine: {
+      app: ">=0.1.0",
+      pluginApi: ">=0.1.0",
+    },
+    permissions: ["market-data:read", "strategy:run", "chart:overlay"],
+    capabilities: ["strategy"],
+  },
+  null,
+  2,
+);
+
+function parseManifestDraft(value: string): { manifest?: PluginManifest; error?: string } {
+  if (value.trim().length === 0) {
+    return { error: "请粘贴 plugin.json 内容后再进行预检。" };
+  }
+
+  try {
+    return { manifest: validatePluginManifest(JSON.parse(value)) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "插件清单解析失败。" };
+  }
+}
+
 export function SettingsPage() {
   const registeredPlugins = loader.list();
+  const [manifestDraft, setManifestDraft] = useState(sampleManifest);
+  const manifestPreview = useMemo(() => parseManifestDraft(manifestDraft), [manifestDraft]);
 
   return (
     <article className="settings-page">
@@ -104,7 +137,9 @@ export function SettingsPage() {
             <PlugZap size={24} />
             <strong>选择插件包</strong>
             <span>支持包含 plugin.json 的本地目录或压缩包。当前为界面入口，尚未执行文件读取。</span>
-            <button type="button">选择本地插件</button>
+            <button onClick={() => setManifestDraft(sampleManifest)} type="button">
+              载入示例清单
+            </button>
           </div>
 
           <ol className="plugin-step-list">
@@ -135,6 +170,61 @@ export function SettingsPage() {
           <div className="settings-note warning">
             <AlertTriangle size={16} />
             <span>真实插件执行前还需要接入隔离运行环境，避免插件直接访问交易凭证、Node 全局对象和本地文件。</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="module-card manifest-preview-panel">
+        <div className="module-card-header">
+          <FileInput size={20} />
+          <div>
+            <h2>插件清单预检</h2>
+            <p>先验证 plugin.json 的结构、权限和能力声明。后续接入桌面文件选择器后，会复用同一套校验逻辑。</p>
+          </div>
+        </div>
+
+        <div className="manifest-preview-grid">
+          <label className="manifest-editor">
+            <span>plugin.json</span>
+            <textarea aria-label="插件清单 JSON" onChange={(event) => setManifestDraft(event.target.value)} spellCheck={false} value={manifestDraft} />
+          </label>
+
+          <div className={manifestPreview.manifest ? "manifest-result valid" : "manifest-result invalid"}>
+            {manifestPreview.manifest ? (
+              <>
+                <CheckCircle2 size={20} />
+                <strong>清单预检通过</strong>
+                <span>{manifestPreview.manifest.name}</span>
+                <dl>
+                  <div>
+                    <dt>插件 ID</dt>
+                    <dd>{manifestPreview.manifest.id}</dd>
+                  </div>
+                  <div>
+                    <dt>版本</dt>
+                    <dd>{manifestPreview.manifest.version}</dd>
+                  </div>
+                  <div>
+                    <dt>入口</dt>
+                    <dd>{manifestPreview.manifest.main}</dd>
+                  </div>
+                </dl>
+                <div className="manifest-chip-group">
+                  {manifestPreview.manifest.capabilities.map((capability) => (
+                    <b key={capability}>{capabilityLabels[capability]}</b>
+                  ))}
+                  {manifestPreview.manifest.permissions.map((permission) => (
+                    <em key={permission}>{permissionLabels[permission]}</em>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <AlertTriangle size={20} />
+                <strong>清单预检未通过</strong>
+                <span>{manifestPreview.error}</span>
+              </>
+            )}
           </div>
         </div>
       </section>

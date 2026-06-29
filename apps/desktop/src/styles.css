@@ -1944,6 +1944,139 @@ input {
   padding: 5px 8px;
 }
 
+.manifest-preview-panel {
+  min-width: 0;
+}
+
+.manifest-preview-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(320px, 0.9fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.manifest-editor {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.manifest-editor span {
+  color: #b9c4d2;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.manifest-editor textarea {
+  width: 100%;
+  min-height: 260px;
+  resize: vertical;
+  border: 1px solid rgba(73, 91, 112, 0.44);
+  border-radius: 8px;
+  outline: none;
+  background: rgba(8, 13, 20, 0.64);
+  color: #d9e2ea;
+  font: 12px/1.65 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  padding: 12px;
+}
+
+.manifest-editor textarea:focus {
+  border-color: rgba(51, 112, 255, 0.72);
+  box-shadow: 0 0 0 3px rgba(51, 112, 255, 0.14);
+}
+
+.manifest-result {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.manifest-result.valid {
+  border: 1px solid rgba(66, 223, 173, 0.34);
+  background: rgba(66, 223, 173, 0.08);
+}
+
+.manifest-result.invalid {
+  border: 1px solid rgba(239, 75, 69, 0.34);
+  background: rgba(239, 75, 69, 0.08);
+}
+
+.manifest-result svg {
+  color: #42dfad;
+}
+
+.manifest-result.invalid svg {
+  color: #ffaaa6;
+}
+
+.manifest-result strong {
+  color: #f5f8ff;
+  font-size: 17px;
+}
+
+.manifest-result span {
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.manifest-result dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.manifest-result dl div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(73, 91, 112, 0.28);
+  border-radius: 6px;
+  background: rgba(8, 13, 20, 0.28);
+  padding: 8px;
+}
+
+.manifest-result dt {
+  color: #8f9caf;
+  font-size: 12px;
+}
+
+.manifest-result dd {
+  min-width: 0;
+  margin: 0;
+  color: #f5f8ff;
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.manifest-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.manifest-chip-group b,
+.manifest-chip-group em {
+  border-radius: 999px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+
+.manifest-chip-group b {
+  border: 1px solid rgba(66, 223, 173, 0.3);
+  background: rgba(66, 223, 173, 0.1);
+  color: #9af5d2;
+}
+
+.manifest-chip-group em {
+  border: 1px solid rgba(73, 91, 112, 0.42);
+  background: rgba(8, 13, 20, 0.36);
+  color: #cbd5e1;
+}
+
 .app-content {
   min-width: 0;
   padding: 24px;
@@ -2037,6 +2170,7 @@ input {
   .parameter-grid,
   .settings-summary-grid,
   .settings-grid,
+  .manifest-preview-grid,
   .plugin-registry-row {
     grid-template-columns: 1fr;
   }
