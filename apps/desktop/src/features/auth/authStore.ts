@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import type { AuthSession } from "./authService";
+import { appLocalDatabase } from "../persistence/localDatabase";
 
-const STORAGE_KEY = "quant-learning.auth-session";
+const COLLECTION_KEY = "auth-session";
+const STORAGE_VERSION = 1;
 
 interface AuthState {
   session: AuthSession | null;
@@ -10,19 +12,45 @@ interface AuthState {
   clearSession: () => void;
 }
 
-function readStoredSession(): AuthSession | null {
-  try {
-    const value = window.localStorage.getItem(STORAGE_KEY);
-    return value ? (JSON.parse(value) as AuthSession) : null;
-  } catch {
+function sanitizeSession(value: unknown): AuthSession | null {
+  if (!value || typeof value !== "object") {
     return null;
   }
+
+  const session = value as Partial<AuthSession>;
+  if (
+    typeof session.userId !== "string" ||
+    typeof session.email !== "string" ||
+    typeof session.apiBound !== "boolean" ||
+    typeof session.createdAt !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    userId: session.userId,
+    email: session.email,
+    apiBound: session.apiBound,
+    createdAt: session.createdAt,
+  };
+}
+
+function readStoredSession(): AuthSession | null {
+  return appLocalDatabase.readDocument(COLLECTION_KEY, {
+    version: STORAGE_VERSION,
+    fallback: null,
+    sanitize: sanitizeSession,
+  });
+}
+
+function writeStoredSession(session: AuthSession) {
+  appLocalDatabase.writeDocument(COLLECTION_KEY, STORAGE_VERSION, session);
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   session: readStoredSession(),
   setSession: (session) => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    writeStoredSession(session);
     set({ session });
   },
   setApiBound: (apiBound) => {
@@ -32,12 +60,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       const session = { ...state.session, apiBound };
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      writeStoredSession(session);
       return { session };
     });
   },
   clearSession: () => {
-    window.localStorage.removeItem(STORAGE_KEY);
+    appLocalDatabase.removeDocument(COLLECTION_KEY);
     set({ session: null });
   },
 }));

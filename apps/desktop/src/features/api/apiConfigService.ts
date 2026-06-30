@@ -1,4 +1,5 @@
 import type { Market } from "@quant/shared";
+import { appLocalDatabase } from "../persistence/localDatabase";
 
 export interface LongPortApiForm {
   apiUrl: string;
@@ -13,7 +14,8 @@ export interface LongPortApiBinding {
   boundAt: string;
 }
 
-const STORAGE_KEY = "quant-learning.longport-api-binding";
+const COLLECTION_KEY = "longport-api-binding";
+const STORAGE_VERSION = 1;
 
 function waitForNetworkBoundary() {
   return new Promise((resolve) => window.setTimeout(resolve, 420));
@@ -67,25 +69,15 @@ function sanitizeBinding(value: unknown): LongPortApiBinding | null {
 }
 
 export function readLongPortApiBinding(): LongPortApiBinding | null {
-  try {
-    const value = window.localStorage.getItem(STORAGE_KEY);
-    if (!value) {
-      return null;
-    }
-
-    const binding = sanitizeBinding(JSON.parse(value));
-    if (binding) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(binding));
-    }
-
-    return binding;
-  } catch {
-    return null;
-  }
+  return appLocalDatabase.readDocument(COLLECTION_KEY, {
+    version: STORAGE_VERSION,
+    fallback: null,
+    sanitize: sanitizeBinding,
+  });
 }
 
 export function clearLongPortApiBinding() {
-  window.localStorage.removeItem(STORAGE_KEY);
+  appLocalDatabase.removeDocument(COLLECTION_KEY);
 }
 
 export async function verifyLongPortApiConfig(form: LongPortApiForm): Promise<LongPortApiBinding> {
@@ -101,6 +93,6 @@ export async function verifyLongPortApiConfig(form: LongPortApiForm): Promise<Lo
     boundAt: new Date().toISOString(),
   };
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(binding));
+  appLocalDatabase.writeDocument(COLLECTION_KEY, STORAGE_VERSION, binding);
   return binding;
 }

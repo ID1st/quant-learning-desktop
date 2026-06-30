@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import type { StrategyParameterDefinition, UserStrategyDraftDefinition } from "@quant/strategy-engine";
+import { appLocalDatabase } from "../persistence/localDatabase";
 
-const STORAGE_KEY = "quant-learning.user-strategy-drafts";
+const COLLECTION_KEY = "user-strategy-drafts";
 const STORAGE_VERSION = 1;
 
 export interface ImportedStrategyDraft {
@@ -46,34 +47,34 @@ function isStoredDraft(value: unknown): value is ImportedStrategyDraft {
 }
 
 function readStoredDraftState(): StoredUserStrategyDraftState {
-  try {
-    const value = window.localStorage.getItem(STORAGE_KEY);
-    if (!value) {
-      return { version: STORAGE_VERSION, drafts: [], selectedDraftId: null };
-    }
-
-    const parsed = JSON.parse(value) as Partial<StoredUserStrategyDraftState>;
-    const drafts = Array.isArray(parsed.drafts) ? parsed.drafts.filter(isStoredDraft) : [];
-    const selectedDraftId =
-      typeof parsed.selectedDraftId === "string" && drafts.some((draft) => draft.id === parsed.selectedDraftId)
-        ? parsed.selectedDraftId
-        : null;
-
-    return { version: STORAGE_VERSION, drafts, selectedDraftId };
-  } catch {
-    return { version: STORAGE_VERSION, drafts: [], selectedDraftId: null };
-  }
+  return appLocalDatabase.readDocument(COLLECTION_KEY, {
+    version: STORAGE_VERSION,
+    fallback: { version: STORAGE_VERSION, drafts: [], selectedDraftId: null },
+    sanitize: sanitizeDraftState,
+  });
 }
 
 function writeStoredDraftState(state: Pick<UserStrategyDraftState, "drafts" | "selectedDraftId">) {
-  window.localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      version: STORAGE_VERSION,
-      drafts: state.drafts,
-      selectedDraftId: state.selectedDraftId,
-    }),
-  );
+  appLocalDatabase.writeDocument(COLLECTION_KEY, STORAGE_VERSION, {
+    version: STORAGE_VERSION,
+    drafts: state.drafts,
+    selectedDraftId: state.selectedDraftId,
+  });
+}
+
+function sanitizeDraftState(value: unknown): StoredUserStrategyDraftState | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const parsed = value as Partial<StoredUserStrategyDraftState>;
+  const drafts = Array.isArray(parsed.drafts) ? parsed.drafts.filter(isStoredDraft) : [];
+  const selectedDraftId =
+    typeof parsed.selectedDraftId === "string" && drafts.some((draft) => draft.id === parsed.selectedDraftId)
+      ? parsed.selectedDraftId
+      : null;
+
+  return { version: STORAGE_VERSION, drafts, selectedDraftId };
 }
 
 function createDraftId(key: string, drafts: ImportedStrategyDraft[]) {
