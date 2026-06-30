@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import {
+  createEmptyStrategyRegistry,
   createPresetStrategyRegistry,
+  createRunnableUserStrategyDefinition,
   createUserStrategyDraftDefinition,
   preflightPineStrategySource,
   runRegisteredStrategy,
@@ -155,6 +157,32 @@ export function StrategyManagementPage() {
     [pineSourceDraft],
   );
   const selectedDraft = importedDrafts.find((draft) => draft.id === selectedDraftId) ?? importedDrafts[0] ?? null;
+  const selectedDraftRuntimePreview = useMemo(() => {
+    if (!selectedDraft) {
+      return null;
+    }
+
+    const runnable = createRunnableUserStrategyDefinition(selectedDraft.definition);
+    if (!runnable.ok) {
+      return { runnable, result: null };
+    }
+
+    const draftRegistry = createEmptyStrategyRegistry();
+    draftRegistry.register(runnable.strategy);
+
+    return {
+      runnable,
+      result: runRegisteredStrategy(draftRegistry, {
+        strategyKey: runnable.strategy.key,
+        symbol: "AAPL",
+        market: "US",
+        timeframe: "15m",
+        bars: sampleBars,
+        runMode: "backtest",
+        enabled: true,
+      }),
+    };
+  }, [selectedDraft]);
   const filteredStrategies = strategies.filter((strategy) => {
     const status = strategyStatus[strategy.key];
     const normalizedKeyword = keyword.trim().toLowerCase();
@@ -408,6 +436,66 @@ export function StrategyManagementPage() {
               <span>绘图：{selectedDraft.definition.translation.ir.visuals.length}</span>
               <span>创建时间：{new Date(selectedDraft.createdAt).toLocaleString("zh-CN")}</span>
             </div>
+
+            {selectedDraftRuntimePreview && (
+              <div className={`draft-runtime-preview ${selectedDraftRuntimePreview.runnable.ok ? "ready" : "blocked"}`}>
+                <div className="draft-runtime-preview-heading">
+                  {selectedDraftRuntimePreview.runnable.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                  <span>
+                    <strong>{selectedDraftRuntimePreview.runnable.ok ? "可生成运行草案" : "暂不可运行"}</strong>
+                    <small>
+                      {selectedDraftRuntimePreview.runnable.ok
+                        ? "已通过 Pine 最小子集检查，可用样例 K 线试运行。"
+                        : selectedDraftRuntimePreview.runnable.error.message}
+                    </small>
+                  </span>
+                </div>
+
+                {selectedDraftRuntimePreview.runnable.ok && selectedDraftRuntimePreview.result ? (
+                  <>
+                    <dl>
+                      <div>
+                        <dt>参数</dt>
+                        <dd>{Object.keys(selectedDraftRuntimePreview.result.input.parameters).length}</dd>
+                      </div>
+                      <div>
+                        <dt>信号</dt>
+                        <dd>{selectedDraftRuntimePreview.result.output.signals.length}</dd>
+                      </div>
+                      <div>
+                        <dt>图层</dt>
+                        <dd>{selectedDraftRuntimePreview.result.output.render.elements.length}</dd>
+                      </div>
+                      <div>
+                        <dt>告警</dt>
+                        <dd>{selectedDraftRuntimePreview.result.output.alerts.length}</dd>
+                      </div>
+                    </dl>
+
+                    <div className="draft-runtime-signal-list">
+                      {selectedDraftRuntimePreview.result.output.signals.length > 0 ? (
+                        selectedDraftRuntimePreview.result.output.signals.slice(0, 3).map((signal, index) => (
+                          <span key={`${signal.timestamp}-${signal.type}-${index}`}>
+                            {new Date(signal.timestamp).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })} / {signal.type} /{" "}
+                            {signal.price === undefined ? "-" : signal.price.toFixed(2)}
+                          </span>
+                        ))
+                      ) : (
+                        <span>样例 K 线未触发信号。</span>
+                      )}
+                    </div>
+                  </>
+                ) : null}
+
+                {!selectedDraftRuntimePreview.runnable.ok ? (
+                  <div className="draft-runtime-error-list">
+                    {selectedDraftRuntimePreview.runnable.error.details.map((detail) => (
+                      <code key={detail}>{detail}</code>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
 
             <div className="draft-parameter-schema-list">
               {selectedDraft.definition.parameterSchema.length > 0 ? (
