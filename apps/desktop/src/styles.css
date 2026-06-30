@@ -1508,6 +1508,39 @@ input {
   font-size: 11px;
 }
 
+.strategy-source-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.strategy-source-groups span,
+.strategy-list-group-label {
+  border: 1px solid rgba(73, 91, 112, 0.3);
+  border-radius: 999px;
+  background: rgba(12, 18, 26, 0.46);
+  color: #a8b3c3;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+
+.strategy-subsection-title {
+  display: grid;
+  gap: 3px;
+}
+
+.strategy-subsection-title h3 {
+  margin: 0;
+  color: #f5f8ff;
+  font-size: 15px;
+}
+
+.strategy-subsection-title span {
+  color: #8f9caf;
+  font-size: 12px;
+}
+
 .imported-draft-list {
   display: grid;
   gap: 8px;
@@ -1596,22 +1629,78 @@ input {
   line-height: 1.5;
 }
 
-.draft-detail-heading button {
+.draft-detail-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.draft-detail-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 30px;
   height: 30px;
-  border: 1px solid rgba(239, 75, 69, 0.34);
+  border: 1px solid rgba(73, 91, 112, 0.34);
   border-radius: 6px;
+  background: rgba(12, 18, 26, 0.72);
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.draft-detail-actions button:last-child {
+  border-color: rgba(239, 75, 69, 0.34);
   background: rgba(239, 75, 69, 0.1);
   color: #ffaaa6;
-  cursor: pointer;
+}
+
+.draft-edit-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
+  gap: 8px;
+}
+
+.draft-edit-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.draft-edit-grid label span {
+  color: #8f9caf;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.draft-edit-grid input,
+.draft-edit-grid textarea,
+.draft-parameter-schema-list input,
+.draft-parameter-schema-list select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(73, 91, 112, 0.44);
+  border-radius: 6px;
+  outline: none;
+  background: rgba(8, 13, 20, 0.64);
+  color: #f5f8ff;
+  font-size: 13px;
+  padding: 8px 9px;
+}
+
+.draft-edit-grid textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.draft-edit-grid input:focus,
+.draft-edit-grid textarea:focus,
+.draft-parameter-schema-list input:focus,
+.draft-parameter-schema-list select:focus {
+  border-color: rgba(51, 112, 255, 0.72);
+  box-shadow: 0 0 0 3px rgba(51, 112, 255, 0.14);
 }
 
 .draft-detail-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1629,7 +1718,7 @@ input {
   gap: 8px;
 }
 
-.draft-parameter-schema-list span,
+.draft-parameter-schema-list label,
 .draft-parameter-schema-list > small {
   display: grid;
   gap: 4px;
@@ -1642,6 +1731,11 @@ input {
   padding: 9px;
 }
 
+.draft-parameter-schema-list label > span {
+  display: grid;
+  gap: 3px;
+}
+
 .draft-parameter-schema-list strong {
   color: #f5f8ff;
   font-size: 12px;
@@ -1651,6 +1745,13 @@ input {
   color: #8f9caf;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.draft-parameter-schema-list input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #42dfad;
+  padding: 0;
 }
 
 .draft-ir-grid {
@@ -1705,6 +1806,42 @@ input {
 .strategy-list {
   display: grid;
   gap: 7px;
+}
+
+.strategy-list-group-label {
+  display: inline-flex;
+  justify-self: start;
+  margin: 10px 0 4px;
+}
+
+.strategy-mini-list {
+  display: grid;
+  gap: 6px;
+}
+
+.strategy-mini-list button,
+.strategy-mini-list > span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(73, 91, 112, 0.26);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.3);
+  color: #cbd5e1;
+  font-size: 12px;
+  padding: 8px;
+  text-align: left;
+}
+
+.strategy-mini-list button {
+  cursor: pointer;
+}
+
+.strategy-mini-list em {
+  color: #9af5d2;
+  font-style: normal;
+  font-weight: 800;
 }
 
 .strategy-filter-bar {
@@ -2627,6 +2764,7 @@ input {
   .strategy-detail-header,
   .strategy-meta-grid,
   .parameter-grid,
+  .draft-edit-grid,
   .draft-detail-grid,
   .draft-parameter-schema-list,
   .draft-ir-grid,

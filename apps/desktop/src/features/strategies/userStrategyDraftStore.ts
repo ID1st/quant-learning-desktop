@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { UserStrategyDraftDefinition } from "@quant/strategy-engine";
+import type { StrategyParameterDefinition, UserStrategyDraftDefinition } from "@quant/strategy-engine";
 
 const STORAGE_KEY = "quant-learning.user-strategy-drafts";
 const STORAGE_VERSION = 1;
@@ -20,6 +20,9 @@ interface UserStrategyDraftState {
   drafts: ImportedStrategyDraft[];
   selectedDraftId: string | null;
   addDraft: (definition: UserStrategyDraftDefinition) => string;
+  duplicateDraft: (draftId: string) => string | null;
+  updateDraftMeta: (draftId: string, values: { name: string; description: string }) => void;
+  updateDraftParameter: (draftId: string, parameterKey: string, defaultValue: StrategyParameterDefinition["defaultValue"]) => void;
   deleteDraft: (draftId: string) => void;
   setSelectedDraftId: (draftId: string | null) => void;
 }
@@ -85,6 +88,19 @@ function createDraftId(key: string, drafts: ImportedStrategyDraft[]) {
   return draftId;
 }
 
+function createCopyName(name: string, drafts: ImportedStrategyDraft[]) {
+  const baseName = `${name} 副本`;
+  let index = 1;
+  let copyName = baseName;
+
+  while (drafts.some((draft) => draft.definition.name === copyName)) {
+    index += 1;
+    copyName = `${baseName} ${index}`;
+  }
+
+  return copyName;
+}
+
 const storedState = readStoredDraftState();
 
 export const useUserStrategyDraftStore = create<UserStrategyDraftState>((set) => ({
@@ -112,6 +128,101 @@ export const useUserStrategyDraftStore = create<UserStrategyDraftState>((set) =>
     });
 
     return createdDraftId;
+  },
+  duplicateDraft: (draftId) => {
+    let createdDraftId: string | null = null;
+
+    set((state) => {
+      const sourceDraft = state.drafts.find((draft) => draft.id === draftId);
+      if (!sourceDraft) {
+        return state;
+      }
+
+      createdDraftId = createDraftId(sourceDraft.definition.key, state.drafts);
+      const copiedDraft: ImportedStrategyDraft = {
+        id: createdDraftId,
+        createdAt: new Date().toISOString(),
+        definition: {
+          ...sourceDraft.definition,
+          name: createCopyName(sourceDraft.definition.name, state.drafts),
+          description: sourceDraft.definition.description,
+          parameterSchema: sourceDraft.definition.parameterSchema.map((parameter) => ({ ...parameter })),
+          translation: {
+            ...sourceDraft.definition.translation,
+            ir: {
+              ...sourceDraft.definition.translation.ir,
+              declaration: { ...sourceDraft.definition.translation.ir.declaration },
+              inputs: sourceDraft.definition.translation.ir.inputs.map((input) => ({ ...input })),
+              visuals: sourceDraft.definition.translation.ir.visuals.map((visual) => ({ ...visual })),
+              alerts: sourceDraft.definition.translation.ir.alerts.map((alert) => ({ ...alert })),
+              unsupportedCalls: [...sourceDraft.definition.translation.ir.unsupportedCalls],
+            },
+            reasons: [...sourceDraft.definition.translation.reasons],
+          },
+        },
+      };
+      const nextState = {
+        drafts: [...state.drafts, copiedDraft],
+        selectedDraftId: createdDraftId,
+      };
+
+      writeStoredDraftState(nextState);
+      return nextState;
+    });
+
+    return createdDraftId;
+  },
+  updateDraftMeta: (draftId, values) => {
+    const name = values.name.trim();
+    const description = values.description.trim();
+
+    if (!name) {
+      return;
+    }
+
+    set((state) => {
+      const nextState = {
+        drafts: state.drafts.map((draft) =>
+          draft.id === draftId
+            ? {
+                ...draft,
+                definition: {
+                  ...draft.definition,
+                  name,
+                  description,
+                },
+              }
+            : draft,
+        ),
+        selectedDraftId: state.selectedDraftId,
+      };
+
+      writeStoredDraftState(nextState);
+      return nextState;
+    });
+  },
+  updateDraftParameter: (draftId, parameterKey, defaultValue) => {
+    set((state) => {
+      const nextState = {
+        drafts: state.drafts.map((draft) =>
+          draft.id === draftId
+            ? {
+                ...draft,
+                definition: {
+                  ...draft.definition,
+                  parameterSchema: draft.definition.parameterSchema.map((parameter) =>
+                    parameter.key === parameterKey ? { ...parameter, defaultValue } : parameter,
+                  ),
+                },
+              }
+            : draft,
+        ),
+        selectedDraftId: state.selectedDraftId,
+      };
+
+      writeStoredDraftState(nextState);
+      return nextState;
+    });
   },
   deleteDraft: (draftId) => {
     set((state) => {
