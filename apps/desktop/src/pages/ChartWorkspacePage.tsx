@@ -282,6 +282,18 @@ function formatSignalTime(timestamp: number) {
   }).format(timestamp);
 }
 
+function formatStrategySource(strategy: StrategyDefinition) {
+  if (strategy.sourceType === "user") {
+    return "用户策略";
+  }
+
+  if (strategy.sourceType === "plugin") {
+    return "插件策略";
+  }
+
+  return "预制策略";
+}
+
 export function ChartWorkspacePage() {
   const workspacePreferences = useMemo(() => readWorkspacePreferences(), []);
   const importedDrafts = useUserStrategyDraftStore((state) => state.drafts);
@@ -525,8 +537,16 @@ export function ChartWorkspacePage() {
               </button>
             </div>
 
+            <div className="strategy-config-meta">
+              <span>{formatStrategySource(activeConfigStrategyRun.strategy)}</span>
+              <span>{activeConfigStrategyRun.strategy.version}</span>
+              <span>{activeConfigStrategyRun.strategy.sourceFile ?? "本地运行定义"}</span>
+              <span>{activeConfigStrategyRun.strategy.supportedTimeframes.join(" / ")}</span>
+            </div>
+
             <div className="strategy-config-grid">
-              {activeConfigStrategyRun.strategy.parameterSchema.map((parameter) => {
+              {activeConfigStrategyRun.strategy.parameterSchema.length > 0 ? (
+                activeConfigStrategyRun.strategy.parameterSchema.map((parameter) => {
                 const value = activeConfigStrategyRun.settings.parameters[parameter.key] ?? parameter.defaultValue;
 
                 if (parameter.type === "boolean") {
@@ -579,7 +599,13 @@ export function ChartWorkspacePage() {
                     />
                   </label>
                 );
-              })}
+                })
+              ) : (
+                <div className="strategy-config-empty-state">
+                  <strong>暂无可配置参数</strong>
+                  <span>该策略当前使用 Pine 最小子集生成的默认运行定义，后续可在策略管理中扩展参数 Schema。</span>
+                </div>
+              )}
             </div>
           </section>
         </div>
@@ -609,7 +635,10 @@ export function ChartWorkspacePage() {
             {strategyRuns.map(({ strategy, settings, result }) => (
               <div className={settings.enabled && canShowStrategyLayers && settings.showLayer ? "layer-item active" : "layer-item"} key={strategy.key}>
                 <span>
-                  <strong>{strategy.name}</strong>
+                  <strong>
+                    {strategy.name}
+                    <em className={`strategy-source-badge ${strategy.sourceType}`}>{formatStrategySource(strategy)}</em>
+                  </strong>
                   <small>{timeframe === "15m" ? `${result.output.render.elements.length} 个元素` : "仅 15m 样例可用"}</small>
                 </span>
                 <div className="layer-actions">

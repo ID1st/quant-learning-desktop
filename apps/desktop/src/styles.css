@@ -985,11 +985,40 @@ input {
 }
 
 .layer-item strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   color: #f5f8ff;
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.strategy-source-badge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(73, 91, 112, 0.48);
+  border-radius: 999px;
+  background: rgba(73, 91, 112, 0.14);
+  color: #8f9caf;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+  padding: 3px 6px;
+}
+
+.strategy-source-badge.user {
+  border-color: rgba(66, 223, 173, 0.36);
+  background: rgba(66, 223, 173, 0.1);
+  color: #9af5d2;
+}
+
+.strategy-source-badge.plugin {
+  border-color: rgba(51, 112, 255, 0.36);
+  background: rgba(51, 112, 255, 0.1);
+  color: #a9c3ff;
 }
 
 .layer-item small {
@@ -1106,7 +1135,7 @@ input {
 
 .strategy-config-dialog {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 14px;
   width: min(760px, calc(100vw - 48px));
   max-height: min(620px, calc(100vh - 80px));
@@ -1138,6 +1167,26 @@ input {
   font-size: 16px;
 }
 
+.strategy-config-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.strategy-config-meta span {
+  min-width: 0;
+  border: 1px solid rgba(73, 91, 112, 0.34);
+  border-radius: 999px;
+  background: rgba(8, 13, 20, 0.48);
+  color: #9aa6b8;
+  font-size: 11px;
+  font-weight: 800;
+  overflow: hidden;
+  padding: 5px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .strategy-config-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1146,6 +1195,27 @@ input {
   min-height: 0;
   overflow: auto;
   padding-right: 4px;
+}
+
+.strategy-config-empty-state {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 6px;
+  border: 1px dashed rgba(73, 91, 112, 0.42);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.42);
+  padding: 14px;
+}
+
+.strategy-config-empty-state strong {
+  color: #f5f8ff;
+  font-size: 13px;
+}
+
+.strategy-config-empty-state span {
+  color: #8f9caf;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .watchlist-items small.negative {
