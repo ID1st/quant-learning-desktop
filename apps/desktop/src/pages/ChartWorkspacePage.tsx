@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { ChartViewport, type CandlePoint, type ChartLayer, type ChartLayerElement } from "@quant/chart";
 import type { Market, Timeframe } from "@quant/shared";
 import {
+  createEmptyStrategyRegistry,
   createPresetStrategyRegistry,
+  createRunnableUserStrategyDefinition,
   runRegisteredStrategy,
   type Bar,
   type StrategyDefinition,
   type StrategyParameterDefinition,
   type StrategyRunResult,
 } from "@quant/strategy-engine";
+import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
 import {
   Bell,
   CheckCircle2,
@@ -281,6 +284,21 @@ function formatSignalTime(timestamp: number) {
 
 export function ChartWorkspacePage() {
   const workspacePreferences = useMemo(() => readWorkspacePreferences(), []);
+  const importedDrafts = useUserStrategyDraftStore((state) => state.drafts);
+  const runnableUserStrategies = useMemo(
+    () =>
+      importedDrafts.flatMap((draft) => {
+        const result = createRunnableUserStrategyDefinition(draft.definition);
+        return result.ok ? [result.strategy] : [];
+      }),
+    [importedDrafts],
+  );
+  const chartStrategies = useMemo(() => [...presetStrategies, ...runnableUserStrategies], [runnableUserStrategies]);
+  const chartStrategyRegistry = useMemo(() => {
+    const registry = createEmptyStrategyRegistry();
+    chartStrategies.forEach((strategy) => registry.register(strategy));
+    return registry;
+  }, [chartStrategies]);
   const [activeSymbol, setActiveSymbol] = useState(symbols[0]);
   const [timeframe, setTimeframe] = useState<Timeframe>("15m");
   const [showSignals, setShowSignals] = useState(workspacePreferences.showSignals);
@@ -290,12 +308,12 @@ export function ChartWorkspacePage() {
   const [activeConfigStrategyKey, setActiveConfigStrategyKey] = useState<string | null>(null);
   const strategyRuns = useMemo(
     () =>
-      presetStrategies.map((strategy, index) => {
+      chartStrategies.map((strategy, index) => {
         const settings = strategySettings[strategy.key] ?? getDefaultStrategyState(strategy, index);
         let result: StrategyRunResult;
 
         try {
-          result = runRegisteredStrategy(strategyRegistry, {
+          result = runRegisteredStrategy(chartStrategyRegistry, {
             strategyKey: strategy.key,
             symbol: activeSymbol.symbol,
             market: activeSymbol.market,
@@ -315,7 +333,7 @@ export function ChartWorkspacePage() {
           result,
         };
       }),
-    [activeSymbol.market, activeSymbol.symbol, strategySettings],
+    [activeSymbol.market, activeSymbol.symbol, chartStrategies, chartStrategyRegistry, strategySettings],
   );
   const strategyLayers = useMemo<ChartLayer[]>(
     () =>
@@ -354,8 +372,8 @@ export function ChartWorkspacePage() {
   );
   const updateStrategyState = (strategyKey: string, updater: (state: StrategyWorkspaceState) => StrategyWorkspaceState) => {
     setStrategySettings((current) => {
-      const strategyIndex = presetStrategies.findIndex((strategy) => strategy.key === strategyKey);
-      const strategy = presetStrategies[strategyIndex];
+      const strategyIndex = chartStrategies.findIndex((strategy) => strategy.key === strategyKey);
+      const strategy = chartStrategies[strategyIndex];
 
       if (!strategy) {
         return current;
