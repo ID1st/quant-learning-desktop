@@ -6,8 +6,8 @@ import {
   runRegisteredStrategy,
   type Bar,
   type StrategyDefinition,
-  type UserStrategyDraftDefinition,
 } from "@quant/strategy-engine";
+import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
 import {
   Activity,
   AlertTriangle,
@@ -28,11 +28,6 @@ import {
 
 type StrategyStatus = "enabled" | "disabled";
 type StrategyFilter = "all" | StrategyStatus;
-
-interface ImportedStrategyDraft {
-  id: string;
-  definition: UserStrategyDraftDefinition;
-}
 
 const registry = createPresetStrategyRegistry();
 
@@ -68,8 +63,11 @@ export function StrategyManagementPage() {
   const [filter, setFilter] = useState<StrategyFilter>("all");
   const [keyword, setKeyword] = useState("");
   const [pineSourceDraft, setPineSourceDraft] = useState(samplePineSource);
-  const [importedDrafts, setImportedDrafts] = useState<ImportedStrategyDraft[]>([]);
-  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
+  const importedDrafts = useUserStrategyDraftStore((state) => state.drafts);
+  const selectedDraftId = useUserStrategyDraftStore((state) => state.selectedDraftId);
+  const addImportedDraft = useUserStrategyDraftStore((state) => state.addDraft);
+  const deleteImportedDraft = useUserStrategyDraftStore((state) => state.deleteDraft);
+  const setSelectedDraftId = useUserStrategyDraftStore((state) => state.setSelectedDraftId);
   const [strategyStatus, setStrategyStatus] = useState(() => createInitialStatus(strategies));
   const selectedStrategy = strategies.find((strategy) => strategy.key === selectedKey) ?? strategies[0];
   const enabledCount = Object.values(strategyStatus).filter((status) => status === "enabled").length;
@@ -141,14 +139,11 @@ export function StrategyManagementPage() {
       return;
     }
 
-    const draftId = `${userStrategyDraft.draft.key}-${importedDrafts.length + 1}`;
-    setImportedDrafts((drafts) => [...drafts, { id: draftId, definition: userStrategyDraft.draft }]);
-    setSelectedDraftId(draftId);
+    addImportedDraft(userStrategyDraft.draft);
   };
 
   const handleDeleteDraft = (draftId: string) => {
-    setImportedDrafts((drafts) => drafts.filter((draft) => draft.id !== draftId));
-    setSelectedDraftId((current) => (current === draftId ? null : current));
+    deleteImportedDraft(draftId);
   };
 
   return (
