@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createMemoryStorageDriver, LocalDatabase } from "../src/features/persistence/localDatabase.ts";
+import {
+  createAppLocalDatabase,
+  createMemoryStorageDriver,
+  LocalDatabase,
+  type DesktopLocalDatabaseBridge,
+} from "../src/features/persistence/localDatabase.ts";
 
 interface SampleDocument {
   id: string;
@@ -66,4 +71,68 @@ test("LocalDatabase removes documents by collection", () => {
 
   database.removeDocument("sample");
   assert.equal(driver.getItem("test.sample"), null);
+});
+
+test("createAppLocalDatabase prefers the desktop bridge when available", () => {
+  const bridgeSeed: Record<string, string> = {};
+  const bridge: DesktopLocalDatabaseBridge = {
+    getItem: (key) => bridgeSeed[key] ?? null,
+    setItem: (key, value) => {
+      bridgeSeed[key] = value;
+    },
+    removeItem: (key) => {
+      delete bridgeSeed[key];
+    },
+  };
+  const previousWindow = globalThis.window;
+
+  globalThis.window = {
+    quantDesktop: {
+      platform: "desktop",
+      version: "0.1.0",
+      localDatabase: bridge,
+    },
+    localStorage: {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error("browser storage should not be used");
+      },
+      removeItem: () => {},
+    },
+  } as unknown as Window & typeof globalThis;
+
+  try {
+    const database = createAppLocalDatabase();
+    database.writeDocument("sample", 1, { id: "desktop", count: 3 });
+
+    assert.match(bridgeSeed["quant-learning.sample"], /desktop/);
+  } finally {
+    globalThis.window = previousWindow;
+  }
+});
+
+test("createAppLocalDatabase falls back to browser storage without a desktop bridge", () => {
+  const browserSeed: Record<string, string> = {};
+  const previousWindow = globalThis.window;
+
+  globalThis.window = {
+    localStorage: {
+      getItem: (key: string) => browserSeed[key] ?? null,
+      setItem: (key: string, value: string) => {
+        browserSeed[key] = value;
+      },
+      removeItem: (key: string) => {
+        delete browserSeed[key];
+      },
+    },
+  } as unknown as Window & typeof globalThis;
+
+  try {
+    const database = createAppLocalDatabase();
+    database.writeDocument("sample", 1, { id: "browser", count: 4 });
+
+    assert.match(browserSeed["quant-learning.sample"], /browser/);
+  } finally {
+    globalThis.window = previousWindow;
+  }
 });

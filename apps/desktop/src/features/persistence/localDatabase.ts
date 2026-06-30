@@ -4,6 +4,12 @@ export interface LocalDatabaseDriver {
   removeItem(key: string): void;
 }
 
+export interface DesktopLocalDatabaseBridge {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
 export interface LocalDatabaseDocument<T> {
   version: number;
   data: T;
@@ -30,6 +36,14 @@ export function createBrowserStorageDriver(): LocalDatabaseDriver {
     getItem: (key) => window.localStorage.getItem(key),
     setItem: (key, value) => window.localStorage.setItem(key, value),
     removeItem: (key) => window.localStorage.removeItem(key),
+  };
+}
+
+export function createDesktopBridgeStorageDriver(bridge: DesktopLocalDatabaseBridge): LocalDatabaseDriver {
+  return {
+    getItem: (key) => bridge.getItem(key),
+    setItem: (key, value) => bridge.setItem(key, value),
+    removeItem: (key) => bridge.removeItem(key),
   };
 }
 
@@ -97,4 +111,32 @@ export class LocalDatabase {
   }
 }
 
-export const appLocalDatabase = new LocalDatabase(createBrowserStorageDriver());
+function getDesktopLocalDatabaseBridge(): DesktopLocalDatabaseBridge | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const candidate = window.quantDesktop?.localDatabase;
+
+  if (
+    candidate &&
+    typeof candidate.getItem === "function" &&
+    typeof candidate.setItem === "function" &&
+    typeof candidate.removeItem === "function"
+  ) {
+    return candidate;
+  }
+
+  return null;
+}
+
+export function createAppLocalDatabase() {
+  if (typeof window === "undefined") {
+    return new LocalDatabase(createMemoryStorageDriver());
+  }
+
+  const desktopBridge = getDesktopLocalDatabaseBridge();
+  return new LocalDatabase(desktopBridge ? createDesktopBridgeStorageDriver(desktopBridge) : createBrowserStorageDriver());
+}
+
+export const appLocalDatabase = createAppLocalDatabase();
