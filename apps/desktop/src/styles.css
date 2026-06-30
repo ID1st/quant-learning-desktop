@@ -1623,6 +1623,36 @@ input {
   padding: 8px;
 }
 
+.draft-parameter-schema-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.draft-parameter-schema-list span,
+.draft-parameter-schema-list > small {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid rgba(66, 223, 173, 0.2);
+  border-radius: 8px;
+  background: rgba(66, 223, 173, 0.06);
+  color: #cbd5e1;
+  font-size: 12px;
+  padding: 9px;
+}
+
+.draft-parameter-schema-list strong {
+  color: #f5f8ff;
+  font-size: 12px;
+}
+
+.draft-parameter-schema-list small {
+  color: #8f9caf;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .draft-ir-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2598,6 +2628,7 @@ input {
   .strategy-meta-grid,
   .parameter-grid,
   .draft-detail-grid,
+  .draft-parameter-schema-list,
   .draft-ir-grid,
   .settings-summary-grid,
   .settings-grid,

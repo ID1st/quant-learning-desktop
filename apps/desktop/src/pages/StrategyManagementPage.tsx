@@ -1,13 +1,12 @@
 import { useMemo, useState } from "react";
 import {
-  createPineTranslationPlan,
   createPresetStrategyRegistry,
+  createUserStrategyDraftDefinition,
   preflightPineStrategySource,
   runRegisteredStrategy,
   type Bar,
-  type PineStrategyPreflightSummary,
-  type PineTranslationPlanOutput,
   type StrategyDefinition,
+  type UserStrategyDraftDefinition,
 } from "@quant/strategy-engine";
 import {
   Activity,
@@ -32,8 +31,7 @@ type StrategyFilter = "all" | StrategyStatus;
 
 interface ImportedStrategyDraft {
   id: string;
-  summary: PineStrategyPreflightSummary;
-  plan: PineTranslationPlanOutput;
+  definition: UserStrategyDraftDefinition;
 }
 
 const registry = createPresetStrategyRegistry();
@@ -102,8 +100,8 @@ export function StrategyManagementPage() {
     () => preflightPineStrategySource({ fileName: "user-strategy.pine", sourceText: pineSourceDraft }),
     [pineSourceDraft],
   );
-  const pineTranslationPlan = useMemo(
-    () => createPineTranslationPlan({ fileName: "user-strategy.pine", sourceText: pineSourceDraft }),
+  const userStrategyDraft = useMemo(
+    () => createUserStrategyDraftDefinition({ fileName: "user-strategy.pine", sourceText: pineSourceDraft }),
     [pineSourceDraft],
   );
   const selectedDraft = importedDrafts.find((draft) => draft.id === selectedDraftId) ?? importedDrafts[0] ?? null;
@@ -139,12 +137,12 @@ export function StrategyManagementPage() {
   };
 
   const handleCreateDraft = () => {
-    if (!pinePreflight.ok || !pineTranslationPlan.ok || !pinePreflight.summary.canCreateDraft) {
+    if (!pinePreflight.ok || !userStrategyDraft.ok || !pinePreflight.summary.canCreateDraft) {
       return;
     }
 
-    const draftId = `${pinePreflight.summary.fileName}-${importedDrafts.length + 1}`;
-    setImportedDrafts((drafts) => [...drafts, { id: draftId, summary: pinePreflight.summary, plan: pineTranslationPlan.plan }]);
+    const draftId = `${userStrategyDraft.draft.key}-${importedDrafts.length + 1}`;
+    setImportedDrafts((drafts) => [...drafts, { id: draftId, definition: userStrategyDraft.draft }]);
     setSelectedDraftId(draftId);
   };
 
@@ -278,12 +276,12 @@ export function StrategyManagementPage() {
               >
                 <FileCode2 size={16} />
                 <span>
-                  <strong>{draft.summary.title}</strong>
+                  <strong>{draft.definition.name}</strong>
                   <small>
-                    {draft.summary.fileName} / Pine v{draft.summary.version ?? "-"} / {draft.summary.declaration}
+                    {draft.definition.sourceFile} / Pine v{draft.definition.translation.ir.declaration.version ?? "-"} / {draft.definition.translation.ir.declaration.type}
                   </small>
                 </span>
-                <em>{draft.summary.translationPlan.status === "ready" ? "待转译" : "需复核"}</em>
+                <em>{draft.definition.translation.status === "ready" ? "待转译" : "需复核"}</em>
                 <ChevronRight size={15} />
               </button>
             ))
@@ -296,24 +294,38 @@ export function StrategyManagementPage() {
           <div className="draft-detail-panel">
             <div className="draft-detail-heading">
               <span>
-                <strong>{selectedDraft.summary.title}</strong>
-                <small>{selectedDraft.summary.translationPlan.reasons[0]}</small>
+                <strong>{selectedDraft.definition.name}</strong>
+                <small>{selectedDraft.definition.translation.reasons[0]}</small>
               </span>
               <button aria-label="删除草稿" onClick={() => handleDeleteDraft(selectedDraft.id)} type="button">
                 <Trash2 size={15} />
               </button>
             </div>
             <div className="draft-detail-grid">
-              <span>状态：{selectedDraft.summary.translationPlan.status === "ready" ? "待转译" : selectedDraft.summary.translationPlan.status === "manual-review" ? "需人工复核" : "暂不支持"}</span>
-              <span>Overlay：{selectedDraft.summary.overlay === null ? "未声明" : selectedDraft.summary.overlay ? "是" : "否"}</span>
-              <span>参数：{selectedDraft.summary.inputCount}</span>
-              <span>绘图：{selectedDraft.summary.plotCount}</span>
+              <span>状态：{selectedDraft.definition.translation.status === "ready" ? "待转译" : selectedDraft.definition.translation.status === "manual-review" ? "需人工复核" : "暂不支持"}</span>
+              <span>Overlay：{selectedDraft.definition.translation.ir.declaration.overlay === null ? "未声明" : selectedDraft.definition.translation.ir.declaration.overlay ? "是" : "否"}</span>
+              <span>参数：{selectedDraft.definition.parameterSchema.length}</span>
+              <span>绘图：{selectedDraft.definition.translation.ir.visuals.length}</span>
+            </div>
+            <div className="draft-parameter-schema-list">
+              {selectedDraft.definition.parameterSchema.length > 0 ? (
+                selectedDraft.definition.parameterSchema.map((parameter) => (
+                  <span key={parameter.key}>
+                    <strong>{parameter.label}</strong>
+                    <small>
+                      {parameter.key} / {parameter.type} / 默认 {String(parameter.defaultValue)}
+                    </small>
+                  </span>
+                ))
+              ) : (
+                <small>暂无参数 Schema。</small>
+              )}
             </div>
             <div className="draft-ir-grid">
               <section>
                 <h4>可视化声明</h4>
-                {selectedDraft.plan.ir.visuals.length > 0 ? (
-                  selectedDraft.plan.ir.visuals.map((visual, index) => (
+                {selectedDraft.definition.translation.ir.visuals.length > 0 ? (
+                  selectedDraft.definition.translation.ir.visuals.map((visual, index) => (
                     <code key={`${visual.kind}-${index}`}>
                       {visual.kind}({visual.expression})
                     </code>
@@ -324,8 +336,8 @@ export function StrategyManagementPage() {
               </section>
               <section>
                 <h4>告警声明</h4>
-                {selectedDraft.plan.ir.alerts.length > 0 ? (
-                  selectedDraft.plan.ir.alerts.map((alert, index) => (
+                {selectedDraft.definition.translation.ir.alerts.length > 0 ? (
+                  selectedDraft.definition.translation.ir.alerts.map((alert, index) => (
                     <code key={`${alert.title}-${index}`}>
                       {alert.title}: {alert.condition}
                     </code>
@@ -336,8 +348,8 @@ export function StrategyManagementPage() {
               </section>
               <section>
                 <h4>不支持调用</h4>
-                {selectedDraft.plan.ir.unsupportedCalls.length > 0 ? (
-                  selectedDraft.plan.ir.unsupportedCalls.map((call) => <code key={call}>{call}</code>)
+                {selectedDraft.definition.translation.ir.unsupportedCalls.length > 0 ? (
+                  selectedDraft.definition.translation.ir.unsupportedCalls.map((call) => <code key={call}>{call}</code>)
                 ) : (
                   <small>当前草稿未发现阻断调用。</small>
                 )}
