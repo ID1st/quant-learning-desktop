@@ -17,6 +17,9 @@ export interface AlphaFeedQuoteSnapshot {
   market: Market;
   lastPrice: number;
   previousClose: number;
+  openPrice: number;
+  highPrice: number;
+  lowPrice: number;
   changePercent: number;
   volume: number;
   amount: number;
@@ -262,6 +265,9 @@ function mapQuoteToSnapshot(quote: AlphaFeedQuotePayload, receivedAt: string): A
     market: quote.region,
     lastPrice: quote.last_price,
     previousClose: quote.prev_close,
+    openPrice: quote.open,
+    highPrice: quote.high,
+    lowPrice: quote.low,
     changePercent,
     volume: quote.volume,
     amount: quote.amount,

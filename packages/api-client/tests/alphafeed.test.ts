@@ -82,6 +82,9 @@ describe("fetchAlphaFeedQuoteSnapshots", () => {
     assert.equal(snapshots[0]?.provider, "alphafeed");
     assert.equal(snapshots[0]?.market, "CN");
     assert.equal(snapshots[0]?.lastPrice, 1468.1);
+    assert.equal(snapshots[0]?.openPrice, 1461);
+    assert.equal(snapshots[0]?.highPrice, 1472);
+    assert.equal(snapshots[0]?.lowPrice, 1455);
     assert.equal(snapshots[0]?.changePercent, 0.54);
     assert.equal(snapshots[0]?.quoteTime, "2026-07-01T00:00:00.000Z");
     assert.equal(snapshots[0]?.receivedAt, "2026-07-01T00:00:00.000Z");

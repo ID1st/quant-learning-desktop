@@ -6,8 +6,8 @@ The system now treats AlphaFeed as the primary market data provider and LongBrid
 
 - Primary provider: AlphaFeed
 - Backup provider: LongBridge OpenAPI
-- Current implemented path: REST quote snapshot, historical K-line, recent intraday K-line through the K-line endpoint, initial default-watchlist K-line sync, chart workspace cached-bar rendering, secure credential persistence, provider network calls behind main-process IPC, cache governance
-- Next path: AlphaFeed realtime stream and provider health
+- Current implemented path: REST quote snapshot, historical K-line, initial default-watchlist K-line sync, chart workspace cached-bar rendering, 1d quote-polling candle refresh, secure credential persistence, provider network calls behind main-process IPC, cache governance
+- Next path: provider health, polling controls, and LongBridge fallback expansion
 
 ## Official Source Notes
 
@@ -24,8 +24,9 @@ AlphaFeed documentation:
 - The `GET /v1/klines/intraday` endpoint is reserved for same-day minute-line use cases and is not used for default cache warm-up
 - K-line response format: columnar OHLCV arrays with matching indexes
 - HK symbols must use five-digit exchange codes for provider requests, for example `09988.HK` for Alibaba HK
-- WebSocket stream: `wss://api.tickflow.org/v1/ws/stream`
-- WebSocket subscription channels: `quotes`, `depth`
+- AlphaFeed quote refresh currently uses REST polling in the desktop app. The default active-chart interval is 30 seconds, only for the selected symbol, paused while the page is hidden, with a 120-second backoff when the API reports rate limiting.
+- WebSocket stream noted by public docs: `wss://api.tickflow.org/v1/ws/stream`
+- WebSocket subscription channels noted by public docs: `quotes`, `depth`
 
 LongBridge remains useful for:
 
@@ -103,7 +104,8 @@ interface MarketDataBar {
 
 ## Remaining Work
 
-1. Add AlphaFeed WebSocket quote stream with reconnect and backoff.
-2. Add provider health status and latency display.
+1. Add provider health status and latency display for REST polling.
+2. Add user-configurable polling interval with safe defaults and rate-limit guardrails.
 3. Add market permission detection and user-facing no-permission states.
-4. Keep LongBridge as explicit backup and future trading/account channel.
+4. Expand LongBridge as explicit backup and future trading/account channel.
+5. Revisit AlphaFeed WebSocket only after the selected API plan and official limits are confirmed.

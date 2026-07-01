@@ -17,6 +17,8 @@ Completed foundations:
 - Secure credential persistence for AlphaFeed and LongBridge through main-process IPC and OS-backed encryption.
 - Provider verification, quote, and K-line network calls are registered behind main-process IPC handlers.
 - Market K-line cache metadata, retention pruning, cache summary, and manual cleanup in Settings.
+- Chart workspace now exposes only `1d` and `1w` because the current AlphaFeed plan does not include US intraday K-line access.
+- `1d` chart rendering can merge the latest AlphaFeed quote snapshot into the current trading-day candle through conservative REST polling.
 - Built-in strategy runtime foundation and strategy render-layer contract.
 - Minimal UTORB and Trend Targets strategy implementations.
 
@@ -26,22 +28,23 @@ Completed foundations:
 2. Optional LongBridge credentials can be entered as a backup source.
 3. Initial sync creates the default watchlist.
 4. Initial sync fetches quote snapshots.
-5. Initial sync fetches AlphaFeed K-line bars for `1m`, `5m`, `15m`, `1h`, `1d`, and `1w`.
+5. Initial sync fetches AlphaFeed K-line bars for available default periods. The chart workspace currently renders only `1d` and `1w`.
 6. Quote snapshots and K-line bars are written to local cache.
 7. Chart workspace reads cached K-line bars by symbol, market, and timeframe.
-8. Settings exposes cache size, indexed entries, retention cleanup, and full cache clearing.
-9. Dashboard shows provider state, quote count, and K-line count.
+8. On the `1d` chart, the active symbol quote is refreshed through AlphaFeed REST polling and merged into the current trading-day candle.
+9. Settings exposes cache size, indexed entries, retention cleanup, and full cache clearing.
+10. Dashboard shows provider state, quote count, and K-line count.
 
 ## Next Tasks
 
-### 1. Realtime Stream
+### 1. Provider Health And REST Polling Controls
 
-Goal: add AlphaFeed WebSocket quote stream.
+Goal: make AlphaFeed REST polling observable and configurable.
 
 Acceptance:
 
-- Subscribe to watchlist quotes.
-- Handle reconnect/backoff.
+- Show active polling status and last update time.
+- Handle rate-limit backoff.
 - Surface provider health and latency.
 - Keep LongBridge quote snapshot as fallback.
 

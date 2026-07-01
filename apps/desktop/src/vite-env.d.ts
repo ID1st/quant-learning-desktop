@@ -75,6 +75,9 @@ interface QuantDesktopBridge {
             market: "US" | "HK" | "CN";
             lastPrice: number;
             previousClose: number;
+            openPrice?: number;
+            highPrice?: number;
+            lowPrice?: number;
             changePercent: number;
             volume: number;
             amount?: number;

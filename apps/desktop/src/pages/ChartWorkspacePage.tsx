@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChartViewport, type CandlePoint, type ChartLayer, type ChartLayerElement } from "@quant/chart";
+import { ChartViewport, type ChartLayer, type ChartLayerElement } from "@quant/chart";
 import type { Market, Timeframe } from "@quant/shared";
 import {
   createEmptyStrategyRegistry,
   createPresetStrategyRegistry,
   createRunnableUserStrategyDefinition,
   runRegisteredStrategy,
-  type Bar,
   type StrategyDefinition,
   type StrategyParameterDefinition,
   type StrategyRunResult,
 } from "@quant/strategy-engine";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
 import { marketBarsToCandles, marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
-import { readMarketBarCache } from "../features/marketData/marketBarCacheService";
+import { readSavedAlphaFeedCredentials } from "../features/api/apiConfigService";
+import { readMarketBarCache, writeMarketBarCache, type MarketDataBar } from "../features/marketData/marketBarCacheService";
+import type { MarketQuoteSnapshot } from "../features/marketData/marketDataSyncService";
 import {
   Bell,
   CheckCircle2,
@@ -39,21 +40,9 @@ const symbols: Array<{ symbol: string; dataSymbol: string; name: string; market:
   { symbol: "TSLA", dataSymbol: "TSLA.US", name: "Tesla", market: "US", price: "188.14", change: "-0.82%" },
 ];
 
-const timeframes: Timeframe[] = ["1m", "5m", "15m", "1h", "1d", "1w"];
-const sampleStart = Date.UTC(2026, 0, 2, 14, 30);
-const sampleMinute = 60 * 1000;
-const chartBars: Bar[] = [
-  { timestamp: sampleStart, open: 100, high: 103, low: 99, close: 101, volume: 100000 },
-  { timestamp: sampleStart + 15 * sampleMinute, open: 101, high: 104, low: 100, close: 102, volume: 110000 },
-  { timestamp: sampleStart + 30 * sampleMinute, open: 102, high: 105, low: 101, close: 105, volume: 125000 },
-  { timestamp: sampleStart + 45 * sampleMinute, open: 105, high: 106, low: 97, close: 98, volume: 135000 },
-  { timestamp: sampleStart + 60 * sampleMinute, open: 98, high: 101, low: 96, close: 100, volume: 118000 },
-  { timestamp: sampleStart + 75 * sampleMinute, open: 100, high: 103, low: 98, close: 102, volume: 122000 },
-];
-const chartCandles: CandlePoint[] = chartBars.map((bar, index) => ({
-  ...bar,
-  time: `15m #${index + 1}`,
-}));
+const timeframes: Timeframe[] = ["1d", "1w"];
+const realtimePollIntervalMs = 30_000;
+const realtimeRateLimitBackoffMs = 120_000;
 const strategyRegistry = createPresetStrategyRegistry();
 const presetStrategies = strategyRegistry.list();
 const WORKSPACE_PREFERENCES_KEY = "quant-learning.chart-workspace-preferences";
@@ -235,6 +224,7 @@ function createFailedStrategyRunResult(
   settings: StrategyWorkspaceState,
   symbol: string,
   market: Market,
+  timeframe: Timeframe,
   message: string,
 ): StrategyRunResult {
   return {
@@ -242,7 +232,7 @@ function createFailedStrategyRunResult(
     input: {
       symbol,
       market,
-      timeframe: "15m",
+      timeframe,
       bars: [],
       parameters: settings.parameters,
       runMode: "backtest",
@@ -296,6 +286,95 @@ function formatStrategySource(strategy: StrategyDefinition) {
   return "预制策略";
 }
 
+function getMarketTimeZone(market: Market) {
+  if (market === "US") {
+    return "America/New_York";
+  }
+
+  if (market === "HK") {
+    return "Asia/Hong_Kong";
+  }
+
+  return "Asia/Shanghai";
+}
+
+function getUtcDateKey(timestamp: number) {
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function getZonedDateParts(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+
+  return {
+    year: value("year"),
+    month: value("month"),
+    day: value("day"),
+  };
+}
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+  const zonedAsUtc = Date.UTC(value("year"), value("month") - 1, value("day"), value("hour"), value("minute"), value("second"));
+
+  return zonedAsUtc - date.getTime();
+}
+
+function getMarketSessionOpenTimestamp(market: Market, quoteTime: Date) {
+  const timeZone = getMarketTimeZone(market);
+  const parts = getZonedDateParts(quoteTime, timeZone);
+  const utcGuess = Date.UTC(parts.year, parts.month - 1, parts.day, 9, 30);
+  const firstPass = utcGuess - getTimeZoneOffsetMs(new Date(utcGuess), timeZone);
+
+  return utcGuess - getTimeZoneOffsetMs(new Date(firstPass), timeZone);
+}
+
+function mergeRealtimeDailyBar(bars: MarketDataBar[], key: { symbol: string; market: Market }, snapshot: MarketQuoteSnapshot): MarketDataBar[] {
+  const quoteTime = new Date(snapshot.quoteTime);
+  const timestamp = getMarketSessionOpenTimestamp(key.market, quoteTime);
+  const dateKey = getUtcDateKey(timestamp);
+  const existingBar = bars.find((bar) => bar.timeframe === "1d" && getUtcDateKey(bar.timestamp) === dateKey);
+  const open = snapshot.openPrice ?? existingBar?.open ?? snapshot.lastPrice;
+  const close = snapshot.lastPrice;
+  const high = Math.max(snapshot.highPrice ?? close, existingBar?.high ?? close, open, close);
+  const low = Math.min(snapshot.lowPrice ?? close, existingBar?.low ?? close, open, close);
+  const realtimeBar: MarketDataBar = {
+    symbol: key.symbol,
+    market: key.market,
+    timeframe: "1d",
+    timestamp,
+    open,
+    high,
+    low,
+    close,
+    volume: snapshot.volume,
+    amount: snapshot.amount,
+    provider: snapshot.provider,
+  };
+
+  return [...bars.filter((bar) => !(bar.timeframe === "1d" && getUtcDateKey(bar.timestamp) === dateKey)), realtimeBar].sort(
+    (left, right) => left.timestamp - right.timestamp,
+  );
+}
+
 export function ChartWorkspacePage() {
   const workspacePreferences = useMemo(() => readWorkspacePreferences(), []);
   const importedDrafts = useUserStrategyDraftStore((state) => state.drafts);
@@ -314,15 +393,15 @@ export function ChartWorkspacePage() {
     return registry;
   }, [chartStrategies]);
   const [activeSymbol, setActiveSymbol] = useState(symbols[0]);
-  const [timeframe, setTimeframe] = useState<Timeframe>("15m");
-  const cachedMarketBars = useMemo(
-    () => readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe }),
-    [activeSymbol.dataSymbol, activeSymbol.market, timeframe],
+  const [timeframe, setTimeframe] = useState<Timeframe>("1d");
+  const [cachedMarketBars, setCachedMarketBars] = useState<MarketDataBar[]>(() =>
+    readMarketBarCache({ symbol: symbols[0].dataSymbol, market: symbols[0].market, timeframe: "1d" }),
   );
+  const [realtimeStatus, setRealtimeStatus] = useState("REST 轮询待命");
   const cachedCandles = useMemo(() => marketBarsToCandles(cachedMarketBars), [cachedMarketBars]);
   const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(cachedMarketBars), [cachedMarketBars]);
-  const renderedCandles = cachedCandles.length > 0 ? cachedCandles : timeframe === "15m" ? chartCandles : undefined;
-  const strategyInputBars = timeframe === "15m" && cachedStrategyBars.length > 0 ? cachedStrategyBars : chartBars;
+  const renderedCandles = cachedCandles.length > 0 ? cachedCandles : undefined;
+  const strategyInputBars = cachedStrategyBars;
   const [showSignals, setShowSignals] = useState(workspacePreferences.showSignals);
   const [showStrategyLayers, setShowStrategyLayers] = useState(workspacePreferences.showStrategyLayers);
   const [showMovingAverage, setShowMovingAverage] = useState(workspacePreferences.showMovingAverage);
@@ -333,20 +412,23 @@ export function ChartWorkspacePage() {
       chartStrategies.map((strategy, index) => {
         const settings = strategySettings[strategy.key] ?? getDefaultStrategyState(strategy, index);
         let result: StrategyRunResult;
+        const isTimeframeSupported = strategy.supportedTimeframes.includes(timeframe);
 
         try {
-          result = runRegisteredStrategy(chartStrategyRegistry, {
-            strategyKey: strategy.key,
-            symbol: activeSymbol.dataSymbol,
-            market: activeSymbol.market,
-            timeframe: "15m",
-            bars: strategyInputBars,
-            runMode: "backtest",
-            enabled: settings.enabled,
-            parameters: settings.parameters,
-          });
+          result = isTimeframeSupported
+            ? runRegisteredStrategy(chartStrategyRegistry, {
+                strategyKey: strategy.key,
+                symbol: activeSymbol.dataSymbol,
+                market: activeSymbol.market,
+                timeframe,
+                bars: strategyInputBars,
+                runMode: "backtest",
+                enabled: settings.enabled,
+                parameters: settings.parameters,
+              })
+            : createFailedStrategyRunResult(strategy, settings, activeSymbol.dataSymbol, activeSymbol.market, timeframe, "当前周期不支持");
         } catch (error) {
-          result = createFailedStrategyRunResult(strategy, settings, activeSymbol.dataSymbol, activeSymbol.market, getErrorMessage(error));
+          result = createFailedStrategyRunResult(strategy, settings, activeSymbol.dataSymbol, activeSymbol.market, timeframe, getErrorMessage(error));
         }
 
         return {
@@ -355,7 +437,7 @@ export function ChartWorkspacePage() {
           result,
         };
       }),
-    [activeSymbol.dataSymbol, activeSymbol.market, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySettings],
+    [activeSymbol.dataSymbol, activeSymbol.market, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySettings, timeframe],
   );
   const strategyLayers = useMemo<ChartLayer[]>(
     () =>
@@ -366,16 +448,16 @@ export function ChartWorkspacePage() {
       })),
     [strategyRuns],
   );
-  const canShowStrategyLayers = showStrategyLayers && timeframe === "15m";
+  const canShowStrategyLayers = showStrategyLayers;
   const strategyLayerElementCount = strategyLayers.reduce((total, layer) => total + (layer.enabled ? layer.elements.length : 0), 0);
   const enabledStrategyCount = strategyRuns.filter(({ settings }) => settings.enabled).length;
   const totalSignalCount = strategyRuns.reduce((total, { result }) => total + result.output.signals.length, 0);
   const activeConfigStrategyRun = strategyRuns.find(({ strategy }) => strategy.key === activeConfigStrategyKey);
-  const strategyLogTime = formatLogTime(sampleStart + 30 * sampleMinute);
+  const strategyLogTime = formatLogTime(Date.now());
   const strategyLogItems = strategyRuns.flatMap(({ result, settings }) =>
     settings.enabled
       ? [
-          `运行 ${result.strategy.name}，标的 ${activeSymbol.symbol}，周期 15m。`,
+          `运行 ${result.strategy.name}，标的 ${activeSymbol.symbol}，周期 ${timeframe}。`,
           ...result.output.logs,
           ...result.output.alerts.map((alert) => `提醒：${alert}`),
         ]
@@ -418,6 +500,86 @@ export function ChartWorkspacePage() {
   };
 
   useEffect(() => {
+    setCachedMarketBars(readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe }));
+  }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
+
+  useEffect(() => {
+    let timeoutId: number | undefined;
+    let cancelled = false;
+
+    if (timeframe !== "1d") {
+      setRealtimeStatus("周线不启用 REST 轮询");
+      return () => undefined;
+    }
+
+    const poll = async () => {
+      if (cancelled) {
+        return;
+      }
+
+      if (document.visibilityState !== "visible") {
+        setRealtimeStatus("页面后台，轮询暂停");
+        timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
+        return;
+      }
+
+      try {
+        const credentials = await readSavedAlphaFeedCredentials();
+
+        if (!credentials || !window.quantDesktop?.alphaFeed) {
+          setRealtimeStatus("等待 AlphaFeed 凭据");
+          timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
+          return;
+        }
+
+        const result = await window.quantDesktop.alphaFeed.fetchQuoteSnapshot(credentials, [
+          {
+            symbol: activeSymbol.dataSymbol,
+            name: activeSymbol.name,
+            market: activeSymbol.market,
+            source: "preset",
+          },
+        ]);
+
+        if (!result.ok) {
+          const isRateLimited = result.error.message.includes("频率") || result.error.message.includes("429");
+          const nextDelay = isRateLimited ? realtimeRateLimitBackoffMs : realtimePollIntervalMs;
+          setRealtimeStatus(isRateLimited ? "触发限频，2 分钟后重试" : result.error.message);
+          timeoutId = window.setTimeout(() => void poll(), nextDelay);
+          return;
+        }
+
+        const snapshot = result.snapshots[0];
+
+        if (snapshot) {
+          setCachedMarketBars((currentBars) => {
+            const nextBars = mergeRealtimeDailyBar(currentBars, { symbol: activeSymbol.dataSymbol, market: activeSymbol.market }, snapshot);
+            writeMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "1d" }, nextBars);
+            return nextBars;
+          });
+          setRealtimeStatus(`REST 轮询更新 ${new Date(snapshot.receivedAt).toLocaleTimeString("zh-CN", { hour12: false })}`);
+        } else {
+          setRealtimeStatus("AlphaFeed 暂无快照");
+        }
+
+        timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
+      } catch (error) {
+        setRealtimeStatus(getErrorMessage(error));
+        timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
+      }
+    };
+
+    void poll();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [activeSymbol.dataSymbol, activeSymbol.market, activeSymbol.name, timeframe]);
+
+  useEffect(() => {
     const preferences: ChartWorkspacePreferences = {
       version: 2,
       showSignals,
@@ -436,7 +598,8 @@ export function ChartWorkspacePage() {
           <span>{activeSymbol.market}</span>
           <strong>{activeSymbol.symbol}</strong>
           <small>{activeSymbol.name}</small>
-          <em className={cachedCandles.length > 0 ? "data-source-badge live" : "data-source-badge"}>{cachedCandles.length > 0 ? "本地缓存" : "原型数据"}</em>
+          <em className={cachedCandles.length > 0 ? "data-source-badge live" : "data-source-badge"}>{cachedCandles.length > 0 ? "本地缓存" : "等待数据"}</em>
+          <em className={timeframe === "1d" ? "data-source-badge live" : "data-source-badge"}>{realtimeStatus}</em>
         </div>
 
         <div className="timeframe-tabs" aria-label="周期选择">
@@ -630,9 +793,7 @@ export function ChartWorkspacePage() {
             <span>
               {canShowStrategyLayers
                 ? `${totalSignalCount} 个信号，${strategyLayerElementCount} 个图层元素`
-                : timeframe === "15m"
-                  ? "策略图层已隐藏"
-                  : "切换到 15m 周期可查看策略图层"}
+                : "策略图层已隐藏"}
             </span>
             <button
               aria-label={showStrategyLayers ? "隐藏策略图层" : "显示策略图层"}
@@ -650,7 +811,7 @@ export function ChartWorkspacePage() {
                     {strategy.name}
                     <em className={`strategy-source-badge ${strategy.sourceType}`}>{formatStrategySource(strategy)}</em>
                   </strong>
-                  <small>{timeframe === "15m" ? `${result.output.render.elements.length} 个元素` : "仅 15m 样例可用"}</small>
+                  <small>{`${result.output.render.elements.length} 个元素`}</small>
                 </span>
                 <div className="layer-actions">
                   <button

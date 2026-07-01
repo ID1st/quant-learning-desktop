@@ -32,8 +32,12 @@ export interface MarketQuoteSnapshot {
   market: Market;
   lastPrice: number;
   previousClose: number;
+  openPrice?: number;
+  highPrice?: number;
+  lowPrice?: number;
   changePercent: number;
   volume: number;
+  amount?: number;
   quoteTime: string;
   receivedAt: string;
   provider: MarketDataProviderId;
@@ -272,8 +276,12 @@ function sanitizeQuoteSnapshot(value: unknown): MarketQuoteSnapshot | null {
     market,
     lastPrice: snapshot.lastPrice,
     previousClose: snapshot.previousClose,
+    openPrice: typeof snapshot.openPrice === "number" && Number.isFinite(snapshot.openPrice) ? snapshot.openPrice : undefined,
+    highPrice: typeof snapshot.highPrice === "number" && Number.isFinite(snapshot.highPrice) ? snapshot.highPrice : undefined,
+    lowPrice: typeof snapshot.lowPrice === "number" && Number.isFinite(snapshot.lowPrice) ? snapshot.lowPrice : undefined,
     changePercent: snapshot.changePercent,
     volume: snapshot.volume,
+    amount: typeof snapshot.amount === "number" && Number.isFinite(snapshot.amount) ? snapshot.amount : undefined,
     quoteTime: snapshot.quoteTime,
     receivedAt: snapshot.receivedAt,
     provider: snapshot.provider as MarketDataProviderId,
