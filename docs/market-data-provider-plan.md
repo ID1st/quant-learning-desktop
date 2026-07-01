@@ -84,7 +84,7 @@ interface MarketDataBar {
 2. If LongBridge credentials are complete, verify LongBridge as backup.
 3. During initial market sync:
    - Fetch quote snapshots from AlphaFeed.
-   - Fetch default daily K-line bars from AlphaFeed for every preset watchlist symbol.
+   - Fetch default multi-timeframe K-line bars from AlphaFeed for every preset watchlist symbol.
    - Store K-line bars by `market + symbol + timeframe`.
    - If AlphaFeed fails and LongBridge backup credentials were entered in this session, fetch from LongBridge.
    - Store the provider used in the local market data sync state.

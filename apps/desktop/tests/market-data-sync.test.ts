@@ -35,6 +35,19 @@ test("runInitialMarketDataSync stores completed sync state and default watchlist
       provider: "alphafeed",
     },
     {
+      symbol: "AAPL.US",
+      market: "US",
+      timeframe: "15m",
+      timestamp: 1782778500000,
+      open: 285,
+      high: 287,
+      low: 284,
+      close: 286,
+      volume: 500,
+      amount: 143000,
+      provider: "alphafeed",
+    },
+    {
       symbol: "TSLA.US",
       market: "US",
       timeframe: "1d",
@@ -81,7 +94,7 @@ test("runInitialMarketDataSync stores completed sync state and default watchlist
   assert.equal(state.status, "completed");
   assert.equal(state.watchlistCount, 3);
   assert.equal(state.quoteSnapshotCount, 3);
-  assert.equal(state.historicalBarCount, 2);
+  assert.equal(state.historicalBarCount, 3);
   assert.deepEqual(
     state.steps.map((step) => step.status),
     ["completed", "completed", "completed", "completed", "completed"],
@@ -115,6 +128,17 @@ test("runInitialMarketDataSync stores completed sync state and default watchlist
   );
   assert.equal(aaplBars.length, 1);
   assert.equal(aaplBars[0]?.close, 285);
+
+  const aaplIntradayBars = readMarketBarCache(
+    {
+      symbol: "AAPL.US",
+      market: "US",
+      timeframe: "15m",
+    },
+    { database },
+  );
+  assert.equal(aaplIntradayBars.length, 1);
+  assert.equal(aaplIntradayBars[0]?.close, 286);
 });
 
 test("readMarketDataSyncState falls back when stored sync data is malformed", () => {

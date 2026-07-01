@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { CheckCircle2, DatabaseZap, KeyRound, Link2, RefreshCw, ShieldCheck } from "lucide-react";
+import type { Timeframe } from "@quant/shared";
 import {
   ALPHAFEED_DEFAULT_API_URL,
   LONGPORT_DEFAULT_HTTP_URL,
@@ -32,6 +33,17 @@ const defaultLongPortForm: LongPortApiForm = {
 function isLongPortFormComplete(form: LongPortApiForm) {
   return Boolean(form.appKey.trim() && form.appSecret.trim() && form.accessToken.trim());
 }
+
+const initialHistoricalTimeframes: Timeframe[] = ["1d", "1w"];
+const initialIntradayTimeframes: Timeframe[] = ["1m", "5m", "15m", "1h"];
+const initialBarCountByTimeframe: Partial<Record<Timeframe, number>> = {
+  "1m": 240,
+  "5m": 240,
+  "15m": 240,
+  "1h": 240,
+  "1d": 240,
+  "1w": 240,
+};
 
 export function ApiConfigPage() {
   const storedAlphaFeedBinding = useMemo(() => readAlphaFeedApiBinding(), []);
@@ -118,13 +130,44 @@ export function ApiConfigPage() {
             throw new Error("AlphaFeed 实时行情需要桌面安全桥，请在桌面应用中运行。");
           },
           fetchHistoricalBars: async (watchlist) => {
-            const bars = await Promise.all(
-              watchlist.map(async (item) => {
+            const requests = watchlist.flatMap((item) => [
+              ...initialHistoricalTimeframes.map((timeframe) => ({
+                item,
+                timeframe,
+                mode: "historical" as const,
+              })),
+              ...initialIntradayTimeframes.map((timeframe) => ({
+                item,
+                timeframe,
+                mode: "intraday" as const,
+              })),
+            ]);
+            const results = await Promise.allSettled(
+              requests.map(async ({ item, timeframe, mode }) => {
+                if (mode === "intraday") {
+                  const result = await window.quantDesktop?.alphaFeed?.fetchIntradayBars(alphaFeedCredentials, {
+                    symbol: item.symbol,
+                    market: item.market,
+                    timeframe,
+                    count: initialBarCountByTimeframe[timeframe] ?? 240,
+                  });
+
+                  if (!result) {
+                    throw new Error("AlphaFeed 分钟 K 线同步需要桌面安全桥，请在桌面应用中运行。");
+                  }
+
+                  if (!result.ok) {
+                    throw new Error(result.error.message);
+                  }
+
+                  return result.bars;
+                }
+
                 const result = await window.quantDesktop?.alphaFeed?.fetchHistoricalBars(alphaFeedCredentials, {
                   symbol: item.symbol,
                   market: item.market,
-                  timeframe: "1d",
-                  count: 240,
+                  timeframe,
+                  count: initialBarCountByTimeframe[timeframe] ?? 240,
                   adjust: "forward",
                 });
 
@@ -139,6 +182,12 @@ export function ApiConfigPage() {
                 return result.bars;
               }),
             );
+            const bars = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+
+            if (bars.length === 0) {
+              const firstFailure = results.find((result) => result.status === "rejected");
+              throw new Error(firstFailure?.reason instanceof Error ? firstFailure.reason.message : "AlphaFeed 多周期 K 线同步失败。");
+            }
 
             return bars.flat();
           },
@@ -176,7 +225,7 @@ export function ApiConfigPage() {
             <DatabaseZap size={20} />
             <div>
               <h2>AlphaFeed 主数据源</h2>
-              <p>使用 X-API-Key 认证，优先拉取 A 股、美股、港股实时行情和默认日线缓存。</p>
+              <p>使用 X-API-Key 认证，优先拉取 A 股、美股、港股实时行情和默认多周期 K 线缓存。</p>
             </div>
           </div>
 
@@ -281,7 +330,7 @@ export function ApiConfigPage() {
             <RefreshCw size={20} />
             <div>
               <h2>同步准备</h2>
-              <p>绑定成功后会拉取默认观察列表快照和日线 K 线缓存。</p>
+              <p>绑定成功后会拉取默认观察列表快照，以及 1m / 5m / 15m / 1h / 1d / 1w K 线缓存。</p>
             </div>
           </div>
 
