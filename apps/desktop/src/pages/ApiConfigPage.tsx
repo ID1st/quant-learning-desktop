@@ -182,11 +182,29 @@ export function ApiConfigPage() {
                 return result.bars;
               }),
             );
+            const failures = results
+              .map((result, index) => ({ result, request: requests[index] }))
+              .filter((entry): entry is { result: PromiseRejectedResult; request: (typeof requests)[number] } => entry.result.status === "rejected");
             const bars = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
 
-            if (bars.length === 0) {
-              const firstFailure = results.find((result) => result.status === "rejected");
-              throw new Error(firstFailure?.reason instanceof Error ? firstFailure.reason.message : "AlphaFeed 多周期 K 线同步失败。");
+            if (failures.length > 0) {
+              const sampleFailures = failures
+                .slice(0, 4)
+                .map(({ result, request }) => {
+                  const reason = result.reason instanceof Error ? result.reason.message : "未知错误";
+                  return `${request.item.symbol} ${request.timeframe}: ${reason}`;
+                })
+                .join("；");
+              throw new Error(`AlphaFeed 部分 K 线周期同步失败：${sampleFailures}`);
+            }
+
+            const emptyRequests = requests.filter(
+              (request) =>
+                !bars.some((bar) => bar.symbol === request.item.symbol && bar.market === request.item.market && bar.timeframe === request.timeframe),
+            );
+
+            if (emptyRequests.length > 0) {
+              throw new Error(`AlphaFeed 部分 K 线周期未返回数据：${emptyRequests.slice(0, 6).map((request) => `${request.item.symbol} ${request.timeframe}`).join("、")}`);
             }
 
             return bars.flat();

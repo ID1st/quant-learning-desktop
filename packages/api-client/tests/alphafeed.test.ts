@@ -240,7 +240,6 @@ describe("fetchAlphaFeedIntradayBars", () => {
               low: [283],
               close: [285],
               volume: [1200],
-              amount: [342000],
             },
           });
         },
@@ -253,5 +252,6 @@ describe("fetchAlphaFeedIntradayBars", () => {
     assert.match(observedUrl, /period=60m/);
     assert.equal(bars[0]?.timeframe, "1h");
     assert.equal(bars[0]?.close, 285);
+    assert.equal(bars[0]?.amount, 0);
   });
 });

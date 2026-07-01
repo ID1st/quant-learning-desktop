@@ -214,6 +214,14 @@ function parseNumberArray(value: unknown, field: string) {
   return value;
 }
 
+function parseOptionalAmountArray(value: unknown, expectedLength: number) {
+  if (value === undefined || value === null) {
+    return Array.from({ length: expectedLength }, () => 0);
+  }
+
+  return parseNumberArray(value, "amount");
+}
+
 function parseKlineResponse(value: unknown): AlphaFeedKlineResponse {
   if (!value || typeof value !== "object" || !value || typeof (value as { data?: unknown }).data !== "object") {
     throw new Error("AlphaFeed K 线响应结构无效。");
@@ -227,9 +235,10 @@ function parseKlineResponse(value: unknown): AlphaFeedKlineResponse {
     low: parseNumberArray(data.low, "low"),
     close: parseNumberArray(data.close, "close"),
     volume: parseNumberArray(data.volume, "volume"),
-    amount: parseNumberArray(data.amount, "amount"),
+    amount: [],
   };
   const expectedLength = parsed.timestamp.length;
+  parsed.amount = parseOptionalAmountArray(data.amount, expectedLength);
 
   if ([parsed.open, parsed.high, parsed.low, parsed.close, parsed.volume, parsed.amount].some((column) => column.length !== expectedLength)) {
     throw new Error("AlphaFeed K 线列式数据长度不一致。");
