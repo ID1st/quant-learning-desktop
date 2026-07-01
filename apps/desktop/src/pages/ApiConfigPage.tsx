@@ -45,6 +45,14 @@ const initialBarCountByTimeframe: Partial<Record<Timeframe, number>> = {
   "1w": 240,
 };
 
+function isAlphaFeedPermissionError(message: string) {
+  return message.includes("套餐无此功能或市场权限") || message.includes("HTTP 403");
+}
+
+function getRejectedMessage(result: PromiseRejectedResult) {
+  return result.reason instanceof Error ? result.reason.message : "未知错误";
+}
+
 export function ApiConfigPage() {
   const storedAlphaFeedBinding = useMemo(() => readAlphaFeedApiBinding(), []);
   const storedLongPortBinding = useMemo(() => readLongPortApiBinding(), []);
@@ -98,6 +106,7 @@ export function ApiConfigPage() {
         ? await verifyLongPortApiConfig(longPortCredentials)
         : storedLongPortBinding;
       const canUseLongPortFallback = Boolean(longPortBinding && longPortCredentials);
+      let marketDataSyncWarning = "";
 
       await runInitialMarketDataSync(
         {
@@ -186,25 +195,46 @@ export function ApiConfigPage() {
               .map((result, index) => ({ result, request: requests[index] }))
               .filter((entry): entry is { result: PromiseRejectedResult; request: (typeof requests)[number] } => entry.result.status === "rejected");
             const bars = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+            const blockingFailures = failures.filter(
+              ({ result, request }) => request.mode === "historical" || !isAlphaFeedPermissionError(getRejectedMessage(result)),
+            );
+            const recoverableFailures = failures.filter((failure) => !blockingFailures.includes(failure));
 
-            if (failures.length > 0) {
-              const sampleFailures = failures
+            if (blockingFailures.length > 0) {
+              const sampleFailures = blockingFailures
                 .slice(0, 4)
                 .map(({ result, request }) => {
-                  const reason = result.reason instanceof Error ? result.reason.message : "未知错误";
+                  const reason = getRejectedMessage(result);
                   return `${request.item.symbol} ${request.timeframe}: ${reason}`;
                 })
                 .join("；");
               throw new Error(`AlphaFeed 部分 K 线周期同步失败：${sampleFailures}`);
             }
 
+            const failedRequestKeys = new Set(
+              failures.map(({ request }) => `${request.item.market}:${request.item.symbol}:${request.timeframe}`),
+            );
             const emptyRequests = requests.filter(
               (request) =>
+                !failedRequestKeys.has(`${request.item.market}:${request.item.symbol}:${request.timeframe}`) &&
                 !bars.some((bar) => bar.symbol === request.item.symbol && bar.market === request.item.market && bar.timeframe === request.timeframe),
             );
+            const blockingEmptyRequests = emptyRequests.filter((request) => request.mode === "historical");
+            const recoverableEmptyRequests = emptyRequests.filter((request) => request.mode === "intraday");
 
-            if (emptyRequests.length > 0) {
-              throw new Error(`AlphaFeed 部分 K 线周期未返回数据：${emptyRequests.slice(0, 6).map((request) => `${request.item.symbol} ${request.timeframe}`).join("、")}`);
+            if (blockingEmptyRequests.length > 0 || bars.length === 0) {
+              throw new Error(
+                `AlphaFeed 部分必要 K 线周期未返回数据：${blockingEmptyRequests.slice(0, 6).map((request) => `${request.item.symbol} ${request.timeframe}`).join("、")}`,
+              );
+            }
+
+            const warningItems = [
+              ...recoverableFailures.map(({ request }) => `${request.item.symbol} ${request.timeframe} 无权限`),
+              ...recoverableEmptyRequests.map((request) => `${request.item.symbol} ${request.timeframe} 暂无数据`),
+            ];
+
+            if (warningItems.length > 0) {
+              marketDataSyncWarning = `部分分钟 K 线未同步：${warningItems.slice(0, 6).join("、")}`;
             }
 
             return bars.flat();
@@ -220,8 +250,13 @@ export function ApiConfigPage() {
       );
 
       setApiBound(true);
-      setStatus(canUseLongPortFallback ? "AlphaFeed 主数据源已绑定，长桥备用源已就绪。" : "AlphaFeed 主数据源已绑定。");
-      window.setTimeout(() => navigate("dashboard"), 420);
+      setStatus(
+        marketDataSyncWarning ||
+          (canUseLongPortFallback ? "AlphaFeed 主数据源已绑定，长桥备用源已就绪。" : "AlphaFeed 主数据源已绑定。"),
+      );
+      if (!marketDataSyncWarning) {
+        window.setTimeout(() => navigate("dashboard"), 420);
+      }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "行情数据源绑定失败。");
     } finally {

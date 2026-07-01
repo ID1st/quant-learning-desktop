@@ -52,12 +52,12 @@ function redactSecret(message: string, credentials: AlphaFeedApiCredentials) {
   return normalized ? message.replaceAll(normalized, "********") : message;
 }
 
-function toSafeAlphaFeedError(error: unknown, credentials: AlphaFeedApiCredentials) {
+function toSafeAlphaFeedError(error: unknown, credentials: AlphaFeedApiCredentials, action = "请求") {
   if (error instanceof Error && error.message.trim()) {
-    return `AlphaFeed API 验证失败：${redactSecret(error.message, credentials)}`;
+    return `AlphaFeed API ${action}失败：${redactSecret(error.message, credentials)}`;
   }
 
-  return "AlphaFeed API 验证失败，请检查 API Key、套餐权限和网络连接。";
+  return `AlphaFeed API ${action}失败，请检查 API Key、套餐权限和网络连接。`;
 }
 
 export async function verifyAlphaFeedCredentialsWithRest(
@@ -77,7 +77,7 @@ export async function verifyAlphaFeedCredentialsWithRest(
     return {
       ok: false,
       error: {
-        message: toSafeAlphaFeedError(error, credentials),
+        message: toSafeAlphaFeedError(error, credentials, "验证"),
       },
     };
   }
@@ -99,7 +99,7 @@ export async function fetchAlphaFeedQuoteSnapshotsWithRest(
     return {
       ok: false,
       error: {
-        message: toSafeAlphaFeedError(error, credentials),
+        message: toSafeAlphaFeedError(error, credentials, "行情快照请求"),
       },
     };
   }
@@ -121,7 +121,7 @@ export async function fetchAlphaFeedHistoricalBarsWithRest(
     return {
       ok: false,
       error: {
-        message: toSafeAlphaFeedError(error, credentials),
+        message: toSafeAlphaFeedError(error, credentials, "历史 K 线请求"),
       },
     };
   }
@@ -143,7 +143,7 @@ export async function fetchAlphaFeedIntradayBarsWithRest(
     return {
       ok: false,
       error: {
-        message: toSafeAlphaFeedError(error, credentials),
+        message: toSafeAlphaFeedError(error, credentials, "分钟 K 线请求"),
       },
     };
   }
