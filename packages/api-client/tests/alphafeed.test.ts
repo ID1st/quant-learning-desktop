@@ -222,7 +222,7 @@ describe("fetchAlphaFeedHistoricalBars", () => {
 });
 
 describe("fetchAlphaFeedIntradayBars", () => {
-  it("calls the intraday endpoint and maps 1h to AlphaFeed 60m period", async () => {
+  it("calls the K-line endpoint for intraday periods and maps 1h to AlphaFeed 60m period", async () => {
     let observedUrl = "";
 
     const bars = await fetchAlphaFeedIntradayBars(
@@ -247,7 +247,8 @@ describe("fetchAlphaFeedIntradayBars", () => {
       },
     );
 
-    assert.match(observedUrl, /\/v1\/klines\/intraday\?/);
+    assert.match(observedUrl, /\/v1\/klines\?/);
+    assert.doesNotMatch(observedUrl, /\/v1\/klines\/intraday/);
     assert.match(observedUrl, /symbol=AAPL\.US/);
     assert.match(observedUrl, /period=60m/);
     assert.equal(bars[0]?.timeframe, "1h");

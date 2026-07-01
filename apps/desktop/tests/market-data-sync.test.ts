@@ -108,13 +108,13 @@ test("runInitialMarketDataSync stores completed sync state and default watchlist
   const watchlist = readMarketWatchlistCache(database);
   assert.deepEqual(
     watchlist.map((item) => item.symbol),
-    ["AAPL.US", "TSLA.US", "9988.HK"],
+    ["AAPL.US", "TSLA.US", "09988.HK"],
   );
 
   const snapshots = readMarketQuoteSnapshotCache(database);
   assert.deepEqual(
     snapshots.map((item) => item.symbol),
-    ["AAPL.US", "TSLA.US", "9988.HK"],
+    ["AAPL.US", "TSLA.US", "09988.HK"],
   );
   assert.equal(snapshots[0]?.lastPrice, 100);
 

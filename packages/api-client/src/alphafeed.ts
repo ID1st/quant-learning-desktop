@@ -384,7 +384,7 @@ export function fetchAlphaFeedIntradayBars(
   request: AlphaFeedBarRequest,
   options: AlphaFeedQuoteOptions = {},
 ): Promise<AlphaFeedMarketDataBar[]> {
-  return fetchAlphaFeedBars(input, request, "/v1/klines/intraday", options);
+  return fetchAlphaFeedBars(input, request, "/v1/klines", options);
 }
 
 export async function verifyAlphaFeedApiCredentials(

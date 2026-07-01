@@ -6,7 +6,7 @@ The system now treats AlphaFeed as the primary market data provider and LongBrid
 
 - Primary provider: AlphaFeed
 - Backup provider: LongBridge OpenAPI
-- Current implemented path: REST quote snapshot, historical K-line, intraday K-line, initial default-watchlist K-line sync, chart workspace cached-bar rendering, secure credential persistence, provider network calls behind main-process IPC, cache governance
+- Current implemented path: REST quote snapshot, historical K-line, recent intraday K-line through the K-line endpoint, initial default-watchlist K-line sync, chart workspace cached-bar rendering, secure credential persistence, provider network calls behind main-process IPC, cache governance
 - Next path: AlphaFeed realtime stream and provider health
 
 ## Official Source Notes
@@ -20,8 +20,10 @@ AlphaFeed documentation:
 - Quote markets: `CN`, `US`, `HK`
 - Quote fields used by the app: `symbol`, `region`, `last_price`, `prev_close`, `volume`, `amount`, `timestamp`, `ext`
 - Historical K-line endpoint: `GET /v1/klines`
-- Intraday K-line endpoint: `GET /v1/klines/intraday`
+- Recent intraday K-line sync also uses `GET /v1/klines` with periods such as `1m`, `5m`, `15m`, and `60m`
+- The `GET /v1/klines/intraday` endpoint is reserved for same-day minute-line use cases and is not used for default cache warm-up
 - K-line response format: columnar OHLCV arrays with matching indexes
+- HK symbols must use five-digit exchange codes for provider requests, for example `09988.HK` for Alibaba HK
 - WebSocket stream: `wss://api.tickflow.org/v1/ws/stream`
 - WebSocket subscription channels: `quotes`, `depth`
 

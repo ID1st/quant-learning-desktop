@@ -90,7 +90,7 @@ export const initialMarketDataSyncSteps: Array<Pick<MarketDataSyncStep, "id" | "
 const presetWatchlist: MarketWatchlistItem[] = [
   { symbol: "AAPL.US", name: "Apple Inc.", market: "US", source: "preset" },
   { symbol: "TSLA.US", name: "Tesla", market: "US", source: "preset" },
-  { symbol: "9988.HK", name: "阿里巴巴", market: "HK", source: "preset" },
+  { symbol: "09988.HK", name: "阿里巴巴", market: "HK", source: "preset" },
   { symbol: "600519.SH", name: "贵州茅台", market: "CN", source: "preset" },
 ];
 
