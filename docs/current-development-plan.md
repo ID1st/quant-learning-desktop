@@ -16,6 +16,7 @@ Completed foundations:
 - Chart workspace reads cached market bars before falling back to prototype candles.
 - Secure credential persistence for AlphaFeed and LongBridge through main-process IPC and OS-backed encryption.
 - Provider verification, quote, and K-line network calls are registered behind main-process IPC handlers.
+- Market K-line cache metadata, retention pruning, cache summary, and manual cleanup in Settings.
 - Built-in strategy runtime foundation and strategy render-layer contract.
 - Minimal UTORB and Trend Targets strategy implementations.
 
@@ -28,21 +29,12 @@ Completed foundations:
 5. Initial sync fetches AlphaFeed daily K-line bars with `count=240` and `adjust=forward`.
 6. Quote snapshots and K-line bars are written to local cache.
 7. Chart workspace reads cached K-line bars by symbol, market, and timeframe.
-8. Dashboard shows provider state, quote count, and K-line count.
+8. Settings exposes cache size, indexed entries, retention cleanup, and full cache clearing.
+9. Dashboard shows provider state, quote count, and K-line count.
 
 ## Next Tasks
 
-### 1. Cache Governance
-
-Goal: prevent market cache from growing forever.
-
-Acceptance:
-
-- Cache metadata records symbol, market, timeframe, provider, first timestamp, last timestamp, bar count, and updated time.
-- Short timeframe data has a retention policy.
-- Settings page exposes cache size and manual cleanup.
-
-### 2. Realtime Stream
+### 1. Realtime Stream
 
 Goal: add AlphaFeed WebSocket quote stream.
 
@@ -53,7 +45,7 @@ Acceptance:
 - Surface provider health and latency.
 - Keep LongBridge quote snapshot as fallback.
 
-### 3. Strategy Uses Real Bars
+### 2. Strategy Uses Real Bars
 
 Goal: run built-in strategies on cached bars instead of generated chart data.
 

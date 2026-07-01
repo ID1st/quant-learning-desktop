@@ -6,8 +6,8 @@ The system now treats AlphaFeed as the primary market data provider and LongBrid
 
 - Primary provider: AlphaFeed
 - Backup provider: LongBridge OpenAPI
-- Current implemented path: REST quote snapshot, historical K-line, intraday K-line, initial default-watchlist K-line sync, chart workspace cached-bar rendering, secure credential persistence, provider network calls behind main-process IPC
-- Next path: cache governance
+- Current implemented path: REST quote snapshot, historical K-line, intraday K-line, initial default-watchlist K-line sync, chart workspace cached-bar rendering, secure credential persistence, provider network calls behind main-process IPC, cache governance
+- Next path: AlphaFeed realtime stream and provider health
 
 ## Official Source Notes
 
@@ -101,8 +101,7 @@ interface MarketDataBar {
 
 ## Remaining Work
 
-1. Add configurable cache retention and manual cache cleanup.
-2. Add AlphaFeed WebSocket quote stream with reconnect and backoff.
-3. Add provider health status and latency display.
-4. Add market permission detection and user-facing no-permission states.
-5. Keep LongBridge as explicit backup and future trading/account channel.
+1. Add AlphaFeed WebSocket quote stream with reconnect and backoff.
+2. Add provider health status and latency display.
+3. Add market permission detection and user-facing no-permission states.
+4. Keep LongBridge as explicit backup and future trading/account channel.

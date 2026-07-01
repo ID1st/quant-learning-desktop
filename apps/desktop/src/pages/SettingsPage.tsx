@@ -1,7 +1,13 @@
-import { AlertTriangle, Boxes, CheckCircle2, FileInput, PackageCheck, PlugZap, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Boxes, CheckCircle2, DatabaseZap, FileInput, PackageCheck, PlugZap, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createLocalPluginInstallBridge, type PluginManifestPreflightResult } from "@quant/api-client";
 import { PluginLoader, validatePluginManifest, type PluginCapability, type PluginManifest, type PluginPermission } from "@quant/plugin-loader";
+import {
+  clearAllMarketBarCache,
+  pruneMarketBarCache,
+  readMarketBarCacheSummary,
+  type MarketBarCacheSummary,
+} from "../features/marketData/marketBarCacheService";
 
 const capabilityLabels: Record<PluginCapability, string> = {
   strategy: "策略",
@@ -91,8 +97,35 @@ const sampleManifest = JSON.stringify(
 
 const pluginInstallBridge = createLocalPluginInstallBridge();
 
+function formatCacheBytes(value: number) {
+  if (value >= 1024 * 1024) {
+    return `${(value / 1024 / 1024).toFixed(2)} MB`;
+  }
+
+  if (value >= 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+
+  return `${value} B`;
+}
+
+function formatCacheTime(value?: string) {
+  if (!value) {
+    return "暂无记录";
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 export function SettingsPage() {
   const registeredPlugins = loader.list();
+  const [cacheSummary, setCacheSummary] = useState<MarketBarCacheSummary>(() => readMarketBarCacheSummary());
+  const [cacheMessage, setCacheMessage] = useState("");
   const [manifestDraft, setManifestDraft] = useState(sampleManifest);
   const [pendingInstalls, setPendingInstalls] = useState<PluginManifest[]>([]);
   const [manifestPreview, setManifestPreview] = useState<PluginManifestPreflightResult>({
@@ -119,6 +152,23 @@ export function SettingsPage() {
 
   const previewManifest = manifestPreview.ok ? manifestPreview.manifest : null;
   const alreadyPending = previewManifest ? pendingInstalls.some((plugin) => plugin.id === previewManifest.id) : false;
+  const largestCacheEntries = [...cacheSummary.entries].sort((left, right) => right.estimatedBytes - left.estimatedBytes).slice(0, 4);
+
+  const refreshCacheSummary = () => {
+    setCacheSummary(readMarketBarCacheSummary());
+  };
+
+  const handlePruneCache = () => {
+    const result = pruneMarketBarCache();
+    refreshCacheSummary();
+    setCacheMessage(`已按保留策略清理 ${result.removedBars} 根 K 线，移除 ${result.removedEntries} 个空缓存。`);
+  };
+
+  const handleClearCache = () => {
+    const removedEntries = clearAllMarketBarCache();
+    refreshCacheSummary();
+    setCacheMessage(`已清空 ${removedEntries} 个行情缓存条目。`);
+  };
 
   const handleConfirmInstall = () => {
     if (!previewManifest || alreadyPending) {
@@ -144,6 +194,66 @@ export function SettingsPage() {
             <strong>{item.count}</strong>
           </div>
         ))}
+      </section>
+
+      <section className="module-card cache-governance-panel">
+        <div className="module-card-header">
+          <DatabaseZap size={20} />
+          <div>
+            <h2>行情缓存治理</h2>
+            <p>本地 K 线缓存按市场、标的和周期建立索引，短周期数据使用更短保留策略，避免缓存长期膨胀。</p>
+          </div>
+        </div>
+
+        <div className="cache-governance-grid">
+          <div className="cache-stat">
+            <span>缓存条目</span>
+            <strong>{cacheSummary.entries.length}</strong>
+          </div>
+          <div className="cache-stat">
+            <span>K 线数量</span>
+            <strong>{cacheSummary.totalBarCount}</strong>
+          </div>
+          <div className="cache-stat">
+            <span>估算大小</span>
+            <strong>{formatCacheBytes(cacheSummary.totalEstimatedBytes)}</strong>
+          </div>
+          <div className="cache-stat">
+            <span>最近更新</span>
+            <strong>{formatCacheTime(cacheSummary.updatedAt)}</strong>
+          </div>
+        </div>
+
+        <div className="cache-entry-list" aria-label="行情缓存条目">
+          {largestCacheEntries.length > 0 ? (
+            largestCacheEntries.map((entry) => (
+              <div className="cache-entry-row" key={`${entry.market}-${entry.symbol}-${entry.timeframe}`}>
+                <span>
+                  <strong>{entry.symbol}</strong>
+                  <small>
+                    {entry.market} / {entry.timeframe} / {entry.provider}
+                  </small>
+                </span>
+                <em>{entry.barCount} 根</em>
+                <small>保留 {entry.retentionDays} 天</small>
+              </div>
+            ))
+          ) : (
+            <div className="cache-empty-state">暂无 K 线缓存。完成数据源绑定和初始同步后，这里会显示缓存治理状态。</div>
+          )}
+        </div>
+
+        <div className="cache-governance-actions">
+          <button onClick={handlePruneCache} type="button">
+            <RefreshCw size={15} />
+            按策略清理
+          </button>
+          <button className="danger" disabled={cacheSummary.entries.length === 0} onClick={handleClearCache} type="button">
+            <Trash2 size={15} />
+            清空行情缓存
+          </button>
+          {cacheMessage && <span>{cacheMessage}</span>}
+        </div>
       </section>
 
       <section className="settings-grid">

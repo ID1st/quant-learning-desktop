@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { LocalDatabase, createMemoryStorageDriver } from "../src/features/persistence/localDatabase.ts";
-import { readMarketBarCache, writeMarketBarCache, type MarketDataBar } from "../src/features/marketData/marketBarCacheService.ts";
+import {
+  clearAllMarketBarCache,
+  pruneMarketBarCache,
+  readMarketBarCache,
+  readMarketBarCacheSummary,
+  writeMarketBarCache,
+  type MarketDataBar,
+} from "../src/features/marketData/marketBarCacheService.ts";
 
 function createTestDatabase(seed: Record<string, string> = {}) {
   return new LocalDatabase(createMemoryStorageDriver(seed), "test");
@@ -67,6 +74,48 @@ test("writeMarketBarCache stores sorted unique bars for one symbol and timeframe
   assert.equal(cached[1]?.amount, 1614910);
 });
 
+test("writeMarketBarCache records cache metadata for governance", () => {
+  const database = createTestDatabase();
+  const bars: MarketDataBar[] = [
+    {
+      symbol: "600519.SH",
+      market: "CN",
+      timeframe: "1d",
+      timestamp: 1782777600000,
+      open: 1450,
+      high: 1468,
+      low: 1448,
+      close: 1462,
+      volume: 1000,
+      provider: "alphafeed",
+    },
+    {
+      symbol: "600519.SH",
+      market: "CN",
+      timeframe: "1d",
+      timestamp: 1782864000000,
+      open: 1460,
+      high: 1472,
+      low: 1455,
+      close: 1468.1,
+      volume: 1100,
+      provider: "alphafeed",
+    },
+  ];
+
+  writeMarketBarCache(cacheKey, bars, { database });
+  const summary = readMarketBarCacheSummary(database);
+
+  assert.equal(summary.entries.length, 1);
+  assert.equal(summary.totalBarCount, 2);
+  assert.equal(summary.entries[0]?.symbol, "600519.SH");
+  assert.equal(summary.entries[0]?.provider, "alphafeed");
+  assert.equal(summary.entries[0]?.firstTimestamp, 1782777600000);
+  assert.equal(summary.entries[0]?.lastTimestamp, 1782864000000);
+  assert.equal(summary.entries[0]?.retentionDays, 1825);
+  assert.ok(summary.totalEstimatedBytes > 0);
+});
+
 test("readMarketBarCache falls back to an empty array for malformed cache data", () => {
   const database = createTestDatabase({
     "test.market-bars:CN:600519.SH:1d": JSON.stringify({
@@ -77,4 +126,77 @@ test("readMarketBarCache falls back to an empty array for malformed cache data",
   });
 
   assert.deepEqual(readMarketBarCache(cacheKey, { database }), []);
+});
+
+test("pruneMarketBarCache removes bars outside the retention window", () => {
+  const database = createTestDatabase();
+  const now = Date.UTC(2026, 6, 1);
+  const key = {
+    symbol: "AAPL.US",
+    market: "US" as const,
+    timeframe: "15m" as const,
+  };
+  const bars: MarketDataBar[] = [
+    {
+      symbol: "AAPL.US",
+      market: "US",
+      timeframe: "15m",
+      timestamp: now - 31 * 24 * 60 * 60 * 1000,
+      open: 280,
+      high: 286,
+      low: 279,
+      close: 285,
+      volume: 1000,
+      provider: "alphafeed",
+    },
+    {
+      symbol: "AAPL.US",
+      market: "US",
+      timeframe: "15m",
+      timestamp: now - 2 * 24 * 60 * 60 * 1000,
+      open: 285,
+      high: 288,
+      low: 284,
+      close: 287,
+      volume: 1200,
+      provider: "alphafeed",
+    },
+  ];
+
+  writeMarketBarCache(key, bars, { database });
+  const result = pruneMarketBarCache({ database, now });
+
+  assert.equal(result.removedBars, 1);
+  assert.equal(result.remainingEntries, 1);
+  assert.deepEqual(
+    readMarketBarCache(key, { database }).map((bar) => bar.close),
+    [287],
+  );
+  assert.equal(readMarketBarCacheSummary(database).totalBarCount, 1);
+});
+
+test("clearAllMarketBarCache removes every indexed cache entry", () => {
+  const database = createTestDatabase();
+  writeMarketBarCache(
+    cacheKey,
+    [
+      {
+        symbol: "600519.SH",
+        market: "CN",
+        timeframe: "1d",
+        timestamp: 1782777600000,
+        open: 1450,
+        high: 1468,
+        low: 1448,
+        close: 1462,
+        volume: 1000,
+        provider: "alphafeed",
+      },
+    ],
+    { database },
+  );
+
+  assert.equal(clearAllMarketBarCache(database), 1);
+  assert.deepEqual(readMarketBarCache(cacheKey, { database }), []);
+  assert.equal(readMarketBarCacheSummary(database).entries.length, 0);
 });
