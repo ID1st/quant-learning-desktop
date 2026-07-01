@@ -15,6 +15,7 @@ Completed foundations:
 - Local document-style market cache for quotes, watchlist, sync state, and bars.
 - Chart workspace reads cached market bars before falling back to prototype candles.
 - Secure credential persistence for AlphaFeed and LongBridge through main-process IPC and OS-backed encryption.
+- Provider verification, quote, and K-line network calls are registered behind main-process IPC handlers.
 - Built-in strategy runtime foundation and strategy render-layer contract.
 - Minimal UTORB and Trend Targets strategy implementations.
 
@@ -31,18 +32,7 @@ Completed foundations:
 
 ## Next Tasks
 
-### 1. Move Provider Network Calls Fully Behind Main IPC
-
-Goal: move AlphaFeed and LongBridge verification/quote/bar network calls from preload helpers into main-process IPC handlers.
-
-Acceptance:
-
-- Renderer invokes typed IPC only.
-- Provider credentials can be read from the secure credential store when users choose saved credentials.
-- Full secrets never pass through normal renderer local storage.
-- Logs redact all secrets.
-
-### 2. Cache Governance
+### 1. Cache Governance
 
 Goal: prevent market cache from growing forever.
 
@@ -52,7 +42,7 @@ Acceptance:
 - Short timeframe data has a retention policy.
 - Settings page exposes cache size and manual cleanup.
 
-### 3. Realtime Stream
+### 2. Realtime Stream
 
 Goal: add AlphaFeed WebSocket quote stream.
 
@@ -63,7 +53,7 @@ Acceptance:
 - Surface provider health and latency.
 - Keep LongBridge quote snapshot as fallback.
 
-### 4. Strategy Uses Real Bars
+### 3. Strategy Uses Real Bars
 
 Goal: run built-in strategies on cached bars instead of generated chart data.
 

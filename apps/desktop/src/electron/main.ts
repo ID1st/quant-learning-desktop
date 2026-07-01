@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
+import { registerProviderDataIpcHandlers } from "./providerDataIpc";
 import { registerSecureCredentialIpcHandlers } from "./secureCredentialIpc";
 
 export interface DesktopWindowOptions {
@@ -49,6 +50,7 @@ export function createMainWindow(): BrowserWindow {
 }
 
 void app.whenReady().then(() => {
+  registerProviderDataIpcHandlers();
   registerSecureCredentialIpcHandlers();
   createMainWindow();
 

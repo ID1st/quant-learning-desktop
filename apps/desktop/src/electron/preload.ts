@@ -7,14 +7,8 @@ import type {
 } from "../../../../packages/api-client/src/alphafeed.ts";
 import type { LongPortApiCredentials, LongPortVerificationSummary } from "../../../../packages/api-client/src/longport.ts";
 import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
-import {
-  fetchAlphaFeedHistoricalBarsWithRest,
-  fetchAlphaFeedIntradayBarsWithRest,
-  fetchAlphaFeedQuoteSnapshotsWithRest,
-  verifyAlphaFeedCredentialsWithRest,
-} from "./alphaFeedBridge";
 import { createDesktopBridgeFromPersistenceStore, createMemoryPersistenceStore } from "./localPersistence";
-import { fetchLongPortQuoteSnapshotsWithSdk, verifyLongPortCredentialsWithSdk } from "./longPortBridge";
+import { providerDataIpcChannels } from "./providerDataIpcContract";
 
 export interface DesktopBridge {
   readonly platform: "desktop";
@@ -128,6 +122,10 @@ async function invokeSecureCredential<T>(channel: string, payload?: unknown): Pr
   return ipcRenderer.invoke(channel, payload) as Promise<T>;
 }
 
+async function invokeProviderData<T>(channel: string, ...payload: unknown[]): Promise<T> {
+  return ipcRenderer.invoke(channel, ...payload) as Promise<T>;
+}
+
 export const desktopBridge: DesktopBridge = {
   platform: "desktop",
   version: "0.1.0",
@@ -173,14 +171,18 @@ export const desktopBridge: DesktopBridge = {
     },
   },
   longPort: {
-    verifyCredentials: verifyLongPortCredentialsWithSdk,
-    fetchQuoteSnapshot: fetchLongPortQuoteSnapshotsWithSdk,
+    verifyCredentials: (credentials) => invokeProviderData(providerDataIpcChannels.verifyLongPortCredentials, credentials),
+    fetchQuoteSnapshot: (credentials, watchlist) =>
+      invokeProviderData(providerDataIpcChannels.fetchLongPortQuoteSnapshot, credentials, watchlist),
   },
   alphaFeed: {
-    verifyCredentials: verifyAlphaFeedCredentialsWithRest,
-    fetchQuoteSnapshot: fetchAlphaFeedQuoteSnapshotsWithRest,
-    fetchHistoricalBars: fetchAlphaFeedHistoricalBarsWithRest,
-    fetchIntradayBars: fetchAlphaFeedIntradayBarsWithRest,
+    verifyCredentials: (credentials) => invokeProviderData(providerDataIpcChannels.verifyAlphaFeedCredentials, credentials),
+    fetchQuoteSnapshot: (credentials, watchlist) =>
+      invokeProviderData(providerDataIpcChannels.fetchAlphaFeedQuoteSnapshot, credentials, watchlist),
+    fetchHistoricalBars: (credentials, request) =>
+      invokeProviderData(providerDataIpcChannels.fetchAlphaFeedHistoricalBars, credentials, request),
+    fetchIntradayBars: (credentials, request) =>
+      invokeProviderData(providerDataIpcChannels.fetchAlphaFeedIntradayBars, credentials, request),
   },
 };
 

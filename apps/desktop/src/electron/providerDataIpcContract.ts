@@ -1,0 +1,65 @@
+import type { AlphaFeedApiCredentials, AlphaFeedBarRequest } from "@quant/api-client";
+import type { LongPortApiCredentials } from "@quant/api-client";
+import type { MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
+import {
+  fetchAlphaFeedHistoricalBarsWithRest,
+  fetchAlphaFeedIntradayBarsWithRest,
+  fetchAlphaFeedQuoteSnapshotsWithRest,
+  verifyAlphaFeedCredentialsWithRest,
+  type AlphaFeedBridgeBarsResult,
+  type AlphaFeedBridgeQuoteSnapshotResult,
+  type AlphaFeedBridgeVerificationResult,
+} from "./alphaFeedBridge.ts";
+import {
+  fetchLongPortQuoteSnapshotsWithSdk,
+  verifyLongPortCredentialsWithSdk,
+  type LongPortBridgeQuoteSnapshotResult,
+  type LongPortBridgeVerificationResult,
+} from "./longPortBridge.ts";
+
+export interface ProviderDataIpcHandlers {
+  verifyAlphaFeedCredentials(credentials: AlphaFeedApiCredentials): Promise<AlphaFeedBridgeVerificationResult>;
+  fetchAlphaFeedQuoteSnapshot(
+    credentials: AlphaFeedApiCredentials,
+    watchlist: MarketWatchlistItem[],
+  ): Promise<AlphaFeedBridgeQuoteSnapshotResult>;
+  fetchAlphaFeedHistoricalBars(
+    credentials: AlphaFeedApiCredentials,
+    request: AlphaFeedBarRequest,
+  ): Promise<AlphaFeedBridgeBarsResult>;
+  fetchAlphaFeedIntradayBars(credentials: AlphaFeedApiCredentials, request: AlphaFeedBarRequest): Promise<AlphaFeedBridgeBarsResult>;
+  verifyLongPortCredentials(credentials: LongPortApiCredentials): Promise<LongPortBridgeVerificationResult>;
+  fetchLongPortQuoteSnapshot(
+    credentials: LongPortApiCredentials,
+    watchlist: MarketWatchlistItem[],
+  ): Promise<LongPortBridgeQuoteSnapshotResult>;
+}
+
+export interface ProviderDataIpcDependencies {
+  verifyAlphaFeedCredentials?: ProviderDataIpcHandlers["verifyAlphaFeedCredentials"];
+  fetchAlphaFeedQuoteSnapshot?: ProviderDataIpcHandlers["fetchAlphaFeedQuoteSnapshot"];
+  fetchAlphaFeedHistoricalBars?: ProviderDataIpcHandlers["fetchAlphaFeedHistoricalBars"];
+  fetchAlphaFeedIntradayBars?: ProviderDataIpcHandlers["fetchAlphaFeedIntradayBars"];
+  verifyLongPortCredentials?: ProviderDataIpcHandlers["verifyLongPortCredentials"];
+  fetchLongPortQuoteSnapshot?: ProviderDataIpcHandlers["fetchLongPortQuoteSnapshot"];
+}
+
+export const providerDataIpcChannels = {
+  verifyAlphaFeedCredentials: "providerData:verifyAlphaFeedCredentials",
+  fetchAlphaFeedQuoteSnapshot: "providerData:fetchAlphaFeedQuoteSnapshot",
+  fetchAlphaFeedHistoricalBars: "providerData:fetchAlphaFeedHistoricalBars",
+  fetchAlphaFeedIntradayBars: "providerData:fetchAlphaFeedIntradayBars",
+  verifyLongPortCredentials: "providerData:verifyLongPortCredentials",
+  fetchLongPortQuoteSnapshot: "providerData:fetchLongPortQuoteSnapshot",
+} as const;
+
+export function createProviderDataIpcHandlers(dependencies: ProviderDataIpcDependencies = {}): ProviderDataIpcHandlers {
+  return {
+    verifyAlphaFeedCredentials: dependencies.verifyAlphaFeedCredentials ?? verifyAlphaFeedCredentialsWithRest,
+    fetchAlphaFeedQuoteSnapshot: dependencies.fetchAlphaFeedQuoteSnapshot ?? fetchAlphaFeedQuoteSnapshotsWithRest,
+    fetchAlphaFeedHistoricalBars: dependencies.fetchAlphaFeedHistoricalBars ?? fetchAlphaFeedHistoricalBarsWithRest,
+    fetchAlphaFeedIntradayBars: dependencies.fetchAlphaFeedIntradayBars ?? fetchAlphaFeedIntradayBarsWithRest,
+    verifyLongPortCredentials: dependencies.verifyLongPortCredentials ?? verifyLongPortCredentialsWithSdk,
+    fetchLongPortQuoteSnapshot: dependencies.fetchLongPortQuoteSnapshot ?? fetchLongPortQuoteSnapshotsWithSdk,
+  };
+}
