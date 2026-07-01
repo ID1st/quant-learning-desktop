@@ -373,7 +373,8 @@ input {
   text-align: center;
 }
 
-.api-config-page {
+.api-config-page,
+.dashboard-page {
   display: grid;
   gap: 24px;
 }
@@ -405,6 +406,13 @@ input {
   display: grid;
   grid-template-columns: minmax(360px, 520px) minmax(320px, 420px);
   gap: 20px;
+  align-items: start;
+}
+
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 18px;
   align-items: start;
 }
 
@@ -494,12 +502,22 @@ input {
   color: #dffcef;
 }
 
+.sync-step-list li.running {
+  border-color: rgba(51, 112, 255, 0.52);
+  background: rgba(51, 112, 255, 0.1);
+  color: #dbe6ff;
+}
+
 .sync-step-list svg {
   color: #4f5f74;
 }
 
 .sync-step-list li.completed svg {
   color: #42dfad;
+}
+
+.sync-step-list li.running svg {
+  color: #8fb0ff;
 }
 
 .security-note {
@@ -555,6 +573,23 @@ input {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.data-source-badge {
+  border: 1px solid rgba(143, 156, 175, 0.28);
+  border-radius: 999px;
+  color: #8f9caf;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+
+.data-source-badge.live {
+  border-color: rgba(66, 223, 173, 0.36);
+  background: rgba(66, 223, 173, 0.1);
+  color: #42dfad;
 }
 
 .timeframe-tabs,
@@ -934,6 +969,10 @@ input {
 
 .watchlist-items small.positive {
   color: #42dfad;
+}
+
+.watchlist-items.compact {
+  max-height: 260px;
 }
 
 .layer-list {

@@ -15,6 +15,7 @@
     "test:desktop": "node --test --experimental-strip-types apps/desktop/tests/*.test.ts",
     "test:pine-runtime": "node --test --experimental-strip-types packages/pine-runtime/tests/*.test.ts",
     "test:plugin-loader": "node --test --experimental-strip-types packages/plugin-loader/tests/*.test.ts",
+    "probe:longport:a-share": "node scripts/longport-a-share-probe.mjs",
     "test:strategy-engine": "node --test --experimental-strip-types packages/strategy-engine/tests/*.test.ts",
     "clean": "node scripts/clean.mjs"
   },

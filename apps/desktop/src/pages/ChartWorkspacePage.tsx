@@ -12,6 +12,8 @@ import {
   type StrategyRunResult,
 } from "@quant/strategy-engine";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
+import { marketBarsToCandles, marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
+import { readMarketBarCache } from "../features/marketData/marketBarCacheService";
 import {
   Bell,
   CheckCircle2,
@@ -30,11 +32,11 @@ import {
   TerminalSquare,
 } from "lucide-react";
 
-const symbols: Array<{ symbol: string; name: string; market: Market; price: string; change: string }> = [
-  { symbol: "AAPL", name: "Apple Inc.", market: "US", price: "219.48", change: "+1.03%" },
-  { symbol: "9988.HK", name: "阿里巴巴", market: "HK", price: "83.20", change: "+1.49%" },
-  { symbol: "600519", name: "贵州茅台", market: "CN", price: "1468.10", change: "+0.54%" },
-  { symbol: "TSLA", name: "Tesla", market: "US", price: "188.14", change: "-0.82%" },
+const symbols: Array<{ symbol: string; dataSymbol: string; name: string; market: Market; price: string; change: string }> = [
+  { symbol: "AAPL", dataSymbol: "AAPL.US", name: "Apple Inc.", market: "US", price: "219.48", change: "+1.03%" },
+  { symbol: "9988.HK", dataSymbol: "9988.HK", name: "阿里巴巴", market: "HK", price: "83.20", change: "+1.49%" },
+  { symbol: "600519", dataSymbol: "600519.SH", name: "贵州茅台", market: "CN", price: "1468.10", change: "+0.54%" },
+  { symbol: "TSLA", dataSymbol: "TSLA.US", name: "Tesla", market: "US", price: "188.14", change: "-0.82%" },
 ];
 
 const timeframes: Timeframe[] = ["1m", "5m", "15m", "1h", "1d", "1w"];
@@ -313,6 +315,14 @@ export function ChartWorkspacePage() {
   }, [chartStrategies]);
   const [activeSymbol, setActiveSymbol] = useState(symbols[0]);
   const [timeframe, setTimeframe] = useState<Timeframe>("15m");
+  const cachedMarketBars = useMemo(
+    () => readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe }),
+    [activeSymbol.dataSymbol, activeSymbol.market, timeframe],
+  );
+  const cachedCandles = useMemo(() => marketBarsToCandles(cachedMarketBars), [cachedMarketBars]);
+  const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(cachedMarketBars), [cachedMarketBars]);
+  const renderedCandles = cachedCandles.length > 0 ? cachedCandles : timeframe === "15m" ? chartCandles : undefined;
+  const strategyInputBars = timeframe === "15m" && cachedStrategyBars.length > 0 ? cachedStrategyBars : chartBars;
   const [showSignals, setShowSignals] = useState(workspacePreferences.showSignals);
   const [showStrategyLayers, setShowStrategyLayers] = useState(workspacePreferences.showStrategyLayers);
   const [showMovingAverage, setShowMovingAverage] = useState(workspacePreferences.showMovingAverage);
@@ -327,16 +337,16 @@ export function ChartWorkspacePage() {
         try {
           result = runRegisteredStrategy(chartStrategyRegistry, {
             strategyKey: strategy.key,
-            symbol: activeSymbol.symbol,
+            symbol: activeSymbol.dataSymbol,
             market: activeSymbol.market,
             timeframe: "15m",
-            bars: chartBars,
+            bars: strategyInputBars,
             runMode: "backtest",
             enabled: settings.enabled,
             parameters: settings.parameters,
           });
         } catch (error) {
-          result = createFailedStrategyRunResult(strategy, settings, activeSymbol.symbol, activeSymbol.market, getErrorMessage(error));
+          result = createFailedStrategyRunResult(strategy, settings, activeSymbol.dataSymbol, activeSymbol.market, getErrorMessage(error));
         }
 
         return {
@@ -345,7 +355,7 @@ export function ChartWorkspacePage() {
           result,
         };
       }),
-    [activeSymbol.market, activeSymbol.symbol, chartStrategies, chartStrategyRegistry, strategySettings],
+    [activeSymbol.dataSymbol, activeSymbol.market, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySettings],
   );
   const strategyLayers = useMemo<ChartLayer[]>(
     () =>
@@ -426,6 +436,7 @@ export function ChartWorkspacePage() {
           <span>{activeSymbol.market}</span>
           <strong>{activeSymbol.symbol}</strong>
           <small>{activeSymbol.name}</small>
+          <em className={cachedCandles.length > 0 ? "data-source-badge live" : "data-source-badge"}>{cachedCandles.length > 0 ? "本地缓存" : "原型数据"}</em>
         </div>
 
         <div className="timeframe-tabs" aria-label="周期选择">
@@ -477,7 +488,7 @@ export function ChartWorkspacePage() {
 
         <main className="chart-main-panel">
           <ChartViewport
-            candles={timeframe === "15m" ? chartCandles : undefined}
+            candles={renderedCandles}
             context={{ symbol: activeSymbol.symbol, market: activeSymbol.market, timeframe }}
             showMovingAverage={showMovingAverage}
             showSignals={showSignals}

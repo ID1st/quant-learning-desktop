@@ -1,4 +1,6 @@
 import type { DesktopBridge } from "./preload";
+import { dirname } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 
 const MAX_STORAGE_KEY_LENGTH = 180;
 const MAX_STORAGE_VALUE_LENGTH = 5 * 1024 * 1024;
@@ -100,6 +102,27 @@ export function createJsonFilePersistenceStore(driver: JsonFilePersistenceDriver
       const store = readStore();
       delete store[key];
       writeStore(store);
+    },
+  };
+}
+
+export function createNodeJsonFilePersistenceDriver(filePath: string): JsonFilePersistenceDriver {
+  return {
+    readText: () => {
+      if (!existsSync(filePath)) {
+        return null;
+      }
+
+      return readFileSync(filePath, "utf8");
+    },
+    writeText: (value) => {
+      mkdirSync(dirname(filePath), { recursive: true });
+      writeFileSync(filePath, value, { encoding: "utf8", mode: 0o600 });
+    },
+    remove: () => {
+      if (existsSync(filePath)) {
+        rmSync(filePath);
+      }
     },
   };
 }

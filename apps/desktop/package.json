@@ -2,11 +2,40 @@
   "name": "@quant/desktop",
   "version": "0.1.0",
   "private": true,
+  "description": "量化学习桌面版工作台",
+  "author": "Quant Learning Desktop Team",
   "type": "module",
+  "main": "out/main/main.js",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "dev:electron": "electron-vite dev",
     "build": "vite build",
+    "build:electron": "electron-vite build",
+    "package:dir": "node ../../scripts/package-desktop.mjs --dir",
+    "package:win": "node ../../scripts/package-desktop.mjs --win nsis",
     "typecheck": "tsc -p tsconfig.check.json"
+  },
+  "build": {
+    "appId": "com.quantlearning.desktop",
+    "productName": "量化学习桌面版",
+    "electronVersion": "42.5.1",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "dependencies": {
     "@quant/api-client": "*",
@@ -14,6 +43,13 @@
     "@quant/plugin-loader": "*",
     "@quant/shared": "*",
     "@quant/strategy-engine": "*",
-    "@quant/ui": "*"
+    "@quant/ui": "*",
+    "longbridge": "^4.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "electron": "42.5.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0"
   }
 }

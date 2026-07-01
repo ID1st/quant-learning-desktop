@@ -1,5 +1,33 @@
 import type { ApiResult } from "@quant/shared";
 import { validatePluginManifest, type PluginCapability, type PluginManifest, type PluginPermission } from "@quant/plugin-loader";
+export {
+  ALPHAFEED_DEFAULT_API_URL,
+  createAlphaFeedSecretPreview,
+  fetchAlphaFeedHistoricalBars,
+  fetchAlphaFeedIntradayBars,
+  fetchAlphaFeedQuoteSnapshots,
+  normalizeAlphaFeedApiCredentials,
+  verifyAlphaFeedApiCredentials,
+  type AlphaFeedAdjustType,
+  type AlphaFeedApiCredentials,
+  type AlphaFeedBarRequest,
+  type AlphaFeedMarketDataBar,
+  type AlphaFeedQuoteRequestItem,
+  type AlphaFeedQuoteSnapshot,
+  type AlphaFeedVerificationSummary,
+  type NormalizedAlphaFeedApiCredentials,
+} from "./alphafeed.ts";
+export {
+  LONGPORT_DEFAULT_HTTP_URL,
+  createLongPortSecretPreview,
+  normalizeLongPortApiCredentials,
+  verifyLongPortApiCredentials,
+  type LongPortApiCredentials,
+  type LongPortVerificationOptions,
+  type LongPortVerificationProbeResult,
+  type LongPortVerificationSummary,
+  type NormalizedLongPortApiCredentials,
+} from "./longport.ts";
 
 export interface ApiTransport {
   readonly name: string;
