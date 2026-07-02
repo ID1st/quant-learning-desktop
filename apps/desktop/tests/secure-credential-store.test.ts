@@ -58,6 +58,46 @@ test("secure credential store saves encrypted LongBridge credentials", () => {
   });
 });
 
+test("secure credential store saves encrypted AlphaFeed stream credentials", () => {
+  const store = createMemoryPersistenceStore();
+  const secureStore = createSecureCredentialStore(store, createTestCrypto());
+
+  secureStore.saveAlphaFeedStreamCredentials({
+    wsUrl: " wss://api.tickflow.org/v1/ws/stream ",
+    apiKey: " stream-secret ",
+  });
+
+  const rawValue = store.getItem("secure-credentials.alphafeed-stream") ?? "";
+  assert.match(rawValue, /encryptedPayload/);
+  assert.doesNotMatch(rawValue, /stream-secret/);
+  assert.deepEqual(secureStore.readAlphaFeedStreamCredentials(), {
+    wsUrl: "wss://api.tickflow.org/v1/ws/stream",
+    apiKey: "stream-secret",
+  });
+});
+
+test("secure credential store clears AlphaFeed stream credentials independently", () => {
+  const store = createMemoryPersistenceStore();
+  const secureStore = createSecureCredentialStore(store, createTestCrypto());
+
+  secureStore.saveAlphaFeedCredentials({
+    apiUrl: "https://api.alphafeed.org",
+    apiKey: "rest-secret",
+  });
+  secureStore.saveAlphaFeedStreamCredentials({
+    wsUrl: "wss://api.tickflow.org/v1/ws/stream",
+    apiKey: "stream-secret",
+  });
+
+  secureStore.clearAlphaFeedStreamCredentials();
+
+  assert.equal(secureStore.readAlphaFeedStreamCredentials(), null);
+  assert.deepEqual(secureStore.readAlphaFeedCredentials(), {
+    apiUrl: "https://api.alphafeed.org",
+    apiKey: "rest-secret",
+  });
+});
+
 test("secure credential store rejects saves when encryption is unavailable", () => {
   const secureStore = createSecureCredentialStore(
     createMemoryPersistenceStore(),

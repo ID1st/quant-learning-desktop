@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import type { AlphaFeedApiCredentials, AlphaFeedBarRequest } from "@quant/api-client";
 import type { LongPortApiCredentials } from "@quant/api-client";
 import type { MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
+import type { AlphaFeedStreamConnectRequest } from "./alphaFeedStreamBridge.ts";
 import { createProviderDataIpcHandlers, providerDataIpcChannels, type ProviderDataIpcHandlers } from "./providerDataIpcContract.ts";
 
 export function registerProviderDataIpcHandlers(handlers: ProviderDataIpcHandlers = createProviderDataIpcHandlers()) {
@@ -22,6 +23,11 @@ export function registerProviderDataIpcHandlers(handlers: ProviderDataIpcHandler
     providerDataIpcChannels.fetchAlphaFeedIntradayBars,
     (_event, credentials: AlphaFeedApiCredentials, request: AlphaFeedBarRequest) => handlers.fetchAlphaFeedIntradayBars(credentials, request),
   );
+  ipcMain.handle(providerDataIpcChannels.connectAlphaFeedStream, (_event, request: AlphaFeedStreamConnectRequest) =>
+    handlers.connectAlphaFeedStream(request),
+  );
+  ipcMain.handle(providerDataIpcChannels.readAlphaFeedStreamSnapshot, () => handlers.readAlphaFeedStreamSnapshot());
+  ipcMain.handle(providerDataIpcChannels.disconnectAlphaFeedStream, () => handlers.disconnectAlphaFeedStream());
   ipcMain.handle(providerDataIpcChannels.verifyLongPortCredentials, (_event, credentials: LongPortApiCredentials) =>
     handlers.verifyLongPortCredentials(credentials),
   );

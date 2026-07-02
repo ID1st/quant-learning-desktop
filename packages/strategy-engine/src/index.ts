@@ -538,7 +538,7 @@ export function createUserStrategyDraftDefinition(input: PineStrategyPreflightIn
       sourceFile: ir.fileName,
       runnable: false,
       supportedMarkets: ["US", "HK", "CN"],
-      supportedTimeframes: ["1m", "5m", "15m", "30m", "1h", "1d", "1w"],
+      supportedTimeframes: ["realtime", "1m", "5m", "15m", "30m", "1h", "1d", "1w"],
       parameterSchema: ir.inputs.map((pineInput) => mapPineInputToParameter(pineInput, sourceText)),
       translation: translationPlan.plan,
     },
@@ -1237,7 +1237,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
     sourceType: "preset",
     sourceFile: "trading-strategies/utorb.md",
     supportedMarkets: ["US", "HK", "CN"],
-    supportedTimeframes: ["1m", "5m", "15m", "30m"],
+    supportedTimeframes: ["realtime", "1m", "5m", "15m", "30m"],
     parameterSchema: [
       {
         key: "openingRangeMinutes",
@@ -1275,7 +1275,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
     sourceType: "preset",
     sourceFile: "trading-strategies/trend-targets.md",
     supportedMarkets: ["US", "HK", "CN"],
-    supportedTimeframes: ["15m", "30m", "1h", "1d"],
+    supportedTimeframes: ["realtime", "15m", "30m", "1h", "1d"],
     parameterSchema: [
       {
         key: "supertrendFactor",

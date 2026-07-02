@@ -70,7 +70,14 @@ function sanitizeMarket(value: unknown): Market | null {
 }
 
 function sanitizeTimeframe(value: unknown): Timeframe | null {
-  return value === "1m" || value === "5m" || value === "15m" || value === "30m" || value === "1h" || value === "1d" || value === "1w"
+  return value === "realtime" ||
+    value === "1m" ||
+    value === "5m" ||
+    value === "15m" ||
+    value === "30m" ||
+    value === "1h" ||
+    value === "1d" ||
+    value === "1w"
     ? value
     : null;
 }
@@ -190,6 +197,10 @@ function normalizeBars(bars: MarketDataBar[]) {
 }
 
 function getDefaultMarketBarRetentionDays(timeframe: Timeframe) {
+  if (timeframe === "realtime") {
+    return 2;
+  }
+
   if (timeframe === "1m" || timeframe === "5m" || timeframe === "15m") {
     return 30;
   }

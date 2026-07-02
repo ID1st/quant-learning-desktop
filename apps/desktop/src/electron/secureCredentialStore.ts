@@ -1,7 +1,12 @@
 import type { AlphaFeedApiCredentials, LongPortApiCredentials } from "@quant/api-client";
 import type { LocalPersistenceStore } from "./localPersistence";
 
-export type SecureCredentialProvider = "alphafeed" | "longport";
+export type SecureCredentialProvider = "alphafeed" | "alphafeed-stream" | "longport";
+
+export interface AlphaFeedStreamCredentials {
+  wsUrl: string;
+  apiKey: string;
+}
 
 export interface SecureCredentialCrypto {
   encrypt(value: string): string;
@@ -13,6 +18,9 @@ export interface SecureCredentialStore {
   saveAlphaFeedCredentials(credentials: AlphaFeedApiCredentials): void;
   readAlphaFeedCredentials(): AlphaFeedApiCredentials | null;
   clearAlphaFeedCredentials(): void;
+  saveAlphaFeedStreamCredentials(credentials: AlphaFeedStreamCredentials): void;
+  readAlphaFeedStreamCredentials(): AlphaFeedStreamCredentials | null;
+  clearAlphaFeedStreamCredentials(): void;
   saveLongPortCredentials(credentials: LongPortApiCredentials): void;
   readLongPortCredentials(): LongPortApiCredentials | null;
   clearLongPortCredentials(): void;
@@ -27,6 +35,7 @@ interface SecureCredentialEnvelope {
 
 const STORAGE_VERSION = 1;
 const ALPHAFEED_CREDENTIAL_KEY = "secure-credentials.alphafeed";
+const ALPHAFEED_STREAM_CREDENTIAL_KEY = "secure-credentials.alphafeed-stream";
 const LONGPORT_CREDENTIAL_KEY = "secure-credentials.longport";
 
 function normalizeString(value: unknown) {
@@ -57,6 +66,18 @@ function sanitizeLongPortCredentials(value: unknown): LongPortApiCredentials | n
   const accessToken = normalizeString(candidate.accessToken);
 
   return apiUrl && appKey && appSecret && accessToken ? { apiUrl, appKey, appSecret, accessToken } : null;
+}
+
+function sanitizeAlphaFeedStreamCredentials(value: unknown): AlphaFeedStreamCredentials | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<AlphaFeedStreamCredentials>;
+  const wsUrl = normalizeString(candidate.wsUrl);
+  const apiKey = normalizeString(candidate.apiKey);
+
+  return wsUrl && apiKey ? { wsUrl, apiKey } : null;
 }
 
 function readEnvelope(value: string | null, provider: SecureCredentialProvider): SecureCredentialEnvelope | null {
@@ -135,6 +156,17 @@ export function createSecureCredentialStore(store: LocalPersistenceStore, crypto
     },
     readAlphaFeedCredentials: () => readCredentials(ALPHAFEED_CREDENTIAL_KEY, "alphafeed", sanitizeAlphaFeedCredentials),
     clearAlphaFeedCredentials: () => store.removeItem(ALPHAFEED_CREDENTIAL_KEY),
+    saveAlphaFeedStreamCredentials: (credentials) => {
+      const sanitized = sanitizeAlphaFeedStreamCredentials(credentials);
+      if (!sanitized) {
+        throw new Error("AlphaFeed WebSocket 凭据不完整。");
+      }
+
+      saveCredentials(ALPHAFEED_STREAM_CREDENTIAL_KEY, "alphafeed-stream", sanitized);
+    },
+    readAlphaFeedStreamCredentials: () =>
+      readCredentials(ALPHAFEED_STREAM_CREDENTIAL_KEY, "alphafeed-stream", sanitizeAlphaFeedStreamCredentials),
+    clearAlphaFeedStreamCredentials: () => store.removeItem(ALPHAFEED_STREAM_CREDENTIAL_KEY),
     saveLongPortCredentials: (credentials) => {
       const sanitized = sanitizeLongPortCredentials(credentials);
       if (!sanitized) {

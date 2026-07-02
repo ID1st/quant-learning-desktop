@@ -14,6 +14,21 @@ interface QuantDesktopBridge {
     saveAlphaFeed(credentials: { apiUrl: string; apiKey: string }): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     readAlphaFeed(): Promise<{ ok: true; credentials: { apiUrl: string; apiKey: string } | null } | { ok: false; error: { message: string } }>;
     clearAlphaFeed(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
+    saveAlphaFeedStream(credentials: {
+      wsUrl: string;
+      apiKey: string;
+    }): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
+    readAlphaFeedStream(): Promise<
+      | {
+          ok: true;
+          credentials: {
+            wsUrl: string;
+            apiKey: string;
+          } | null;
+        }
+      | { ok: false; error: { message: string } }
+    >;
+    clearAlphaFeedStream(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     saveLongPort(credentials: {
       apiUrl: string;
       appKey: string;
@@ -48,11 +63,13 @@ interface QuantDesktopBridge {
             verifiedAt: string;
             authMode: "api-key";
           };
+          health: AlphaFeedProviderHealth;
         }
       | {
           ok: false;
           error: {
             message: string;
+            health: AlphaFeedProviderHealth;
           };
         }
     >;
@@ -86,11 +103,13 @@ interface QuantDesktopBridge {
             provider: "alphafeed";
             name?: string;
           }>;
+          health: AlphaFeedProviderHealth;
         }
       | {
           ok: false;
           error: {
             message: string;
+            health: AlphaFeedProviderHealth;
           };
         }
     >;
@@ -102,7 +121,7 @@ interface QuantDesktopBridge {
       request: {
         symbol: string;
         market: "US" | "HK" | "CN";
-        timeframe: "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1w";
+        timeframe: "realtime" | "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1w";
         count?: number;
         startTime?: number;
         endTime?: number;
@@ -114,7 +133,7 @@ interface QuantDesktopBridge {
           bars: Array<{
             symbol: string;
             market: "US" | "HK" | "CN";
-            timeframe: "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1w";
+            timeframe: "realtime" | "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1w";
             timestamp: number;
             open: number;
             high: number;
@@ -124,11 +143,13 @@ interface QuantDesktopBridge {
             amount: number;
             provider: "alphafeed";
           }>;
+          health: AlphaFeedProviderHealth;
         }
       | {
           ok: false;
           error: {
             message: string;
+            health: AlphaFeedProviderHealth;
           };
         }
     >;
@@ -140,8 +161,10 @@ interface QuantDesktopBridge {
       request: {
         symbol: string;
         market: "US" | "HK" | "CN";
-        timeframe: "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1w";
+        timeframe: "realtime" | "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1w";
         count?: number;
+        startTime?: number;
+        endTime?: number;
       },
     ): Promise<
       | {
@@ -149,7 +172,7 @@ interface QuantDesktopBridge {
           bars: Array<{
             symbol: string;
             market: "US" | "HK" | "CN";
-            timeframe: "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1w";
+            timeframe: "realtime" | "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1w";
             timestamp: number;
             open: number;
             high: number;
@@ -159,14 +182,58 @@ interface QuantDesktopBridge {
             amount: number;
             provider: "alphafeed";
           }>;
+          health: AlphaFeedProviderHealth;
         }
       | {
           ok: false;
           error: {
             message: string;
+            health: AlphaFeedProviderHealth;
           };
         }
     >;
+    connectStream(request: {
+      credentials: {
+        wsUrl: string;
+        apiKey: string;
+      };
+      mode: "watchlist" | "all-symbols";
+      watchlist: Array<{
+        symbol: string;
+        name: string;
+        market: "US" | "HK" | "CN";
+        source: "preset";
+      }>;
+    }): Promise<{
+      ok: true;
+      health: AlphaFeedProviderHealth;
+      state: "idle" | "connecting" | "connected" | "fallback";
+    }>;
+    readStreamSnapshot(): Promise<{
+      ok: true;
+      snapshots: Array<{
+        symbol: string;
+        market: "US" | "HK" | "CN";
+        lastPrice: number;
+        previousClose: number;
+        openPrice?: number;
+        highPrice?: number;
+        lowPrice?: number;
+        changePercent: number;
+        volume: number;
+        amount?: number;
+        quoteTime: string;
+        receivedAt: string;
+        provider: "alphafeed";
+      }>;
+      health: AlphaFeedProviderHealth;
+      state: "idle" | "connecting" | "connected" | "fallback";
+    }>;
+    disconnectStream(): Promise<{
+      ok: true;
+      health: AlphaFeedProviderHealth;
+      state: "idle" | "connecting" | "connected" | "fallback";
+    }>;
   };
   readonly longPort?: {
     verifyCredentials(credentials: {
@@ -230,6 +297,14 @@ interface QuantDesktopBridge {
         }
     >;
   };
+}
+
+interface AlphaFeedProviderHealth {
+  status: "ok" | "auth_failed" | "permission_denied" | "rate_limited" | "network_error" | "invalid_response" | "error";
+  message: string;
+  checkedAt: string;
+  latencyMs: number;
+  nextRetryAt?: string;
 }
 
 interface Window {

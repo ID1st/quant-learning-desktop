@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ChartViewport, type ChartLayer, type ChartLayerElement } from "@quant/chart";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChartViewport, type ChartDisplayMode, type ChartLayer, type ChartLayerElement } from "@quant/chart";
 import type { Market, Timeframe } from "@quant/shared";
 import {
   createEmptyStrategyRegistry,
@@ -12,9 +12,25 @@ import {
 } from "@quant/strategy-engine";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
 import { marketBarsToCandles, marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
-import { readSavedAlphaFeedCredentials } from "../features/api/apiConfigService";
+import { readAlphaFeedStreamBinding, readSavedAlphaFeedCredentials, readSavedAlphaFeedStreamCredentials } from "../features/api/apiConfigService";
 import { readMarketBarCache, writeMarketBarCache, type MarketDataBar } from "../features/marketData/marketBarCacheService";
-import type { MarketQuoteSnapshot } from "../features/marketData/marketDataSyncService";
+import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService";
+import {
+  createQuotePollingBatches,
+  defaultRealtimePollIntervalMs,
+  mergeQuoteSnapshots,
+  realtimePollIntervalOptionsMs,
+  sanitizeRealtimePollIntervalMs,
+} from "../features/marketData/realtimeQuotePollingService";
+import {
+  aggregateRealtimePointBarsToMinuteCandles,
+  mergeRealtimeSnapshotPointBars,
+} from "../features/marketData/realtimeIntradayBarService";
+import {
+  alphaFeedMinuteBarsToRealtimeBars,
+  getIntradayHistoryWindow,
+  isMarketSessionOpen,
+} from "../features/marketData/intradayHistoryService";
 import {
   Bell,
   CheckCircle2,
@@ -27,6 +43,7 @@ import {
   MousePointer2,
   PencilLine,
   Plus,
+  RotateCcw,
   Ruler,
   ShieldCheck,
   Settings2,
@@ -40,8 +57,14 @@ const symbols: Array<{ symbol: string; dataSymbol: string; name: string; market:
   { symbol: "TSLA", dataSymbol: "TSLA.US", name: "Tesla", market: "US", price: "188.14", change: "-0.82%" },
 ];
 
-const timeframes: Timeframe[] = ["1d", "1w"];
-const realtimePollIntervalMs = 30_000;
+const realtimeWatchlist: MarketWatchlistItem[] = symbols.map((item) => ({
+  symbol: item.dataSymbol,
+  name: item.name,
+  market: item.market,
+  source: "preset",
+}));
+
+const timeframes: Timeframe[] = ["realtime", "1d", "1w"];
 const realtimeRateLimitBackoffMs = 120_000;
 const strategyRegistry = createPresetStrategyRegistry();
 const presetStrategies = strategyRegistry.list();
@@ -54,11 +77,23 @@ interface StrategyWorkspaceState {
 }
 
 interface ChartWorkspacePreferences {
-  version: 2;
+  version: 4;
   showSignals: boolean;
   showStrategyLayers: boolean;
   showMovingAverage: boolean;
+  showCrosshair: boolean;
+  showGrid: boolean;
+  showVolume: boolean;
+  showPriceLabels: boolean;
+  showCurrentPriceLine: boolean;
+  intradayDisplayMode: ChartDisplayMode;
+  realtimePollIntervalMs: number;
   strategies: Record<string, StrategyWorkspaceState>;
+}
+
+interface ChartContextMenuState {
+  x: number;
+  y: number;
 }
 
 function getDefaultParameters(strategy: StrategyDefinition) {
@@ -78,10 +113,17 @@ function getDefaultStrategyState(strategy: StrategyDefinition, index: number): S
 
 function createDefaultWorkspacePreferences(): ChartWorkspacePreferences {
   return {
-    version: 2,
+    version: 4,
     showSignals: true,
     showStrategyLayers: true,
     showMovingAverage: true,
+    showCrosshair: true,
+    showGrid: true,
+    showVolume: true,
+    showPriceLabels: true,
+    showCurrentPriceLine: true,
+    intradayDisplayMode: "line",
+    realtimePollIntervalMs: defaultRealtimePollIntervalMs,
     strategies: presetStrategies.reduce<Record<string, StrategyWorkspaceState>>((settings, strategy, index) => {
       settings[strategy.key] = getDefaultStrategyState(strategy, index);
       return settings;
@@ -145,6 +187,10 @@ function normalizeStrategyState(strategy: StrategyDefinition, index: number, sta
   };
 }
 
+function sanitizeChartDisplayMode(value: unknown): ChartDisplayMode {
+  return value === "candlestick" ? "candlestick" : "line";
+}
+
 function readWorkspacePreferences(): ChartWorkspacePreferences {
   const defaultPreferences = createDefaultWorkspacePreferences();
 
@@ -179,20 +225,35 @@ function readWorkspacePreferences(): ChartWorkspacePreferences {
         showStrategyLayers:
           typeof parsed.showStrategyLayers === "boolean" ? parsed.showStrategyLayers : defaultPreferences.showStrategyLayers,
         showMovingAverage: typeof parsed.showMovingAverage === "boolean" ? parsed.showMovingAverage : defaultPreferences.showMovingAverage,
+        showCrosshair: defaultPreferences.showCrosshair,
+        showGrid: defaultPreferences.showGrid,
+        showVolume: defaultPreferences.showVolume,
+        showPriceLabels: defaultPreferences.showPriceLabels,
+        showCurrentPriceLine: defaultPreferences.showCurrentPriceLine,
+        intradayDisplayMode: defaultPreferences.intradayDisplayMode,
+        realtimePollIntervalMs: sanitizeRealtimePollIntervalMs(parsed.realtimePollIntervalMs),
         strategies: migratedStrategies,
       };
     }
 
-    if (parsed.version !== 2) {
+    if (parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4) {
       return defaultPreferences;
     }
 
     return {
-      version: 2,
+      version: 4,
       showSignals: typeof parsed.showSignals === "boolean" ? parsed.showSignals : defaultPreferences.showSignals,
       showStrategyLayers:
         typeof parsed.showStrategyLayers === "boolean" ? parsed.showStrategyLayers : defaultPreferences.showStrategyLayers,
       showMovingAverage: typeof parsed.showMovingAverage === "boolean" ? parsed.showMovingAverage : defaultPreferences.showMovingAverage,
+      showCrosshair: typeof parsed.showCrosshair === "boolean" ? parsed.showCrosshair : defaultPreferences.showCrosshair,
+      showGrid: typeof parsed.showGrid === "boolean" ? parsed.showGrid : defaultPreferences.showGrid,
+      showVolume: typeof parsed.showVolume === "boolean" ? parsed.showVolume : defaultPreferences.showVolume,
+      showPriceLabels: typeof parsed.showPriceLabels === "boolean" ? parsed.showPriceLabels : defaultPreferences.showPriceLabels,
+      showCurrentPriceLine:
+        typeof parsed.showCurrentPriceLine === "boolean" ? parsed.showCurrentPriceLine : defaultPreferences.showCurrentPriceLine,
+      intradayDisplayMode: sanitizeChartDisplayMode(parsed.intradayDisplayMode),
+      realtimePollIntervalMs: sanitizeRealtimePollIntervalMs(parsed.realtimePollIntervalMs),
       strategies: presetStrategies.reduce<Record<string, StrategyWorkspaceState>>((settings, strategy, index) => {
         settings[strategy.key] = normalizeStrategyState(strategy, index, parsed.strategies?.[strategy.key]);
         return settings;
@@ -257,6 +318,16 @@ function createFailedStrategyRunResult(
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "未知错误";
+}
+
+function getUnsupportedTimeframeMessage(strategy: StrategyDefinition, timeframe: Timeframe) {
+  const supported = strategy.supportedTimeframes.join(" / ");
+  const dataLimitNote =
+    strategy.key === "utorb"
+      ? "UTORB 属于开盘区间突破策略，需要分钟级 K 线计算开盘高低点；当前 AlphaFeed 套餐下超级图表仅开放 1d / 1w 真实 K 线。"
+      : "当前图表周期不在该策略声明的支持范围内。";
+
+  return `${dataLimitNote} 当前周期：${timeframe}；策略支持周期：${supported}。`;
 }
 
 function formatLogTime(timestamp: number) {
@@ -375,6 +446,99 @@ function mergeRealtimeDailyBar(bars: MarketDataBar[], key: { symbol: string; mar
   );
 }
 
+interface RealtimeProviderHealthView {
+  status: AlphaFeedProviderHealth["status"] | "idle" | "waiting" | "paused";
+  message: string;
+  checkedAt?: string;
+  latencyMs?: number;
+  nextRetryAt?: string;
+}
+
+function createRealtimeHealthView(status: RealtimeProviderHealthView["status"], message: string): RealtimeProviderHealthView {
+  return {
+    status,
+    message,
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+function getRealtimeHealthBadgeClass(status: RealtimeProviderHealthView["status"]) {
+  if (status === "ok") {
+    return "data-source-badge live";
+  }
+
+  if (status === "rate_limited" || status === "permission_denied" || status === "auth_failed") {
+    return "data-source-badge warning";
+  }
+
+  if (status === "network_error" || status === "invalid_response" || status === "error") {
+    return "data-source-badge danger";
+  }
+
+  return "data-source-badge";
+}
+
+function formatRealtimeHealthDetail(health: RealtimeProviderHealthView) {
+  const parts = [health.message];
+
+  if (typeof health.latencyMs === "number") {
+    parts.push(`${health.latencyMs}ms`);
+  }
+
+  if (health.checkedAt) {
+    parts.push(new Date(health.checkedAt).toLocaleTimeString("zh-CN", { hour12: false }));
+  }
+
+  return parts.join(" · ");
+}
+
+function formatQuotePrice(snapshot: MarketQuoteSnapshot | undefined, fallback: string) {
+  return snapshot ? snapshot.lastPrice.toFixed(snapshot.lastPrice >= 1000 ? 2 : 2) : fallback;
+}
+
+function formatQuoteChange(snapshot: MarketQuoteSnapshot | undefined, fallback: string) {
+  if (!snapshot) {
+    return fallback;
+  }
+
+  const prefix = snapshot.changePercent >= 0 ? "+" : "";
+  return `${prefix}${snapshot.changePercent.toFixed(2)}%`;
+}
+
+function formatTimeframeLabel(timeframe: Timeframe) {
+  return timeframe === "realtime" ? "分时" : timeframe;
+}
+
+function getStrategyLayerStatus(
+  strategy: StrategyDefinition,
+  settings: StrategyWorkspaceState,
+  result: StrategyRunResult,
+  timeframe: Timeframe,
+  barCount: number,
+) {
+  if (!settings.enabled) {
+    return { className: "disabled", label: "已停用" };
+  }
+
+  if (!strategy.supportedTimeframes.includes(timeframe)) {
+    return { className: "unsupported", label: "周期不支持" };
+  }
+
+  if (barCount === 0) {
+    return { className: "empty", label: "无数据" };
+  }
+
+  if (!settings.showLayer) {
+    return { className: "hidden", label: "已隐藏" };
+  }
+
+  if (result.output.render.elements.length === 0) {
+    return { className: "empty", label: "无图层" };
+  }
+
+  return { className: "active", label: "运行中" };
+}
+
 export function ChartWorkspacePage() {
   const workspacePreferences = useMemo(() => readWorkspacePreferences(), []);
   const importedDrafts = useUserStrategyDraftStore((state) => state.drafts);
@@ -398,15 +562,34 @@ export function ChartWorkspacePage() {
     readMarketBarCache({ symbol: symbols[0].dataSymbol, market: symbols[0].market, timeframe: "1d" }),
   );
   const [realtimeStatus, setRealtimeStatus] = useState("REST 轮询待命");
-  const cachedCandles = useMemo(() => marketBarsToCandles(cachedMarketBars), [cachedMarketBars]);
-  const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(cachedMarketBars), [cachedMarketBars]);
-  const renderedCandles = cachedCandles.length > 0 ? cachedCandles : undefined;
-  const strategyInputBars = cachedStrategyBars;
+  const [realtimeHealth, setRealtimeHealth] = useState<RealtimeProviderHealthView>(() =>
+    createRealtimeHealthView("idle", "REST 轮询待命"),
+  );
+  const [quoteSnapshotsByKey, setQuoteSnapshotsByKey] = useState<Record<string, MarketQuoteSnapshot>>({});
+  const quoteSnapshotsByKeyRef = useRef<Record<string, MarketQuoteSnapshot>>({});
   const [showSignals, setShowSignals] = useState(workspacePreferences.showSignals);
   const [showStrategyLayers, setShowStrategyLayers] = useState(workspacePreferences.showStrategyLayers);
   const [showMovingAverage, setShowMovingAverage] = useState(workspacePreferences.showMovingAverage);
+  const [showCrosshair, setShowCrosshair] = useState(workspacePreferences.showCrosshair);
+  const [showGrid, setShowGrid] = useState(workspacePreferences.showGrid);
+  const [showVolume, setShowVolume] = useState(workspacePreferences.showVolume);
+  const [showPriceLabels, setShowPriceLabels] = useState(workspacePreferences.showPriceLabels);
+  const [showCurrentPriceLine, setShowCurrentPriceLine] = useState(workspacePreferences.showCurrentPriceLine);
+  const [intradayDisplayMode, setIntradayDisplayMode] = useState<ChartDisplayMode>(workspacePreferences.intradayDisplayMode);
+  const [realtimePollIntervalMs, setRealtimePollIntervalMs] = useState(workspacePreferences.realtimePollIntervalMs);
   const [strategySettings, setStrategySettings] = useState(workspacePreferences.strategies);
   const [activeConfigStrategyKey, setActiveConfigStrategyKey] = useState<string | null>(null);
+  const [isChartSettingsOpen, setIsChartSettingsOpen] = useState(false);
+  const [chartContextMenu, setChartContextMenu] = useState<ChartContextMenuState | null>(null);
+  const [chartResetViewKey, setChartResetViewKey] = useState(0);
+  const displayedMarketBars = useMemo(
+    () => (timeframe === "realtime" && intradayDisplayMode === "candlestick" ? aggregateRealtimePointBarsToMinuteCandles(cachedMarketBars) : cachedMarketBars),
+    [cachedMarketBars, intradayDisplayMode, timeframe],
+  );
+  const cachedCandles = useMemo(() => marketBarsToCandles(displayedMarketBars), [displayedMarketBars]);
+  const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(displayedMarketBars), [displayedMarketBars]);
+  const renderedCandles = cachedCandles.length > 0 ? cachedCandles : undefined;
+  const strategyInputBars = cachedStrategyBars;
   const strategyRuns = useMemo(
     () =>
       chartStrategies.map((strategy, index) => {
@@ -426,7 +609,14 @@ export function ChartWorkspacePage() {
                 enabled: settings.enabled,
                 parameters: settings.parameters,
               })
-            : createFailedStrategyRunResult(strategy, settings, activeSymbol.dataSymbol, activeSymbol.market, timeframe, "当前周期不支持");
+            : createFailedStrategyRunResult(
+                strategy,
+                settings,
+                activeSymbol.dataSymbol,
+                activeSymbol.market,
+                timeframe,
+                getUnsupportedTimeframeMessage(strategy, timeframe),
+              );
         } catch (error) {
           result = createFailedStrategyRunResult(strategy, settings, activeSymbol.dataSymbol, activeSymbol.market, timeframe, getErrorMessage(error));
         }
@@ -498,17 +688,133 @@ export function ChartWorkspacePage() {
       },
     }));
   };
+  const resetChartView = () => {
+    setShowCrosshair(true);
+    setShowGrid(true);
+    setShowVolume(true);
+    setShowPriceLabels(true);
+    setShowCurrentPriceLine(true);
+    setChartResetViewKey((value) => value + 1);
+    setChartContextMenu(null);
+  };
+  const mergeActiveSnapshotBars = (currentBars: MarketDataBar[], snapshot: MarketQuoteSnapshot) => {
+    if (timeframe === "realtime") {
+      return mergeRealtimeSnapshotPointBars(
+        currentBars,
+        { symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "realtime" },
+        snapshot,
+      );
+    }
+
+    return mergeRealtimeDailyBar(currentBars, { symbol: activeSymbol.dataSymbol, market: activeSymbol.market }, snapshot);
+  };
+  const writeActiveSnapshotBars = (bars: MarketDataBar[]) => {
+    writeMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe }, bars);
+  };
 
   useEffect(() => {
     setCachedMarketBars(readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe }));
   }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    if (timeframe !== "realtime") {
+      return () => undefined;
+    }
+
+    const loadIntradayHistory = async () => {
+      const windowRange = getIntradayHistoryWindow(activeSymbol.market);
+
+      try {
+        const credentials = await readSavedAlphaFeedCredentials();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!credentials || !window.quantDesktop?.alphaFeed) {
+          const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed 凭据以加载历史分时");
+          setRealtimeHealth(waitingHealth);
+          setRealtimeStatus(waitingHealth.message);
+          return;
+        }
+
+        const result = await window.quantDesktop.alphaFeed.fetchIntradayBars(credentials, {
+          symbol: activeSymbol.dataSymbol,
+          market: activeSymbol.market,
+          timeframe: "1m",
+          startTime: windowRange.startTime,
+          endTime: windowRange.endTime,
+          count: 10_000,
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!result.ok) {
+          const healthView: RealtimeProviderHealthView = {
+            ...result.error.health,
+            message: result.error.health.status === "permission_denied" ? "AlphaFeed 当前套餐无 1m 历史分时权限" : result.error.message,
+          };
+          setRealtimeHealth(healthView);
+          setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+          return;
+        }
+
+        const realtimeBars = alphaFeedMinuteBarsToRealtimeBars(
+          result.bars,
+          { symbol: activeSymbol.dataSymbol, market: activeSymbol.market },
+          windowRange,
+        );
+
+        if (realtimeBars.length === 0) {
+          const emptyHealth = createRealtimeHealthView("waiting", "AlphaFeed 暂无历史分时数据");
+          setRealtimeHealth(emptyHealth);
+          setRealtimeStatus(emptyHealth.message);
+          return;
+        }
+
+        const written = writeMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "realtime" }, realtimeBars);
+        setCachedMarketBars(written);
+        const healthView: RealtimeProviderHealthView = {
+          ...result.health,
+          message: windowRange.isMarketOpen
+            ? `历史分时已加载 ${written.length} 点，交易中继续更新`
+            : `历史分时已加载 ${written.length} 点，收盘后停止更新`,
+        };
+        setRealtimeHealth(healthView);
+        setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+      } catch (error) {
+        const errorHealth = createRealtimeHealthView("error", getErrorMessage(error));
+        setRealtimeHealth(errorHealth);
+        setRealtimeStatus(errorHealth.message);
+      }
+    };
+
+    void loadIntradayHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
+
+  useEffect(() => {
     let timeoutId: number | undefined;
     let cancelled = false;
 
-    if (timeframe !== "1d") {
-      setRealtimeStatus("周线不启用 REST 轮询");
+    if (timeframe !== "1d" && timeframe !== "realtime") {
+      const pausedHealth = createRealtimeHealthView("paused", "当前周期不启用实时轮询");
+      setRealtimeHealth(pausedHealth);
+      setRealtimeStatus(pausedHealth.message);
+      return () => undefined;
+    }
+
+    if (timeframe === "realtime" && !isMarketSessionOpen(activeSymbol.market)) {
+      const pausedHealth = createRealtimeHealthView("paused", "市场已收盘，仅显示历史分时");
+      setRealtimeHealth(pausedHealth);
+      setRealtimeStatus(pausedHealth.message);
       return () => undefined;
     }
 
@@ -518,53 +824,156 @@ export function ChartWorkspacePage() {
       }
 
       if (document.visibilityState !== "visible") {
-        setRealtimeStatus("页面后台，轮询暂停");
+        const pausedHealth = createRealtimeHealthView("paused", "页面后台，轮询暂停");
+        setRealtimeHealth(pausedHealth);
+        setRealtimeStatus(pausedHealth.message);
         timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
         return;
       }
 
       try {
         const credentials = await readSavedAlphaFeedCredentials();
+        const streamCredentials = await readSavedAlphaFeedStreamCredentials();
+        const streamBinding = readAlphaFeedStreamBinding();
 
-        if (!credentials || !window.quantDesktop?.alphaFeed) {
-          setRealtimeStatus("等待 AlphaFeed 凭据");
+        if (cancelled) {
+          return;
+        }
+
+        if (!window.quantDesktop?.alphaFeed || (!credentials && !streamCredentials)) {
+          const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed 凭据");
+          setRealtimeHealth(waitingHealth);
+          setRealtimeStatus(waitingHealth.message);
           timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
           return;
         }
 
-        const result = await window.quantDesktop.alphaFeed.fetchQuoteSnapshot(credentials, [
-          {
-            symbol: activeSymbol.dataSymbol,
-            name: activeSymbol.name,
-            market: activeSymbol.market,
-            source: "preset",
-          },
-        ]);
+        if (streamCredentials && streamBinding && window.quantDesktop.alphaFeed.connectStream && window.quantDesktop.alphaFeed.readStreamSnapshot) {
+          const connectResult = await window.quantDesktop.alphaFeed.connectStream({
+            credentials: streamCredentials,
+            mode: streamBinding.mode,
+            watchlist: realtimeWatchlist,
+          });
 
-        if (!result.ok) {
-          const isRateLimited = result.error.message.includes("频率") || result.error.message.includes("429");
-          const nextDelay = isRateLimited ? realtimeRateLimitBackoffMs : realtimePollIntervalMs;
-          setRealtimeStatus(isRateLimited ? "触发限频，2 分钟后重试" : result.error.message);
-          timeoutId = window.setTimeout(() => void poll(), nextDelay);
+          if (cancelled) {
+            return;
+          }
+
+          const streamResult = await window.quantDesktop.alphaFeed.readStreamSnapshot();
+
+          if (cancelled) {
+            return;
+          }
+
+          if (streamResult.state === "connected" && streamResult.snapshots.length > 0) {
+            const nextQuoteSnapshotsByKey = mergeQuoteSnapshots(quoteSnapshotsByKeyRef.current, streamResult.snapshots);
+            const snapshot = nextQuoteSnapshotsByKey[`${activeSymbol.market}:${activeSymbol.dataSymbol}`];
+            quoteSnapshotsByKeyRef.current = nextQuoteSnapshotsByKey;
+            setQuoteSnapshotsByKey(nextQuoteSnapshotsByKey);
+
+            if (snapshot) {
+              setCachedMarketBars((currentBars) => {
+                const nextBars = mergeActiveSnapshotBars(currentBars, snapshot);
+                writeActiveSnapshotBars(nextBars);
+                return nextBars;
+              });
+            }
+
+            const healthView: RealtimeProviderHealthView = {
+              ...streamResult.health,
+              message: `WebSocket 流式更新 ${streamResult.snapshots.length} 只 · ${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`,
+            };
+            setRealtimeHealth(healthView);
+            setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+            timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
+            return;
+          }
+
+          if (!credentials) {
+            const streamHealth: RealtimeProviderHealthView = {
+              ...(streamResult.state === "connecting" ? connectResult.health : streamResult.health),
+              message: streamResult.state === "connecting" ? "WebSocket 正在连接，等待首批快照" : streamResult.health.message,
+            };
+            setRealtimeHealth(streamHealth);
+            setRealtimeStatus(formatRealtimeHealthDetail(streamHealth));
+            timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
+            return;
+          }
+        }
+
+        if (!credentials) {
+          const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed REST 凭据");
+          setRealtimeHealth(waitingHealth);
+          setRealtimeStatus(waitingHealth.message);
+          timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
           return;
         }
 
-        const snapshot = result.snapshots[0];
+        const batches = createQuotePollingBatches(realtimeWatchlist);
+        const snapshots: MarketQuoteSnapshot[] = [];
+        let latestHealth: AlphaFeedProviderHealth | null = null;
+
+        for (const batch of batches) {
+          const result = await window.quantDesktop.alphaFeed.fetchQuoteSnapshot(credentials, batch);
+
+          if (cancelled) {
+            return;
+          }
+
+          if (!result.ok) {
+            const health = result.error.health;
+            const isRateLimited = health.status === "rate_limited";
+            const nextRetryAt = health.nextRetryAt ? new Date(health.nextRetryAt).getTime() : Date.now() + realtimeRateLimitBackoffMs;
+            const nextDelay = isRateLimited ? Math.max(realtimePollIntervalMs, nextRetryAt - Date.now()) : realtimePollIntervalMs;
+            const healthView: RealtimeProviderHealthView = {
+              ...health,
+              message: isRateLimited ? "AlphaFeed 限频，已自动退避" : health.message,
+            };
+            setRealtimeHealth(healthView);
+            setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+            timeoutId = window.setTimeout(() => void poll(), nextDelay);
+            return;
+          }
+
+          snapshots.push(...result.snapshots);
+          latestHealth = result.health;
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const nextQuoteSnapshotsByKey = mergeQuoteSnapshots(quoteSnapshotsByKeyRef.current, snapshots);
+        const snapshot = nextQuoteSnapshotsByKey[`${activeSymbol.market}:${activeSymbol.dataSymbol}`];
+        quoteSnapshotsByKeyRef.current = nextQuoteSnapshotsByKey;
+        setQuoteSnapshotsByKey(nextQuoteSnapshotsByKey);
 
         if (snapshot) {
           setCachedMarketBars((currentBars) => {
-            const nextBars = mergeRealtimeDailyBar(currentBars, { symbol: activeSymbol.dataSymbol, market: activeSymbol.market }, snapshot);
-            writeMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "1d" }, nextBars);
+            const nextBars = mergeActiveSnapshotBars(currentBars, snapshot);
+            writeActiveSnapshotBars(nextBars);
             return nextBars;
           });
-          setRealtimeStatus(`REST 轮询更新 ${new Date(snapshot.receivedAt).toLocaleTimeString("zh-CN", { hour12: false })}`);
+          const healthView: RealtimeProviderHealthView = {
+            ...(latestHealth ?? createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功")),
+            message: `批量轮询更新 ${snapshots.length} 只 · ${new Date(snapshot.receivedAt).toLocaleTimeString("zh-CN", { hour12: false })}`,
+          };
+          setRealtimeHealth(healthView);
+          setRealtimeStatus(formatRealtimeHealthDetail(healthView));
         } else {
-          setRealtimeStatus("AlphaFeed 暂无快照");
+          const healthView: RealtimeProviderHealthView = {
+            ...(latestHealth ?? createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功")),
+            message: snapshots.length > 0 ? "当前标的暂无快照，已保留上一轮缓存" : "AlphaFeed 暂无快照",
+          };
+          setRealtimeHealth(healthView);
+          setRealtimeStatus(formatRealtimeHealthDetail(healthView));
         }
 
         timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
       } catch (error) {
-        setRealtimeStatus(getErrorMessage(error));
+        const errorHealth = createRealtimeHealthView("error", getErrorMessage(error));
+        setRealtimeHealth(errorHealth);
+        setRealtimeStatus(errorHealth.message);
         timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
       }
     };
@@ -573,23 +982,43 @@ export function ChartWorkspacePage() {
 
     return () => {
       cancelled = true;
+      void window.quantDesktop?.alphaFeed?.disconnectStream?.();
       if (timeoutId !== undefined) {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [activeSymbol.dataSymbol, activeSymbol.market, activeSymbol.name, timeframe]);
+  }, [activeSymbol.dataSymbol, activeSymbol.market, activeSymbol.name, realtimePollIntervalMs, timeframe]);
 
   useEffect(() => {
     const preferences: ChartWorkspacePreferences = {
-      version: 2,
+      version: 4,
       showSignals,
       showStrategyLayers,
       showMovingAverage,
+      showCrosshair,
+      showGrid,
+      showVolume,
+      showPriceLabels,
+      showCurrentPriceLine,
+      intradayDisplayMode,
+      realtimePollIntervalMs,
       strategies: strategySettings,
     };
 
     saveWorkspacePreferences(preferences);
-  }, [showMovingAverage, showSignals, showStrategyLayers, strategySettings]);
+  }, [
+    realtimePollIntervalMs,
+    intradayDisplayMode,
+    showCrosshair,
+    showCurrentPriceLine,
+    showGrid,
+    showMovingAverage,
+    showPriceLabels,
+    showSignals,
+    showStrategyLayers,
+    showVolume,
+    strategySettings,
+  ]);
 
   return (
     <section className="chart-workspace-page">
@@ -599,13 +1028,15 @@ export function ChartWorkspacePage() {
           <strong>{activeSymbol.symbol}</strong>
           <small>{activeSymbol.name}</small>
           <em className={cachedCandles.length > 0 ? "data-source-badge live" : "data-source-badge"}>{cachedCandles.length > 0 ? "本地缓存" : "等待数据"}</em>
-          <em className={timeframe === "1d" ? "data-source-badge live" : "data-source-badge"}>{realtimeStatus}</em>
+          <em className={getRealtimeHealthBadgeClass(realtimeHealth.status)} title={realtimeStatus}>
+            {formatRealtimeHealthDetail(realtimeHealth)}
+          </em>
         </div>
 
         <div className="timeframe-tabs" aria-label="周期选择">
           {timeframes.map((item) => (
             <button className={item === timeframe ? "active" : ""} key={item} onClick={() => setTimeframe(item)} type="button">
-              {item}
+              {formatTimeframeLabel(item)}
             </button>
           ))}
         </div>
@@ -627,6 +1058,37 @@ export function ChartWorkspacePage() {
             <Layers3 size={16} />
             <span>策略图层</span>
           </button>
+          <button className={isChartSettingsOpen ? "active" : ""} onClick={() => setIsChartSettingsOpen((value) => !value)} type="button">
+            <Settings2 size={16} />
+            <span>图表设置</span>
+          </button>
+          {timeframe === "realtime" && (
+            <label className="polling-interval-control">
+              <span>分时形态</span>
+              <select
+                aria-label="分时图表形态"
+                onChange={(event) => setIntradayDisplayMode(sanitizeChartDisplayMode(event.currentTarget.value))}
+                value={intradayDisplayMode}
+              >
+                <option value="line">折线</option>
+                <option value="candlestick">K线</option>
+              </select>
+            </label>
+          )}
+          <label className="polling-interval-control">
+            <span>轮询</span>
+            <select
+              aria-label="AlphaFeed REST 轮询频率"
+              onChange={(event) => setRealtimePollIntervalMs(sanitizeRealtimePollIntervalMs(Number(event.currentTarget.value)))}
+              value={realtimePollIntervalMs}
+            >
+              {realtimePollIntervalOptionsMs.map((intervalMs) => (
+                <option key={intervalMs} value={intervalMs}>
+                  {intervalMs / 1000}秒
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </header>
 
@@ -644,20 +1106,126 @@ export function ChartWorkspacePage() {
           <button type="button" title="测距">
             <Ruler size={18} />
           </button>
-          <button type="button" title="图表设置">
+          <button
+            className={isChartSettingsOpen ? "active" : ""}
+            onClick={() => setIsChartSettingsOpen((value) => !value)}
+            type="button"
+            title="图表设置"
+          >
             <Settings2 size={18} />
           </button>
         </aside>
 
-        <main className="chart-main-panel">
+        <main
+          className="chart-main-panel"
+          onClick={() => setChartContextMenu(null)}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setChartContextMenu({
+              x: Math.max(8, Math.min(event.clientX, window.innerWidth - 184)),
+              y: Math.max(8, Math.min(event.clientY, window.innerHeight - 156)),
+            });
+          }}
+        >
           <ChartViewport
             candles={renderedCandles}
             context={{ symbol: activeSymbol.symbol, market: activeSymbol.market, timeframe }}
+            displayMode={timeframe === "realtime" ? intradayDisplayMode : "candlestick"}
+            showCrosshair={showCrosshair}
+            showCurrentPriceLine={showCurrentPriceLine}
+            showGrid={showGrid}
             showMovingAverage={showMovingAverage}
+            showPriceLabels={showPriceLabels}
             showSignals={showSignals}
             showStrategyLayers={canShowStrategyLayers}
+            showVolume={showVolume}
+            resetViewKey={chartResetViewKey}
             strategyLayers={strategyLayers}
           />
+          {isChartSettingsOpen && (
+            <section className="chart-settings-popover" aria-label="图表设置">
+              <div className="chart-settings-heading">
+                <strong>图表设置</strong>
+                <button onClick={() => setIsChartSettingsOpen(false)} type="button">
+                  关闭
+                </button>
+              </div>
+              <label>
+                <span>网格</span>
+                <input checked={showGrid} onChange={(event) => setShowGrid(event.currentTarget.checked)} type="checkbox" />
+              </label>
+              <label>
+                <span>成交量</span>
+                <input checked={showVolume} onChange={(event) => setShowVolume(event.currentTarget.checked)} type="checkbox" />
+              </label>
+              <label>
+                <span>十字光标</span>
+                <input checked={showCrosshair} onChange={(event) => setShowCrosshair(event.currentTarget.checked)} type="checkbox" />
+              </label>
+              <label>
+                <span>价格标签</span>
+                <input checked={showPriceLabels} onChange={(event) => setShowPriceLabels(event.currentTarget.checked)} type="checkbox" />
+              </label>
+              <label>
+                <span>当前价线</span>
+                <input
+                  checked={showCurrentPriceLine}
+                  onChange={(event) => setShowCurrentPriceLine(event.currentTarget.checked)}
+                  type="checkbox"
+                />
+              </label>
+              <button className="chart-settings-reset" onClick={resetChartView} type="button">
+                <RotateCcw size={14} />
+                重置视图
+              </button>
+            </section>
+          )}
+          {chartContextMenu && (
+            <div
+              className="chart-context-menu"
+              role="menu"
+              style={{ left: chartContextMenu.x, top: chartContextMenu.y }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button onClick={resetChartView} role="menuitem" type="button">
+                <RotateCcw size={14} />
+                重置视图
+              </button>
+              <button
+                onClick={() => {
+                  setIsChartSettingsOpen(true);
+                  setChartContextMenu(null);
+                }}
+                role="menuitem"
+                type="button"
+              >
+                <Settings2 size={14} />
+                图表设置
+              </button>
+              <button
+                onClick={() => {
+                  setShowStrategyLayers((value) => !value);
+                  setChartContextMenu(null);
+                }}
+                role="menuitem"
+                type="button"
+              >
+                <Layers3 size={14} />
+                {showStrategyLayers ? "隐藏策略图层" : "显示策略图层"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowCurrentPriceLine((value) => !value);
+                  setChartContextMenu(null);
+                }}
+                role="menuitem"
+                type="button"
+              >
+                <LineChart size={14} />
+                {showCurrentPriceLine ? "隐藏当前价线" : "显示当前价线"}
+              </button>
+            </div>
+          )}
         </main>
 
         <aside className="watchlist-panel">
@@ -672,23 +1240,28 @@ export function ChartWorkspacePage() {
           </div>
 
           <div className="watchlist-items">
-            {symbols.map((item) => (
-              <button
-                className={item.symbol === activeSymbol.symbol ? "active" : ""}
-                key={item.symbol}
-                onClick={() => setActiveSymbol(item)}
-                type="button"
-              >
-                <span>
-                  <strong>{item.symbol}</strong>
-                  <small>{item.name}</small>
-                </span>
-                <span>
-                  <strong>{item.price}</strong>
-                  <small className={item.change.startsWith("+") ? "positive" : "negative"}>{item.change}</small>
-                </span>
-              </button>
-            ))}
+            {symbols.map((item) => {
+              const snapshot = quoteSnapshotsByKey[`${item.market}:${item.dataSymbol}`];
+              const change = formatQuoteChange(snapshot, item.change);
+
+              return (
+                <button
+                  className={item.symbol === activeSymbol.symbol ? "active" : ""}
+                  key={item.symbol}
+                  onClick={() => setActiveSymbol(item)}
+                  type="button"
+                >
+                  <span>
+                    <strong>{item.symbol}</strong>
+                    <small>{item.name}</small>
+                  </span>
+                  <span>
+                    <strong>{formatQuotePrice(snapshot, item.price)}</strong>
+                    <small className={change.startsWith("+") ? "positive" : "negative"}>{change}</small>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </aside>
       </div>
@@ -804,40 +1377,46 @@ export function ChartWorkspacePage() {
             </button>
           </div>
           <div className="bottom-layer-list">
-            {strategyRuns.map(({ strategy, settings, result }) => (
-              <div className={settings.enabled && canShowStrategyLayers && settings.showLayer ? "layer-item active" : "layer-item"} key={strategy.key}>
-                <span>
-                  <strong>
-                    {strategy.name}
-                    <em className={`strategy-source-badge ${strategy.sourceType}`}>{formatStrategySource(strategy)}</em>
-                  </strong>
-                  <small>{`${result.output.render.elements.length} 个元素`}</small>
-                </span>
-                <div className="layer-actions">
-                  <button
-                    aria-pressed={settings.enabled}
-                    className={settings.enabled ? "active" : ""}
-                    onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, enabled: !state.enabled, showLayer: !state.enabled }))}
-                    type="button"
-                  >
-                    启用
-                  </button>
-                  <button
-                    aria-pressed={settings.showLayer}
-                    className={settings.showLayer ? "active" : ""}
-                    disabled={!settings.enabled}
-                    onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, showLayer: !state.showLayer }))}
-                    type="button"
-                  >
-                    图层
-                  </button>
-                  <button onClick={() => setActiveConfigStrategyKey(strategy.key)} type="button">
-                    <Settings2 size={13} />
-                    参数
-                  </button>
+            {strategyRuns.map(({ strategy, settings, result }) => {
+              const layerStatus = getStrategyLayerStatus(strategy, settings, result, timeframe, strategyInputBars.length);
+              const isLayerVisible = settings.enabled && canShowStrategyLayers && settings.showLayer && layerStatus.className === "active";
+
+              return (
+                <div className={isLayerVisible ? "layer-item active" : `layer-item ${layerStatus.className}`} key={strategy.key}>
+                  <span>
+                    <strong>
+                      {strategy.name}
+                      <em className={`strategy-source-badge ${strategy.sourceType}`}>{formatStrategySource(strategy)}</em>
+                      <em className={`layer-status-badge ${layerStatus.className}`}>{layerStatus.label}</em>
+                    </strong>
+                    <small>{`${result.output.render.elements.length} 个元素`}</small>
+                  </span>
+                  <div className="layer-actions">
+                    <button
+                      aria-pressed={settings.enabled}
+                      className={settings.enabled ? "active" : ""}
+                      onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, enabled: !state.enabled, showLayer: !state.enabled }))}
+                      type="button"
+                    >
+                      启用
+                    </button>
+                    <button
+                      aria-pressed={settings.showLayer}
+                      className={settings.showLayer ? "active" : ""}
+                      disabled={!settings.enabled}
+                      onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, showLayer: !state.showLayer }))}
+                      type="button"
+                    >
+                      图层
+                    </button>
+                    <button onClick={() => setActiveConfigStrategyKey(strategy.key)} type="button">
+                      <Settings2 size={13} />
+                      参数
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         <div>

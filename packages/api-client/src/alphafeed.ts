@@ -170,6 +170,10 @@ function createErrorMessage(status: number, body: string) {
 }
 
 function mapTimeframeToAlphaFeedPeriod(timeframe: Timeframe) {
+  if (timeframe === "realtime") {
+    throw new Error("AlphaFeed realtime 为本地轮询派生分时周期，不能作为 K 线周期请求。");
+  }
+
   return timeframe === "1h" ? "60m" : timeframe;
 }
 

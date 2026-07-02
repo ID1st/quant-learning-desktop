@@ -12,6 +12,7 @@
     "build": "npm run build -w @quant/desktop",
     "typecheck": "tsc -p tsconfig.check.json --noEmit",
     "test:api-client": "node --test --experimental-strip-types packages/api-client/tests/*.test.ts",
+    "test:chart": "node --test --experimental-strip-types packages/chart/tests/*.test.ts",
     "test:desktop": "node --test --experimental-strip-types apps/desktop/tests/*.test.ts",
     "test:pine-runtime": "node --test --experimental-strip-types packages/pine-runtime/tests/*.test.ts",
     "test:plugin-loader": "node --test --experimental-strip-types packages/plugin-loader/tests/*.test.ts",

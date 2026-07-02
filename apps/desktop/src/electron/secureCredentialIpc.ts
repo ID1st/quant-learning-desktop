@@ -2,7 +2,7 @@ import { app, ipcMain, safeStorage } from "electron";
 import { join } from "node:path";
 import type { AlphaFeedApiCredentials, LongPortApiCredentials } from "@quant/api-client";
 import { createJsonFilePersistenceStore, createNodeJsonFilePersistenceDriver } from "./localPersistence";
-import { createSecureCredentialStore } from "./secureCredentialStore";
+import { createSecureCredentialStore, type AlphaFeedStreamCredentials } from "./secureCredentialStore";
 
 type SecureCredentialInvokeResult<T> =
   | {
@@ -54,6 +54,35 @@ export function registerSecureCredentialIpcHandlers() {
   ipcMain.handle("secureCredentials:clearAlphaFeed", (): SecureCredentialInvokeResult<null> => {
     try {
       credentialStore.clearAlphaFeedCredentials();
+      return { ok: true, value: null };
+    } catch (error) {
+      return { ok: false, error: { message: toSafeCredentialError(error) } };
+    }
+  });
+
+  ipcMain.handle(
+    "secureCredentials:saveAlphaFeedStream",
+    (_event, credentials: AlphaFeedStreamCredentials): SecureCredentialInvokeResult<null> => {
+      try {
+        credentialStore.saveAlphaFeedStreamCredentials(credentials);
+        return { ok: true, value: null };
+      } catch (error) {
+        return { ok: false, error: { message: toSafeCredentialError(error) } };
+      }
+    },
+  );
+
+  ipcMain.handle("secureCredentials:readAlphaFeedStream", (): SecureCredentialInvokeResult<AlphaFeedStreamCredentials | null> => {
+    try {
+      return { ok: true, value: credentialStore.readAlphaFeedStreamCredentials() };
+    } catch (error) {
+      return { ok: false, error: { message: toSafeCredentialError(error) } };
+    }
+  });
+
+  ipcMain.handle("secureCredentials:clearAlphaFeedStream", (): SecureCredentialInvokeResult<null> => {
+    try {
+      credentialStore.clearAlphaFeedStreamCredentials();
       return { ok: true, value: null };
     } catch (error) {
       return { ok: false, error: { message: toSafeCredentialError(error) } };

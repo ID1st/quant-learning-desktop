@@ -290,17 +290,24 @@ input {
   box-shadow: 0 0 0 3px rgba(51, 112, 255, 0.16);
 }
 
-.input-shell input {
+.input-shell input,
+.input-shell select {
   width: 100%;
   min-width: 0;
   border: 0;
   outline: 0;
   background: transparent;
   color: #f3f6fb;
+  font: inherit;
 }
 
 .input-shell input::placeholder {
   color: #667286;
+}
+
+.input-shell select option {
+  background: #111923;
+  color: #f5f8ff;
 }
 
 .inline-input {
@@ -344,6 +351,25 @@ input {
   color: #7ee4bf;
 }
 
+.secondary-auth-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid rgba(73, 91, 112, 0.54);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.62);
+  color: #d9e4f2;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0 13px;
+}
+
+.secondary-auth-action:hover {
+  border-color: rgba(66, 223, 173, 0.5);
+  color: #f5f8ff;
+}
+
 .primary-auth-action {
   height: 40px;
   border: 0;
@@ -360,6 +386,7 @@ input {
 }
 
 .primary-auth-action:disabled,
+.secondary-auth-action:disabled,
 .inline-input button:disabled {
   cursor: wait;
   opacity: 0.72;
@@ -458,6 +485,81 @@ input {
   font-weight: 700;
 }
 
+.api-provider-section {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(73, 91, 112, 0.42);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.38);
+}
+
+.api-provider-section[open] {
+  border-color: rgba(66, 223, 173, 0.32);
+  background: rgba(10, 18, 27, 0.7);
+}
+
+.api-provider-section summary {
+  display: block;
+  cursor: pointer;
+  list-style: none;
+  padding: 14px;
+}
+
+.api-provider-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.api-provider-section summary::after {
+  content: "展开";
+  float: right;
+  margin-top: -34px;
+  border: 1px solid rgba(73, 91, 112, 0.58);
+  border-radius: 999px;
+  color: #8f9caf;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 10px;
+}
+
+.api-provider-section[open] summary::after {
+  content: "收起";
+  border-color: rgba(66, 223, 173, 0.42);
+  color: #42dfad;
+}
+
+.api-provider-content {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid rgba(73, 91, 112, 0.28);
+  padding: 14px;
+}
+
+.stream-reserved-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(66, 223, 173, 0.22);
+  border-radius: 8px;
+  background: rgba(66, 223, 173, 0.05);
+  padding: 12px;
+}
+
+.api-provider-content.stream-reserved-panel {
+  border-width: 1px 0 0;
+  border-radius: 0;
+  padding: 14px;
+}
+
+.api-provider-content.stream-reserved-panel strong {
+  color: #f5f8ff;
+}
+
+.api-provider-content.stream-reserved-panel small {
+  display: block;
+  margin-top: 4px;
+  color: #8f9caf;
+}
+
 .binding-summary {
   display: grid;
   gap: 6px;
@@ -465,6 +567,10 @@ input {
   border-radius: 8px;
   background: rgba(8, 13, 20, 0.5);
   padding: 14px;
+}
+
+.binding-summary.compact {
+  padding: 10px;
 }
 
 .binding-summary span,
@@ -592,6 +698,18 @@ input {
   color: #42dfad;
 }
 
+.data-source-badge.warning {
+  border-color: rgba(245, 178, 66, 0.4);
+  background: rgba(245, 178, 66, 0.11);
+  color: #f5b242;
+}
+
+.data-source-badge.danger {
+  border-color: rgba(255, 95, 87, 0.42);
+  background: rgba(255, 95, 87, 0.11);
+  color: #ff8a80;
+}
+
 .timeframe-tabs,
 .chart-toggle-group {
   display: flex;
@@ -634,6 +752,33 @@ input {
   padding: 0 8px;
 }
 
+.polling-interval-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  border: 1px solid rgba(73, 91, 112, 0.44);
+  border-radius: 6px;
+  background: rgba(8, 13, 20, 0.54);
+  color: #8f9caf;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 7px;
+}
+
+.polling-interval-control select {
+  border: 0;
+  background: transparent;
+  color: #f5f8ff;
+  font: inherit;
+  outline: none;
+}
+
+.polling-interval-control option {
+  background: #111923;
+  color: #f5f8ff;
+}
+
 .chart-workspace-grid {
   display: grid;
   grid-template-columns: 40px minmax(640px, 1fr) 224px;
@@ -658,6 +803,7 @@ input {
 }
 
 .chart-main-panel {
+  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -665,7 +811,7 @@ input {
 
 .chart-viewport {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   height: 100%;
   min-height: 0;
   background: #080d12;
@@ -688,12 +834,44 @@ input {
   font-size: 14px;
 }
 
+.chart-interaction-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  border-bottom: 1px solid rgba(73, 91, 112, 0.22);
+  background: rgba(8, 13, 20, 0.54);
+  padding: 6px 10px;
+}
+
+.chart-interaction-toolbar button {
+  height: 26px;
+  border: 1px solid rgba(73, 91, 112, 0.48);
+  border-radius: 6px;
+  background: rgba(12, 18, 26, 0.7);
+  color: #b9c4d2;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 9px;
+}
+
+.chart-interaction-toolbar button:hover {
+  border-color: rgba(66, 223, 173, 0.42);
+  color: #f5f8ff;
+}
+
 .chart-canvas {
   width: 100%;
   height: 100%;
   min-height: 0;
   display: block;
-  cursor: crosshair;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.chart-canvas.panning {
+  cursor: grabbing;
 }
 
 .chart-empty-state {
@@ -861,15 +1039,165 @@ input {
   stroke-width: 2.4;
 }
 
+.intraday-close-line {
+  fill: none;
+  stroke: #42dfad;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.8;
+}
+
+.current-price-line line {
+  stroke-width: 1.2;
+  stroke-dasharray: 3 5;
+}
+
+.current-price-line.up line {
+  stroke: rgba(66, 223, 173, 0.7);
+}
+
+.current-price-line.down line {
+  stroke: rgba(255, 95, 87, 0.68);
+}
+
+.current-price-line rect {
+  fill: rgba(8, 13, 20, 0.92);
+  stroke: rgba(143, 156, 175, 0.34);
+}
+
+.current-price-line.up rect {
+  stroke: rgba(66, 223, 173, 0.52);
+}
+
+.current-price-line.down rect {
+  stroke: rgba(255, 95, 87, 0.5);
+}
+
+.current-price-line text,
+.crosshair-price-text {
+  fill: #f5f8ff;
+  font-size: 11px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.price-axis-labels text {
+  fill: #7f8da2;
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: end;
+}
+
 .crosshair line {
   stroke: rgba(221, 230, 240, 0.38);
   stroke-dasharray: 5 5;
   stroke-width: 1;
 }
 
+.crosshair-price-label {
+  fill: rgba(18, 28, 39, 0.94);
+  stroke: rgba(221, 230, 240, 0.24);
+}
+
 .signal-marker polygon {
   stroke: rgba(255, 255, 255, 0.72);
   stroke-width: 1;
+}
+
+.chart-settings-popover {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: grid;
+  gap: 10px;
+  width: 220px;
+  border: 1px solid rgba(73, 91, 112, 0.58);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.96);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+  padding: 12px;
+}
+
+.chart-settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgba(73, 91, 112, 0.3);
+  padding-bottom: 8px;
+}
+
+.chart-settings-heading strong {
+  color: #f5f8ff;
+  font-size: 13px;
+}
+
+.chart-settings-heading button,
+.chart-settings-reset,
+.chart-context-menu button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 28px;
+  border: 1px solid rgba(73, 91, 112, 0.48);
+  border-radius: 6px;
+  background: rgba(12, 18, 26, 0.82);
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 9px;
+}
+
+.chart-settings-popover label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chart-settings-popover input[type="checkbox"] {
+  width: 32px;
+  height: 18px;
+  accent-color: #42dfad;
+  cursor: pointer;
+}
+
+.chart-settings-reset {
+  justify-self: start;
+  margin-top: 2px;
+}
+
+.chart-context-menu {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  gap: 4px;
+  width: 168px;
+  border: 1px solid rgba(73, 91, 112, 0.58);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  padding: 6px;
+}
+
+.chart-context-menu button {
+  justify-content: flex-start;
+  border-color: transparent;
+  background: transparent;
+}
+
+.chart-context-menu button:hover,
+.chart-settings-heading button:hover,
+.chart-settings-reset:hover {
+  border-color: rgba(66, 223, 173, 0.42);
+  background: rgba(66, 223, 173, 0.1);
+  color: #f5f8ff;
 }
 
 .signal-marker.buy polygon {
@@ -1017,6 +1345,12 @@ input {
   background: rgba(66, 223, 173, 0.08);
 }
 
+.layer-item.empty,
+.layer-item.hidden,
+.layer-item.unsupported {
+  border-color: rgba(245, 178, 66, 0.28);
+}
+
 .layer-item span {
   display: grid;
   gap: 4px;
@@ -1058,6 +1392,33 @@ input {
   border-color: rgba(51, 112, 255, 0.36);
   background: rgba(51, 112, 255, 0.1);
   color: #a9c3ff;
+}
+
+.layer-status-badge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(73, 91, 112, 0.48);
+  border-radius: 999px;
+  background: rgba(73, 91, 112, 0.14);
+  color: #8f9caf;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+  padding: 3px 6px;
+}
+
+.layer-status-badge.active {
+  border-color: rgba(66, 223, 173, 0.42);
+  background: rgba(66, 223, 173, 0.12);
+  color: #9af5d2;
+}
+
+.layer-status-badge.empty,
+.layer-status-badge.unsupported,
+.layer-status-badge.hidden {
+  border-color: rgba(245, 178, 66, 0.34);
+  background: rgba(245, 178, 66, 0.1);
+  color: #ffd88f;
 }
 
 .layer-item small {

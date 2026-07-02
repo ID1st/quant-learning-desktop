@@ -1,5 +1,6 @@
 import {
   ALPHAFEED_DEFAULT_API_URL,
+  createAlphaFeedSecretPreview,
   verifyAlphaFeedApiCredentials,
   LONGPORT_DEFAULT_HTTP_URL,
   verifyLongPortApiCredentials,
@@ -13,6 +14,13 @@ export { ALPHAFEED_DEFAULT_API_URL, LONGPORT_DEFAULT_HTTP_URL };
 
 export type LongPortApiForm = LongPortApiCredentials;
 export type AlphaFeedApiForm = AlphaFeedApiCredentials;
+export type AlphaFeedStreamMode = "watchlist" | "all-symbols";
+
+export interface AlphaFeedStreamForm {
+  wsUrl: string;
+  apiKey: string;
+  mode: AlphaFeedStreamMode;
+}
 
 export interface LongPortApiBinding {
   apiUrl: string;
@@ -32,9 +40,19 @@ export interface AlphaFeedApiBinding {
   authMode: "api-key";
 }
 
+export interface AlphaFeedStreamBinding {
+  wsUrl: string;
+  apiKeyPreview: string;
+  mode: AlphaFeedStreamMode;
+  preparedAt: string;
+  status: "prepared";
+}
+
 const LONGPORT_COLLECTION_KEY = "longport-api-binding";
 const ALPHAFEED_COLLECTION_KEY = "alphafeed-api-binding";
+const ALPHAFEED_STREAM_COLLECTION_KEY = "alphafeed-stream-binding";
 const STORAGE_VERSION = 1;
+export const ALPHAFEED_DEFAULT_STREAM_URL = "wss://api.tickflow.org/v1/ws/stream";
 
 function sanitizeBinding(value: unknown): LongPortApiBinding | null {
   if (!value || typeof value !== "object") {
@@ -108,11 +126,62 @@ export function clearAlphaFeedApiBinding() {
   void window.quantDesktop?.secureCredentials?.clearAlphaFeed();
 }
 
+function sanitizeAlphaFeedStreamMode(value: unknown): AlphaFeedStreamMode {
+  return value === "all-symbols" ? "all-symbols" : "watchlist";
+}
+
+function sanitizeAlphaFeedStreamBinding(value: unknown): AlphaFeedStreamBinding | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const binding = value as Partial<AlphaFeedStreamBinding>;
+  if (!binding.wsUrl || !binding.apiKeyPreview || !binding.preparedAt) {
+    return null;
+  }
+
+  return {
+    wsUrl: binding.wsUrl,
+    apiKeyPreview: binding.apiKeyPreview,
+    mode: sanitizeAlphaFeedStreamMode(binding.mode),
+    preparedAt: binding.preparedAt,
+    status: "prepared",
+  };
+}
+
+export function readAlphaFeedStreamBinding(): AlphaFeedStreamBinding | null {
+  return appLocalDatabase.readDocument(ALPHAFEED_STREAM_COLLECTION_KEY, {
+    version: STORAGE_VERSION,
+    fallback: null,
+    sanitize: sanitizeAlphaFeedStreamBinding,
+  });
+}
+
+export function clearAlphaFeedStreamBinding() {
+  appLocalDatabase.removeDocument(ALPHAFEED_STREAM_COLLECTION_KEY);
+  void window.quantDesktop?.secureCredentials?.clearAlphaFeedStream();
+}
+
 async function saveAlphaFeedCredentials(form: AlphaFeedApiForm) {
   const result = await window.quantDesktop?.secureCredentials?.saveAlphaFeed(form);
 
   if (!result) {
     throw new Error("AlphaFeed 安全凭据保存需要桌面安全桥，请在桌面应用中运行。");
+  }
+
+  if (!result.ok) {
+    throw new Error(result.error.message);
+  }
+}
+
+async function saveAlphaFeedStreamCredentials(form: AlphaFeedStreamForm) {
+  const result = await window.quantDesktop?.secureCredentials?.saveAlphaFeedStream({
+    wsUrl: form.wsUrl,
+    apiKey: form.apiKey,
+  });
+
+  if (!result) {
+    throw new Error("AlphaFeed WebSocket 安全凭据保存需要桌面安全桥，请在桌面应用中运行。");
   }
 
   if (!result.ok) {
@@ -144,6 +213,63 @@ export async function readSavedAlphaFeedCredentials(): Promise<AlphaFeedApiForm 
   }
 
   return result.credentials;
+}
+
+export async function readSavedAlphaFeedStreamCredentials(): Promise<Pick<AlphaFeedStreamForm, "wsUrl" | "apiKey"> | null> {
+  const result = await window.quantDesktop?.secureCredentials?.readAlphaFeedStream();
+
+  if (!result) {
+    return null;
+  }
+
+  if (!result.ok) {
+    throw new Error(result.error.message);
+  }
+
+  return result.credentials;
+}
+
+function normalizeAlphaFeedStreamForm(form: AlphaFeedStreamForm): AlphaFeedStreamForm {
+  const wsUrl = form.wsUrl.trim() || ALPHAFEED_DEFAULT_STREAM_URL;
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(wsUrl);
+  } catch {
+    throw new Error("请输入有效的 AlphaFeed WebSocket URL。");
+  }
+
+  if (!["ws:", "wss:"].includes(parsedUrl.protocol)) {
+    throw new Error("AlphaFeed WebSocket URL 需要以 ws 或 wss 开头。");
+  }
+
+  const apiKey = form.apiKey.trim();
+  if (apiKey.length < 8) {
+    throw new Error("AlphaFeed WebSocket API Key 至少需要 8 位。");
+  }
+
+  return {
+    wsUrl: parsedUrl.toString(),
+    apiKey,
+    mode: sanitizeAlphaFeedStreamMode(form.mode),
+  };
+}
+
+export async function saveAlphaFeedStreamConfig(form: AlphaFeedStreamForm): Promise<AlphaFeedStreamBinding> {
+  const normalized = normalizeAlphaFeedStreamForm(form);
+
+  await saveAlphaFeedStreamCredentials(normalized);
+
+  const binding: AlphaFeedStreamBinding = {
+    wsUrl: normalized.wsUrl,
+    apiKeyPreview: createAlphaFeedSecretPreview(normalized.apiKey),
+    mode: normalized.mode,
+    preparedAt: new Date().toISOString(),
+    status: "prepared",
+  };
+
+  appLocalDatabase.writeDocument(ALPHAFEED_STREAM_COLLECTION_KEY, STORAGE_VERSION, binding);
+  return binding;
 }
 
 export async function readSavedLongPortCredentials(): Promise<LongPortApiForm | null> {

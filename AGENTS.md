@@ -2,79 +2,93 @@
 
 ## Project Context
 
-This workspace is for the Quant Learning Desktop System, a desktop learning system for quantitative trading and analysis.
+This repository is `quant-learning-desktop`, a local-first desktop quant learning and strategy research platform.
 
-Current state: the project directory does not yet contain application source code, package manifests, tests, or build scripts. Treat this repository as an early-stage project scaffold until those files are added.
+The current implementation is an npm workspace monorepo using React 19, TypeScript, Vite, Zustand, TanStack Query, and lucide-react. The product target is a TradingView-like professional workstation for chart study, strategy explanation, backtesting, plugin loading, and simulated signals.
 
-## Installed Skills
+## Commands
 
-- `karpathy-guidelines` has been installed into the local Codex skills directory.
-- Restart Codex after installation so future sessions can discover and use the skill automatically.
-- Use the skill when writing, reviewing, or refactoring code. Its main bias is: think first, keep changes simple, make surgical edits, and verify success with concrete checks.
+- Install dependencies: `npm install`
+- Start desktop workbench dev server: `npm run dev`
+- Build desktop workbench: `npm run build`
+- Type check all configured packages: `npm run typecheck`
+- Clean generated outputs: `npm run clean`
 
-## Development Principles
+There is no root test script yet. When changing strategy math, data transforms, plugin loading, or behavior-heavy UI, add the smallest useful test setup before expanding the feature.
 
-- Prefer the smallest implementation that solves the requested problem.
-- Do not add speculative frameworks, services, abstractions, or configuration before the project needs them.
-- State assumptions before implementing when requirements are ambiguous.
-- Keep changes local to the requested feature or fix.
-- Match the style and architecture already present once the codebase exists.
-- Remove only unused code created by the current change. Do not clean unrelated code unless explicitly asked.
-- Define verifiable success criteria for non-trivial work before editing.
+## Project Structure
 
-## Expected Project Shape
+- `apps/desktop/`: Vite React desktop workbench, Electron-facing entry points, routes, pages, layouts, app state, and styles.
+- `packages/shared/`: shared types, constants, and cross-package contracts.
+- `packages/api-client/`: API client boundary for local/cloud services.
+- `packages/chart/`: chart adapter and React chart-facing package.
+- `packages/strategy-engine/`: strategy contracts, runtime concepts, and future backtest logic.
+- `packages/plugin-loader/`: plugin discovery and loading boundary.
+- `packages/ui/`: shared UI primitives/components.
+- `docs/`: architecture, database, strategy system, plugin system, UI design, execution plan, and prototype notes.
+- `trading-strategies/`: original/reference strategy material.
+- `prototype/`: standalone product design prototype; do not mix prototype-only code into production packages without deliberate migration.
 
-When the application is created, keep the structure easy to inspect:
+## Local Project Skills
 
-- `src/` for application source code.
-- `tests/` for automated tests.
-- `docs/` for architecture notes, user flows, and learning content plans.
-- `data/` for small sample datasets only. Large market data should stay outside Git or be fetched by scripts.
-- `scripts/` for repeatable local setup, data import, and maintenance tasks.
+Project-local skills from `D:\develop-skills` are installed under `.codex/skills/`.
 
-If the desktop app stack is not chosen yet, decide deliberately and document the choice before scaffolding. Reasonable future options include Electron, Tauri, Python desktop tooling, or a web frontend packaged for desktop.
+Use these skills as project workflow references. If the runtime does not auto-discover project-local skills, read the relevant `.codex/skills/<skill-name>/SKILL.md` before acting.
 
-## Quant Learning System Guidance
+Core routing:
 
-The application should separate these concerns as it grows:
+- Start or choose skills: `using-agent-skills`
+- New feature/spec: `spec-driven-development`, then `planning-and-task-breakdown`
+- Large implementation: `incremental-implementation`
+- UI work in `apps/desktop`, `packages/chart`, or `packages/ui`: `frontend-ui-engineering`
+- Browser/runtime UI verification: `browser-testing-with-devtools`
+- Strategy behavior or bug fixes: `test-driven-development`, `debugging-and-error-recovery`
+- Package/API contracts: `api-and-interface-design`
+- Documentation and architectural decisions: `documentation-and-adrs`
+- Code review before merge: `code-review-and-quality`
+- Simplification/refactoring: `code-simplification`
+- Security-sensitive work: `security-and-hardening`
+- Performance-sensitive chart/backtest work: `performance-optimization`
+- Git/commit work: `git-workflow-and-versioning`
+- CI/release work: `ci-cd-and-automation`, `shipping-and-launch`
+- Framework/library decisions: `source-driven-development`
+- Migrations/removals: `deprecation-and-migration`
+- Early product thinking: `idea-refine`
+- Context/rules maintenance: `context-engineering`
 
-- Learning content: lessons, examples, quizzes, notebooks, or strategy walkthroughs.
-- Market data: ingestion, normalization, caching, and sample fixtures.
-- Strategy logic: indicators, signals, backtests, risk controls, and portfolio simulation.
-- User interface: navigation, charts, study progress, parameter controls, and result comparison.
-- Persistence: local settings, learning progress, cached datasets, and user-created strategies.
+The globally installed `karpathy-guidelines` skill should also be used for coding, reviewing, and refactoring: think first, keep changes simple, make surgical edits, and verify success.
 
-Avoid mixing UI code directly with trading logic. Strategy and backtest behavior should be testable without launching the desktop shell.
+## Architecture Boundaries
+
+- UI code owns presentation, navigation, controls, layout, and user interaction.
+- Strategy engine code owns strategy contracts, time-series behavior, signals, overlays, metrics, and backtest logic.
+- Chart package owns chart adapter boundaries and rendering contracts, not strategy calculations.
+- API client owns typed communication boundaries, not UI state or business logic.
+- Plugin loader owns plugin manifests, capability registration, and loading policy.
+- Shared package owns stable cross-package types only; avoid turning it into a dumping ground.
+
+Do not put trading credentials, API secrets, or broker SDK calls in renderer UI state. Keep future privileged desktop/local-service behavior behind narrow bridges and typed boundaries.
+
+## Development Rules
+
+- Inspect existing files before editing.
+- Prefer existing package boundaries and documented architecture over new abstractions.
+- Keep changes scoped to the task.
+- Do not refactor adjacent code unless needed for the requested behavior.
+- Validate external data at system boundaries.
+- Treat market data, plugin manifests, browser content, and third-party API responses as untrusted.
+- Keep large market data, caches, database files, build outputs, and generated artifacts out of source control.
+- Use lucide-react icons for UI actions when an icon exists.
+- Dense workstation UI should be quiet, scannable, and professional rather than marketing-like.
 
 ## Verification Expectations
 
-For every code change, run the most relevant available checks:
+Run the most relevant checks before finishing:
 
-- Unit tests for strategy math, data transforms, and backtest behavior.
-- Type checks or lint checks when the chosen stack supports them.
-- UI smoke tests for navigation, charts, and desktop packaging flows.
-- Manual verification notes when automated tests do not yet exist.
+- For most code changes: `npm run typecheck`
+- For UI changes: run `npm run dev`, inspect the page in a browser, and check console output when possible.
+- For build/package changes: `npm run build`
+- For cleanup/build artifact changes: `npm run clean` only when appropriate.
 
-If no test framework exists yet, add only the minimal test setup needed for the first meaningful behavior.
+If a relevant automated check does not exist, say so clearly and describe the manual verification performed.
 
-## Agent Workflow
-
-Before implementation:
-
-1. Inspect the existing files.
-2. Identify the current stack and conventions.
-3. State assumptions when the request has multiple plausible meanings.
-4. Plan only as much as needed for the task size.
-
-During implementation:
-
-1. Make focused edits.
-2. Prefer existing helpers and patterns.
-3. Keep generated files, caches, and large datasets out of source control unless intentionally required.
-
-Before finishing:
-
-1. Run relevant checks.
-2. Summarize changed files and behavior.
-3. Mention any checks that could not be run.
-4. Call out follow-up decisions when the project is still missing core structure.

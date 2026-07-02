@@ -198,7 +198,36 @@ Acceptance:
 - UI layout matches the selected visual direction.
 - Chart package remains isolated from strategy internals.
 
-## 10. Milestone 8: Strategy Engine
+## 10. Milestone 7.5: Super Chart Capability Completion
+
+Goal:
+
+- Complete the super chart as the unified TradingView-like surface for market data, indicators, strategy overlays, drawing tools, and future plugin layers.
+
+Deliverables:
+
+- Zoom, pan, crosshair, OHLCV hover, current price line, latest price label, and view reset.
+- Chart toolbar, left drawing toolbar, chart settings entry, and right-click menu UI.
+- Market-data status display for provider health, latency, latest update time, empty data, paused polling, and degraded API states.
+- Declarative render command model for strategy layers, indicator layers, and drawing layers.
+- Strategy layer controls for enable/disable, show/hide, z-index, parameter entry, no-data state, error state, and unsupported-timeframe state.
+- Chart settings for moving average, volume, grid, signals, price labels, and layer visibility.
+- Interface reservations for multi-chart layout, synchronized crosshair, and synchronized zoom.
+
+Acceptance:
+
+- Chart interactions are usable with cached bars and realtime daily quote polling.
+- Strategy, indicator, and drawing overlays do not call chart internals directly.
+- The chart remains ready for future plugin-provided indicators and strategy layers.
+
+Deferred:
+
+- Full TradingView Charting Library migration.
+- Full multi-window synchronization.
+- Drawing object persistence.
+- Real order entry from chart context menu.
+
+## 11. Milestone 8: Strategy Engine
 
 Goal:
 
@@ -219,7 +248,7 @@ Acceptance:
 - Unit tests cover core time-series helpers.
 - Strategy output is deterministic.
 
-## 11. Milestone 9: Preset Strategies
+## 12. Milestone 9: Preset Strategies
 
 Goal:
 
@@ -237,7 +266,7 @@ Acceptance:
 - Original Pine files remain preserved.
 - Behavior differences from Pine are documented.
 
-## 12. Milestone 10: Plugin System
+## 13. Milestone 10: Plugin System
 
 Goal:
 
@@ -259,7 +288,7 @@ Acceptance:
 - Plugin failure does not crash the app.
 - Permissions are visible to the user.
 
-## 13. Milestone 11: Learning System
+## 14. Milestone 11: Learning System
 
 Goal:
 
@@ -277,7 +306,7 @@ Acceptance:
 
 - Users can study a strategy, run it, and review results in one flow.
 
-## 14. Milestone 12: Hardening
+## 15. Milestone 12: Hardening
 
 Goal:
 
@@ -293,7 +322,7 @@ Focus areas:
 - UI polish.
 - Documentation.
 
-## 15. Risk Controls
+## 16. Risk Controls
 
 - Chart licensing: start with Lightweight Charts and keep adapter boundary.
 - Pine compatibility: start with manual translation and helper runtime.

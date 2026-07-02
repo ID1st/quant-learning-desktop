@@ -7,8 +7,10 @@ import type {
 } from "../../../../packages/api-client/src/alphafeed.ts";
 import type { LongPortApiCredentials, LongPortVerificationSummary } from "../../../../packages/api-client/src/longport.ts";
 import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
+import type { AlphaFeedStreamConnectionState, AlphaFeedStreamMode } from "./alphaFeedStreamBridge";
 import { createDesktopBridgeFromPersistenceStore, createMemoryPersistenceStore } from "./localPersistence";
 import { providerDataIpcChannels } from "./providerDataIpcContract";
+import type { AlphaFeedStreamCredentials } from "./secureCredentialStore";
 
 export interface DesktopBridge {
   readonly platform: "desktop";
@@ -22,6 +24,9 @@ export interface DesktopBridge {
     saveAlphaFeed(credentials: AlphaFeedApiCredentials): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     readAlphaFeed(): Promise<{ ok: true; credentials: AlphaFeedApiCredentials | null } | { ok: false; error: { message: string } }>;
     clearAlphaFeed(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
+    saveAlphaFeedStream(credentials: AlphaFeedStreamCredentials): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
+    readAlphaFeedStream(): Promise<{ ok: true; credentials: AlphaFeedStreamCredentials | null } | { ok: false; error: { message: string } }>;
+    clearAlphaFeedStream(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     saveLongPort(credentials: LongPortApiCredentials): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     readLongPort(): Promise<{ ok: true; credentials: LongPortApiCredentials | null } | { ok: false; error: { message: string } }>;
     clearLongPort(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
@@ -113,6 +118,26 @@ export interface DesktopBridge {
           };
         }
     >;
+    connectStream(request: {
+      credentials: AlphaFeedStreamCredentials;
+      mode: AlphaFeedStreamMode;
+      watchlist: MarketWatchlistItem[];
+    }): Promise<{
+      ok: true;
+      health: AlphaFeedProviderHealth;
+      state: AlphaFeedStreamConnectionState;
+    }>;
+    readStreamSnapshot(): Promise<{
+      ok: true;
+      snapshots: MarketQuoteSnapshot[];
+      health: AlphaFeedProviderHealth;
+      state: AlphaFeedStreamConnectionState;
+    }>;
+    disconnectStream(): Promise<{
+      ok: true;
+      health: AlphaFeedProviderHealth;
+      state: AlphaFeedStreamConnectionState;
+    }>;
   };
 }
 
@@ -150,6 +175,25 @@ export const desktopBridge: DesktopBridge = {
       );
       return result.ok ? { ok: true } : result;
     },
+    saveAlphaFeedStream: async (credentials) => {
+      const result = await invokeSecureCredential<{ ok: true; value: null } | { ok: false; error: { message: string } }>(
+        "secureCredentials:saveAlphaFeedStream",
+        credentials,
+      );
+      return result.ok ? { ok: true } : result;
+    },
+    readAlphaFeedStream: async () => {
+      const result = await invokeSecureCredential<
+        { ok: true; value: AlphaFeedStreamCredentials | null } | { ok: false; error: { message: string } }
+      >("secureCredentials:readAlphaFeedStream");
+      return result.ok ? { ok: true, credentials: result.value } : result;
+    },
+    clearAlphaFeedStream: async () => {
+      const result = await invokeSecureCredential<{ ok: true; value: null } | { ok: false; error: { message: string } }>(
+        "secureCredentials:clearAlphaFeedStream",
+      );
+      return result.ok ? { ok: true } : result;
+    },
     saveLongPort: async (credentials) => {
       const result = await invokeSecureCredential<{ ok: true; value: null } | { ok: false; error: { message: string } }>(
         "secureCredentials:saveLongPort",
@@ -183,6 +227,9 @@ export const desktopBridge: DesktopBridge = {
       invokeProviderData(providerDataIpcChannels.fetchAlphaFeedHistoricalBars, credentials, request),
     fetchIntradayBars: (credentials, request) =>
       invokeProviderData(providerDataIpcChannels.fetchAlphaFeedIntradayBars, credentials, request),
+    connectStream: (request) => invokeProviderData(providerDataIpcChannels.connectAlphaFeedStream, request),
+    readStreamSnapshot: () => invokeProviderData(providerDataIpcChannels.readAlphaFeedStreamSnapshot),
+    disconnectStream: () => invokeProviderData(providerDataIpcChannels.disconnectAlphaFeedStream),
   },
 };
 

@@ -116,6 +116,40 @@ test("writeMarketBarCache records cache metadata for governance", () => {
   assert.ok(summary.totalEstimatedBytes > 0);
 });
 
+test("writeMarketBarCache accepts realtime bars and keeps two-day retention metadata", () => {
+  const database = createTestDatabase();
+  const realtimeKey = {
+    symbol: "AAPL.US",
+    market: "US" as const,
+    timeframe: "realtime" as const,
+  };
+
+  writeMarketBarCache(
+    realtimeKey,
+    [
+      {
+        symbol: "AAPL.US",
+        market: "US",
+        timeframe: "realtime",
+        timestamp: Date.UTC(2026, 6, 1, 14, 30, 10),
+        open: 219.48,
+        high: 219.48,
+        low: 219.48,
+        close: 219.48,
+        volume: 1000,
+        provider: "alphafeed",
+      },
+    ],
+    { database },
+  );
+
+  const summary = readMarketBarCacheSummary(database);
+
+  assert.equal(readMarketBarCache(realtimeKey, { database }).length, 1);
+  assert.equal(summary.entries[0]?.timeframe, "realtime");
+  assert.equal(summary.entries[0]?.retentionDays, 2);
+});
+
 test("readMarketBarCache falls back to an empty array for malformed cache data", () => {
   const database = createTestDatabase({
     "test.market-bars:CN:600519.SH:1d": JSON.stringify({

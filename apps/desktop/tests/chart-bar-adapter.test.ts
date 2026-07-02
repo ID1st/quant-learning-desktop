@@ -47,10 +47,16 @@ test("marketBarsToCandles formats deterministic labels for chart rendering", () 
       ...baseBar,
       timestamp: Date.UTC(2026, 5, 30, 13, 30),
     },
+    {
+      ...baseBar,
+      timeframe: "realtime",
+      timestamp: Date.UTC(2026, 5, 30, 14, 45, 10),
+    },
   ]);
 
   assert.equal(candles[0]?.time, "2026-06-30");
   assert.equal(candles[1]?.time, "2026-06-30 14:45");
   assert.equal(candles[1]?.close, 285);
   assert.equal(candles[2]?.time, "2026-06-30");
+  assert.equal(candles[3]?.time, "2026-06-30 14:45:10");
 });

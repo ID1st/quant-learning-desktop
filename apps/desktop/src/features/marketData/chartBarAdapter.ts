@@ -15,6 +15,12 @@ function formatCandleTime(timestamp: number, timeframe?: MarketDataBar["timefram
     return datePart;
   }
 
+  if (timeframe === "realtime") {
+    const [second = "00"] = timePart.split(":").slice(2);
+    const wholeSecond = second.split(".")[0] ?? "00";
+    return `${datePart} ${hour}:${minute}:${wholeSecond}`;
+  }
+
   return `${datePart} ${hour}:${minute}`;
 }
 
