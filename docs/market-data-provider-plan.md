@@ -2,12 +2,14 @@
 
 ## Current Decision
 
-The system now treats AlphaFeed as the primary market data provider and LongBridge as the backup provider.
+The system now uses a split provider model: LongBridge is responsible for historical K-line and intraday-history backfill, while AlphaFeed is responsible for same-day realtime quote updates.
 
-- Primary provider: AlphaFeed
-- Backup provider: LongBridge OpenAPI
-- Current implemented path: REST quote snapshot, historical K-line, initial default-watchlist K-line sync, chart workspace cached-bar rendering, 1d quote-driven candle refresh, realtime intraday history backfill from 1m bars, provider health telemetry, rate-limit backoff hints, secure credential persistence, AlphaFeed WebSocket member-channel configuration, AlphaFeed WebSocket desktop IPC session with REST fallback, provider network calls behind main-process IPC, cache governance
-- Next path: LongBridge fallback expansion and strategy execution on real cached bars
+- Realtime provider: AlphaFeed REST polling or AlphaFeed WebSocket member channel
+- Historical provider: LongBridge OpenAPI candlesticks
+- Backup quote provider: LongBridge OpenAPI
+- Explicitly not in current scope: Eastmoney intraday backfill
+- Current implemented path: AlphaFeed REST quote snapshot, AlphaFeed WebSocket member-channel quote streaming, LongBridge historical K-line bridge, chart workspace cached-bar rendering, LongBridge realtime-page historical 1m backfill, 1d quote-driven candle refresh, provider health telemetry, rate-limit backoff hints, secure credential persistence, provider network calls behind main-process IPC, cache governance
+- Next path: strategy execution on real cached bars and visible mixed-source diagnostics
 
 ## Official Source Notes
 
@@ -20,8 +22,7 @@ AlphaFeed documentation:
 - Quote markets: `CN`, `US`, `HK`
 - Quote fields used by the app: `symbol`, `region`, `last_price`, `prev_close`, `volume`, `amount`, `timestamp`, `ext`
 - Historical K-line endpoint: `GET /v1/klines`
-- Recent intraday K-line sync also uses `GET /v1/klines` with periods such as `1m`, `5m`, `15m`, and `60m`
-- The realtime chart uses AlphaFeed `1m` bars to backfill an intraday line from at least the previous market open to the latest available market time. If the market is closed, the chart stops appending quote-derived points and keeps the historical intraday line static.
+- AlphaFeed historical bars are retained as a disabled fallback path only; the current chart history path prefers LongBridge.
 - The `GET /v1/klines/intraday` endpoint is reserved for same-day minute-line use cases and is not used for default cache warm-up
 - K-line response format: columnar OHLCV arrays with matching indexes
 - HK symbols must use five-digit exchange codes for provider requests, for example `09988.HK` for Alibaba HK
@@ -36,6 +37,7 @@ AlphaFeed documentation:
 
 LongBridge remains useful for:
 
+- Historical K-line and intraday-history backfill
 - Backup quote snapshots
 - Broker/account-related integration
 - Future order, position, and trading workflows
@@ -55,6 +57,7 @@ Renderer pages must not call external APIs directly. They can only call the desk
 - `window.quantDesktop.alphaFeed.disconnectStream`
 - `window.quantDesktop.longPort.verifyCredentials`
 - `window.quantDesktop.longPort.fetchQuoteSnapshot`
+- `window.quantDesktop.longPort.fetchHistoricalBars`
 
 Shared normalized quote snapshot:
 
@@ -94,12 +97,12 @@ interface MarketDataBar {
 
 1. Verify AlphaFeed first.
 2. If LongBridge credentials are complete, verify LongBridge as backup.
-3. During initial market sync:
-   - Fetch quote snapshots from AlphaFeed.
-   - Fetch default multi-timeframe K-line bars from AlphaFeed for every preset watchlist symbol.
-   - Store K-line bars by `market + symbol + timeframe`.
-   - If AlphaFeed fails and LongBridge backup credentials were entered in this session, fetch from LongBridge.
-   - Store the provider used in the local market data sync state.
+3. During chart history loading:
+   - Fetch `realtime` page history from LongBridge `1m` candlesticks, then store it as the normalized `realtime` cache.
+   - Fetch `1d` and `1w` history from LongBridge candlesticks.
+   - During market hours, append AlphaFeed quote snapshots to the active realtime or daily bar.
+   - After market close, stop AlphaFeed realtime appends and keep the LongBridge historical line static.
+   - Store the provider used in each bar through the normalized `provider` field.
 
 ## Security Policy
 
@@ -114,4 +117,4 @@ interface MarketDataBar {
 ## Remaining Work
 
 1. Confirm AlphaFeed WebSocket member protocol details against the selected plan and adjust the subscription payload if needed.
-2. Expand LongBridge as explicit backup and future trading/account channel.
+2. Add visible mixed-source diagnostics, for example `LongBridge 历史 + AlphaFeed 实时`.

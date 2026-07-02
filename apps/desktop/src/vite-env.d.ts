@@ -296,6 +296,45 @@ interface QuantDesktopBridge {
           };
         }
     >;
+    fetchHistoricalBars(
+      credentials: {
+        apiUrl: string;
+        appKey: string;
+        appSecret: string;
+        accessToken: string;
+      },
+      request: {
+        symbol: string;
+        market: "US" | "HK" | "CN";
+        timeframe: "realtime" | "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1w";
+        count?: number;
+        startTime?: number;
+        endTime?: number;
+      },
+    ): Promise<
+      | {
+          ok: true;
+          bars: Array<{
+            symbol: string;
+            market: "US" | "HK" | "CN";
+            timeframe: "realtime" | "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1w";
+            timestamp: number;
+            open: number;
+            high: number;
+            low: number;
+            close: number;
+            volume: number;
+            amount: number;
+            provider: "longport";
+          }>;
+        }
+      | {
+          ok: false;
+          error: {
+            message: string;
+          };
+        }
+    >;
   };
 }
 

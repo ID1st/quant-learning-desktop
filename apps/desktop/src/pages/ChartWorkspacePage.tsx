@@ -12,7 +12,12 @@ import {
 } from "@quant/strategy-engine";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
 import { marketBarsToCandles, marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
-import { readAlphaFeedStreamBinding, readSavedAlphaFeedCredentials, readSavedAlphaFeedStreamCredentials } from "../features/api/apiConfigService";
+import {
+  readAlphaFeedStreamBinding,
+  readSavedAlphaFeedCredentials,
+  readSavedAlphaFeedStreamCredentials,
+  readSavedLongPortCredentials,
+} from "../features/api/apiConfigService";
 import { readMarketBarCache, writeMarketBarCache, type MarketDataBar } from "../features/marketData/marketBarCacheService";
 import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService";
 import {
@@ -66,6 +71,7 @@ const realtimeWatchlist: MarketWatchlistItem[] = symbols.map((item) => ({
 
 const timeframes: Timeframe[] = ["realtime", "1d", "1w"];
 const realtimeRateLimitBackoffMs = 120_000;
+const enableAlphaFeedHistoricalIntradayBackfill = false;
 const strategyRegistry = createPresetStrategyRegistry();
 const presetStrategies = strategyRegistry.list();
 const WORKSPACE_PREFERENCES_KEY = "quant-learning.chart-workspace-preferences";
@@ -719,7 +725,83 @@ export function ChartWorkspacePage() {
   useEffect(() => {
     let cancelled = false;
 
-    if (timeframe !== "realtime") {
+    const loadLongPortHistory = async () => {
+      const isRealtimeHistory = timeframe === "realtime";
+      const windowRange = isRealtimeHistory ? getIntradayHistoryWindow(activeSymbol.market) : null;
+
+      try {
+        const credentials = await readSavedLongPortCredentials();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!credentials || !window.quantDesktop?.longPort?.fetchHistoricalBars) {
+          const waitingHealth = createRealtimeHealthView("waiting", "等待长桥凭据以加载历史 K 线");
+          setRealtimeHealth(waitingHealth);
+          setRealtimeStatus(waitingHealth.message);
+          return;
+        }
+
+        const result = await window.quantDesktop.longPort.fetchHistoricalBars(credentials, {
+          symbol: activeSymbol.dataSymbol,
+          market: activeSymbol.market,
+          timeframe: isRealtimeHistory ? "1m" : timeframe,
+          startTime: windowRange?.startTime,
+          endTime: windowRange?.endTime,
+          count: isRealtimeHistory ? 2_000 : timeframe === "1w" ? 260 : 600,
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!result.ok) {
+          const errorHealth = createRealtimeHealthView("error", result.error.message);
+          setRealtimeHealth(errorHealth);
+          setRealtimeStatus(errorHealth.message);
+          return;
+        }
+
+        if (result.bars.length === 0) {
+          const emptyHealth = createRealtimeHealthView("waiting", "长桥暂无可用历史 K 线数据");
+          setRealtimeHealth(emptyHealth);
+          setRealtimeStatus(emptyHealth.message);
+          return;
+        }
+
+        const cacheTimeframe = isRealtimeHistory ? "realtime" : timeframe;
+        const written = writeMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe }, result.bars);
+        setCachedMarketBars(written);
+
+        const healthView = createRealtimeHealthView(
+          "ok",
+          isRealtimeHistory && windowRange
+            ? windowRange.isMarketOpen
+              ? `长桥历史分时已加载 ${written.length} 点，AlphaFeed 继续补充实时走势`
+              : `长桥历史分时已加载 ${written.length} 点，收盘后停止追加`
+            : `长桥历史 K 线已加载 ${written.length} 根`,
+        );
+        setRealtimeHealth(healthView);
+        setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+      } catch (error) {
+        const errorHealth = createRealtimeHealthView("error", getErrorMessage(error));
+        setRealtimeHealth(errorHealth);
+        setRealtimeStatus(errorHealth.message);
+      }
+    };
+
+    void loadLongPortHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!enableAlphaFeedHistoricalIntradayBackfill || timeframe !== "realtime") {
       return () => undefined;
     }
 

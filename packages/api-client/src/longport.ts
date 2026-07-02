@@ -1,4 +1,4 @@
-import type { Market } from "@quant/shared";
+import type { Market, Timeframe } from "@quant/shared";
 
 export const LONGPORT_DEFAULT_HTTP_URL = "https://openapi.longbridge.com";
 
@@ -29,6 +29,29 @@ export interface LongPortVerificationSummary {
   verifiedAt: string;
   accountId?: string;
   authMode: "legacy-api-key";
+}
+
+export interface LongPortBarRequest {
+  symbol: string;
+  market: Market;
+  timeframe: Timeframe;
+  count?: number;
+  startTime?: number;
+  endTime?: number;
+}
+
+export interface LongPortMarketDataBar {
+  symbol: string;
+  market: Market;
+  timeframe: Timeframe;
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  amount: number;
+  provider: "longport";
 }
 
 export interface LongPortVerificationOptions {

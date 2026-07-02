@@ -1,4 +1,4 @@
-import type { AlphaFeedApiCredentials, AlphaFeedBarRequest } from "@quant/api-client";
+import type { AlphaFeedApiCredentials, AlphaFeedBarRequest, LongPortBarRequest } from "@quant/api-client";
 import type { LongPortApiCredentials } from "@quant/api-client";
 import type { MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
 import {
@@ -17,8 +17,10 @@ import {
   type AlphaFeedStreamSnapshotResult,
 } from "./alphaFeedStreamBridge.ts";
 import {
+  fetchLongPortHistoricalBarsWithSdk,
   fetchLongPortQuoteSnapshotsWithSdk,
   verifyLongPortCredentialsWithSdk,
+  type LongPortBridgeBarsResult,
   type LongPortBridgeQuoteSnapshotResult,
   type LongPortBridgeVerificationResult,
 } from "./longPortBridge.ts";
@@ -42,6 +44,7 @@ export interface ProviderDataIpcHandlers {
     credentials: LongPortApiCredentials,
     watchlist: MarketWatchlistItem[],
   ): Promise<LongPortBridgeQuoteSnapshotResult>;
+  fetchLongPortHistoricalBars(credentials: LongPortApiCredentials, request: LongPortBarRequest): Promise<LongPortBridgeBarsResult>;
 }
 
 export interface ProviderDataIpcDependencies {
@@ -54,6 +57,7 @@ export interface ProviderDataIpcDependencies {
   disconnectAlphaFeedStream?: ProviderDataIpcHandlers["disconnectAlphaFeedStream"];
   verifyLongPortCredentials?: ProviderDataIpcHandlers["verifyLongPortCredentials"];
   fetchLongPortQuoteSnapshot?: ProviderDataIpcHandlers["fetchLongPortQuoteSnapshot"];
+  fetchLongPortHistoricalBars?: ProviderDataIpcHandlers["fetchLongPortHistoricalBars"];
 }
 
 const defaultAlphaFeedStreamSession = createAlphaFeedStreamSession();
@@ -68,6 +72,7 @@ export const providerDataIpcChannels = {
   disconnectAlphaFeedStream: "providerData:disconnectAlphaFeedStream",
   verifyLongPortCredentials: "providerData:verifyLongPortCredentials",
   fetchLongPortQuoteSnapshot: "providerData:fetchLongPortQuoteSnapshot",
+  fetchLongPortHistoricalBars: "providerData:fetchLongPortHistoricalBars",
 } as const;
 
 export function createProviderDataIpcHandlers(dependencies: ProviderDataIpcDependencies = {}): ProviderDataIpcHandlers {
@@ -81,5 +86,6 @@ export function createProviderDataIpcHandlers(dependencies: ProviderDataIpcDepen
     disconnectAlphaFeedStream: dependencies.disconnectAlphaFeedStream ?? defaultAlphaFeedStreamSession.disconnect,
     verifyLongPortCredentials: dependencies.verifyLongPortCredentials ?? verifyLongPortCredentialsWithSdk,
     fetchLongPortQuoteSnapshot: dependencies.fetchLongPortQuoteSnapshot ?? fetchLongPortQuoteSnapshotsWithSdk,
+    fetchLongPortHistoricalBars: dependencies.fetchLongPortHistoricalBars ?? fetchLongPortHistoricalBarsWithSdk,
   };
 }

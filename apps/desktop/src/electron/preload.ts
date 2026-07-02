@@ -5,7 +5,12 @@ import type {
   AlphaFeedMarketDataBar,
   AlphaFeedVerificationSummary,
 } from "../../../../packages/api-client/src/alphafeed.ts";
-import type { LongPortApiCredentials, LongPortVerificationSummary } from "../../../../packages/api-client/src/longport.ts";
+import type {
+  LongPortApiCredentials,
+  LongPortBarRequest,
+  LongPortMarketDataBar,
+  LongPortVerificationSummary,
+} from "../../../../packages/api-client/src/longport.ts";
 import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
 import type { AlphaFeedStreamConnectionState, AlphaFeedStreamMode } from "./alphaFeedStreamBridge";
 import { createDesktopBridgeFromPersistenceStore, createMemoryPersistenceStore } from "./localPersistence";
@@ -59,6 +64,10 @@ export interface DesktopBridge {
           };
         }
     >;
+    fetchHistoricalBars(
+      credentials: LongPortApiCredentials,
+      request: LongPortBarRequest,
+    ): Promise<{ ok: true; bars: LongPortMarketDataBar[] } | { ok: false; error: { message: string } }>;
   };
   readonly alphaFeed: {
     verifyCredentials(credentials: AlphaFeedApiCredentials): Promise<
@@ -218,6 +227,7 @@ export const desktopBridge: DesktopBridge = {
     verifyCredentials: (credentials) => invokeProviderData(providerDataIpcChannels.verifyLongPortCredentials, credentials),
     fetchQuoteSnapshot: (credentials, watchlist) =>
       invokeProviderData(providerDataIpcChannels.fetchLongPortQuoteSnapshot, credentials, watchlist),
+    fetchHistoricalBars: (credentials, request) => invokeProviderData(providerDataIpcChannels.fetchLongPortHistoricalBars, credentials, request),
   },
   alphaFeed: {
     verifyCredentials: (credentials) => invokeProviderData(providerDataIpcChannels.verifyAlphaFeedCredentials, credentials),

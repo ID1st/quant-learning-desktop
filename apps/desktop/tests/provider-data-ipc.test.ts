@@ -13,6 +13,7 @@ test("provider data IPC channels are stable string contracts", () => {
     disconnectAlphaFeedStream: "providerData:disconnectAlphaFeedStream",
     verifyLongPortCredentials: "providerData:verifyLongPortCredentials",
     fetchLongPortQuoteSnapshot: "providerData:fetchLongPortQuoteSnapshot",
+    fetchLongPortHistoricalBars: "providerData:fetchLongPortHistoricalBars",
   });
 });
 
@@ -87,6 +88,10 @@ test("provider data IPC handlers delegate to injected provider functions", async
       calls.push(`longport-quotes:${watchlist[0]?.symbol}`);
       return { ok: true, snapshots: [] };
     },
+    fetchLongPortHistoricalBars: async (_credentials, request) => {
+      calls.push(`longport-history:${request.symbol}:${request.timeframe}`);
+      return { ok: true, bars: [] };
+    },
   });
 
   await handlers.verifyAlphaFeedCredentials({ apiUrl: "https://api.alphafeed.org", apiKey: "alpha-key" });
@@ -125,6 +130,15 @@ test("provider data IPC handlers delegate to injected provider functions", async
     },
     [{ symbol: "AAPL.US", name: "Apple Inc.", market: "US", source: "preset" }],
   );
+  await handlers.fetchLongPortHistoricalBars(
+    {
+      apiUrl: "https://openapi.longportapp.com",
+      appKey: "app-key",
+      appSecret: "app-secret",
+      accessToken: "access-token",
+    },
+    { symbol: "AAPL.US", market: "US", timeframe: "realtime" },
+  );
 
   assert.deepEqual(calls, [
     "alpha-verify:alpha-key",
@@ -136,5 +150,6 @@ test("provider data IPC handlers delegate to injected provider functions", async
     "alpha-stream-disconnect",
     "longport-verify:app-key",
     "longport-quotes:AAPL.US",
+    "longport-history:AAPL.US:realtime",
   ]);
 });

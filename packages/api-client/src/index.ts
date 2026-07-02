@@ -23,6 +23,8 @@ export {
   normalizeLongPortApiCredentials,
   verifyLongPortApiCredentials,
   type LongPortApiCredentials,
+  type LongPortBarRequest,
+  type LongPortMarketDataBar,
   type LongPortVerificationOptions,
   type LongPortVerificationProbeResult,
   type LongPortVerificationSummary,
