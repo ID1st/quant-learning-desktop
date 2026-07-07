@@ -211,7 +211,8 @@ Progress:
 - Phase 1 completed: provider-neutral contracts, capability model, health status model, in-memory registry, and gateway fallback shell were added under `apps/desktop/src/features/marketData/`.
 - Phase 2 completed: AlphaFeed REST, AlphaFeed WebSocket, and LongBridge compatibility providers were added under `apps/desktop/src/features/marketData/`. They map existing bridge results to gateway quote/bar shapes while preserving current production chart fetching.
 - Phase 3 completed: provider IDs were centralized, and sync state, quote snapshots, K-line bars, K-line metadata, and realtime merge rules now accept legacy and gateway provider IDs.
-- Current production chart fetching is intentionally unchanged. Moving chart loading to the gateway is the next slice.
+- Phase 4 completed: chart workspace data loading now goes through the chart-facing market data gateway adapter while preserving current LongBridge history, AlphaFeed REST polling, and AlphaFeed WebSocket fallback behavior.
+- API configuration redesign around primary/fallback provider priority is the next slice.
 
 Acceptance:
 

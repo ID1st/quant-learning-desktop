@@ -28,6 +28,7 @@ Completed foundations:
 - Market Data Provider Gateway phase 1 is in place: provider IDs, capability declarations, health states, provider registry, and gateway fallback shell.
 - Market Data Provider Gateway phase 2 is in place: AlphaFeed REST, AlphaFeed WebSocket, and LongBridge have compatibility providers that map existing bridge results into the provider-neutral gateway shape.
 - Market Data Provider Gateway phase 3 is in place: cache and sync provider IDs now support legacy `alphafeed`/`longport` plus gateway IDs `stock-sdk`/`alphafeed-rest`/`alphafeed-websocket`/`longbridge`. Realtime intraday merge rules also preserve newer live bars from gateway live-capable providers.
+- Market Data Provider Gateway phase 4 is in place: the chart workspace now reads historical bars, intraday bars, REST quote snapshots, and WebSocket quote snapshots through a chart-facing gateway adapter while preserving the existing visible AlphaFeed/LongBridge behavior.
 
 ## Current Data Flow
 
@@ -38,15 +39,16 @@ Completed foundations:
 5. Initial sync can warm cached bars, while the chart workspace can load active-symbol historical bars on demand.
 6. Quote snapshots and K-line bars are written to local cache.
 7. Chart workspace reads cached K-line bars by symbol, market, and timeframe.
-8. If AlphaFeed WebSocket member credentials exist, the desktop main process opens the stream session first and normalizes incoming quotes into the same snapshot cache.
-9. If WebSocket is still connecting, disconnected, unauthorized, permission-denied, or has no first snapshot, the chart workspace keeps using AlphaFeed REST batch polling as fallback.
-10. AlphaFeed REST polling fetches the deduplicated watchlist in batches and keeps the latest quote snapshot per symbol.
-11. On the `1d` chart, the active symbol quote is read from the snapshot cache and merged into the current trading-day candle.
-12. On the `realtime` chart, the active symbol can load LongBridge 1m candlesticks into the `realtime` cache, capped at 1,000 bars per request. During market hours, live quote snapshots can append new points; after close, polling stops and only historical intraday data remains.
-13. If LongBridge realtime-page history is delayed, the cache merge keeps newer live bars and the chart status explains whether the gap has been bridged.
-14. AlphaFeed stream/REST health is surfaced in the chart top bar with latency, latest check time, and degraded states.
-15. Settings exposes cache size, indexed entries, retention cleanup, and full cache clearing.
-16. Dashboard shows provider state, quote count, and K-line count.
+8. The chart workspace creates provider-neutral gateway adapters from the saved desktop credentials and calls the gateway for historical bars, intraday bars, quote polling, and stream snapshots.
+9. If AlphaFeed WebSocket member credentials exist, the desktop main process opens the stream session first and normalizes incoming quotes into the same snapshot cache through the gateway adapter.
+10. If WebSocket is still connecting, disconnected, unauthorized, permission-denied, or has no first snapshot, the chart workspace keeps using AlphaFeed REST batch polling as fallback through the gateway adapter.
+11. AlphaFeed REST polling fetches the deduplicated watchlist in batches and keeps the latest quote snapshot per symbol.
+12. On the `1d` chart, the active symbol quote is read from the snapshot cache and merged into the current trading-day candle.
+13. On the `realtime` chart, the active symbol can load LongBridge 1m candlesticks into the `realtime` cache, capped at 1,000 bars per request. During market hours, live quote snapshots can append new points; after close, polling stops and only historical intraday data remains.
+14. If LongBridge realtime-page history is delayed, the cache merge keeps newer live bars and the chart status explains whether the gap has been bridged.
+15. AlphaFeed stream/REST health is surfaced in the chart top bar with latency, latest check time, and degraded states.
+16. Settings exposes cache size, indexed entries, retention cleanup, and full cache clearing.
+17. Dashboard shows provider state, quote count, and K-line count.
 
 ## Planned Market Data Direction
 
@@ -111,7 +113,7 @@ Acceptance:
 
 ### 2.6. Chart Uses Market Data Gateway
 
-Status: next.
+Status: completed.
 
 Goal: move chart data loading from direct AlphaFeed/LongBridge calls to the provider-neutral gateway while preserving the current visible chart behavior.
 
@@ -121,6 +123,7 @@ Acceptance:
 - Existing cached data stays readable.
 - Provider fallback order is visible in code and testable.
 - Typecheck and desktop tests pass.
+- Chart page no longer performs direct AlphaFeed/LongBridge network calls; provider-specific bridge calls are isolated behind `chartMarketDataGateway`.
 
 ### 3. Super Chart Capability Completion
 

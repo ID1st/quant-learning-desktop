@@ -71,10 +71,16 @@ export interface GatewayMarketQuoteSnapshot {
   readonly symbol: string;
   readonly name?: string;
   readonly price: number;
+  readonly previousClose?: number;
+  readonly openPrice?: number;
+  readonly highPrice?: number;
+  readonly lowPrice?: number;
   readonly change?: number;
   readonly changePercent?: number;
   readonly timestamp: number;
   readonly volume?: number;
+  readonly amount?: number;
+  readonly receivedAt?: string;
   readonly delayLevel?: MarketDataProviderDelayLevel;
 }
 
@@ -89,6 +95,7 @@ export interface GatewayMarketDataBar {
   readonly low: number;
   readonly close: number;
   readonly volume: number;
+  readonly amount?: number;
   readonly delayLevel?: MarketDataProviderDelayLevel;
 }
 
@@ -233,12 +240,13 @@ export function createMarketDataGateway(
 
       try {
         const data = await operation(provider);
+        const latestHealth = await provider.getHealth();
 
         return {
           ok: true,
           provider: provider.id,
           data,
-          health,
+          health: latestHealth,
           triedProviders,
         };
       } catch (error) {

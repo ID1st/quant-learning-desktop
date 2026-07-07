@@ -39,6 +39,13 @@ import {
   isMarketSessionOpen,
 } from "../features/marketData/intradayHistoryService";
 import {
+  createChartMarketDataGateways,
+  gatewayBarsToAlphaFeedMarketDataBars,
+  gatewayBarsToMarketDataBars,
+  gatewayQuoteSnapshotsToMarketQuoteSnapshots,
+} from "../features/marketData/chartMarketDataGateway";
+import type { MarketDataProviderHealthView } from "../features/marketData/marketDataProviderGateway";
+import {
   Bell,
   CheckCircle2,
   Crosshair,
@@ -472,6 +479,29 @@ function createRealtimeHealthView(status: RealtimeProviderHealthView["status"], 
   };
 }
 
+function createRealtimeHealthViewFromGateway(
+  health: MarketDataProviderHealthView,
+  message = health.message,
+): RealtimeProviderHealthView {
+  const statusMap: Record<MarketDataProviderHealthView["status"], RealtimeProviderHealthView["status"]> = {
+    healthy: "ok",
+    delayed: "ok",
+    degraded: "ok",
+    rateLimited: "rate_limited",
+    unauthorized: "auth_failed",
+    unavailable: "network_error",
+    unconfigured: "waiting",
+  };
+
+  return {
+    status: statusMap[health.status],
+    message,
+    checkedAt: health.checkedAt,
+    latencyMs: health.latencyMs,
+    nextRetryAt: health.nextRetryAt,
+  };
+}
+
 function getRealtimeHealthBadgeClass(status: RealtimeProviderHealthView["status"]) {
   if (status === "ok") {
     return "data-source-badge live";
@@ -753,14 +783,19 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        if (!credentials || !window.quantDesktop?.longPort?.fetchHistoricalBars) {
+        const marketDataGateways = createChartMarketDataGateways({
+          bridge: window.quantDesktop,
+          longPortCredentials: credentials,
+        });
+
+        if (!credentials) {
           const waitingHealth = createRealtimeHealthView("waiting", "等待长桥凭据以加载历史 K 线");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
           return;
         }
 
-        const result = await window.quantDesktop.longPort.fetchHistoricalBars(credentials, {
+        const result = await marketDataGateways.historicalBars.fetchHistoricalBars({
           symbol: activeSymbol.dataSymbol,
           market: activeSymbol.market,
           timeframe: isRealtimeHistory ? "1m" : timeframe,
@@ -774,13 +809,18 @@ export function ChartWorkspacePage() {
         }
 
         if (!result.ok) {
-          const errorHealth = createRealtimeHealthView("error", result.error.message);
+          const errorHealth =
+            result.health[0] !== undefined
+              ? createRealtimeHealthViewFromGateway(result.health[0], result.error.message)
+              : createRealtimeHealthView("error", result.error.message);
           setRealtimeHealth(errorHealth);
           setRealtimeStatus(errorHealth.message);
           return;
         }
 
-        if (result.bars.length === 0) {
+        const resultBars = gatewayBarsToMarketDataBars(result.data);
+
+        if (resultBars.length === 0) {
           const emptyHealth = createRealtimeHealthView("waiting", "长桥暂无可用历史 K 线数据");
           setRealtimeHealth(emptyHealth);
           setRealtimeStatus(emptyHealth.message);
@@ -791,12 +831,12 @@ export function ChartWorkspacePage() {
         const cacheKey = { symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe };
         const currentCachedBars = readMarketBarCache(cacheKey);
         const mergedBars = isRealtimeHistory
-          ? mergeHistoricalRealtimeBarsWithLiveBars(result.bars, currentCachedBars, {
+          ? mergeHistoricalRealtimeBarsWithLiveBars(resultBars, currentCachedBars, {
               symbol: activeSymbol.dataSymbol,
               market: activeSymbol.market,
               timeframe: "realtime",
             })
-          : result.bars;
+          : resultBars;
         const written = writeMarketBarCache(cacheKey, mergedBars);
         setCachedMarketBars(written);
         const gapStatus =
@@ -851,14 +891,19 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        if (!credentials || !window.quantDesktop?.alphaFeed) {
+        const marketDataGateways = createChartMarketDataGateways({
+          bridge: window.quantDesktop,
+          alphaFeedCredentials: credentials,
+        });
+
+        if (!credentials) {
           const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed 凭据以加载历史分时");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
           return;
         }
 
-        const result = await window.quantDesktop.alphaFeed.fetchIntradayBars(credentials, {
+        const result = await marketDataGateways.intradayBars.fetchIntradayBars({
           symbol: activeSymbol.dataSymbol,
           market: activeSymbol.market,
           timeframe: "1m",
@@ -872,17 +917,20 @@ export function ChartWorkspacePage() {
         }
 
         if (!result.ok) {
-          const healthView: RealtimeProviderHealthView = {
-            ...result.error.health,
-            message: result.error.health.status === "permission_denied" ? "AlphaFeed 当前套餐无 1m 历史分时权限" : result.error.message,
-          };
+          const gatewayHealth = result.health[0];
+          const healthView = gatewayHealth
+            ? createRealtimeHealthViewFromGateway(
+                gatewayHealth,
+                gatewayHealth.status === "unauthorized" ? "AlphaFeed 当前套餐无 1m 历史分时权限" : result.error.message,
+              )
+            : createRealtimeHealthView("error", result.error.message);
           setRealtimeHealth(healthView);
           setRealtimeStatus(formatRealtimeHealthDetail(healthView));
           return;
         }
 
         const realtimeBars = alphaFeedMinuteBarsToRealtimeBars(
-          result.bars,
+          gatewayBarsToAlphaFeedMarketDataBars(result.data),
           { symbol: activeSymbol.dataSymbol, market: activeSymbol.market },
           windowRange,
         );
@@ -896,12 +944,12 @@ export function ChartWorkspacePage() {
 
         const written = writeMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "realtime" }, realtimeBars);
         setCachedMarketBars(written);
-        const healthView: RealtimeProviderHealthView = {
-          ...result.health,
-          message: windowRange.isMarketOpen
+        const healthView = createRealtimeHealthViewFromGateway(
+          result.health,
+          windowRange.isMarketOpen
             ? `历史分时已加载 ${written.length} 点，交易中继续更新`
             : `历史分时已加载 ${written.length} 点，收盘后停止更新`,
-        };
+        );
         setRealtimeHealth(healthView);
         setRealtimeStatus(formatRealtimeHealthDetail(healthView));
       } catch (error) {
@@ -921,6 +969,7 @@ export function ChartWorkspacePage() {
   useEffect(() => {
     let timeoutId: number | undefined;
     let cancelled = false;
+    let disconnectQuoteStream: () => Promise<void> = async () => undefined;
 
     if (timeframe !== "1d" && timeframe !== "realtime") {
       const pausedHealth = createRealtimeHealthView("paused", "当前周期不启用实时轮询");
@@ -953,12 +1002,19 @@ export function ChartWorkspacePage() {
         const credentials = await readSavedAlphaFeedCredentials();
         const streamCredentials = await readSavedAlphaFeedStreamCredentials();
         const streamBinding = readAlphaFeedStreamBinding();
+        const marketDataGateways = createChartMarketDataGateways({
+          bridge: window.quantDesktop,
+          alphaFeedCredentials: credentials,
+          alphaFeedStreamCredentials: streamCredentials,
+          alphaFeedStreamBinding: streamBinding,
+        });
+        disconnectQuoteStream = marketDataGateways.disconnectQuoteStream;
 
         if (cancelled) {
           return;
         }
 
-        if (!window.quantDesktop?.alphaFeed || (!credentials && !streamCredentials)) {
+        if (!credentials && !streamCredentials) {
           const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed 凭据");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
@@ -966,25 +1022,21 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        if (streamCredentials && streamBinding && window.quantDesktop.alphaFeed.connectStream && window.quantDesktop.alphaFeed.readStreamSnapshot) {
-          const connectResult = await window.quantDesktop.alphaFeed.connectStream({
-            credentials: streamCredentials,
-            mode: streamBinding.mode,
-            watchlist: realtimeWatchlist,
-          });
+        if (streamCredentials && streamBinding) {
+          const connectHealth = await marketDataGateways.connectQuoteStream(realtimeWatchlist);
 
           if (cancelled) {
             return;
           }
 
-          const streamResult = await window.quantDesktop.alphaFeed.readStreamSnapshot();
+          const streamResult = await marketDataGateways.readQuoteStreamSnapshot(realtimeWatchlist);
 
           if (cancelled) {
             return;
           }
 
-          if (streamResult.state === "connected" && streamResult.snapshots.length > 0) {
-            const nextQuoteSnapshotsByKey = mergeQuoteSnapshots(quoteSnapshotsByKeyRef.current, streamResult.snapshots);
+          if (streamResult.ok && streamResult.snapshots.length > 0) {
+            const nextQuoteSnapshotsByKey = mergeQuoteSnapshots(quoteSnapshotsByKeyRef.current, Array.from(streamResult.snapshots));
             const snapshot = nextQuoteSnapshotsByKey[`${activeSymbol.market}:${activeSymbol.dataSymbol}`];
             quoteSnapshotsByKeyRef.current = nextQuoteSnapshotsByKey;
             setQuoteSnapshotsByKey(nextQuoteSnapshotsByKey);
@@ -997,10 +1049,10 @@ export function ChartWorkspacePage() {
               });
             }
 
-            const healthView: RealtimeProviderHealthView = {
-              ...streamResult.health,
-              message: `WebSocket 流式更新 ${streamResult.snapshots.length} 只 · ${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`,
-            };
+            const healthView = createRealtimeHealthViewFromGateway(
+              streamResult.health,
+              `WebSocket 流式更新 ${streamResult.snapshots.length} 只 · ${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`,
+            );
             setRealtimeHealth(healthView);
             setRealtimeStatus(formatRealtimeHealthDetail(healthView));
             timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
@@ -1008,10 +1060,10 @@ export function ChartWorkspacePage() {
           }
 
           if (!credentials) {
-            const streamHealth: RealtimeProviderHealthView = {
-              ...(streamResult.state === "connecting" ? connectResult.health : streamResult.health),
-              message: streamResult.state === "connecting" ? "WebSocket 正在连接，等待首批快照" : streamResult.health.message,
-            };
+            const streamGatewayHealth = streamResult.ok ? streamResult.health : streamResult.health[0] ?? connectHealth;
+            const streamHealth = streamGatewayHealth
+              ? createRealtimeHealthViewFromGateway(streamGatewayHealth, streamResult.ok ? "WebSocket 正在连接，等待首批快照" : streamGatewayHealth.message)
+              : createRealtimeHealthView("waiting", "WebSocket 正在连接，等待首批快照");
             setRealtimeHealth(streamHealth);
             setRealtimeStatus(formatRealtimeHealthDetail(streamHealth));
             timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
@@ -1029,31 +1081,30 @@ export function ChartWorkspacePage() {
 
         const batches = createQuotePollingBatches(realtimeWatchlist);
         const snapshots: MarketQuoteSnapshot[] = [];
-        let latestHealth: AlphaFeedProviderHealth | null = null;
+        let latestHealth: MarketDataProviderHealthView | null = null;
 
         for (const batch of batches) {
-          const result = await window.quantDesktop.alphaFeed.fetchQuoteSnapshot(credentials, batch);
+          const result = await marketDataGateways.quoteSnapshots.fetchQuoteSnapshot(batch);
 
           if (cancelled) {
             return;
           }
 
           if (!result.ok) {
-            const health = result.error.health;
-            const isRateLimited = health.status === "rate_limited";
-            const nextRetryAt = health.nextRetryAt ? new Date(health.nextRetryAt).getTime() : Date.now() + realtimeRateLimitBackoffMs;
+            const health = result.health[0];
+            const isRateLimited = health?.status === "rateLimited";
+            const nextRetryAt = health?.nextRetryAt ? new Date(health.nextRetryAt).getTime() : Date.now() + realtimeRateLimitBackoffMs;
             const nextDelay = isRateLimited ? Math.max(realtimePollIntervalMs, nextRetryAt - Date.now()) : realtimePollIntervalMs;
-            const healthView: RealtimeProviderHealthView = {
-              ...health,
-              message: isRateLimited ? "AlphaFeed 限频，已自动退避" : health.message,
-            };
+            const healthView = health
+              ? createRealtimeHealthViewFromGateway(health, isRateLimited ? "AlphaFeed 限频，已自动退避" : result.error.message)
+              : createRealtimeHealthView("error", result.error.message);
             setRealtimeHealth(healthView);
             setRealtimeStatus(formatRealtimeHealthDetail(healthView));
             timeoutId = window.setTimeout(() => void poll(), nextDelay);
             return;
           }
 
-          snapshots.push(...result.snapshots);
+          snapshots.push(...gatewayQuoteSnapshotsToMarketQuoteSnapshots(result.data));
           latestHealth = result.health;
         }
 
@@ -1073,14 +1124,14 @@ export function ChartWorkspacePage() {
             return nextBars;
           });
           const healthView: RealtimeProviderHealthView = {
-            ...(latestHealth ?? createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功")),
+            ...(latestHealth ? createRealtimeHealthViewFromGateway(latestHealth) : createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功")),
             message: `批量轮询更新 ${snapshots.length} 只 · ${new Date(snapshot.receivedAt).toLocaleTimeString("zh-CN", { hour12: false })}`,
           };
           setRealtimeHealth(healthView);
           setRealtimeStatus(formatRealtimeHealthDetail(healthView));
         } else {
           const healthView: RealtimeProviderHealthView = {
-            ...(latestHealth ?? createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功")),
+            ...(latestHealth ? createRealtimeHealthViewFromGateway(latestHealth) : createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功")),
             message: snapshots.length > 0 ? "当前标的暂无快照，已保留上一轮缓存" : "AlphaFeed 暂无快照",
           };
           setRealtimeHealth(healthView);
@@ -1100,7 +1151,7 @@ export function ChartWorkspacePage() {
 
     return () => {
       cancelled = true;
-      void window.quantDesktop?.alphaFeed?.disconnectStream?.();
+      void disconnectQuoteStream();
       if (timeoutId !== undefined) {
         window.clearTimeout(timeoutId);
       }

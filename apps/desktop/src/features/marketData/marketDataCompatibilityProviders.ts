@@ -369,10 +369,16 @@ function mapQuoteSnapshot(
     market: snapshot.market,
     symbol: snapshot.symbol,
     price: snapshot.lastPrice,
+    previousClose: snapshot.previousClose,
+    openPrice: snapshot.openPrice,
+    highPrice: snapshot.highPrice,
+    lowPrice: snapshot.lowPrice,
     change: snapshot.lastPrice - snapshot.previousClose,
     changePercent: snapshot.changePercent,
     timestamp: new Date(snapshot.quoteTime).getTime(),
     volume: snapshot.volume,
+    amount: snapshot.amount,
+    receivedAt: snapshot.receivedAt,
     delayLevel,
   };
 }
@@ -393,6 +399,7 @@ function mapMarketDataBar(
     low: bar.low,
     close: bar.close,
     volume: bar.volume,
+    amount: bar.amount,
     delayLevel,
   };
 }

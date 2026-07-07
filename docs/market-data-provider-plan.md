@@ -328,6 +328,8 @@ Acceptance:
 
 ### Step 4: Chart Uses Gateway
 
+Status: completed. The chart workspace now uses `apps/desktop/src/features/marketData/chartMarketDataGateway.ts` to create provider-neutral gateways for LongBridge historical bars, AlphaFeed intraday bars, AlphaFeed REST quote polling, and AlphaFeed WebSocket quote snapshots. The visible chart behavior is preserved: historical chart loading still prefers LongBridge, REST polling still prefers AlphaFeed REST, and WebSocket remains an optional first stream path with REST fallback.
+
 Scope:
 
 - Move chart data loading from direct provider-specific calls to `MarketDataGateway`.
@@ -337,6 +339,7 @@ Acceptance:
 
 - `realtime`, `1d`, and `1w` charts still render as before.
 - No provider-specific network calls remain directly in chart page logic except transitional credential reads if needed.
+- Gateway quote/bar conversions preserve `previousClose`, open/high/low, amount, provider, market, symbol, timeframe, and timestamp metadata needed by current chart merges.
 
 ### Step 5: API Configuration Redesign
 
@@ -416,7 +419,6 @@ Acceptance:
 ## Remaining Work
 
 1. Confirm whether `stock-sdk` exposes or plans a native WebSocket stream. Until then, do not model it as a WebSocket provider.
-2. Move chart loading to the gateway after wrappers and cache compatibility are verified.
-3. Redesign API configuration page around provider priority.
-4. Add `stock-sdk` adapter after contracts and cache migration are in place.
-5. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.
+2. Redesign API configuration page around provider priority.
+3. Add `stock-sdk` adapter after contracts and cache migration are in place.
+4. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.
