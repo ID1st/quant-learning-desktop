@@ -2,7 +2,7 @@
 
 ## Status
 
-The project is in Phase 4 module development.
+The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 5 are complete; the next slice is the `stock-sdk` adapter behind the gateway.
 
 Completed foundations:
 
@@ -29,6 +29,7 @@ Completed foundations:
 - Market Data Provider Gateway phase 2 is in place: AlphaFeed REST, AlphaFeed WebSocket, and LongBridge have compatibility providers that map existing bridge results into the provider-neutral gateway shape.
 - Market Data Provider Gateway phase 3 is in place: cache and sync provider IDs now support legacy `alphafeed`/`longport` plus gateway IDs `stock-sdk`/`alphafeed-rest`/`alphafeed-websocket`/`longbridge`. Realtime intraday merge rules also preserve newer live bars from gateway live-capable providers.
 - Market Data Provider Gateway phase 4 is in place: the chart workspace now reads historical bars, intraday bars, REST quote snapshots, and WebSocket quote snapshots through a chart-facing gateway adapter while preserving the existing visible AlphaFeed/LongBridge behavior.
+- Market Data Provider Gateway phase 5 is in place: the API configuration page is provider-priority oriented, with `stock-sdk` shown as the default-expanded primary placeholder and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge shown as collapsed fallback provider sections.
 
 ## Current Data Flow
 
@@ -124,6 +125,20 @@ Acceptance:
 - Provider fallback order is visible in code and testable.
 - Typecheck and desktop tests pass.
 - Chart page no longer performs direct AlphaFeed/LongBridge network calls; provider-specific bridge calls are isolated behind `chartMarketDataGateway`.
+
+### 2.7. API Configuration Uses Provider Priority
+
+Status: completed.
+
+Goal: redesign the API configuration page around the future provider priority model.
+
+Acceptance:
+
+- `stock-sdk` primary source is visible as the first, default-expanded placeholder and does not collect credentials yet.
+- AlphaFeed REST, AlphaFeed WebSocket member channel, and LongBridge are visible as fallback provider sections and default collapsed.
+- Provider priority is shown as `stock-sdk`, AlphaFeed REST, AlphaFeed WebSocket, LongBridge.
+- Existing AlphaFeed REST, AlphaFeed WebSocket, and LongBridge credential flows remain usable.
+- Typecheck, desktop tests, and browser UI smoke verification pass.
 
 ### 3. Super Chart Capability Completion
 

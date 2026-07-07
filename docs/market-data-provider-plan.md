@@ -343,6 +343,8 @@ Acceptance:
 
 ### Step 5: API Configuration Redesign
 
+Status: completed. The API configuration page now shows `stock-sdk` as the default-expanded primary placeholder, keeps AlphaFeed REST, AlphaFeed WebSocket member channel, and LongBridge as collapsed fallback sections, and displays the fixed provider priority plus current stored-binding status.
+
 Scope:
 
 - Update the configuration page to show primary provider placeholder and fallback provider sections.
@@ -352,6 +354,7 @@ Acceptance:
 
 - Existing AlphaFeed and LongBridge credential flows remain usable.
 - New provider status and priority layout is visible.
+- `stock-sdk` does not collect credentials and is not used for production data fetching yet.
 
 ### Step 6: stock-sdk Adapter Behind Gateway
 
@@ -419,6 +422,5 @@ Acceptance:
 ## Remaining Work
 
 1. Confirm whether `stock-sdk` exposes or plans a native WebSocket stream. Until then, do not model it as a WebSocket provider.
-2. Redesign API configuration page around provider priority.
-3. Add `stock-sdk` adapter after contracts and cache migration are in place.
-4. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.
+2. Add `stock-sdk` adapter after contracts and cache migration are in place.
+3. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.

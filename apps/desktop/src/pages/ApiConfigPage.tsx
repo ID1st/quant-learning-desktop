@@ -1,5 +1,15 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { CheckCircle2, DatabaseZap, KeyRound, Link2, RefreshCw, ShieldCheck } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleDot,
+  DatabaseZap,
+  KeyRound,
+  Link2,
+  RadioTower,
+  RefreshCw,
+  ServerCog,
+  ShieldCheck,
+} from "lucide-react";
 import type { Timeframe } from "@quant/shared";
 import {
   ALPHAFEED_DEFAULT_STREAM_URL,
@@ -18,6 +28,12 @@ import {
   type AlphaFeedStreamForm,
   type LongPortApiForm,
 } from "../features/api/apiConfigService";
+import {
+  apiProviderPriorityItems,
+  formatApiProviderStatus,
+  getApiProviderStatus,
+  type ApiProviderPriorityItem,
+} from "../features/api/apiProviderPriorityConfig";
 import { useAuthStore } from "../features/auth/authStore";
 import { initialMarketDataSyncSteps, runInitialMarketDataSync } from "../features/marketData/marketDataSyncService";
 import { useAppStore } from "../state/appStore";
@@ -63,6 +79,22 @@ function getRejectedMessage(result: PromiseRejectedResult) {
   return result.reason instanceof Error ? result.reason.message : "未知错误";
 }
 
+function getProviderIcon(providerId: ApiProviderPriorityItem["id"]) {
+  if (providerId === "stock-sdk") {
+    return <ServerCog size={20} />;
+  }
+
+  if (providerId === "alphafeed-websocket") {
+    return <RadioTower size={20} />;
+  }
+
+  if (providerId === "longbridge") {
+    return <ShieldCheck size={20} />;
+  }
+
+  return <DatabaseZap size={20} />;
+}
+
 export function ApiConfigPage() {
   const storedAlphaFeedBinding = useMemo(() => readAlphaFeedApiBinding(), []);
   const storedAlphaFeedStreamBinding = useMemo(() => readAlphaFeedStreamBinding(), []);
@@ -84,14 +116,14 @@ export function ApiConfigPage() {
   const [runningStep, setRunningStep] = useState("");
   const [status, setStatus] = useState(
     storedAlphaFeedBinding
-      ? "当前设备已有 AlphaFeed 主数据源绑定记录。"
+      ? "当前设备已有 AlphaFeed REST 备用源绑定记录。"
       : storedLongPortBinding
-        ? "当前设备已有长桥备用数据源绑定记录。"
+        ? "当前设备已有长桥备用源绑定记录。"
         : "",
   );
   const [error, setError] = useState("");
   const [streamStatus, setStreamStatus] = useState(
-    storedAlphaFeedStreamBinding ? "AlphaFeed WebSocket 会员通道已预留，等待后续流式行情模块启用。" : "",
+    storedAlphaFeedStreamBinding ? "AlphaFeed WebSocket 会员通道已预留，行情网关可在后续阶段接入。" : "",
   );
   const [streamError, setStreamError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -99,6 +131,11 @@ export function ApiConfigPage() {
   const setApiBound = useAuthStore((state) => state.setApiBound);
   const navigate = useAppStore((state) => state.navigate);
   const hasDesktopBridge = Boolean(window.quantDesktop?.alphaFeed);
+  const providerBindingState = {
+    alphaFeedRestBound: Boolean(storedAlphaFeedBinding),
+    alphaFeedWebSocketPrepared: Boolean(storedAlphaFeedStreamBinding),
+    longBridgeBound: Boolean(storedLongPortBinding),
+  };
 
   const updateAlphaFeedField = (field: keyof AlphaFeedApiForm, value: string) => {
     setAlphaFeedForm((current) => ({ ...current, [field]: value }));
@@ -127,9 +164,8 @@ export function ApiConfigPage() {
       const longPortCredentials = shouldBindLongPortFallback
         ? await resolveLongPortCredentials(longPortForm)
         : await readSavedLongPortCredentials().catch(() => null);
-      const longPortBinding = shouldBindLongPortFallback && longPortCredentials
-        ? await verifyLongPortApiConfig(longPortCredentials)
-        : storedLongPortBinding;
+      const longPortBinding =
+        shouldBindLongPortFallback && longPortCredentials ? await verifyLongPortApiConfig(longPortCredentials) : storedLongPortBinding;
       const canUseLongPortFallback = Boolean(longPortBinding && longPortCredentials);
       let marketDataSyncWarning = "";
 
@@ -249,7 +285,10 @@ export function ApiConfigPage() {
 
             if (blockingEmptyRequests.length > 0 || bars.length === 0) {
               throw new Error(
-                `AlphaFeed 部分必要 K 线周期未返回数据：${blockingEmptyRequests.slice(0, 6).map((request) => `${request.item.symbol} ${request.timeframe}`).join("、")}`,
+                `AlphaFeed 部分必要 K 线周期未返回数据：${blockingEmptyRequests
+                  .slice(0, 6)
+                  .map((request) => `${request.item.symbol} ${request.timeframe}`)
+                  .join("、")}`,
               );
             }
 
@@ -277,7 +316,7 @@ export function ApiConfigPage() {
       setApiBound(true);
       setStatus(
         marketDataSyncWarning ||
-          (canUseLongPortFallback ? "AlphaFeed 主数据源已绑定，长桥备用源已就绪。" : "AlphaFeed 主数据源已绑定。"),
+          (canUseLongPortFallback ? "备用数据源已绑定：AlphaFeed REST 与长桥均可用。" : "备用数据源已绑定：AlphaFeed REST 可用。"),
       );
       if (!marketDataSyncWarning) {
         window.setTimeout(() => navigate("dashboard"), 420);
@@ -298,8 +337,8 @@ export function ApiConfigPage() {
       const binding = await saveAlphaFeedStreamConfig(alphaFeedStreamForm);
       setStreamStatus(
         binding.mode === "all-symbols"
-          ? "AlphaFeed WebSocket 全标的会员通道已预留。后续流式行情模块启用后将优先使用该通道。"
-          : "AlphaFeed WebSocket 关注列表通道已预留。后续流式行情模块启用后将优先使用该通道。",
+          ? "AlphaFeed WebSocket 全标的会员通道已预留。后续行情网关会在可用时优先使用该通道。"
+          : "AlphaFeed WebSocket 关注列表通道已预留。后续行情网关会在可用时优先使用该通道。",
       );
     } catch (nextError) {
       setStreamError(nextError instanceof Error ? nextError.message : "AlphaFeed WebSocket 通道保存失败。");
@@ -312,19 +351,50 @@ export function ApiConfigPage() {
     <section className="api-config-page">
       <header className="module-header">
         <p>行情数据源</p>
-        <h1>优先连接 AlphaFeed，长桥作为备用通道</h1>
-        <span>AlphaFeed 用于实时行情、分时和历史 K 线；长桥保留为备用行情和未来交易接口入口。</span>
+        <h1>主行情源优先，备用源兜底</h1>
+        <span>
+          Stock SDK 将作为新的主行情源接入；当前阶段先保留占位和能力展示，AlphaFeed REST、AlphaFeed WebSocket 与长桥降级为备用数据源。
+        </span>
       </header>
 
       <div className="api-config-grid">
         <form className="module-card api-config-form" onSubmit={handleSubmit}>
-          <details className="api-provider-section" open>
+          <details className="api-provider-section primary-provider" open>
+            <summary>
+              <div className="module-card-header">
+                <ServerCog size={20} />
+                <div>
+                  <h2>Stock SDK 主行情源</h2>
+                  <p>阶段 6 才会接入真实适配器；当前仅展示未来主行情源能力，不读取任何真实凭据。</p>
+                </div>
+              </div>
+            </summary>
+
+            <div className="api-provider-content provider-placeholder-panel">
+              <div className="provider-status-row">
+                <span className="provider-status-pill placeholder">待接入</span>
+                <strong>主行情源占位</strong>
+              </div>
+              <p>
+                后续该源会负责 A股、港股、美股的实时行情、历史 K 线与分时数据。当前不会替换 AlphaFeed/长桥生产流量。
+              </p>
+              <div className="provider-badge-row">
+                {apiProviderPriorityItems[0]?.capabilityBadges.map((badge) => (
+                  <span key={badge}>{badge}</span>
+                ))}
+              </div>
+            </div>
+          </details>
+
+          <div className="api-section-label">备用数据源</div>
+
+          <details className="api-provider-section">
             <summary>
               <div className="module-card-header">
                 <DatabaseZap size={20} />
                 <div>
-                  <h2>AlphaFeed 主数据源</h2>
-                  <p>使用 X-API-Key 认证，优先拉取 A 股、美股、港股实时行情和默认多周期 K 线缓存。</p>
+                  <h2>AlphaFeed REST</h2>
+                  <p>备用实时快照与 K 线轮询源；当前仍承担绑定后的初始同步任务。</p>
                 </div>
               </div>
             </summary>
@@ -361,10 +431,10 @@ export function ApiConfigPage() {
           <details className="api-provider-section">
             <summary>
               <div className="module-card-header">
-                <DatabaseZap size={20} />
+                <RadioTower size={20} />
                 <div>
                   <h2>AlphaFeed WebSocket 会员通道</h2>
-                  <p>会员流式行情优先用于关注列表；REST 批量轮询会保留为兜底。</p>
+                  <p>仅在用户单独购买会员通道时填写；保存后作为流式行情备用入口。</p>
                 </div>
               </div>
             </summary>
@@ -372,62 +442,62 @@ export function ApiConfigPage() {
             <div className="api-provider-content stream-reserved-panel">
               <div>
                 <strong>流式行情配置</strong>
-                <small>仅在用户单独购买 AlphaFeed 会员并提供 WebSocket Key 时启用。</small>
+                <small>用于后续 WebSocket 连接器、订阅协议和 REST fallback。</small>
               </div>
 
-            <label>
-              <span>WebSocket URL</span>
-              <div className="input-shell">
-                <Link2 size={16} />
-                <input
-                  onChange={(event) => updateAlphaFeedStreamField("wsUrl", event.target.value)}
-                  placeholder={ALPHAFEED_DEFAULT_STREAM_URL}
-                  value={alphaFeedStreamForm.wsUrl}
-                />
-              </div>
-            </label>
+              <label>
+                <span>WebSocket URL</span>
+                <div className="input-shell">
+                  <Link2 size={16} />
+                  <input
+                    onChange={(event) => updateAlphaFeedStreamField("wsUrl", event.target.value)}
+                    placeholder={ALPHAFEED_DEFAULT_STREAM_URL}
+                    value={alphaFeedStreamForm.wsUrl}
+                  />
+                </div>
+              </label>
 
-            <label>
-              <span>WebSocket API Key</span>
-              <div className="input-shell">
-                <KeyRound size={16} />
-                <input
-                  autoComplete="off"
-                  onChange={(event) => updateAlphaFeedStreamField("apiKey", event.target.value)}
-                  placeholder="请输入 AlphaFeed 会员 API Key"
-                  type="password"
-                  value={alphaFeedStreamForm.apiKey}
-                />
-              </div>
-            </label>
+              <label>
+                <span>WebSocket API Key</span>
+                <div className="input-shell">
+                  <KeyRound size={16} />
+                  <input
+                    autoComplete="off"
+                    onChange={(event) => updateAlphaFeedStreamField("apiKey", event.target.value)}
+                    placeholder="请输入 AlphaFeed 会员 API Key"
+                    type="password"
+                    value={alphaFeedStreamForm.apiKey}
+                  />
+                </div>
+              </label>
 
-            <label>
-              <span>订阅范围</span>
-              <div className="input-shell">
-                <RefreshCw size={16} />
-                <select
-                  aria-label="AlphaFeed WebSocket 订阅范围"
-                  onChange={(event) => updateAlphaFeedStreamField("mode", event.target.value)}
-                  value={alphaFeedStreamForm.mode}
-                >
-                  <option value="watchlist">仅关注列表</option>
-                  <option value="all-symbols">会员全标的流</option>
-                </select>
-              </div>
-            </label>
+              <label>
+                <span>订阅范围</span>
+                <div className="input-shell">
+                  <RefreshCw size={16} />
+                  <select
+                    aria-label="AlphaFeed WebSocket 订阅范围"
+                    onChange={(event) => updateAlphaFeedStreamField("mode", event.target.value)}
+                    value={alphaFeedStreamForm.mode}
+                  >
+                    <option value="watchlist">仅关注列表</option>
+                    <option value="all-symbols">会员全标的流</option>
+                  </select>
+                </div>
+              </label>
 
-            {storedAlphaFeedStreamBinding && (
-              <div className="binding-summary compact">
-                <span>已预留</span>
-                <strong>{storedAlphaFeedStreamBinding.mode === "all-symbols" ? "全标的流" : "关注列表流"}</strong>
-                <small>API Key：{storedAlphaFeedStreamBinding.apiKeyPreview}</small>
-              </div>
-            )}
-            {streamError && <div className="auth-message error">{streamError}</div>}
-            {streamStatus && <div className="auth-message success">{streamStatus}</div>}
-            <button className="secondary-auth-action" disabled={isSavingStream || !hasDesktopBridge} onClick={handleSaveAlphaFeedStream} type="button">
-              {isSavingStream ? "保存中..." : "保存 WebSocket 预留通道"}
-            </button>
+              {storedAlphaFeedStreamBinding && (
+                <div className="binding-summary compact">
+                  <span>已预留</span>
+                  <strong>{storedAlphaFeedStreamBinding.mode === "all-symbols" ? "全标的流" : "关注列表流"}</strong>
+                  <small>API Key：{storedAlphaFeedStreamBinding.apiKeyPreview}</small>
+                </div>
+              )}
+              {streamError && <div className="auth-message error">{streamError}</div>}
+              {streamStatus && <div className="auth-message success">{streamStatus}</div>}
+              <button className="secondary-auth-action" disabled={isSavingStream || !hasDesktopBridge} onClick={handleSaveAlphaFeedStream} type="button">
+                {isSavingStream ? "保存中..." : "保存 WebSocket 备用通道"}
+              </button>
             </div>
           </details>
 
@@ -437,7 +507,7 @@ export function ApiConfigPage() {
                 <ShieldCheck size={20} />
                 <div>
                   <h2>长桥备用源</h2>
-                  <p>可选填写。AlphaFeed 失败时尝试用长桥快照兜底。</p>
+                  <p>用于历史 K 线、分时回补和未来券商接口；A股/港股实时可能存在延迟。</p>
                 </div>
               </div>
             </summary>
@@ -503,7 +573,7 @@ export function ApiConfigPage() {
           {status && <div className="auth-message success">{status}</div>}
 
           <button className="primary-auth-action" disabled={isSubmitting || !hasDesktopBridge} type="submit">
-            {isSubmitting ? "验证中..." : "验证并绑定数据源"}
+            {isSubmitting ? "验证中..." : "验证并保存备用数据源"}
           </button>
         </form>
 
@@ -511,26 +581,43 @@ export function ApiConfigPage() {
           <div className="module-card-header">
             <RefreshCw size={20} />
             <div>
-              <h2>同步准备</h2>
-              <p>绑定成功后会拉取默认观察列表快照，以及 1m / 5m / 15m / 1h / 1d / 1w K 线缓存。</p>
+              <h2>数据源优先级</h2>
+              <p>图表、缓存和策略后续只读取 Market Data Gateway，不直接绑定具体供应商。</p>
             </div>
           </div>
 
+          <ol className="provider-priority-list">
+            {apiProviderPriorityItems.map((provider) => {
+              const providerStatus = getApiProviderStatus(provider.id, providerBindingState);
+
+              return (
+                <li className={provider.role === "primary" ? "primary" : ""} key={provider.id}>
+                  <span className="provider-order">{provider.order}</span>
+                  {getProviderIcon(provider.id)}
+                  <div>
+                    <strong>{provider.name}</strong>
+                    <small>{provider.role === "primary" ? "主行情源" : "备用数据源"}</small>
+                    <div className="provider-badge-row">
+                      {provider.capabilityBadges.map((badge) => (
+                        <span key={badge}>{badge}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <em className={`provider-status-pill ${providerStatus}`}>{formatApiProviderStatus(providerStatus)}</em>
+                </li>
+              );
+            })}
+          </ol>
+
           <div className="binding-summary">
-            <span>主数据源</span>
-            <strong>{storedAlphaFeedBinding ? "AlphaFeed 已绑定" : "等待绑定"}</strong>
+            <span>AlphaFeed REST</span>
+            <strong>{storedAlphaFeedBinding ? "已配置" : "未配置"}</strong>
             {storedAlphaFeedBinding && <small>API Key：{storedAlphaFeedBinding.apiKeyPreview}</small>}
           </div>
 
           <div className="binding-summary">
-            <span>备用源</span>
-            <strong>{storedLongPortBinding ? "长桥已绑定" : "未启用"}</strong>
-            {storedLongPortBinding && <small>App Key：{storedLongPortBinding.appKeyPreview}</small>}
-          </div>
-
-          <div className="binding-summary">
-            <span>会员流式通道</span>
-            <strong>{storedAlphaFeedStreamBinding ? "WebSocket 已预留" : "未预留"}</strong>
+            <span>AlphaFeed WebSocket</span>
+            <strong>{storedAlphaFeedStreamBinding ? "已预留" : "未预留"}</strong>
             {storedAlphaFeedStreamBinding && (
               <small>
                 {storedAlphaFeedStreamBinding.mode === "all-symbols" ? "全标的流" : "关注列表流"} · API Key：
@@ -539,17 +626,32 @@ export function ApiConfigPage() {
             )}
           </div>
 
-          <ol className="sync-step-list">
-            {initialMarketDataSyncSteps.map((step) => (
-              <li className={completedSteps.includes(step.id) ? "completed" : runningStep === step.id ? "running" : ""} key={step.id}>
-                <CheckCircle2 size={17} />
-                <span>{step.label}</span>
-              </li>
-            ))}
-          </ol>
+          <div className="binding-summary">
+            <span>长桥备用源</span>
+            <strong>{storedLongPortBinding ? "已配置" : "未配置"}</strong>
+            {storedLongPortBinding && <small>App Key：{storedLongPortBinding.appKeyPreview}</small>}
+          </div>
+
+          <div className="sync-progress-panel">
+            <div className="module-card-header compact">
+              <CircleDot size={18} />
+              <div>
+                <h2>同步准备</h2>
+                <p>绑定备用源后会预热默认观察列表、快照与必要 K 线缓存。</p>
+              </div>
+            </div>
+            <ol className="sync-step-list">
+              {initialMarketDataSyncSteps.map((step) => (
+                <li className={completedSteps.includes(step.id) ? "completed" : runningStep === step.id ? "running" : ""} key={step.id}>
+                  <CheckCircle2 size={17} />
+                  <span>{step.label}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
 
           <p className="security-note">
-            AlphaFeed 与长桥密钥只通过桌面安全桥参与联网验证；本地普通缓存只保存脱敏摘要、供应商状态和行情缓存。
+            API Key、Secret 与 Access Token 只通过桌面安全桥加密保存；普通本地缓存只保存脱敏摘要、供应商状态和行情缓存。
           </p>
         </aside>
       </div>
