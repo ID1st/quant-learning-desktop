@@ -2,7 +2,7 @@
 
 ## Status
 
-The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 5 are complete; the next slice is the `stock-sdk` adapter behind the gateway.
+The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 6 are complete; the next slice is controlled `stock-sdk` real-data testing for CN/HK/US quotes, daily bars, weekly bars, and intraday bars.
 
 Completed foundations:
 
@@ -30,6 +30,7 @@ Completed foundations:
 - Market Data Provider Gateway phase 3 is in place: cache and sync provider IDs now support legacy `alphafeed`/`longport` plus gateway IDs `stock-sdk`/`alphafeed-rest`/`alphafeed-websocket`/`longbridge`. Realtime intraday merge rules also preserve newer live bars from gateway live-capable providers.
 - Market Data Provider Gateway phase 4 is in place: the chart workspace now reads historical bars, intraday bars, REST quote snapshots, and WebSocket quote snapshots through a chart-facing gateway adapter while preserving the existing visible AlphaFeed/LongBridge behavior.
 - Market Data Provider Gateway phase 5 is in place: the API configuration page is provider-priority oriented, with `stock-sdk` shown as the default-expanded primary placeholder and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge shown as collapsed fallback provider sections.
+- Market Data Provider Gateway phase 6 is in place: the `stock-sdk` gateway adapter exists behind an injectable operations boundary, defaults to `unconfigured`, is not used by the production chart flow, and has tests for symbol normalization, quote/bar normalization, deterministic `open: 0` repair, invalid OHLC rejection, and fallback behavior.
 
 ## Current Data Flow
 
@@ -40,7 +41,7 @@ Completed foundations:
 5. Initial sync can warm cached bars, while the chart workspace can load active-symbol historical bars on demand.
 6. Quote snapshots and K-line bars are written to local cache.
 7. Chart workspace reads cached K-line bars by symbol, market, and timeframe.
-8. The chart workspace creates provider-neutral gateway adapters from the saved desktop credentials and calls the gateway for historical bars, intraday bars, quote polling, and stream snapshots.
+8. The chart workspace creates provider-neutral gateway adapters from the saved desktop credentials and calls the gateway for historical bars, intraday bars, quote polling, and stream snapshots. The `stock-sdk` adapter is present but remains disabled and unregistered in this production chart path.
 9. If AlphaFeed WebSocket member credentials exist, the desktop main process opens the stream session first and normalizes incoming quotes into the same snapshot cache through the gateway adapter.
 10. If WebSocket is still connecting, disconnected, unauthorized, permission-denied, or has no first snapshot, the chart workspace keeps using AlphaFeed REST batch polling as fallback through the gateway adapter.
 11. AlphaFeed REST polling fetches the deduplicated watchlist in batches and keeps the latest quote snapshot per symbol.
@@ -139,6 +140,20 @@ Acceptance:
 - Provider priority is shown as `stock-sdk`, AlphaFeed REST, AlphaFeed WebSocket, LongBridge.
 - Existing AlphaFeed REST, AlphaFeed WebSocket, and LongBridge credential flows remain usable.
 - Typecheck, desktop tests, and browser UI smoke verification pass.
+
+### 2.8. stock-sdk Adapter Behind Gateway
+
+Status: completed.
+
+Goal: implement a provider-neutral `stock-sdk` adapter without switching production market-data traffic.
+
+Acceptance:
+
+- `stock-sdk` remains disabled by default and reports `unconfigured`, so the gateway can fall back to AlphaFeed/LongBridge without calling it.
+- Adapter tests cover CN/HK/US symbol normalization for quotes and bars.
+- Adapter tests cover quote snapshots, daily/weekly bars, intraday bars, deterministic zero-open repair, and invalid OHLC rejection.
+- The app-facing symbol, market, provider, timeframe, and timestamp metadata are preserved on normalized records.
+- Typecheck and desktop tests pass.
 
 ### 3. Super Chart Capability Completion
 

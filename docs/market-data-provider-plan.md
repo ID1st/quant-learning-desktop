@@ -10,7 +10,7 @@ The system currently uses a split provider model:
 
 The next decision is to introduce a provider-neutral market-data gateway before changing production traffic. `chengzuopeng/stock-sdk` is a candidate primary provider, while AlphaFeed REST, AlphaFeed WebSocket, and LongBridge should become fallback providers after the gateway is in place.
 
-This document is a design and migration plan only. It does not authorize direct production integration of `stock-sdk` before the gateway, cache, and UI compatibility slices are implemented and verified.
+This document is a design and migration plan. The `stock-sdk` adapter exists behind the provider gateway, but it is disabled by default and is not yet authorized as the production primary source.
 
 ## Candidate Primary Provider: stock-sdk
 
@@ -358,6 +358,8 @@ Acceptance:
 
 ### Step 6: stock-sdk Adapter Behind Gateway
 
+Status: completed. The adapter has been added in `apps/desktop/src/features/marketData/stockSdkGatewayProvider.ts` with unit coverage in `apps/desktop/tests/stock-sdk-gateway-provider.test.ts`. It uses an injectable operations boundary, so the app does not need to import or call the real SDK until the controlled data-test phase. By default it reports `unconfigured`, which lets the gateway fall back to existing providers without calling `stock-sdk`.
+
 Scope:
 
 - Add the adapter after the gateway is stable.
@@ -371,7 +373,23 @@ Acceptance:
 - Tests cover CN `open: 0` repair/rejection and US secid mapping.
 - Provider health maps network, empty, invalid response, rate-limit, and delayed states.
 
-### Step 7: Controlled Primary Switch
+### Step 7: Controlled stock-sdk Data Test
+
+Scope:
+
+- Install or dynamically load the real `stock-sdk` package in a controlled adapter test path.
+- Test CN/HK/US quotes, daily bars, weekly bars, and intraday bars against known symbols.
+- Record latency, empty responses, invalid OHLC rows, provider delay behavior, and rate-limit behavior.
+- Keep production chart priority unchanged while tests run.
+
+Acceptance:
+
+- Real data tests produce a repeatable report for CN/HK/US coverage.
+- Any data-quality repairs stay inside the `stock-sdk` adapter.
+- No real `stock-sdk` request path is enabled in the chart until the test report is accepted.
+- If tests fail, AlphaFeed REST/WebSocket and LongBridge remain unaffected.
+
+### Step 8: Controlled Primary Switch
 
 Scope:
 
@@ -422,5 +440,5 @@ Acceptance:
 ## Remaining Work
 
 1. Confirm whether `stock-sdk` exposes or plans a native WebSocket stream. Until then, do not model it as a WebSocket provider.
-2. Add `stock-sdk` adapter after contracts and cache migration are in place.
+2. Run controlled real-data tests for the disabled `stock-sdk` adapter before making it primary.
 3. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.

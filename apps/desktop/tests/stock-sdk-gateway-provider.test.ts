@@ -1,0 +1,223 @@
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  createStockSdkGatewayProvider,
+  normalizeStockSdkSymbol,
+  toStockSdkBarRequest,
+  toStockSdkQuoteRequest,
+  type StockSdkGatewayProviderOperations,
+  type StockSdkQuoteRequest,
+} from "../src/features/marketData/stockSdkGatewayProvider.ts";
+import { createMarketDataGateway, createMarketDataProviderRegistry } from "../src/features/marketData/marketDataProviderGateway.ts";
+import type {
+  GatewayMarketDataProvider,
+  GatewayMarketQuoteSnapshot,
+  MarketDataProviderCapability,
+} from "../src/features/marketData/marketDataProviderGateway.ts";
+
+const fallbackCapability: MarketDataProviderCapability = {
+  realtimeQuote: true,
+  historicalBars: false,
+  intradayBars: false,
+  websocket: false,
+  batchQuote: true,
+  markets: ["US"],
+  timeframes: ["realtime"],
+  delayLevel: "realtime",
+};
+
+describe("Stock SDK symbol normalization", () => {
+  it("normalizes app symbols to stock-sdk quote and bar symbols", () => {
+    assert.equal(normalizeStockSdkSymbol("600519.SH", "CN", "quote"), "sh600519");
+    assert.equal(normalizeStockSdkSymbol("000001.SZ", "CN", "quote"), "sz000001");
+    assert.equal(normalizeStockSdkSymbol("600519.SH", "CN", "historical"), "600519");
+    assert.equal(normalizeStockSdkSymbol("00700.HK", "HK", "quote"), "00700");
+    assert.equal(normalizeStockSdkSymbol("hk700", "HK", "intraday"), "00700");
+    assert.equal(normalizeStockSdkSymbol("AAPL.US", "US", "quote"), "AAPL");
+    assert.equal(normalizeStockSdkSymbol("AAPL.US", "US", "historical"), "105.AAPL");
+  });
+
+  it("creates provider requests without losing the app-facing symbol", () => {
+    assert.deepEqual(toStockSdkQuoteRequest({ market: "CN", symbol: "600519.SH" }), {
+      market: "CN",
+      symbol: "600519.SH",
+      providerSymbol: "sh600519",
+    });
+
+    assert.deepEqual(toStockSdkBarRequest({ market: "US", symbol: "AAPL.US", timeframe: "1w", count: 120 }, "historical"), {
+      market: "US",
+      symbol: "AAPL.US",
+      providerSymbol: "105.AAPL",
+      timeframe: "1w",
+      period: "weekly",
+      count: 120,
+      startTime: undefined,
+      endTime: undefined,
+    });
+  });
+});
+
+describe("Stock SDK gateway provider", () => {
+  it("is unconfigured by default so the gateway falls back without calling it", async () => {
+    const stockSdkProvider = createStockSdkGatewayProvider(createThrowingOperations());
+    const fallbackQuote: GatewayMarketQuoteSnapshot = {
+      provider: "alphafeed-rest",
+      market: "US",
+      symbol: "AAPL.US",
+      price: 294.28,
+      timestamp: 1_788_288_000_000,
+    };
+    const fallbackProvider: GatewayMarketDataProvider = {
+      id: "alphafeed-rest",
+      displayName: "AlphaFeed REST",
+      capability: fallbackCapability,
+      getHealth: async () => ({
+        provider: "alphafeed-rest",
+        status: "healthy",
+        message: "ok",
+        checkedAt: "2026-07-07T00:00:00.000Z",
+        capability: fallbackCapability,
+      }),
+      fetchQuoteSnapshot: async () => [fallbackQuote],
+    };
+    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([stockSdkProvider, fallbackProvider]));
+
+    const result = await gateway.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]);
+
+    assert.equal(result.ok, true);
+    assert.equal(result.provider, "alphafeed-rest");
+    assert.deepEqual(result.triedProviders, ["stock-sdk", "alphafeed-rest"]);
+    assert.deepEqual(result.data, [fallbackQuote]);
+  });
+
+  it("maps stock-sdk quotes into provider-neutral snapshots even when batch results are unordered", async () => {
+    const capturedRequests: StockSdkQuoteRequest[][] = [];
+    const provider = createStockSdkGatewayProvider(
+      {
+        fetchQuoteSnapshot: async (requests) => {
+          capturedRequests.push([...requests]);
+          return [
+            {
+              symbol: "AAPL",
+              name: "Apple",
+              current: 294.28,
+              lastClose: 294.34,
+              timestamp: 1_788_288_000_000,
+            },
+            {
+              code: "00700",
+              name: "Tencent",
+              lastPrice: 83.2,
+              prevClose: 82,
+              time: 1_788_288_000,
+            },
+            {
+              code: "sh600519",
+              name: "Kweichow Moutai",
+              price: "1468.1",
+              previousClose: 1460,
+              open: 1462,
+              high: 1475,
+              low: 1458,
+              changePercent: 0.54,
+              volume: 1000,
+              amount: 1_468_100,
+              datetime: "2026-07-07 14:30:00",
+            },
+          ];
+        },
+        fetchHistoricalBars: async () => [],
+        fetchIntradayBars: async () => [],
+      },
+      { enabled: true },
+    );
+    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([provider]), ["stock-sdk"]);
+
+    const result = await gateway.fetchQuoteSnapshot([
+      { market: "CN", symbol: "600519.SH" },
+      { market: "HK", symbol: "00700.HK" },
+      { market: "US", symbol: "AAPL.US" },
+    ]);
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(
+      capturedRequests[0]?.map((request) => request.providerSymbol),
+      ["sh600519", "00700", "AAPL"],
+    );
+    assert.deepEqual(
+      result.data.map((snapshot) => [snapshot.provider, snapshot.market, snapshot.symbol, snapshot.price]),
+      [
+        ["stock-sdk", "CN", "600519.SH", 1468.1],
+        ["stock-sdk", "HK", "00700.HK", 83.2],
+        ["stock-sdk", "US", "AAPL.US", 294.28],
+      ],
+    );
+  });
+
+  it("maps historical and intraday bars while repairing deterministic zero opens", async () => {
+    const capturedHistorical: string[] = [];
+    const capturedIntraday: string[] = [];
+    const provider = createStockSdkGatewayProvider(
+      {
+        fetchQuoteSnapshot: async () => [],
+        fetchHistoricalBars: async (request) => {
+          capturedHistorical.push(`${request.providerSymbol}:${request.period}`);
+          return [
+            { date: "2026-07-06", open: 290, high: 296, low: 289, close: 294, volume: 1000 },
+            { date: "2026-07-07", open: 294, high: 298, low: 293, close: 297, volume: 1200 },
+          ];
+        },
+        fetchIntradayBars: async (request) => {
+          capturedIntraday.push(`${request.providerSymbol}:${request.period}`);
+          return [
+            { datetime: "2026-07-07 09:30:00", open: 0, high: 83.5, low: 83.1, close: 83.2, volume: 100 },
+            { datetime: "2026-07-07 09:31:00", open: 0, high: 83.6, low: 83.2, close: 83.4, volume: 120 },
+          ];
+        },
+      },
+      { enabled: true },
+    );
+
+    const historicalBars = await provider.fetchHistoricalBars({ market: "US", symbol: "AAPL.US", timeframe: "1w" });
+    const intradayBars = await provider.fetchIntradayBars({ market: "HK", symbol: "00700.HK", timeframe: "1m" });
+
+    assert.deepEqual(capturedHistorical, ["105.AAPL:weekly"]);
+    assert.deepEqual(capturedIntraday, ["00700:1"]);
+    assert.equal(historicalBars[0]?.provider, "stock-sdk");
+    assert.equal(historicalBars[0]?.timeframe, "1w");
+    assert.equal(intradayBars[0]?.open, 83.2);
+    assert.equal(intradayBars[1]?.open, 83.2);
+  });
+
+  it("rejects inconsistent OHLC values before they reach the chart", async () => {
+    const provider = createStockSdkGatewayProvider(
+      {
+        fetchQuoteSnapshot: async () => [],
+        fetchHistoricalBars: async () => [{ date: "2026-07-07", open: 10, high: 9, low: 8, close: 10, volume: 1 }],
+        fetchIntradayBars: async () => [],
+      },
+      { enabled: true },
+    );
+
+    await assert.rejects(
+      () => provider.fetchHistoricalBars({ market: "CN", symbol: "600519.SH", timeframe: "1d" }),
+      /inconsistent OHLC/,
+    );
+    assert.equal((await provider.getHealth()).status, "unavailable");
+  });
+});
+
+function createThrowingOperations(): StockSdkGatewayProviderOperations {
+  return {
+    fetchQuoteSnapshot: async () => {
+      throw new Error("stock-sdk should not be called");
+    },
+    fetchHistoricalBars: async () => {
+      throw new Error("stock-sdk should not be called");
+    },
+    fetchIntradayBars: async () => {
+      throw new Error("stock-sdk should not be called");
+    },
+  };
+}

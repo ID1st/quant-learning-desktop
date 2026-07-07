@@ -213,7 +213,8 @@ Progress:
 - Phase 3 completed: provider IDs were centralized, and sync state, quote snapshots, K-line bars, K-line metadata, and realtime merge rules now accept legacy and gateway provider IDs.
 - Phase 4 completed: chart workspace data loading now goes through the chart-facing market data gateway adapter while preserving current LongBridge history, AlphaFeed REST polling, and AlphaFeed WebSocket fallback behavior.
 - Phase 5 completed: API configuration now presents `stock-sdk` as the default-expanded primary placeholder and keeps AlphaFeed REST, AlphaFeed WebSocket, and LongBridge as collapsed fallback provider sections with visible priority/status.
-- The `stock-sdk` adapter behind the gateway is the next slice.
+- Phase 6 completed: the disabled-by-default `stock-sdk` adapter was added behind the gateway with injectable operations, symbol normalization, quote/bar normalization, deterministic zero-open repair, invalid OHLC rejection, and fallback tests.
+- Controlled real-data testing for `stock-sdk` CN/HK/US quotes and bars is the next slice.
 
 Acceptance:
 
