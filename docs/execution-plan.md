@@ -209,7 +209,8 @@ Deliverables:
 Progress:
 
 - Phase 1 completed: provider-neutral contracts, capability model, health status model, in-memory registry, and gateway fallback shell were added under `apps/desktop/src/features/marketData/`.
-- Current production chart fetching is intentionally unchanged. AlphaFeed and LongBridge compatibility wrappers are the next slice.
+- Phase 2 completed: AlphaFeed REST, AlphaFeed WebSocket, and LongBridge compatibility providers were added under `apps/desktop/src/features/marketData/`. They map existing bridge results to gateway quote/bar shapes while preserving current production chart fetching.
+- Current production chart fetching is intentionally unchanged. Cache provider ID compatibility is the next slice before moving chart loading to the gateway.
 
 Acceptance:
 

@@ -25,7 +25,8 @@ Completed foundations:
 - Built-in strategy runtime foundation and strategy render-layer contract.
 - Minimal UTORB and Trend Targets strategy implementations.
 - `chengzuopeng/stock-sdk` has been evaluated as a candidate primary market data source. Smoke tests confirm useful REST coverage for CN/HK/US quotes, daily bars, and intraday minute data, but also confirm symbol-normalization and data-quality rules are required before integration.
-- Market Data Provider Gateway phase 1 is in place: provider IDs, capability declarations, health states, provider registry, and gateway fallback shell. Production chart fetching still uses the existing AlphaFeed and LongBridge paths until compatibility wrappers are added.
+- Market Data Provider Gateway phase 1 is in place: provider IDs, capability declarations, health states, provider registry, and gateway fallback shell.
+- Market Data Provider Gateway phase 2 is in place: AlphaFeed REST, AlphaFeed WebSocket, and LongBridge have compatibility providers that map existing bridge results into the provider-neutral gateway shape. Production chart fetching is intentionally unchanged until cache provider ID compatibility is completed.
 
 ## Current Data Flow
 
@@ -83,7 +84,7 @@ Acceptance:
 
 ### 2. Market Data Provider Gateway Foundation
 
-Status: in progress. Phase 1 added the provider-neutral contracts and gateway/registry shell. The next slice wraps existing AlphaFeed and LongBridge flows without changing chart behavior.
+Status: completed. Phase 1 added the provider-neutral contracts and gateway/registry shell. Phase 2 wrapped existing AlphaFeed REST, AlphaFeed WebSocket, and LongBridge flows without changing chart behavior.
 
 Goal: add the gateway and registry as a compatibility layer around the existing AlphaFeed and LongBridge flows.
 
@@ -93,6 +94,19 @@ Acceptance:
 - Existing cache stays readable.
 - Typecheck passes after each slice.
 - Renderer pages start moving toward provider-neutral gateway calls instead of direct provider-specific calls.
+
+### 2.5. Market Data Provider Cache Compatibility
+
+Status: next.
+
+Goal: extend cache and sync provider IDs so both legacy `alphafeed`/`longport` and gateway IDs `stock-sdk`/`alphafeed-rest`/`alphafeed-websocket`/`longbridge` can coexist safely.
+
+Acceptance:
+
+- Existing cache entries remain readable.
+- New provider IDs can be sanitized, written, indexed, and reported.
+- Historical refreshes still cannot overwrite newer live bars.
+- Typecheck and desktop cache tests pass.
 
 ### 3. Super Chart Capability Completion
 

@@ -295,7 +295,7 @@ Acceptance:
 
 ### Step 2: Gateway Foundation
 
-Status: in progress. The provider-neutral type contracts, registry, and fallback gateway shell have been added in `apps/desktop/src/features/marketData/marketDataProviderGateway.ts`, with unit coverage in `apps/desktop/tests/market-data-provider-gateway.test.ts`. Existing production data fetching has not been switched yet.
+Status: completed. The provider-neutral type contracts, registry, and fallback gateway shell have been added in `apps/desktop/src/features/marketData/marketDataProviderGateway.ts`, with unit coverage in `apps/desktop/tests/market-data-provider-gateway.test.ts`. AlphaFeed REST, AlphaFeed WebSocket, and LongBridge compatibility providers have been added in `apps/desktop/src/features/marketData/marketDataCompatibilityProviders.ts`, with unit coverage in `apps/desktop/tests/market-data-compatibility-providers.test.ts`. Existing production data fetching has not been switched yet.
 
 Scope:
 
@@ -308,6 +308,7 @@ Acceptance:
 - `npm run typecheck` passes.
 - Existing desktop tests pass.
 - Existing chart can still read current cache.
+- Gateway compatibility providers map legacy provider IDs into `alphafeed-rest`, `alphafeed-websocket`, and `longbridge` without changing legacy bridge result contracts.
 
 ### Step 3: Cache Compatibility
 
@@ -401,6 +402,7 @@ Acceptance:
 
 - Provider registry unit tests: capability lookup, duplicate provider protection, priority order, missing provider behavior.
 - Gateway unit tests: fallback order, health classification, no-data fallback, provider-error fallback.
+- Compatibility provider unit tests: AlphaFeed REST quote/bar mapping, AlphaFeed WebSocket snapshot mapping, LongBridge quote/bar mapping, and fallback after a failed primary provider.
 - Symbol normalization tests: CN, HK, US app symbols to provider request symbols.
 - Adapter normalization tests: quote snapshots, daily bars, intraday bars, invalid OHLC handling.
 - Cache compatibility tests: legacy provider IDs and new provider IDs.
@@ -411,9 +413,8 @@ Acceptance:
 ## Remaining Work
 
 1. Confirm whether `stock-sdk` exposes or plans a native WebSocket stream. Until then, do not model it as a WebSocket provider.
-2. Wrap AlphaFeed REST, AlphaFeed WebSocket, and LongBridge with compatibility providers behind the gateway while leaving chart behavior unchanged.
-3. Extend cache provider IDs without breaking legacy `alphafeed` and `longport` entries.
-4. Move chart loading to the gateway after wrappers and cache compatibility are verified.
-5. Redesign API configuration page around provider priority.
-6. Add `stock-sdk` adapter after contracts and cache migration are in place.
-7. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.
+2. Extend cache provider IDs without breaking legacy `alphafeed` and `longport` entries.
+3. Move chart loading to the gateway after wrappers and cache compatibility are verified.
+4. Redesign API configuration page around provider priority.
+5. Add `stock-sdk` adapter after contracts and cache migration are in place.
+6. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.
