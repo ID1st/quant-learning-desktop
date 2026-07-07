@@ -1,6 +1,7 @@
 import type { Market } from "@quant/shared";
 import type { MarketQuoteSnapshot } from "./marketDataSyncService.ts";
 import type { MarketDataBar, MarketBarCacheKey } from "./marketBarCacheService.ts";
+import { isHistoricalMarketDataProviderId, isLiveMarketDataProviderId } from "./marketDataProviderIds.ts";
 
 const minuteMs = 60_000;
 
@@ -73,7 +74,7 @@ export function mergeHistoricalRealtimeBarsWithLiveBars(
   const matchingHistory = historicalBars.filter((bar) => isMatchingRealtimeBar(bar, key));
   const latestHistoricalTimestamp = matchingHistory.reduce((latest, bar) => Math.max(latest, bar.timestamp), Number.NEGATIVE_INFINITY);
   const retainedLiveBars = currentBars.filter(
-    (bar) => isMatchingRealtimeBar(bar, key) && bar.provider === "alphafeed" && bar.timestamp > latestHistoricalTimestamp,
+    (bar) => isMatchingRealtimeBar(bar, key) && isLiveMarketDataProviderId(bar.provider) && bar.timestamp > latestHistoricalTimestamp,
   );
 
   return retainRecentRealtimeSessions([...matchingHistory, ...retainedLiveBars], key.market);
@@ -87,10 +88,10 @@ export function analyzeRealtimeHistoryGap(
 ) {
   const matchingBars = bars.filter((bar) => isMatchingRealtimeBar(bar, key));
   const latestHistoricalTimestamp = matchingBars
-    .filter((bar) => bar.provider === "longport")
+    .filter((bar) => isHistoricalMarketDataProviderId(bar.provider))
     .reduce((latest, bar) => Math.max(latest, bar.timestamp), Number.NEGATIVE_INFINITY);
   const latestLiveTimestamp = matchingBars
-    .filter((bar) => bar.provider === "alphafeed")
+    .filter((bar) => isLiveMarketDataProviderId(bar.provider))
     .reduce((latest, bar) => Math.max(latest, bar.timestamp), Number.NEGATIVE_INFINITY);
   const comparisonTimestamp = Number.isFinite(latestLiveTimestamp) ? latestLiveTimestamp : now;
   const gapMs = Number.isFinite(latestHistoricalTimestamp) ? Math.max(0, comparisonTimestamp - latestHistoricalTimestamp) : 0;

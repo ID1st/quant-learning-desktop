@@ -150,6 +150,86 @@ test("writeMarketBarCache accepts realtime bars and keeps two-day retention meta
   assert.equal(summary.entries[0]?.retentionDays, 2);
 });
 
+test("writeMarketBarCache accepts gateway provider ids and keeps them readable", () => {
+  const database = createTestDatabase();
+  const bars: MarketDataBar[] = [
+    {
+      symbol: "600519.SH",
+      market: "CN",
+      timeframe: "1d",
+      timestamp: 1782777600000,
+      open: 1450,
+      high: 1468,
+      low: 1448,
+      close: 1462,
+      volume: 1000,
+      provider: "stock-sdk",
+    },
+    {
+      symbol: "600519.SH",
+      market: "CN",
+      timeframe: "1d",
+      timestamp: 1782864000000,
+      open: 1460,
+      high: 1472,
+      low: 1455,
+      close: 1468.1,
+      volume: 1100,
+      provider: "alphafeed-rest",
+    },
+  ];
+
+  writeMarketBarCache(cacheKey, bars, { database });
+  const cached = readMarketBarCache(cacheKey, { database });
+  const summary = readMarketBarCacheSummary(database);
+
+  assert.deepEqual(
+    cached.map((bar) => bar.provider),
+    ["stock-sdk", "alphafeed-rest"],
+  );
+  assert.equal(summary.entries[0]?.provider, "stock-sdk");
+});
+
+test("readMarketBarCacheSummary accepts gateway provider ids in existing metadata", () => {
+  const database = createTestDatabase({
+    "test.market-bars:index": JSON.stringify({
+      version: 1,
+      updatedAt: "2026-07-01T00:00:00.000Z",
+      data: [
+        {
+          symbol: "AAPL.US",
+          market: "US",
+          timeframe: "realtime",
+          provider: "alphafeed-websocket",
+          firstTimestamp: 1782777600000,
+          lastTimestamp: 1782777610000,
+          barCount: 2,
+          estimatedBytes: 200,
+          retentionDays: 2,
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+        {
+          symbol: "09988.HK",
+          market: "HK",
+          timeframe: "1d",
+          provider: "longbridge",
+          firstTimestamp: 1782777600000,
+          lastTimestamp: 1782864000000,
+          barCount: 2,
+          estimatedBytes: 200,
+          retentionDays: 1825,
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+      ],
+    }),
+  });
+
+  assert.deepEqual(
+    readMarketBarCacheSummary(database).entries.map((entry) => entry.provider),
+    ["alphafeed-websocket", "longbridge"],
+  );
+});
+
 test("readMarketBarCache falls back to an empty array for malformed cache data", () => {
   const database = createTestDatabase({
     "test.market-bars:CN:600519.SH:1d": JSON.stringify({

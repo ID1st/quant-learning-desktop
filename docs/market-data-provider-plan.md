@@ -312,6 +312,8 @@ Acceptance:
 
 ### Step 3: Cache Compatibility
 
+Status: completed. Provider IDs have been centralized in `apps/desktop/src/features/marketData/marketDataProviderIds.ts`. Market sync state, quote snapshot cache, K-line cache bars, and K-line cache metadata now accept legacy `alphafeed`/`longport` plus gateway IDs `stock-sdk`/`alphafeed-rest`/`alphafeed-websocket`/`longbridge`.
+
 Scope:
 
 - Extend provider IDs while keeping legacy `alphafeed` and `longport` cache entries readable.
@@ -322,6 +324,7 @@ Acceptance:
 - Old cache entries remain readable.
 - New provider IDs can be sanitized and written.
 - Tests cover legacy and new provider IDs.
+- Realtime intraday merge rules preserve newer live bars from `alphafeed`, `alphafeed-rest`, `alphafeed-websocket`, and `stock-sdk`.
 
 ### Step 4: Chart Uses Gateway
 
@@ -405,16 +408,15 @@ Acceptance:
 - Compatibility provider unit tests: AlphaFeed REST quote/bar mapping, AlphaFeed WebSocket snapshot mapping, LongBridge quote/bar mapping, and fallback after a failed primary provider.
 - Symbol normalization tests: CN, HK, US app symbols to provider request symbols.
 - Adapter normalization tests: quote snapshots, daily bars, intraday bars, invalid OHLC handling.
-- Cache compatibility tests: legacy provider IDs and new provider IDs.
-- Realtime merge tests: historical refresh must preserve newer live bars from any live-capable provider.
+- Cache compatibility tests: legacy provider IDs, new provider IDs, sync state provider IDs, quote snapshot provider IDs, K-line bars, and K-line metadata.
+- Realtime merge tests: historical refresh must preserve newer live bars from any live-capable provider, including gateway provider IDs.
 - UI smoke tests: API configuration page sections, chart still renders current cached data.
 - Full checks after each implementation slice: `npm run typecheck`, relevant package tests, and `npm run build` before packaging work.
 
 ## Remaining Work
 
 1. Confirm whether `stock-sdk` exposes or plans a native WebSocket stream. Until then, do not model it as a WebSocket provider.
-2. Extend cache provider IDs without breaking legacy `alphafeed` and `longport` entries.
-3. Move chart loading to the gateway after wrappers and cache compatibility are verified.
-4. Redesign API configuration page around provider priority.
-5. Add `stock-sdk` adapter after contracts and cache migration are in place.
-6. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.
+2. Move chart loading to the gateway after wrappers and cache compatibility are verified.
+3. Redesign API configuration page around provider priority.
+4. Add `stock-sdk` adapter after contracts and cache migration are in place.
+5. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.

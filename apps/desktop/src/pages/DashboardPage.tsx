@@ -16,7 +16,16 @@ function formatChangePercent(value: number) {
 }
 
 function formatProvider(provider: string) {
-  return provider === "alphafeed" ? "AlphaFeed" : "长桥";
+  const providerLabels: Record<string, string> = {
+    alphafeed: "AlphaFeed",
+    longport: "LongBridge",
+    "stock-sdk": "Stock SDK",
+    "alphafeed-rest": "AlphaFeed REST",
+    "alphafeed-websocket": "AlphaFeed WebSocket",
+    longbridge: "LongBridge",
+  };
+
+  return providerLabels[provider] ?? provider;
 }
 
 export function DashboardPage() {

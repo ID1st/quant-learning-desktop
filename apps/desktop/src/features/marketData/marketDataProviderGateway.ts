@@ -1,6 +1,7 @@
 import type { Market, Timeframe } from "@quant/shared";
+import type { GatewayMarketDataProviderId } from "./marketDataProviderIds.ts";
 
-export type GatewayMarketDataProviderId = "stock-sdk" | "alphafeed-rest" | "alphafeed-websocket" | "longbridge";
+export type { GatewayMarketDataProviderId } from "./marketDataProviderIds.ts";
 
 export type MarketDataProviderHealthStatus =
   | "unconfigured"

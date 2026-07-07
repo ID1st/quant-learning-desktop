@@ -1,6 +1,6 @@
 import type { Market, Timeframe } from "@quant/shared";
 import { appLocalDatabase, type LocalDatabase } from "../persistence/localDatabase.ts";
-import type { MarketDataProviderId } from "./marketDataSyncService.ts";
+import { sanitizeMarketDataProviderId, type MarketDataProviderId } from "./marketDataProviderIds.ts";
 
 export interface MarketDataBar {
   symbol: string;
@@ -83,7 +83,7 @@ function sanitizeTimeframe(value: unknown): Timeframe | null {
 }
 
 function sanitizeProvider(value: unknown): MarketDataProviderId | null {
-  return value === "alphafeed" || value === "longport" ? value : null;
+  return sanitizeMarketDataProviderId(value);
 }
 
 function sanitizeRetentionDays(timeframe: Timeframe, value: unknown) {

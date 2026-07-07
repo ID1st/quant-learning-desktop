@@ -1,6 +1,14 @@
 import type { Market } from "@quant/shared";
 import { appLocalDatabase, type LocalDatabase } from "../persistence/localDatabase.ts";
 import { writeMarketBarCache, type MarketDataBar } from "./marketBarCacheService.ts";
+import {
+  sanitizeMarketDataProviderId,
+  type GatewayMarketDataProviderId,
+  type LegacyMarketDataProviderId,
+  type MarketDataProviderId,
+} from "./marketDataProviderIds.ts";
+
+export { sanitizeMarketDataProviderId, type GatewayMarketDataProviderId, type LegacyMarketDataProviderId, type MarketDataProviderId };
 
 export type MarketDataSyncStepId =
   | "api-verification"
@@ -10,7 +18,6 @@ export type MarketDataSyncStepId =
   | "historical-candles";
 export type MarketDataSyncStepStatus = "pending" | "running" | "completed" | "failed";
 export type MarketDataSyncStatus = "idle" | "running" | "completed" | "failed";
-export type MarketDataProviderId = "alphafeed" | "longport";
 
 export interface MarketDataProviderBinding {
   apiUrl: string;
@@ -182,6 +189,8 @@ function sanitizeSyncState(value: unknown): MarketDataSyncState | null {
   }
 
   const state = value as Partial<MarketDataSyncState>;
+  const provider = sanitizeMarketDataProviderId(state.provider);
+  const fallbackProvider = sanitizeMarketDataProviderId(state.fallbackProvider);
   const markets = Array.isArray(state.markets) ? state.markets.map(sanitizeMarket).filter((market): market is Market => market !== null) : [];
   const steps = Array.isArray(state.steps)
     ? state.steps.map(sanitizeSyncStep).filter((step): step is MarketDataSyncStep => step !== null)
@@ -189,8 +198,7 @@ function sanitizeSyncState(value: unknown): MarketDataSyncState | null {
 
   if (
     state.version !== 1 ||
-    typeof state.provider !== "string" ||
-    !["alphafeed", "longport"].includes(state.provider) ||
+    !provider ||
     typeof state.status !== "string" ||
     typeof state.appKeyPreview !== "string" ||
     typeof state.startedAt !== "string" ||
@@ -205,8 +213,8 @@ function sanitizeSyncState(value: unknown): MarketDataSyncState | null {
 
   return {
     version: 1,
-    provider: state.provider as MarketDataProviderId,
-    fallbackProvider: ["alphafeed", "longport"].includes(state.fallbackProvider ?? "") ? state.fallbackProvider : undefined,
+    provider,
+    fallbackProvider: fallbackProvider ?? undefined,
     status: ["idle", "running", "completed", "failed"].includes(state.status) ? (state.status as MarketDataSyncStatus) : "idle",
     markets,
     appKeyPreview: state.appKeyPreview,
@@ -256,10 +264,11 @@ function sanitizeQuoteSnapshot(value: unknown): MarketQuoteSnapshot | null {
 
   const snapshot = value as Partial<MarketQuoteSnapshot>;
   const market = sanitizeMarket(snapshot.market);
+  const provider = sanitizeMarketDataProviderId(snapshot.provider);
 
   if (
     !market ||
-    !["alphafeed", "longport"].includes(snapshot.provider ?? "") ||
+    !provider ||
     typeof snapshot.symbol !== "string" ||
     typeof snapshot.lastPrice !== "number" ||
     typeof snapshot.previousClose !== "number" ||
@@ -284,7 +293,7 @@ function sanitizeQuoteSnapshot(value: unknown): MarketQuoteSnapshot | null {
     amount: typeof snapshot.amount === "number" && Number.isFinite(snapshot.amount) ? snapshot.amount : undefined,
     quoteTime: snapshot.quoteTime,
     receivedAt: snapshot.receivedAt,
-    provider: snapshot.provider as MarketDataProviderId,
+    provider,
   };
 }
 

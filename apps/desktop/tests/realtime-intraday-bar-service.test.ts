@@ -135,6 +135,57 @@ test("mergeHistoricalRealtimeBarsWithLiveBars keeps newer AlphaFeed points after
   );
 });
 
+test("mergeHistoricalRealtimeBarsWithLiveBars keeps newer gateway live-provider points", () => {
+  const key = {
+    symbol: "AAPL.US",
+    market: "US" as const,
+    timeframe: "realtime" as const,
+  };
+
+  const merged = mergeHistoricalRealtimeBarsWithLiveBars(
+    [
+      {
+        ...key,
+        timestamp: Date.UTC(2026, 6, 1, 13, 30),
+        open: 294,
+        high: 294,
+        low: 294,
+        close: 294,
+        volume: 1000,
+        provider: "longbridge",
+      },
+    ],
+    [
+      {
+        ...key,
+        timestamp: Date.UTC(2026, 6, 1, 13, 30, 10),
+        open: 294.28,
+        high: 294.28,
+        low: 294.28,
+        close: 294.28,
+        volume: 1001,
+        provider: "alphafeed-websocket",
+      },
+      {
+        ...key,
+        timestamp: Date.UTC(2026, 6, 1, 13, 30, 20),
+        open: 294.3,
+        high: 294.3,
+        low: 294.3,
+        close: 294.3,
+        volume: 1002,
+        provider: "stock-sdk",
+      },
+    ],
+    key,
+  );
+
+  assert.deepEqual(
+    merged.map((bar) => bar.provider),
+    ["longbridge", "alphafeed-websocket", "stock-sdk"],
+  );
+});
+
 test("analyzeRealtimeHistoryGap reports delayed history bridged by AlphaFeed live points", () => {
   const key = { symbol: "9988.HK", market: "HK" as const, timeframe: "realtime" as const };
   const bars: MarketDataBar[] = [

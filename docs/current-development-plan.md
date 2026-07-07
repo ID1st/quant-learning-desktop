@@ -26,7 +26,8 @@ Completed foundations:
 - Minimal UTORB and Trend Targets strategy implementations.
 - `chengzuopeng/stock-sdk` has been evaluated as a candidate primary market data source. Smoke tests confirm useful REST coverage for CN/HK/US quotes, daily bars, and intraday minute data, but also confirm symbol-normalization and data-quality rules are required before integration.
 - Market Data Provider Gateway phase 1 is in place: provider IDs, capability declarations, health states, provider registry, and gateway fallback shell.
-- Market Data Provider Gateway phase 2 is in place: AlphaFeed REST, AlphaFeed WebSocket, and LongBridge have compatibility providers that map existing bridge results into the provider-neutral gateway shape. Production chart fetching is intentionally unchanged until cache provider ID compatibility is completed.
+- Market Data Provider Gateway phase 2 is in place: AlphaFeed REST, AlphaFeed WebSocket, and LongBridge have compatibility providers that map existing bridge results into the provider-neutral gateway shape.
+- Market Data Provider Gateway phase 3 is in place: cache and sync provider IDs now support legacy `alphafeed`/`longport` plus gateway IDs `stock-sdk`/`alphafeed-rest`/`alphafeed-websocket`/`longbridge`. Realtime intraday merge rules also preserve newer live bars from gateway live-capable providers.
 
 ## Current Data Flow
 
@@ -97,7 +98,7 @@ Acceptance:
 
 ### 2.5. Market Data Provider Cache Compatibility
 
-Status: next.
+Status: completed.
 
 Goal: extend cache and sync provider IDs so both legacy `alphafeed`/`longport` and gateway IDs `stock-sdk`/`alphafeed-rest`/`alphafeed-websocket`/`longbridge` can coexist safely.
 
@@ -107,6 +108,19 @@ Acceptance:
 - New provider IDs can be sanitized, written, indexed, and reported.
 - Historical refreshes still cannot overwrite newer live bars.
 - Typecheck and desktop cache tests pass.
+
+### 2.6. Chart Uses Market Data Gateway
+
+Status: next.
+
+Goal: move chart data loading from direct AlphaFeed/LongBridge calls to the provider-neutral gateway while preserving the current visible chart behavior.
+
+Acceptance:
+
+- `realtime`, `1d`, and `1w` chart behavior remains unchanged.
+- Existing cached data stays readable.
+- Provider fallback order is visible in code and testable.
+- Typecheck and desktop tests pass.
 
 ### 3. Super Chart Capability Completion
 

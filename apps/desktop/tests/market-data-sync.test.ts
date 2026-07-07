@@ -150,6 +150,106 @@ test("readMarketDataSyncState falls back when stored sync data is malformed", ()
   assert.equal(readMarketDataSyncState(database), null);
 });
 
+test("market data sync cache accepts gateway provider ids", async () => {
+  const database = createTestDatabase();
+
+  const state = await runInitialMarketDataSync(
+    {
+      apiUrl: "local://stock-sdk",
+      keyPreview: "stock-sdk",
+      markets: ["US"],
+      verifiedAt: "2026-07-01T00:00:00.000Z",
+    },
+    {
+      database,
+      delayMs: 0,
+      provider: "stock-sdk",
+      fallbackProvider: "alphafeed-rest",
+      fetchQuoteSnapshot: async (watchlist) =>
+        watchlist.map((item) => ({
+          symbol: item.symbol,
+          market: item.market,
+          lastPrice: 294.28,
+          previousClose: 294.34,
+          changePercent: -0.02,
+          volume: 1000,
+          quoteTime: "2026-07-01T00:00:00.000Z",
+          receivedAt: "2026-07-01T00:00:01.000Z",
+          provider: "stock-sdk",
+        })),
+      fetchHistoricalBars: async () => [
+        {
+          symbol: "AAPL.US",
+          market: "US",
+          timeframe: "1d",
+          timestamp: 1782777600000,
+          open: 294,
+          high: 295,
+          low: 293,
+          close: 294.28,
+          volume: 1000,
+          provider: "longbridge",
+        },
+      ],
+      now: () => new Date("2026-07-01T00:00:00.000Z"),
+    },
+  );
+
+  assert.equal(state.provider, "stock-sdk");
+  assert.equal(state.fallbackProvider, "alphafeed-rest");
+  assert.equal(readMarketDataSyncState(database)?.provider, "stock-sdk");
+  assert.equal(readMarketDataSyncState(database)?.fallbackProvider, "alphafeed-rest");
+  assert.equal(readMarketQuoteSnapshotCache(database)[0]?.provider, "stock-sdk");
+  assert.equal(
+    readMarketBarCache(
+      {
+        symbol: "AAPL.US",
+        market: "US",
+        timeframe: "1d",
+      },
+      { database },
+    )[0]?.provider,
+    "longbridge",
+  );
+});
+
+test("readMarketDataSyncState accepts gateway provider ids from existing storage", () => {
+  const database = new LocalDatabase(
+    createMemoryStorageDriver({
+      "test.market-data-sync-state": JSON.stringify({
+        version: 1,
+        updatedAt: "2026-07-01T00:00:00.000Z",
+        data: {
+          version: 1,
+          provider: "alphafeed-websocket",
+          fallbackProvider: "longbridge",
+          status: "completed",
+          markets: ["US"],
+          appKeyPreview: "stream",
+          startedAt: "2026-07-01T00:00:00.000Z",
+          updatedAt: "2026-07-01T00:00:00.000Z",
+          watchlistCount: 1,
+          quoteSnapshotCount: 1,
+          historicalBarCount: 0,
+          steps: [
+            {
+              id: "quote-snapshot",
+              label: "quotes",
+              status: "completed",
+            },
+          ],
+        },
+      }),
+    }),
+    "test",
+  );
+
+  const state = readMarketDataSyncState(database);
+
+  assert.equal(state?.provider, "alphafeed-websocket");
+  assert.equal(state?.fallbackProvider, "longbridge");
+});
+
 test("runInitialMarketDataSync stores failed state when historical bar sync fails", async () => {
   const database = createTestDatabase();
 
