@@ -6,6 +6,8 @@ import {
   createAlphaFeedWebSocketGatewayProvider,
   createLongBridgeGatewayProvider,
 } from "./marketDataCompatibilityProviders.ts";
+import { createStockSdkGatewayProvider, type StockSdkGatewayProviderOperations } from "./stockSdkGatewayProvider.ts";
+import { createStockSdkGatewayProviderOperations } from "./stockSdkProviderOperations.ts";
 import type { MarketDataBar } from "./marketBarCacheService.ts";
 import type { MarketQuoteSnapshot, MarketWatchlistItem } from "./marketDataSyncService.ts";
 import {
@@ -13,6 +15,7 @@ import {
   createMarketDataProviderRegistry,
   type GatewayMarketDataBar,
   type GatewayMarketDataProvider,
+  type GatewayMarketDataProviderId,
   type GatewayMarketQuoteSnapshot,
   type MarketDataGateway,
   type MarketDataProviderHealthView,
@@ -31,6 +34,8 @@ interface ChartMarketDataGatewayConfig {
     readonly appSecret: string;
     readonly accessToken: string;
   } | null;
+  readonly enableStockSdkPrimary?: boolean;
+  readonly stockSdkOperations?: StockSdkGatewayProviderOperations;
 }
 
 export interface ChartMarketDataGateways {
@@ -54,6 +59,15 @@ export function createChartMarketDataGateways(config: ChartMarketDataGatewayConf
   let streamProvider: StreamingQuoteProvider | null = null;
   const alphaFeedBridge = config.bridge?.alphaFeed;
   const longPortBridge = config.bridge?.longPort;
+
+  if (config.enableStockSdkPrimary) {
+    providers.push(
+      createStockSdkGatewayProvider(config.stockSdkOperations ?? createStockSdkGatewayProviderOperations(), {
+        enabled: true,
+        delayLevel: "unknown",
+      }),
+    );
+  }
 
   if (alphaFeedBridge && config.alphaFeedCredentials) {
     providers.push(
@@ -93,11 +107,20 @@ export function createChartMarketDataGateways(config: ChartMarketDataGatewayConf
   }
 
   const registry = createMarketDataProviderRegistry(providers);
+  const historicalPriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
+    ? ["stock-sdk", "longbridge", "alphafeed-rest"]
+    : ["longbridge", "alphafeed-rest"];
+  const intradayPriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
+    ? ["stock-sdk", "alphafeed-rest", "longbridge"]
+    : ["alphafeed-rest", "longbridge"];
+  const quotePriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
+    ? ["stock-sdk", "alphafeed-rest", "longbridge"]
+    : ["alphafeed-rest", "longbridge"];
 
   return {
-    historicalBars: createMarketDataGateway(registry, ["longbridge", "alphafeed-rest"]),
-    intradayBars: createMarketDataGateway(registry, ["alphafeed-rest", "longbridge"]),
-    quoteSnapshots: createMarketDataGateway(registry, ["alphafeed-rest", "longbridge"]),
+    historicalBars: createMarketDataGateway(registry, historicalPriority),
+    intradayBars: createMarketDataGateway(registry, intradayPriority),
+    quoteSnapshots: createMarketDataGateway(registry, quotePriority),
     async connectQuoteStream(items) {
       if (!streamProvider) {
         return null;

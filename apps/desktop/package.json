@@ -44,7 +44,8 @@
     "@quant/shared": "*",
     "@quant/strategy-engine": "*",
     "@quant/ui": "*",
-    "longbridge": "^4.3.3"
+    "longbridge": "^4.3.3",
+    "stock-sdk": "2.3.0"
   },
   "devDependencies": {
     "@types/node": "^26.0.1",

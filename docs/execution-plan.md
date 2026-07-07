@@ -215,7 +215,8 @@ Progress:
 - Phase 5 completed: API configuration now presents `stock-sdk` as the default-expanded primary placeholder and keeps AlphaFeed REST, AlphaFeed WebSocket, and LongBridge as collapsed fallback provider sections with visible priority/status.
 - Phase 6 completed: the disabled-by-default `stock-sdk` adapter was added behind the gateway with injectable operations, symbol normalization, quote/bar normalization, deterministic zero-open repair, invalid OHLC rejection, and fallback tests.
 - Phase 7 completed: `stock-sdk@2.3.0` controlled real-data probe passed 10/10 checks for CN/HK/US quote snapshots, daily bars, weekly bars, and 1m intraday bars through the gateway adapter. Findings are recorded in `docs/stock-sdk-data-test-report.md`.
-- A guarded gray primary-source switch is the next slice.
+- Phase 8 completed: a guarded provider setting can register `stock-sdk` as the primary chart gateway provider while keeping AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback providers active. The default remains off.
+- Provider diagnostics, visible source status, and clearer fallback/error messaging are the next slice.
 
 Acceptance:
 

@@ -394,6 +394,8 @@ Acceptance:
 
 ### Step 8: Controlled Primary Switch
 
+Status: completed. The chart-facing gateway now supports a guarded `stockSdkPrimaryEnabled` provider setting. The default setting is off, so existing AlphaFeed/LongBridge behavior remains unchanged. When enabled, `stock-sdk` is registered as the first quote, historical bar, and intraday bar provider, while AlphaFeed REST, AlphaFeed WebSocket, and LongBridge remain fallback providers.
+
 Scope:
 
 - Make `stock-sdk` the primary provider.
@@ -404,6 +406,28 @@ Acceptance:
 - If `stock-sdk` returns empty or invalid data, the gateway falls back without breaking the chart.
 - Provider diagnostics clearly show the active provider.
 - Strategies still run only on normalized cached bars.
+
+Implemented acceptance:
+
+- `stock-sdk` primary source is guarded by `stockSdkPrimaryEnabled` and is off by default.
+- The chart gateway can use real `stock-sdk` operations when enabled.
+- Tests cover default legacy priorities, enabled stock-first priorities, and fallback to AlphaFeed/LongBridge when `stock-sdk` is unavailable.
+- Full visible provider diagnostics are intentionally carried into Step 9.
+
+### Step 9: Provider Diagnostics And Status Hardening
+
+Scope:
+
+- Surface active provider, fallback provider, latest provider health, and reason for fallback in the chart status area.
+- Clarify user-facing messages for `unconfigured`, `unauthorized`, `rateLimited`, `delayed`, `degraded`, and `unavailable` states.
+- Add a UI-safe way to toggle the guarded `stock-sdk` primary switch.
+- Keep provider-specific details out of strategy and chart rendering packages.
+
+Acceptance:
+
+- Users can see whether data came from `stock-sdk`, AlphaFeed REST, AlphaFeed WebSocket, or LongBridge.
+- Fallback events are visible without breaking chart rendering.
+- Provider settings and diagnostics are documented.
 
 ## Security Policy
 
@@ -443,5 +467,5 @@ Acceptance:
 ## Remaining Work
 
 1. Confirm whether `stock-sdk` exposes or plans a native WebSocket stream. Until then, do not model it as a WebSocket provider.
-2. Add a guarded gray switch that registers `stock-sdk` as primary only when explicitly enabled and keeps existing fallback providers active.
+2. Add a UI-safe toggle and diagnostics surface for the guarded `stock-sdk` primary switch.
 3. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.

@@ -44,6 +44,7 @@ import {
   gatewayBarsToMarketDataBars,
   gatewayQuoteSnapshotsToMarketQuoteSnapshots,
 } from "../features/marketData/chartMarketDataGateway";
+import { readMarketDataProviderSettings } from "../features/marketData/marketDataProviderSettings";
 import type { MarketDataProviderHealthView } from "../features/marketData/marketDataProviderGateway";
 import {
   Bell,
@@ -594,6 +595,7 @@ function getStrategyLayerStatus(
 
 export function ChartWorkspacePage() {
   const workspacePreferences = useMemo(() => readWorkspacePreferences(), []);
+  const marketDataProviderSettings = useMemo(() => readMarketDataProviderSettings(), []);
   const importedDrafts = useUserStrategyDraftStore((state) => state.drafts);
   const runnableUserStrategies = useMemo(
     () =>
@@ -767,7 +769,7 @@ export function ChartWorkspacePage() {
 
   useEffect(() => {
     setCachedMarketBars(readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe }));
-  }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
+  }, [activeSymbol.dataSymbol, activeSymbol.market, marketDataProviderSettings.stockSdkPrimaryEnabled, timeframe]);
 
   useEffect(() => {
     let cancelled = false;
@@ -786,9 +788,10 @@ export function ChartWorkspacePage() {
         const marketDataGateways = createChartMarketDataGateways({
           bridge: window.quantDesktop,
           longPortCredentials: credentials,
+          enableStockSdkPrimary: marketDataProviderSettings.stockSdkPrimaryEnabled,
         });
 
-        if (!credentials) {
+        if (!credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
           const waitingHealth = createRealtimeHealthView("waiting", "等待长桥凭据以加载历史 K 线");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
@@ -872,7 +875,7 @@ export function ChartWorkspacePage() {
     return () => {
       cancelled = true;
     };
-  }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
+  }, [activeSymbol.dataSymbol, activeSymbol.market, marketDataProviderSettings.stockSdkPrimaryEnabled, timeframe]);
 
   useEffect(() => {
     let cancelled = false;
@@ -894,9 +897,10 @@ export function ChartWorkspacePage() {
         const marketDataGateways = createChartMarketDataGateways({
           bridge: window.quantDesktop,
           alphaFeedCredentials: credentials,
+          enableStockSdkPrimary: marketDataProviderSettings.stockSdkPrimaryEnabled,
         });
 
-        if (!credentials) {
+        if (!credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
           const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed 凭据以加载历史分时");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
@@ -1007,6 +1011,7 @@ export function ChartWorkspacePage() {
           alphaFeedCredentials: credentials,
           alphaFeedStreamCredentials: streamCredentials,
           alphaFeedStreamBinding: streamBinding,
+          enableStockSdkPrimary: marketDataProviderSettings.stockSdkPrimaryEnabled,
         });
         disconnectQuoteStream = marketDataGateways.disconnectQuoteStream;
 
@@ -1014,7 +1019,7 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        if (!credentials && !streamCredentials) {
+        if (!credentials && !streamCredentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
           const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed 凭据");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
@@ -1059,7 +1064,7 @@ export function ChartWorkspacePage() {
             return;
           }
 
-          if (!credentials) {
+          if (!credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
             const streamGatewayHealth = streamResult.ok ? streamResult.health : streamResult.health[0] ?? connectHealth;
             const streamHealth = streamGatewayHealth
               ? createRealtimeHealthViewFromGateway(streamGatewayHealth, streamResult.ok ? "WebSocket 正在连接，等待首批快照" : streamGatewayHealth.message)
@@ -1071,7 +1076,7 @@ export function ChartWorkspacePage() {
           }
         }
 
-        if (!credentials) {
+        if (!credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
           const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed REST 凭据");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
@@ -1156,7 +1161,14 @@ export function ChartWorkspacePage() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [activeSymbol.dataSymbol, activeSymbol.market, activeSymbol.name, realtimePollIntervalMs, timeframe]);
+  }, [
+    activeSymbol.dataSymbol,
+    activeSymbol.market,
+    activeSymbol.name,
+    marketDataProviderSettings.stockSdkPrimaryEnabled,
+    realtimePollIntervalMs,
+    timeframe,
+  ]);
 
   useEffect(() => {
     const preferences: ChartWorkspacePreferences = {

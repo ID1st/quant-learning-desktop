@@ -20,7 +20,7 @@ docs/generated/stock-sdk-provider-probe-latest.json
 
 ## Latest Result
 
-- Generated at: `2026-07-07T12:54:15.510Z`
+- Generated at: `2026-07-07T13:03:58.844Z`
 - Package: `stock-sdk@2.3.0`
 - Production impact: `not-enabled`
 - Total checks: `10`

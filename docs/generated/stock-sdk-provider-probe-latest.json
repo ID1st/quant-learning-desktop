@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-07T12:54:15.510Z",
+  "generatedAt": "2026-07-07T13:03:58.844Z",
   "package": {
     "name": "stock-sdk",
     "version": "2.3.0"
@@ -26,7 +26,7 @@
     {
       "name": "quote.cn-hk-us",
       "status": "passed",
-      "latencyMs": 1538,
+      "latencyMs": 1559,
       "data": {
         "rows": 3,
         "samples": [
@@ -36,7 +36,7 @@
             "price": 1188.8,
             "previousClose": 1206.91,
             "timestamp": 1783412085000,
-            "quoteAgeSeconds": 16772,
+            "quoteAgeSeconds": 17355,
             "fields": {
               "price": true,
               "previousClose": true,
@@ -53,7 +53,7 @@
             "price": 461.2,
             "previousClose": 452,
             "timestamp": 1783411732000,
-            "quoteAgeSeconds": 17125,
+            "quoteAgeSeconds": 17708,
             "fields": {
               "price": true,
               "previousClose": true,
@@ -70,7 +70,7 @@
             "price": 312.66,
             "previousClose": 308.63,
             "timestamp": 1783368001000,
-            "quoteAgeSeconds": 60856,
+            "quoteAgeSeconds": 61439,
             "fields": {
               "price": true,
               "previousClose": true,
@@ -87,7 +87,7 @@
     {
       "name": "historical.CN.1d",
       "status": "passed",
-      "latencyMs": 2962,
+      "latencyMs": 4868,
       "data": {
         "rows": 5955,
         "first": {
@@ -119,7 +119,7 @@
     {
       "name": "historical.CN.1w",
       "status": "passed",
-      "latencyMs": 552,
+      "latencyMs": 944,
       "data": {
         "rows": 1254,
         "first": {
@@ -151,7 +151,7 @@
     {
       "name": "intraday.CN.1m",
       "status": "passed",
-      "latencyMs": 570,
+      "latencyMs": 387,
       "data": {
         "rows": 1205,
         "first": {
@@ -183,7 +183,7 @@
     {
       "name": "historical.HK.1d",
       "status": "passed",
-      "latencyMs": 3136,
+      "latencyMs": 3771,
       "data": {
         "rows": 5433,
         "first": {
@@ -215,7 +215,7 @@
     {
       "name": "historical.HK.1w",
       "status": "passed",
-      "latencyMs": 552,
+      "latencyMs": 642,
       "data": {
         "rows": 1152,
         "first": {
@@ -247,7 +247,7 @@
     {
       "name": "intraday.HK.1m",
       "status": "passed",
-      "latencyMs": 560,
+      "latencyMs": 632,
       "data": {
         "rows": 1655,
         "first": {
@@ -279,7 +279,7 @@
     {
       "name": "historical.US.1d",
       "status": "passed",
-      "latencyMs": 2343,
+      "latencyMs": 2476,
       "data": {
         "rows": 10538,
         "first": {
@@ -311,7 +311,7 @@
     {
       "name": "historical.US.1w",
       "status": "passed",
-      "latencyMs": 454,
+      "latencyMs": 439,
       "data": {
         "rows": 2184,
         "first": {
@@ -343,7 +343,7 @@
     {
       "name": "intraday.US.1m",
       "status": "passed",
-      "latencyMs": 401,
+      "latencyMs": 405,
       "data": {
         "rows": 1955,
         "first": {

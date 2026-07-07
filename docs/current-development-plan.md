@@ -2,7 +2,7 @@
 
 ## Status
 
-The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 7 are complete; the next slice is a guarded gray switch that can try `stock-sdk` as the primary source while preserving AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback.
+The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 8 are complete; the next slice is provider diagnostics, visible status, clearer fallback/error messaging, and documentation hardening.
 
 Completed foundations:
 
@@ -32,6 +32,7 @@ Completed foundations:
 - Market Data Provider Gateway phase 5 is in place: the API configuration page is provider-priority oriented, with `stock-sdk` shown as the default-expanded primary placeholder and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge shown as collapsed fallback provider sections.
 - Market Data Provider Gateway phase 6 is in place: the `stock-sdk` gateway adapter exists behind an injectable operations boundary, defaults to `unconfigured`, is not used by the production chart flow, and has tests for symbol normalization, quote/bar normalization, deterministic `open: 0` repair, invalid OHLC rejection, and fallback behavior.
 - Market Data Provider Gateway phase 7 is in place: `npm run probe:stock-sdk` validates real `stock-sdk@2.3.0` quote, daily, weekly, and 1m intraday data for CN/HK/US through the gateway adapter. The latest run passed 10/10 checks and is documented in `docs/stock-sdk-data-test-report.md`.
+- Market Data Provider Gateway phase 8 is in place: the chart gateway can register the real `stock-sdk` operations as the primary provider only when `stockSdkPrimaryEnabled` is explicitly enabled in provider settings. The default setting remains off, and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback paths remain active and covered by tests.
 
 ## Current Data Flow
 
@@ -42,7 +43,7 @@ Completed foundations:
 5. Initial sync can warm cached bars, while the chart workspace can load active-symbol historical bars on demand.
 6. Quote snapshots and K-line bars are written to local cache.
 7. Chart workspace reads cached K-line bars by symbol, market, and timeframe.
-8. The chart workspace creates provider-neutral gateway adapters from the saved desktop credentials and calls the gateway for historical bars, intraday bars, quote polling, and stream snapshots. The `stock-sdk` adapter is present but remains disabled and unregistered in this production chart path.
+8. The chart workspace creates provider-neutral gateway adapters from the saved desktop credentials and calls the gateway for historical bars, intraday bars, quote polling, and stream snapshots. `stock-sdk` is registered as primary only when the guarded provider setting is enabled; otherwise the existing AlphaFeed/LongBridge priorities are preserved.
 9. If AlphaFeed WebSocket member credentials exist, the desktop main process opens the stream session first and normalizes incoming quotes into the same snapshot cache through the gateway adapter.
 10. If WebSocket is still connecting, disconnected, unauthorized, permission-denied, or has no first snapshot, the chart workspace keeps using AlphaFeed REST batch polling as fallback through the gateway adapter.
 11. AlphaFeed REST polling fetches the deduplicated watchlist in batches and keeps the latest quote snapshot per symbol.
@@ -169,6 +170,20 @@ Acceptance:
 - Probe output is written to `docs/generated/stock-sdk-provider-probe-latest.json`.
 - Human-readable findings are recorded in `docs/stock-sdk-data-test-report.md`.
 - The production chart path remains unchanged and does not register `stock-sdk`.
+
+### 2.10. Guarded stock-sdk Primary Switch
+
+Status: completed.
+
+Goal: allow a controlled gray switch to try `stock-sdk` as the first provider while preserving existing fallback providers.
+
+Acceptance:
+
+- Provider settings default `stockSdkPrimaryEnabled` to `false`.
+- The chart gateway registers `stock-sdk` only when the guarded setting is true or test config explicitly enables it.
+- With the switch enabled, quote, historical, and intraday gateways try `stock-sdk` first.
+- If `stock-sdk` is unavailable, quote fallback uses AlphaFeed REST, historical fallback uses LongBridge, and intraday fallback uses AlphaFeed REST then LongBridge.
+- Tests prove both default old priority and enabled fallback behavior.
 
 ### 3. Super Chart Capability Completion
 
