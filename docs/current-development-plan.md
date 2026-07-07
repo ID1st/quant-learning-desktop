@@ -2,7 +2,7 @@
 
 ## Status
 
-The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 6 are complete; the next slice is controlled `stock-sdk` real-data testing for CN/HK/US quotes, daily bars, weekly bars, and intraday bars.
+The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 7 are complete; the next slice is a guarded gray switch that can try `stock-sdk` as the primary source while preserving AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback.
 
 Completed foundations:
 
@@ -31,6 +31,7 @@ Completed foundations:
 - Market Data Provider Gateway phase 4 is in place: the chart workspace now reads historical bars, intraday bars, REST quote snapshots, and WebSocket quote snapshots through a chart-facing gateway adapter while preserving the existing visible AlphaFeed/LongBridge behavior.
 - Market Data Provider Gateway phase 5 is in place: the API configuration page is provider-priority oriented, with `stock-sdk` shown as the default-expanded primary placeholder and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge shown as collapsed fallback provider sections.
 - Market Data Provider Gateway phase 6 is in place: the `stock-sdk` gateway adapter exists behind an injectable operations boundary, defaults to `unconfigured`, is not used by the production chart flow, and has tests for symbol normalization, quote/bar normalization, deterministic `open: 0` repair, invalid OHLC rejection, and fallback behavior.
+- Market Data Provider Gateway phase 7 is in place: `npm run probe:stock-sdk` validates real `stock-sdk@2.3.0` quote, daily, weekly, and 1m intraday data for CN/HK/US through the gateway adapter. The latest run passed 10/10 checks and is documented in `docs/stock-sdk-data-test-report.md`.
 
 ## Current Data Flow
 
@@ -154,6 +155,20 @@ Acceptance:
 - Adapter tests cover quote snapshots, daily/weekly bars, intraday bars, deterministic zero-open repair, and invalid OHLC rejection.
 - The app-facing symbol, market, provider, timeframe, and timestamp metadata are preserved on normalized records.
 - Typecheck and desktop tests pass.
+
+### 2.9. Controlled stock-sdk Data Test
+
+Status: completed.
+
+Goal: test the real `stock-sdk` package through the disabled gateway adapter before any production source switch.
+
+Acceptance:
+
+- `stock-sdk@2.3.0` is pinned as a development-only dependency for controlled probing.
+- `npm run probe:stock-sdk` checks CN/HK/US quote snapshots, daily bars, weekly bars, and 1m intraday bars.
+- Probe output is written to `docs/generated/stock-sdk-provider-probe-latest.json`.
+- Human-readable findings are recorded in `docs/stock-sdk-data-test-report.md`.
+- The production chart path remains unchanged and does not register `stock-sdk`.
 
 ### 3. Super Chart Capability Completion
 

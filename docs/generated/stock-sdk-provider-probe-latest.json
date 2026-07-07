@@ -1,0 +1,381 @@
+{
+  "generatedAt": "2026-07-07T12:54:15.510Z",
+  "package": {
+    "name": "stock-sdk",
+    "version": "2.3.0"
+  },
+  "productionImpact": "not-enabled",
+  "symbols": [
+    {
+      "market": "CN",
+      "symbol": "600519.SH",
+      "name": "贵州茅台"
+    },
+    {
+      "market": "HK",
+      "symbol": "00700.HK",
+      "name": "腾讯控股"
+    },
+    {
+      "market": "US",
+      "symbol": "AAPL.US",
+      "name": "Apple"
+    }
+  ],
+  "checks": [
+    {
+      "name": "quote.cn-hk-us",
+      "status": "passed",
+      "latencyMs": 1538,
+      "data": {
+        "rows": 3,
+        "samples": [
+          {
+            "market": "CN",
+            "symbol": "600519.SH",
+            "price": 1188.8,
+            "previousClose": 1206.91,
+            "timestamp": 1783412085000,
+            "quoteAgeSeconds": 16772,
+            "fields": {
+              "price": true,
+              "previousClose": true,
+              "openPrice": true,
+              "highPrice": true,
+              "lowPrice": true,
+              "volume": true,
+              "amount": true
+            }
+          },
+          {
+            "market": "HK",
+            "symbol": "00700.HK",
+            "price": 461.2,
+            "previousClose": 452,
+            "timestamp": 1783411732000,
+            "quoteAgeSeconds": 17125,
+            "fields": {
+              "price": true,
+              "previousClose": true,
+              "openPrice": true,
+              "highPrice": true,
+              "lowPrice": true,
+              "volume": true,
+              "amount": true
+            }
+          },
+          {
+            "market": "US",
+            "symbol": "AAPL.US",
+            "price": 312.66,
+            "previousClose": 308.63,
+            "timestamp": 1783368001000,
+            "quoteAgeSeconds": 60856,
+            "fields": {
+              "price": true,
+              "previousClose": true,
+              "openPrice": true,
+              "highPrice": true,
+              "lowPrice": true,
+              "volume": true,
+              "amount": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "historical.CN.1d",
+      "status": "passed",
+      "latencyMs": 2962,
+      "data": {
+        "rows": 5955,
+        "first": {
+          "market": "CN",
+          "symbol": "600519.SH",
+          "timeframe": "1d",
+          "timestamp": 998841600000,
+          "open": 34.51,
+          "high": 37.78,
+          "low": 32.85,
+          "close": 35.55,
+          "volume": 406318
+        },
+        "last": {
+          "market": "CN",
+          "symbol": "600519.SH",
+          "timeframe": "1d",
+          "timestamp": 1783353600000,
+          "open": 1200,
+          "high": 1202,
+          "low": 1188.11,
+          "close": 1188.8,
+          "volume": 27365
+        },
+        "zeroOpenCount": 0,
+        "invalidOhlcCount": 0
+      }
+    },
+    {
+      "name": "historical.CN.1w",
+      "status": "passed",
+      "latencyMs": 552,
+      "data": {
+        "rows": 1254,
+        "first": {
+          "market": "CN",
+          "symbol": "600519.SH",
+          "timeframe": "1w",
+          "timestamp": 999187200000,
+          "open": 34.51,
+          "high": 37.78,
+          "low": 32.85,
+          "close": 37.01,
+          "volume": 660461
+        },
+        "last": {
+          "market": "CN",
+          "symbol": "600519.SH",
+          "timeframe": "1w",
+          "timestamp": 1783353600000,
+          "open": 1186,
+          "high": 1215,
+          "low": 1180,
+          "close": 1188.8,
+          "volume": 68335
+        },
+        "zeroOpenCount": 0,
+        "invalidOhlcCount": 0
+      }
+    },
+    {
+      "name": "intraday.CN.1m",
+      "status": "passed",
+      "latencyMs": 570,
+      "data": {
+        "rows": 1205,
+        "first": {
+          "market": "CN",
+          "symbol": "600519.SH",
+          "timeframe": "1m",
+          "timestamp": 1782869400000,
+          "open": 1180.1,
+          "high": 1180.1,
+          "low": 1180.1,
+          "close": 1180.1,
+          "volume": 186
+        },
+        "last": {
+          "market": "CN",
+          "symbol": "600519.SH",
+          "timeframe": "1m",
+          "timestamp": 1783407600000,
+          "open": 1189.19,
+          "high": 1189.19,
+          "low": 1188.8,
+          "close": 1188.8,
+          "volume": 326
+        },
+        "zeroOpenCount": 0,
+        "invalidOhlcCount": 0
+      }
+    },
+    {
+      "name": "historical.HK.1d",
+      "status": "passed",
+      "latencyMs": 3136,
+      "data": {
+        "rows": 5433,
+        "first": {
+          "market": "HK",
+          "symbol": "00700.HK",
+          "timeframe": "1d",
+          "timestamp": 1087315200000,
+          "open": 4.375,
+          "high": 4.625,
+          "low": 4.075,
+          "close": 4.15,
+          "volume": 439775008
+        },
+        "last": {
+          "market": "HK",
+          "symbol": "00700.HK",
+          "timeframe": "1d",
+          "timestamp": 1783353600000,
+          "open": 459,
+          "high": 479.8,
+          "low": 457,
+          "close": 461.2,
+          "volume": 55418434
+        },
+        "zeroOpenCount": 0,
+        "invalidOhlcCount": 0
+      }
+    },
+    {
+      "name": "historical.HK.1w",
+      "status": "passed",
+      "latencyMs": 552,
+      "data": {
+        "rows": 1152,
+        "first": {
+          "market": "HK",
+          "symbol": "00700.HK",
+          "timeframe": "1w",
+          "timestamp": 1087488000000,
+          "open": 4.375,
+          "high": 4.625,
+          "low": 3.95,
+          "close": 4.025,
+          "volume": 560174512
+        },
+        "last": {
+          "market": "HK",
+          "symbol": "00700.HK",
+          "timeframe": "1w",
+          "timestamp": 1783353600000,
+          "open": 432.8,
+          "high": 479.8,
+          "low": 425.4,
+          "close": 461.2,
+          "volume": 96920517
+        },
+        "zeroOpenCount": 0,
+        "invalidOhlcCount": 0
+      }
+    },
+    {
+      "name": "intraday.HK.1m",
+      "status": "passed",
+      "latencyMs": 560,
+      "data": {
+        "rows": 1655,
+        "first": {
+          "market": "HK",
+          "symbol": "00700.HK",
+          "timeframe": "1m",
+          "timestamp": 1782783000000,
+          "open": 421.2,
+          "high": 422.2,
+          "low": 421.2,
+          "close": 421.2,
+          "volume": 900700
+        },
+        "last": {
+          "market": "HK",
+          "symbol": "00700.HK",
+          "timeframe": "1m",
+          "timestamp": 1783411200000,
+          "open": 462.2,
+          "high": 462.2,
+          "low": 461.2,
+          "close": 461.2,
+          "volume": 1748700
+        },
+        "zeroOpenCount": 0,
+        "invalidOhlcCount": 0
+      }
+    },
+    {
+      "name": "historical.US.1d",
+      "status": "passed",
+      "latencyMs": 2343,
+      "data": {
+        "rows": 10538,
+        "first": {
+          "market": "US",
+          "symbol": "AAPL.US",
+          "timeframe": "1d",
+          "timestamp": 463377600000,
+          "open": 26.5,
+          "high": 26.87,
+          "low": 26.25,
+          "close": 26.5,
+          "volume": 2981600
+        },
+        "last": {
+          "market": "US",
+          "symbol": "AAPL.US",
+          "timeframe": "1d",
+          "timestamp": 1783310400000,
+          "open": 307.36,
+          "high": 314.2,
+          "low": 307,
+          "close": 312.66,
+          "volume": 53589977
+        },
+        "zeroOpenCount": 0,
+        "invalidOhlcCount": 0
+      }
+    },
+    {
+      "name": "historical.US.1w",
+      "status": "passed",
+      "latencyMs": 454,
+      "data": {
+        "rows": 2184,
+        "first": {
+          "market": "US",
+          "symbol": "AAPL.US",
+          "timeframe": "1w",
+          "timestamp": 463377600000,
+          "open": 26.5,
+          "high": 26.87,
+          "low": 26.25,
+          "close": 26.5,
+          "volume": 2981600
+        },
+        "last": {
+          "market": "US",
+          "symbol": "AAPL.US",
+          "timeframe": "1w",
+          "timestamp": 1783310400000,
+          "open": 307.36,
+          "high": 314.2,
+          "low": 307,
+          "close": 312.66,
+          "volume": 53589977
+        },
+        "zeroOpenCount": 0,
+        "invalidOhlcCount": 0
+      }
+    },
+    {
+      "name": "intraday.US.1m",
+      "status": "passed",
+      "latencyMs": 401,
+      "data": {
+        "rows": 1955,
+        "first": {
+          "market": "US",
+          "symbol": "AAPL.US",
+          "timeframe": "1m",
+          "timestamp": 1782739800000,
+          "open": 286.86,
+          "high": 286.9,
+          "low": 286.61,
+          "close": 286.86,
+          "volume": 605890
+        },
+        "last": {
+          "market": "US",
+          "symbol": "AAPL.US",
+          "timeframe": "1m",
+          "timestamp": 1783368000000,
+          "open": 312.83,
+          "high": 313,
+          "low": 312.63,
+          "close": 312.66,
+          "volume": 16123435
+        },
+        "zeroOpenCount": 0,
+        "invalidOhlcCount": 0
+      }
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0
+  }
+}

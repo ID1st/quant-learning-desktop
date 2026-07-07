@@ -110,7 +110,7 @@ describe("Stock SDK gateway provider", () => {
               name: "Tencent",
               lastPrice: 83.2,
               prevClose: 82,
-              time: 1_788_288_000,
+              time: "2026/07/07 16:08:52",
             },
             {
               code: "sh600519",
@@ -173,6 +173,7 @@ describe("Stock SDK gateway provider", () => {
           return [
             { datetime: "2026-07-07 09:30:00", open: 0, high: 83.5, low: 83.1, close: 83.2, volume: 100 },
             { datetime: "2026-07-07 09:31:00", open: 0, high: 83.6, low: 83.2, close: 83.4, volume: 120 },
+            { datetime: "2026-07-08 09:30:00", open: 0, high: 85.1, low: 84.9, close: 85, volume: 90 },
           ];
         },
       },
@@ -188,6 +189,7 @@ describe("Stock SDK gateway provider", () => {
     assert.equal(historicalBars[0]?.timeframe, "1w");
     assert.equal(intradayBars[0]?.open, 83.2);
     assert.equal(intradayBars[1]?.open, 83.2);
+    assert.equal(intradayBars[2]?.open, 85);
   });
 
   it("rejects inconsistent OHLC values before they reach the chart", async () => {

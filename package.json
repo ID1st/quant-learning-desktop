@@ -17,6 +17,7 @@
     "test:pine-runtime": "node --test --experimental-strip-types packages/pine-runtime/tests/*.test.ts",
     "test:plugin-loader": "node --test --experimental-strip-types packages/plugin-loader/tests/*.test.ts",
     "probe:longport:a-share": "node scripts/longport-a-share-probe.mjs",
+    "probe:stock-sdk": "node --experimental-strip-types scripts/stock-sdk-provider-probe.mjs",
     "test:strategy-engine": "node --test --experimental-strip-types packages/strategy-engine/tests/*.test.ts",
     "clean": "node scripts/clean.mjs"
   },
@@ -25,6 +26,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.4",
     "typescript": "^5.9.3",
+    "stock-sdk": "2.3.0",
     "vite": "^6.4.2"
   },
   "dependencies": {

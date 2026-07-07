@@ -287,7 +287,9 @@ function mapStockSdkBars(
 
   return records.map((record) => {
     const close = readFiniteNumber(record, ["close", "closingPrice", "price"]);
-    const repairedOpen = repairOpenPrice(readFiniteNumber(record, ["open", "openingPrice"], true), close, previousClose);
+    const high = readFiniteNumber(record, ["high", "highestPrice"]);
+    const low = readFiniteNumber(record, ["low", "lowestPrice"]);
+    const repairedOpen = repairOpenPrice(readFiniteNumber(record, ["open", "openingPrice"], true), close, previousClose, high, low);
     const bar: GatewayMarketDataBar = {
       provider: "stock-sdk",
       market: request.market,
@@ -295,8 +297,8 @@ function mapStockSdkBars(
       timeframe: request.timeframe,
       timestamp: readTimestamp(record, ["timestamp", "datetime", "dateTime", "time", "date"]),
       open: repairedOpen,
-      high: readFiniteNumber(record, ["high", "highestPrice"]),
-      low: readFiniteNumber(record, ["low", "lowestPrice"]),
+      high,
+      low,
       close,
       volume: readOptionalFiniteNumber(record, ["volume", "vol"]) ?? 0,
       amount: readOptionalFiniteNumber(record, ["amount", "turnover"]),
@@ -309,12 +311,12 @@ function mapStockSdkBars(
   });
 }
 
-function repairOpenPrice(open: number, close: number, previousClose: number | undefined) {
+function repairOpenPrice(open: number, close: number, previousClose: number | undefined, high: number, low: number) {
   if (open > 0) {
     return open;
   }
 
-  return previousClose && previousClose > 0 ? previousClose : close;
+  return previousClose && previousClose >= low && previousClose <= high ? previousClose : close;
 }
 
 function validateBar(bar: GatewayMarketDataBar) {
@@ -370,7 +372,7 @@ function parseTimestamp(value: unknown) {
     return null;
   }
 
-  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const normalized = (value.includes("T") ? value : value.replace(" ", "T")).replaceAll("/", "-");
   const parsed = new Date(normalized).getTime();
   return Number.isFinite(parsed) ? parsed : null;
 }

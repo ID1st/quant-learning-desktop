@@ -33,6 +33,7 @@ Smoke-test findings:
 - CN 1-minute intraday data works, but early rows may contain `open: 0`, so normalization must repair or reject invalid open values.
 - HK 1-minute intraday data works.
 - US 1-minute intraday data works when using `105.AAPL`.
+- The controlled phase 7 probe passed 10/10 checks for `600519.SH`, `00700.HK`, and `AAPL.US` quote, daily, weekly, and 1m intraday data through the gateway adapter. See `docs/stock-sdk-data-test-report.md`.
 - No native WebSocket or SSE client was found in the source search. Treat `stock-sdk` as REST-capable, not WebSocket-capable, until proven otherwise.
 
 Implications:
@@ -375,6 +376,8 @@ Acceptance:
 
 ### Step 7: Controlled stock-sdk Data Test
 
+Status: completed. `stock-sdk@2.3.0` is pinned as a root development-only dependency, and `npm run probe:stock-sdk` runs a manual real-data probe through the disabled gateway adapter. The latest run passed all 10 checks and wrote `docs/generated/stock-sdk-provider-probe-latest.json`. A human-readable summary is kept in `docs/stock-sdk-data-test-report.md`.
+
 Scope:
 
 - Install or dynamically load the real `stock-sdk` package in a controlled adapter test path.
@@ -440,5 +443,5 @@ Acceptance:
 ## Remaining Work
 
 1. Confirm whether `stock-sdk` exposes or plans a native WebSocket stream. Until then, do not model it as a WebSocket provider.
-2. Run controlled real-data tests for the disabled `stock-sdk` adapter before making it primary.
+2. Add a guarded gray switch that registers `stock-sdk` as primary only when explicitly enabled and keeps existing fallback providers active.
 3. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.
