@@ -175,6 +175,56 @@ Acceptance:
 - Sync failures are recoverable.
 - No large data is committed to Git.
 
+## 8.1. Milestone 6.5: Market Data Provider Gateway
+
+Goal:
+
+- Introduce a provider-neutral market-data gateway before replacing the current AlphaFeed/LongBridge flow.
+
+Context:
+
+- `chengzuopeng/stock-sdk` has been evaluated as a candidate primary market data source.
+- It can provide useful REST coverage for CN/HK/US quotes, daily bars, and intraday minute data.
+- It has no confirmed native WebSocket client in the evaluated source, so it should not replace AlphaFeed WebSocket streaming until a real stream capability exists.
+
+Target provider order:
+
+1. `stock-sdk` primary provider.
+2. AlphaFeed REST fallback.
+3. AlphaFeed WebSocket member-channel fallback.
+4. LongBridge fallback and broker/account integration path.
+
+Deliverables:
+
+- `MarketDataProvider` contract.
+- `MarketDataProviderRegistry`.
+- `MarketDataGateway`.
+- Provider capability model.
+- Provider health status model.
+- Provider-neutral quote, historical bar, intraday bar, and optional stream interfaces.
+- Backward-compatible cache provider ID migration.
+- Provider-priority API configuration page design.
+- `stock-sdk` adapter plan covering symbol normalization, OHLC validation, and REST polling.
+
+Progress:
+
+- Phase 1 completed: provider-neutral contracts, capability model, health status model, in-memory registry, and gateway fallback shell were added under `apps/desktop/src/features/marketData/`.
+- Current production chart fetching is intentionally unchanged. AlphaFeed and LongBridge compatibility wrappers are the next slice.
+
+Acceptance:
+
+- Chart, strategy, cache, and UI do not directly depend on concrete provider SDKs after the gateway migration.
+- Each quote and bar keeps provider, market, symbol, timeframe, and timestamp metadata.
+- Historical refreshes cannot overwrite newer live bars from any live-capable provider.
+- Existing AlphaFeed and LongBridge credentials remain usable.
+- Existing cached market data remains readable.
+- Every implementation slice keeps `npm run typecheck` passing.
+
+Deferred:
+
+- Direct production switch to `stock-sdk`.
+- Native WebSocket support for `stock-sdk` unless a real upstream stream API is confirmed.
+
 ## 9. Milestone 7: Chart Module
 
 Goal:
