@@ -28,7 +28,9 @@ import {
   sanitizeRealtimePollIntervalMs,
 } from "../features/marketData/realtimeQuotePollingService";
 import {
+  analyzeRealtimeHistoryGap,
   aggregateRealtimePointBarsToMinuteCandles,
+  mergeHistoricalRealtimeBarsWithLiveBars,
   mergeRealtimeSnapshotPointBars,
 } from "../features/marketData/realtimeIntradayBarService";
 import {
@@ -72,6 +74,8 @@ const realtimeWatchlist: MarketWatchlistItem[] = symbols.map((item) => ({
 const timeframes: Timeframe[] = ["realtime", "1d", "1w"];
 const realtimeRateLimitBackoffMs = 120_000;
 const enableAlphaFeedHistoricalIntradayBackfill = false;
+const longPortRealtimeHistoryCount = 1_000;
+const longPortRealtimeDelayWarningMs = 5 * 60_000;
 const strategyRegistry = createPresetStrategyRegistry();
 const presetStrategies = strategyRegistry.list();
 const WORKSPACE_PREFERENCES_KEY = "quant-learning.chart-workspace-preferences";
@@ -515,6 +519,19 @@ function formatTimeframeLabel(timeframe: Timeframe) {
   return timeframe === "realtime" ? "分时" : timeframe;
 }
 
+function formatRealtimeGapStatus(bars: MarketDataBar[], key: { symbol: string; market: Market; timeframe: "realtime" }) {
+  const gap = analyzeRealtimeHistoryGap(bars, key, Date.now(), longPortRealtimeDelayWarningMs);
+
+  if (!gap.hasGap) {
+    return null;
+  }
+
+  const gapMinutes = Math.round(gap.gapMs / 60_000);
+  return gap.isBridgedByLiveData
+    ? `长桥历史分时落后约 ${gapMinutes} 分钟，AlphaFeed 实时点已补齐最新走势`
+    : `长桥历史分时落后约 ${gapMinutes} 分钟，等待 AlphaFeed 实时点补齐`;
+}
+
 function getStrategyLayerStatus(
   strategy: StrategyDefinition,
   settings: StrategyWorkspaceState,
@@ -594,7 +611,7 @@ export function ChartWorkspacePage() {
   );
   const cachedCandles = useMemo(() => marketBarsToCandles(displayedMarketBars), [displayedMarketBars]);
   const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(displayedMarketBars), [displayedMarketBars]);
-  const renderedCandles = cachedCandles.length > 0 ? cachedCandles : undefined;
+  const renderedCandles = cachedCandles;
   const strategyInputBars = cachedStrategyBars;
   const strategyRuns = useMemo(
     () =>
@@ -749,7 +766,7 @@ export function ChartWorkspacePage() {
           timeframe: isRealtimeHistory ? "1m" : timeframe,
           startTime: windowRange?.startTime,
           endTime: windowRange?.endTime,
-          count: isRealtimeHistory ? 2_000 : timeframe === "1w" ? 260 : 600,
+          count: isRealtimeHistory ? longPortRealtimeHistoryCount : timeframe === "1w" ? 260 : 600,
         });
 
         if (cancelled) {
@@ -770,13 +787,32 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        const cacheTimeframe = isRealtimeHistory ? "realtime" : timeframe;
-        const written = writeMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe }, result.bars);
+        const cacheTimeframe: Timeframe = isRealtimeHistory ? "realtime" : timeframe;
+        const cacheKey = { symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe };
+        const currentCachedBars = readMarketBarCache(cacheKey);
+        const mergedBars = isRealtimeHistory
+          ? mergeHistoricalRealtimeBarsWithLiveBars(result.bars, currentCachedBars, {
+              symbol: activeSymbol.dataSymbol,
+              market: activeSymbol.market,
+              timeframe: "realtime",
+            })
+          : result.bars;
+        const written = writeMarketBarCache(cacheKey, mergedBars);
         setCachedMarketBars(written);
+        const gapStatus =
+          isRealtimeHistory && windowRange?.isMarketOpen
+            ? formatRealtimeGapStatus(written, {
+                symbol: activeSymbol.dataSymbol,
+                market: activeSymbol.market,
+                timeframe: "realtime",
+              })
+            : null;
 
         const healthView = createRealtimeHealthView(
           "ok",
-          isRealtimeHistory && windowRange
+          gapStatus
+            ? gapStatus
+            : isRealtimeHistory && windowRange
             ? windowRange.isMarketOpen
               ? `长桥历史分时已加载 ${written.length} 点，AlphaFeed 继续补充实时走势`
               : `长桥历史分时已加载 ${written.length} 点，收盘后停止追加`

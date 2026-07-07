@@ -6,22 +6,38 @@ function isFiniteNumber(value: number) {
   return Number.isFinite(value);
 }
 
-function formatCandleTime(timestamp: number, timeframe?: MarketDataBar["timeframe"]) {
-  const isoValue = new Date(timestamp).toISOString();
-  const [datePart, timePart = ""] = isoValue.split("T");
-  const [hour = "00", minute = "00"] = timePart.split(":");
+function getBeijingDateParts(timestamp: number) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(timestamp));
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
 
+  return {
+    date: `${value("year")}-${value("month")}-${value("day")}`,
+    hour: value("hour"),
+    minute: value("minute"),
+    second: value("second"),
+  };
+}
+
+function formatCandleTime(timestamp: number, timeframe?: MarketDataBar["timeframe"]) {
+  const { date, hour, minute, second } = getBeijingDateParts(timestamp);
   if (timeframe === "1d" || timeframe === "1w" || (hour === "00" && minute === "00")) {
-    return datePart;
+    return date;
   }
 
   if (timeframe === "realtime") {
-    const [second = "00"] = timePart.split(":").slice(2);
-    const wholeSecond = second.split(".")[0] ?? "00";
-    return `${datePart} ${hour}:${minute}:${wholeSecond}`;
+    return `${date} ${hour}:${minute}:${second}`;
   }
 
-  return `${datePart} ${hour}:${minute}`;
+  return `${date} ${hour}:${minute}`;
 }
 
 function isRenderableBar(bar: MarketDataBar) {

@@ -8,8 +8,8 @@ The system now uses a split provider model: LongBridge is responsible for histor
 - Historical provider: LongBridge OpenAPI candlesticks
 - Backup quote provider: LongBridge OpenAPI
 - Explicitly not in current scope: Eastmoney intraday backfill
-- Current implemented path: AlphaFeed REST quote snapshot, AlphaFeed WebSocket member-channel quote streaming, LongBridge historical K-line bridge, chart workspace cached-bar rendering, LongBridge realtime-page historical 1m backfill, 1d quote-driven candle refresh, provider health telemetry, rate-limit backoff hints, secure credential persistence, provider network calls behind main-process IPC, cache governance
-- Next path: strategy execution on real cached bars and visible mixed-source diagnostics
+- Current implemented path: AlphaFeed REST quote snapshot, AlphaFeed WebSocket member-channel quote streaming, LongBridge historical K-line bridge, chart workspace cached-bar rendering, LongBridge realtime-page historical 1m backfill, LongBridge-delay gap diagnostics, 1d quote-driven candle refresh, provider health telemetry, rate-limit backoff hints, secure credential persistence, provider network calls behind main-process IPC, cache governance
+- Next path: strategy execution on real cached bars and richer mixed-source diagnostics
 
 ## Official Source Notes
 
@@ -41,6 +41,12 @@ LongBridge remains useful for:
 - Backup quote snapshots
 - Broker/account-related integration
 - Future order, position, and trading workflows
+
+LongBridge intraday constraints:
+
+- Single candlestick requests are capped at 1,000 bars to avoid provider error `301607 request too many klines`.
+- A-share and Hong Kong realtime quotes from LongBridge may be delayed by roughly 15 minutes depending on permissions.
+- The chart therefore treats LongBridge as historical backfill only. AlphaFeed realtime points newer than the latest LongBridge bar are retained when historical bars refresh, preventing delayed LongBridge history from overwriting the latest AlphaFeed-driven segment.
 
 ## Provider Boundary
 
@@ -98,9 +104,10 @@ interface MarketDataBar {
 1. Verify AlphaFeed first.
 2. If LongBridge credentials are complete, verify LongBridge as backup.
 3. During chart history loading:
-   - Fetch `realtime` page history from LongBridge `1m` candlesticks, then store it as the normalized `realtime` cache.
+   - Fetch `realtime` page history from LongBridge `1m` candlesticks, capped at 1,000 bars, then store it as the normalized `realtime` cache.
    - Fetch `1d` and `1w` history from LongBridge candlesticks.
    - During market hours, append AlphaFeed quote snapshots to the active realtime or daily bar.
+   - If LongBridge history is delayed, preserve newer AlphaFeed bars during every history refresh, report the detected gap, and avoid fabricating intermediate prices.
    - After market close, stop AlphaFeed realtime appends and keep the LongBridge historical line static.
    - Store the provider used in each bar through the normalized `provider` field.
 
@@ -117,4 +124,4 @@ interface MarketDataBar {
 ## Remaining Work
 
 1. Confirm AlphaFeed WebSocket member protocol details against the selected plan and adjust the subscription payload if needed.
-2. Add visible mixed-source diagnostics, for example `LongBridge 历史 + AlphaFeed 实时`.
+2. Add richer visible mixed-source diagnostics, for example per-segment provider coloring or a provider timeline.

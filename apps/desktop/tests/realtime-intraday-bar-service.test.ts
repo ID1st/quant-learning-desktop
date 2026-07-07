@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   aggregateRealtimePointBarsToMinuteCandles,
+  analyzeRealtimeHistoryGap,
+  mergeHistoricalRealtimeBarsWithLiveBars,
   mergeRealtimeSnapshotPointBars,
   retainRecentRealtimeSessions,
 } from "../src/features/marketData/realtimeIntradayBarService.ts";
@@ -92,4 +94,75 @@ test("retainRecentRealtimeSessions keeps at least current and previous market se
     retained.map((item) => item.close),
     [201, 202],
   );
+});
+
+test("mergeHistoricalRealtimeBarsWithLiveBars keeps newer AlphaFeed points after delayed LongBridge history", () => {
+  const key = { symbol: "9988.HK", market: "HK" as const, timeframe: "realtime" as const };
+  const historicalBars = [
+    {
+      ...key,
+      timestamp: Date.parse("2026-07-02T02:00:00.000Z"),
+      open: 80,
+      high: 80,
+      low: 80,
+      close: 80,
+      volume: 1000,
+      provider: "longport" as const,
+    },
+  ];
+  const currentBars = [
+    ...historicalBars,
+    {
+      ...key,
+      timestamp: Date.parse("2026-07-02T02:15:00.000Z"),
+      open: 80.5,
+      high: 80.5,
+      low: 80.5,
+      close: 80.5,
+      volume: 1200,
+      provider: "alphafeed" as const,
+    },
+  ];
+
+  const merged = mergeHistoricalRealtimeBarsWithLiveBars(historicalBars, currentBars, key);
+
+  assert.deepEqual(
+    merged.map((bar) => [bar.timestamp, bar.provider, bar.close]),
+    [
+      [Date.parse("2026-07-02T02:00:00.000Z"), "longport", 80],
+      [Date.parse("2026-07-02T02:15:00.000Z"), "alphafeed", 80.5],
+    ],
+  );
+});
+
+test("analyzeRealtimeHistoryGap reports delayed history bridged by AlphaFeed live points", () => {
+  const key = { symbol: "9988.HK", market: "HK" as const, timeframe: "realtime" as const };
+  const bars: MarketDataBar[] = [
+    {
+      ...key,
+      timestamp: Date.parse("2026-07-02T02:00:00.000Z"),
+      open: 80,
+      high: 80,
+      low: 80,
+      close: 80,
+      volume: 1000,
+      provider: "longport",
+    },
+    {
+      ...key,
+      timestamp: Date.parse("2026-07-02T02:15:00.000Z"),
+      open: 80.5,
+      high: 80.5,
+      low: 80.5,
+      close: 80.5,
+      volume: 1200,
+      provider: "alphafeed",
+    },
+  ];
+
+  const gap = analyzeRealtimeHistoryGap(bars, key, Date.parse("2026-07-02T02:16:00.000Z"), 5 * 60_000);
+
+  assert.equal(gap.hasGap, true);
+  assert.equal(gap.isBridgedByLiveData, true);
+  assert.equal(gap.gapMs, 15 * 60_000);
 });

@@ -35,7 +35,7 @@ test("marketBarsToStrategyBars keeps only finite renderable OHLCV bars", () => {
   ]);
 });
 
-test("marketBarsToCandles formats deterministic labels for chart rendering", () => {
+test("marketBarsToCandles formats labels in Beijing time for chart rendering", () => {
   const candles = marketBarsToCandles([
     baseBar,
     {
@@ -55,8 +55,8 @@ test("marketBarsToCandles formats deterministic labels for chart rendering", () 
   ]);
 
   assert.equal(candles[0]?.time, "2026-06-30");
-  assert.equal(candles[1]?.time, "2026-06-30 14:45");
+  assert.equal(candles[1]?.time, "2026-06-30 22:45");
   assert.equal(candles[1]?.close, 285);
   assert.equal(candles[2]?.time, "2026-06-30");
-  assert.equal(candles[3]?.time, "2026-06-30 14:45:10");
+  assert.equal(candles[3]?.time, "2026-06-30 22:45:10");
 });

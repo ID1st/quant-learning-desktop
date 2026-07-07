@@ -65,6 +65,45 @@ export function mergeRealtimeSnapshotPointBars(
   );
 }
 
+export function mergeHistoricalRealtimeBarsWithLiveBars(
+  historicalBars: MarketDataBar[],
+  currentBars: MarketDataBar[],
+  key: MarketBarCacheKey,
+): MarketDataBar[] {
+  const matchingHistory = historicalBars.filter((bar) => isMatchingRealtimeBar(bar, key));
+  const latestHistoricalTimestamp = matchingHistory.reduce((latest, bar) => Math.max(latest, bar.timestamp), Number.NEGATIVE_INFINITY);
+  const retainedLiveBars = currentBars.filter(
+    (bar) => isMatchingRealtimeBar(bar, key) && bar.provider === "alphafeed" && bar.timestamp > latestHistoricalTimestamp,
+  );
+
+  return retainRecentRealtimeSessions([...matchingHistory, ...retainedLiveBars], key.market);
+}
+
+export function analyzeRealtimeHistoryGap(
+  bars: MarketDataBar[],
+  key: MarketBarCacheKey,
+  now = Date.now(),
+  warningThresholdMs = 5 * minuteMs,
+) {
+  const matchingBars = bars.filter((bar) => isMatchingRealtimeBar(bar, key));
+  const latestHistoricalTimestamp = matchingBars
+    .filter((bar) => bar.provider === "longport")
+    .reduce((latest, bar) => Math.max(latest, bar.timestamp), Number.NEGATIVE_INFINITY);
+  const latestLiveTimestamp = matchingBars
+    .filter((bar) => bar.provider === "alphafeed")
+    .reduce((latest, bar) => Math.max(latest, bar.timestamp), Number.NEGATIVE_INFINITY);
+  const comparisonTimestamp = Number.isFinite(latestLiveTimestamp) ? latestLiveTimestamp : now;
+  const gapMs = Number.isFinite(latestHistoricalTimestamp) ? Math.max(0, comparisonTimestamp - latestHistoricalTimestamp) : 0;
+
+  return {
+    latestHistoricalTimestamp: Number.isFinite(latestHistoricalTimestamp) ? latestHistoricalTimestamp : null,
+    latestLiveTimestamp: Number.isFinite(latestLiveTimestamp) ? latestLiveTimestamp : null,
+    gapMs,
+    hasGap: gapMs > warningThresholdMs,
+    isBridgedByLiveData: Number.isFinite(latestLiveTimestamp) && latestLiveTimestamp > latestHistoricalTimestamp,
+  };
+}
+
 export function aggregateRealtimePointBarsToMinuteCandles(bars: MarketDataBar[]): MarketDataBar[] {
   const buckets = new Map<number, MarketDataBar[]>();
 

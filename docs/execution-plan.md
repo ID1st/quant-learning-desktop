@@ -207,8 +207,10 @@ Goal:
 Deliverables:
 
 - Zoom, pan, crosshair, OHLCV hover, current price line, latest price label, and view reset.
+- Beijing-time x-axis labels, price y-axis labels, and right price-axis drag scaling.
 - Chart toolbar, left drawing toolbar, chart settings entry, and right-click menu UI.
 - Market-data status display for provider health, latency, latest update time, empty data, paused polling, and degraded API states.
+- Production chart empty state when no real cached market data exists; generated/prototype candles must not appear in the desktop workspace.
 - Declarative render command model for strategy layers, indicator layers, and drawing layers.
 - Strategy layer controls for enable/disable, show/hide, z-index, parameter entry, no-data state, error state, and unsupported-timeframe state.
 - Chart settings for moving average, volume, grid, signals, price labels, and layer visibility.
@@ -217,6 +219,7 @@ Deliverables:
 Acceptance:
 
 - Chart interactions are usable with cached bars and realtime daily quote polling.
+- Realtime chart preserves newer AlphaFeed points when LongBridge intraday history is delayed and reports the gap without generating synthetic intermediate prices.
 - Strategy, indicator, and drawing overlays do not call chart internals directly.
 - The chart remains ready for future plugin-provided indicators and strategy layers.
 

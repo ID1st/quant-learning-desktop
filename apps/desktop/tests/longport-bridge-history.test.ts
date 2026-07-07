@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mapLongPortCandlesticksToBars } from "../src/electron/longPortBridge.ts";
+import { mapLongPortCandlesticksToBars, sanitizeLongPortCandlestickCount } from "../src/electron/longPortBridge.ts";
 
 function decimal(value: string) {
   return {
@@ -74,4 +74,10 @@ test("mapLongPortCandlesticksToBars filters by requested time window", () => {
 
   assert.equal(bars.length, 1);
   assert.equal(bars[0]?.timestamp, Date.parse("2026-07-01T13:30:00.000Z"));
+});
+
+test("sanitizeLongPortCandlestickCount caps 1m requests below provider limits", () => {
+  assert.equal(sanitizeLongPortCandlestickCount("1m", 2_000), 1_000);
+  assert.equal(sanitizeLongPortCandlestickCount("realtime"), 1_000);
+  assert.equal(sanitizeLongPortCandlestickCount("1d", 600), 600);
 });

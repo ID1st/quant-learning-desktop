@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEven
 import type { Market, Timeframe } from "@quant/shared";
 import {
   clampChartVisibleRange,
+  getScaledPriceRange,
   panChartVisibleRange,
   zoomChartVisibleRange,
   type ChartVisibleRange,
 } from "./viewportMath.ts";
 
-export { clampChartVisibleRange, panChartVisibleRange, zoomChartVisibleRange, type ChartVisibleRange } from "./viewportMath.ts";
+export { clampChartVisibleRange, getScaledPriceRange, panChartVisibleRange, zoomChartVisibleRange, type ChartVisibleRange } from "./viewportMath.ts";
 
 export interface ChartContext {
   symbol: string;
@@ -106,6 +107,8 @@ const defaultContext: ChartContext = {
 function generateCandles(context: ChartContext): CandlePoint[] {
   const seed = context.symbol.split("").reduce((total, char) => total + char.charCodeAt(0), 0);
   let previousClose = 166 + (seed % 28);
+  const intervalMs = context.timeframe === "1w" ? 7 * 24 * 60 * 60_000 : context.timeframe === "realtime" ? 60_000 : 24 * 60 * 60_000;
+  const endTimestamp = Date.now();
 
   return Array.from({ length: 64 }, (_, index) => {
     const wave = Math.sin((index + seed) / 4.2) * 3.8 + Math.cos(index / 7) * 2.4;
@@ -115,9 +118,11 @@ function generateCandles(context: ChartContext): CandlePoint[] {
     const low = Math.min(open, close) - 1.2 - Math.abs(Math.cos(index)) * 1.8;
     const volume = 580000 + Math.round(Math.abs(wave) * 130000 + (index % 9) * 42000);
     previousClose = close;
+    const timestamp = endTimestamp - (63 - index) * intervalMs;
 
     return {
-      time: `${context.timeframe} #${index + 1}`,
+      time: formatBeijingChartTime(timestamp, context.timeframe),
+      timestamp,
       open,
       high,
       low,
@@ -154,6 +159,31 @@ function createSmoothPath(points: Array<{ x: number; y: number }>) {
 
 function formatPrice(value: number) {
   return value.toFixed(2);
+}
+
+function formatBeijingChartTime(timestamp: number, timeframe: Timeframe) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(timestamp));
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
+  const date = `${value("year")}-${value("month")}-${value("day")}`;
+
+  if (timeframe === "realtime") {
+    return `${date} ${value("hour")}:${value("minute")}:${value("second")}`;
+  }
+
+  if (timeframe === "1d" || timeframe === "1w") {
+    return date;
+  }
+
+  return `${date} ${value("hour")}:${value("minute")}`;
 }
 
 function isFiniteNumber(value: number) {
@@ -204,8 +234,14 @@ export function ChartViewport({
     end: candles.length,
   }));
   const [hoverIndex, setHoverIndex] = useState<number | null>(candles.length - 1);
-  const dragStateRef = useRef<{ pointerId: number; startX: number; startRange: ChartVisibleRange } | null>(null);
+  const dragStateRef = useRef<
+    | { mode: "pan"; pointerId: number; startX: number; startRange: ChartVisibleRange }
+    | { mode: "price-scale"; pointerId: number; startY: number; startScaleFactor: number }
+    | null
+  >(null);
   const [isPanning, setIsPanning] = useState(false);
+  const [isScalingPriceAxis, setIsScalingPriceAxis] = useState(false);
+  const [priceScaleFactor, setPriceScaleFactor] = useState(1);
 
   const width = 980;
   const height = 520;
@@ -214,6 +250,7 @@ export function ChartViewport({
   useEffect(() => {
     setVisibleRange({ start: Math.max(0, candles.length - 96), end: candles.length });
     setHoverIndex(candles.length > 0 ? candles.length - 1 : null);
+    setPriceScaleFactor(1);
   }, [candles, context.symbol, context.market, context.timeframe, resetViewKey]);
 
   if (!hasCandles) {
@@ -244,8 +281,11 @@ export function ChartViewport({
   const candleLows = visibleCandles.map((candle) => candle.low).filter(isFiniteNumber);
   const candleVolumes = visibleCandles.map((candle) => candle.volume).filter(isFiniteNumber);
   const priceCandidates = [...candleHighs, ...candleLows, ...layerPrices];
-  const maxPrice = Math.max(...priceCandidates);
-  const minPrice = Math.min(...priceCandidates);
+  const autoMaxPrice = Math.max(...priceCandidates);
+  const autoMinPrice = Math.min(...priceCandidates);
+  const scaledPriceRange = getScaledPriceRange(autoMinPrice, autoMaxPrice, priceScaleFactor);
+  const maxPrice = scaledPriceRange.max;
+  const minPrice = scaledPriceRange.min;
   const maxVolume = Math.max(1, ...candleVolumes);
   const priceRange = Math.max(1, maxPrice - minPrice);
   const safeHoverIndex = hoverIndex === null ? null : Math.min(hoverIndex, candles.length - 1);
@@ -289,6 +329,10 @@ export function ChartViewport({
   const latestPriceY = priceToY(latestCandle.close);
   const latestPriceTone = latestCandle.close >= latestCandle.open ? "up" : "down";
   const isLatestVisible = candles.length - 1 >= safeVisibleRange.start && candles.length - 1 < safeVisibleRange.end;
+  const priceTicks = Array.from({ length: 6 }, (_, index) => maxPrice - (priceRange / 5) * index);
+  const timeTickOffsets = Array.from({ length: Math.min(6, visibleCount) }, (_, index) =>
+    Math.round((Math.max(1, visibleCount) - 1) * (index / Math.max(1, Math.min(6, visibleCount) - 1))),
+  );
 
   const handleMouseMove = (event: MouseEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -309,13 +353,30 @@ export function ChartViewport({
       return;
     }
 
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = width / rect.width;
+    const x = (event.clientX - rect.left) * ratio;
+
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragStateRef.current = { pointerId: event.pointerId, startX: event.clientX, startRange: safeVisibleRange };
+    if (x >= width - paddingX) {
+      dragStateRef.current = { mode: "price-scale", pointerId: event.pointerId, startY: event.clientY, startScaleFactor: priceScaleFactor };
+      setIsScalingPriceAxis(true);
+      return;
+    }
+
+    dragStateRef.current = { mode: "pan", pointerId: event.pointerId, startX: event.clientX, startRange: safeVisibleRange };
     setIsPanning(true);
   };
   const handlePointerMove = (event: PointerEvent<SVGSVGElement>) => {
     const dragState = dragStateRef.current;
     if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (dragState.mode === "price-scale") {
+      const deltaY = event.clientY - dragState.startY;
+      const nextScaleFactor = Math.max(0.25, Math.min(4, dragState.startScaleFactor * Math.exp(deltaY / 220)));
+      setPriceScaleFactor(nextScaleFactor);
       return;
     }
 
@@ -328,11 +389,13 @@ export function ChartViewport({
     if (dragStateRef.current?.pointerId === event.pointerId) {
       dragStateRef.current = null;
       setIsPanning(false);
+      setIsScalingPriceAxis(false);
     }
   };
   const resetInteractionView = () => {
     setVisibleRange({ start: Math.max(0, candles.length - 96), end: candles.length });
     setHoverIndex(candles.length - 1);
+    setPriceScaleFactor(1);
   };
 
   if (!isFiniteNumber(maxPrice) || !isFiniteNumber(minPrice)) {
@@ -382,7 +445,7 @@ export function ChartViewport({
       </div>
 
       <svg
-        className={isPanning ? "chart-canvas panning" : "chart-canvas"}
+        className={`chart-canvas${isPanning ? " panning" : ""}${isScalingPriceAxis ? " scaling-price-axis" : ""}`}
         onMouseLeave={() => setHoverIndex(null)}
         onMouseMove={handleMouseMove}
         onPointerCancel={handlePointerUp}
@@ -401,6 +464,13 @@ export function ChartViewport({
         </defs>
 
         <rect className="chart-bg" height={height} width={width} />
+        <rect
+          className="price-axis-hit-area"
+          height={volumeTop + volumeHeight - chartTop}
+          width={paddingX}
+          x={width - paddingX}
+          y={chartTop}
+        />
         {showGrid &&
           Array.from({ length: 8 }, (_, index) => {
             const y = chartTop + (priceHeight / 7) * index;
@@ -589,14 +659,33 @@ export function ChartViewport({
 
         {showPriceLabels && (
           <g className="price-axis-labels">
-            <text x={width - paddingX - 4} y={priceToY(maxPrice) + 4}>
-              {formatPrice(maxPrice)}
+            <text className="price-axis-title" x={width - paddingX + 28} y={chartTop + 14}>
+              价格
             </text>
-            <text x={width - paddingX - 4} y={priceToY(minPrice) + 4}>
-              {formatPrice(minPrice)}
-            </text>
+            {priceTicks.map((price) => (
+              <text key={price} x={width - paddingX + 44} y={priceToY(price) + 4}>
+                {formatPrice(price)}
+              </text>
+            ))}
           </g>
         )}
+
+        <g className="time-axis-labels">
+          {timeTickOffsets.map((offset) => {
+            const candle = visibleCandles[offset];
+            const index = safeVisibleRange.start + offset;
+
+            if (!candle) {
+              return null;
+            }
+
+            return (
+              <text key={`${candle.time}-${index}`} x={indexToX(index)} y={volumeTop + volumeHeight + 24}>
+                {candle.time}
+              </text>
+            );
+          })}
+        </g>
 
         {showCrosshair && hoverX !== null && (
           <g className="crosshair">

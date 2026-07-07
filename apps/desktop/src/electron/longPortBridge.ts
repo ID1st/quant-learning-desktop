@@ -71,6 +71,7 @@ const longPortPeriod = {
 } as const;
 const longPortNoAdjust = 0 as LongPortAdjustType;
 const longPortAllTradeSessions = 1 as LongPortTradeSessions;
+const maxLongPortCandlestickCount = 1_000;
 
 function redactSecrets(message: string, credentials: LongPortApiCredentials) {
   return [credentials.appKey, credentials.appSecret, credentials.accessToken].reduce((currentMessage, secret) => {
@@ -136,7 +137,7 @@ function mapTimeframeToLongPortPeriod(timeframe: Timeframe) {
 
 function getDefaultLongPortBarCount(timeframe: Timeframe) {
   if (timeframe === "realtime" || timeframe === "1m") {
-    return 2_000;
+    return 1_000;
   }
 
   if (timeframe === "1w") {
@@ -144,6 +145,11 @@ function getDefaultLongPortBarCount(timeframe: Timeframe) {
   }
 
   return 600;
+}
+
+export function sanitizeLongPortCandlestickCount(timeframe: Timeframe, count?: number) {
+  const requestedCount = typeof count === "number" && Number.isFinite(count) ? count : getDefaultLongPortBarCount(timeframe);
+  return Math.max(1, Math.min(maxLongPortCandlestickCount, Math.round(requestedCount)));
 }
 
 export function mapLongPortCandlesticksToBars(
@@ -255,7 +261,7 @@ export async function fetchLongPortHistoricalBarsWithSdk(
     }
 
     const quoteContext = createLongPortQuoteContext(credentials);
-    const count = Math.max(1, Math.min(10_000, Math.round(request.count ?? getDefaultLongPortBarCount(request.timeframe))));
+    const count = sanitizeLongPortCandlestickCount(request.timeframe, request.count);
     const candlesticks = await quoteContext.candlesticks(
       symbol,
       mapTimeframeToLongPortPeriod(request.timeframe),

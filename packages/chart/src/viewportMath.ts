@@ -36,3 +36,17 @@ export function panChartVisibleRange(range: ChartVisibleRange, total: number, de
 
   return clampChartVisibleRange({ start: current.start + shift, end: current.end + shift }, total);
 }
+
+export function getScaledPriceRange(minPrice: number, maxPrice: number, scaleFactor: number) {
+  const safeMin = Math.min(minPrice, maxPrice);
+  const safeMax = Math.max(minPrice, maxPrice);
+  const center = (safeMin + safeMax) / 2;
+  const baseRange = Math.max(1, safeMax - safeMin);
+  const safeScaleFactor = Math.max(0.25, Math.min(4, Number.isFinite(scaleFactor) ? scaleFactor : 1));
+  const scaledRange = baseRange * safeScaleFactor;
+
+  return {
+    min: center - scaledRange / 2,
+    max: center + scaledRange / 2,
+  };
+}
