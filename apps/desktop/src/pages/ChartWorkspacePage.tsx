@@ -45,7 +45,15 @@ import {
   gatewayQuoteSnapshotsToMarketQuoteSnapshots,
 } from "../features/marketData/chartMarketDataGateway";
 import { readMarketDataProviderSettings } from "../features/marketData/marketDataProviderSettings";
-import type { MarketDataProviderHealthView } from "../features/marketData/marketDataProviderGateway";
+import {
+  summarizeMarketDataProviderHealth,
+  type MarketDataProviderDiagnosticSummary,
+} from "../features/marketData/marketDataProviderDiagnostics";
+import type {
+  GatewayMarketDataProviderId,
+  MarketDataProviderCapabilityKey,
+  MarketDataProviderHealthView,
+} from "../features/marketData/marketDataProviderGateway";
 import {
   Bell,
   CheckCircle2,
@@ -483,6 +491,11 @@ function createRealtimeHealthView(status: RealtimeProviderHealthView["status"], 
 function createRealtimeHealthViewFromGateway(
   health: MarketDataProviderHealthView,
   message = health.message,
+  options: {
+    capability?: MarketDataProviderCapabilityKey;
+    triedProviders?: readonly GatewayMarketDataProviderId[];
+    fallbackFrom?: GatewayMarketDataProviderId;
+  } = {},
 ): RealtimeProviderHealthView {
   const statusMap: Record<MarketDataProviderHealthView["status"], RealtimeProviderHealthView["status"]> = {
     healthy: "ok",
@@ -494,9 +507,14 @@ function createRealtimeHealthViewFromGateway(
     unconfigured: "waiting",
   };
 
+  const summary: MarketDataProviderDiagnosticSummary = summarizeMarketDataProviderHealth(health, {
+    ...options,
+    message,
+  });
+
   return {
     status: statusMap[health.status],
-    message,
+    message: summary.message,
     checkedAt: health.checkedAt,
     latencyMs: health.latencyMs,
     nextRetryAt: health.nextRetryAt,
@@ -814,7 +832,10 @@ export function ChartWorkspacePage() {
         if (!result.ok) {
           const errorHealth =
             result.health[0] !== undefined
-              ? createRealtimeHealthViewFromGateway(result.health[0], result.error.message)
+              ? createRealtimeHealthViewFromGateway(result.health[0], result.error.message, {
+                  capability: "historicalBars",
+                  triedProviders: result.triedProviders,
+                })
               : createRealtimeHealthView("error", result.error.message);
           setRealtimeHealth(errorHealth);
           setRealtimeStatus(errorHealth.message);
@@ -851,16 +872,17 @@ export function ChartWorkspacePage() {
               })
             : null;
 
-        const healthView = createRealtimeHealthView(
-          "ok",
-          gapStatus
-            ? gapStatus
-            : isRealtimeHistory && windowRange
-            ? windowRange.isMarketOpen
-              ? `长桥历史分时已加载 ${written.length} 点，AlphaFeed 继续补充实时走势`
-              : `长桥历史分时已加载 ${written.length} 点，收盘后停止追加`
-            : `长桥历史 K 线已加载 ${written.length} 根`,
-        );
+        const historicalMessage = gapStatus
+          ? gapStatus
+          : isRealtimeHistory && windowRange
+          ? windowRange.isMarketOpen
+            ? `历史分时已加载 ${written.length} 点，实时源继续补充走势`
+            : `历史分时已加载 ${written.length} 点，收盘后停止追加`
+          : `历史 K 线已加载 ${written.length} 根`;
+        const healthView = createRealtimeHealthViewFromGateway(result.health, historicalMessage, {
+          capability: "historicalBars",
+          triedProviders: result.triedProviders,
+        });
         setRealtimeHealth(healthView);
         setRealtimeStatus(formatRealtimeHealthDetail(healthView));
       } catch (error) {
@@ -926,6 +948,10 @@ export function ChartWorkspacePage() {
             ? createRealtimeHealthViewFromGateway(
                 gatewayHealth,
                 gatewayHealth.status === "unauthorized" ? "AlphaFeed 当前套餐无 1m 历史分时权限" : result.error.message,
+                {
+                  capability: "intradayBars",
+                  triedProviders: result.triedProviders,
+                },
               )
             : createRealtimeHealthView("error", result.error.message);
           setRealtimeHealth(healthView);
@@ -953,6 +979,10 @@ export function ChartWorkspacePage() {
           windowRange.isMarketOpen
             ? `历史分时已加载 ${written.length} 点，交易中继续更新`
             : `历史分时已加载 ${written.length} 点，收盘后停止更新`,
+          {
+            capability: "intradayBars",
+            triedProviders: result.triedProviders,
+          },
         );
         setRealtimeHealth(healthView);
         setRealtimeStatus(formatRealtimeHealthDetail(healthView));
@@ -1087,6 +1117,7 @@ export function ChartWorkspacePage() {
         const batches = createQuotePollingBatches(realtimeWatchlist);
         const snapshots: MarketQuoteSnapshot[] = [];
         let latestHealth: MarketDataProviderHealthView | null = null;
+        let latestTriedProviders: readonly GatewayMarketDataProviderId[] = [];
 
         for (const batch of batches) {
           const result = await marketDataGateways.quoteSnapshots.fetchQuoteSnapshot(batch);
@@ -1101,7 +1132,10 @@ export function ChartWorkspacePage() {
             const nextRetryAt = health?.nextRetryAt ? new Date(health.nextRetryAt).getTime() : Date.now() + realtimeRateLimitBackoffMs;
             const nextDelay = isRateLimited ? Math.max(realtimePollIntervalMs, nextRetryAt - Date.now()) : realtimePollIntervalMs;
             const healthView = health
-              ? createRealtimeHealthViewFromGateway(health, isRateLimited ? "AlphaFeed 限频，已自动退避" : result.error.message)
+              ? createRealtimeHealthViewFromGateway(health, isRateLimited ? "AlphaFeed 限频，已自动退避" : result.error.message, {
+                  capability: "realtimeQuote",
+                  triedProviders: result.triedProviders,
+                })
               : createRealtimeHealthView("error", result.error.message);
             setRealtimeHealth(healthView);
             setRealtimeStatus(formatRealtimeHealthDetail(healthView));
@@ -1111,6 +1145,7 @@ export function ChartWorkspacePage() {
 
           snapshots.push(...gatewayQuoteSnapshotsToMarketQuoteSnapshots(result.data));
           latestHealth = result.health;
+          latestTriedProviders = result.triedProviders;
         }
 
         if (cancelled) {
@@ -1128,16 +1163,28 @@ export function ChartWorkspacePage() {
             writeActiveSnapshotBars(nextBars);
             return nextBars;
           });
+          const baseHealth = latestHealth
+            ? createRealtimeHealthViewFromGateway(latestHealth, "批量轮询成功", {
+                capability: "realtimeQuote",
+                triedProviders: latestTriedProviders,
+              })
+            : createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功");
           const healthView: RealtimeProviderHealthView = {
-            ...(latestHealth ? createRealtimeHealthViewFromGateway(latestHealth) : createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功")),
-            message: `批量轮询更新 ${snapshots.length} 只 · ${new Date(snapshot.receivedAt).toLocaleTimeString("zh-CN", { hour12: false })}`,
+            ...baseHealth,
+            message: `${baseHealth.message} · 更新 ${snapshots.length} 只 · ${new Date(snapshot.receivedAt).toLocaleTimeString("zh-CN", { hour12: false })}`,
           };
           setRealtimeHealth(healthView);
           setRealtimeStatus(formatRealtimeHealthDetail(healthView));
         } else {
+          const baseHealth = latestHealth
+            ? createRealtimeHealthViewFromGateway(latestHealth, "批量轮询成功", {
+                capability: "realtimeQuote",
+                triedProviders: latestTriedProviders,
+              })
+            : createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功");
           const healthView: RealtimeProviderHealthView = {
-            ...(latestHealth ? createRealtimeHealthViewFromGateway(latestHealth) : createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功")),
-            message: snapshots.length > 0 ? "当前标的暂无快照，已保留上一轮缓存" : "AlphaFeed 暂无快照",
+            ...baseHealth,
+            message: snapshots.length > 0 ? `${baseHealth.message} · 当前标的暂无快照，已保留上一轮缓存` : `${baseHealth.message} · 暂无快照`,
           };
           setRealtimeHealth(healthView);
           setRealtimeStatus(formatRealtimeHealthDetail(healthView));

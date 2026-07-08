@@ -608,6 +608,40 @@ input {
   padding: 5px 8px;
 }
 
+.provider-toggle-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid rgba(143, 176, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(51, 112, 255, 0.08);
+  color: #dbe6ff;
+  cursor: pointer;
+  padding: 12px;
+}
+
+.provider-toggle-row input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #42dfad;
+}
+
+.provider-toggle-row strong {
+  display: block;
+  color: #f5f8ff;
+  font-size: 13px;
+}
+
+.provider-toggle-row small {
+  display: block;
+  margin-top: 4px;
+  color: #9caac0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .provider-status-pill {
   display: inline-flex;
   align-items: center;
@@ -631,7 +665,8 @@ input {
 }
 
 .provider-status-pill.configured,
-.provider-status-pill.prepared {
+.provider-status-pill.prepared,
+.provider-status-pill.enabled {
   border-color: rgba(66, 223, 173, 0.42);
   background: rgba(66, 223, 173, 0.1);
   color: #dffcef;

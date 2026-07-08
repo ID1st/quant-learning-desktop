@@ -1,4 +1,4 @@
-export type ApiProviderStatus = "placeholder" | "unconfigured" | "configured" | "prepared";
+export type ApiProviderStatus = "placeholder" | "enabled" | "unconfigured" | "configured" | "prepared";
 
 export interface ApiProviderPriorityItem {
   readonly id: "stock-sdk" | "alphafeed-rest" | "alphafeed-websocket" | "longbridge";
@@ -9,6 +9,7 @@ export interface ApiProviderPriorityItem {
 }
 
 export interface ApiProviderBindingState {
+  readonly stockSdkPrimaryEnabled?: boolean;
   readonly alphaFeedRestBound: boolean;
   readonly alphaFeedWebSocketPrepared: boolean;
   readonly longBridgeBound: boolean;
@@ -50,7 +51,7 @@ export function getApiProviderStatus(
   bindingState: ApiProviderBindingState,
 ): ApiProviderStatus {
   if (providerId === "stock-sdk") {
-    return "placeholder";
+    return bindingState.stockSdkPrimaryEnabled ? "enabled" : "placeholder";
   }
 
   if (providerId === "alphafeed-rest") {
@@ -67,6 +68,7 @@ export function getApiProviderStatus(
 export function formatApiProviderStatus(status: ApiProviderStatus) {
   const labels: Record<ApiProviderStatus, string> = {
     placeholder: "待接入",
+    enabled: "已启用",
     unconfigured: "未配置",
     configured: "已配置",
     prepared: "已预留",

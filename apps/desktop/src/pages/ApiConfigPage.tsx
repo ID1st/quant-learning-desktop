@@ -36,6 +36,10 @@ import {
 } from "../features/api/apiProviderPriorityConfig";
 import { useAuthStore } from "../features/auth/authStore";
 import { initialMarketDataSyncSteps, runInitialMarketDataSync } from "../features/marketData/marketDataSyncService";
+import {
+  readMarketDataProviderSettings,
+  writeMarketDataProviderSettings,
+} from "../features/marketData/marketDataProviderSettings";
 import { useAppStore } from "../state/appStore";
 
 const defaultAlphaFeedForm: AlphaFeedApiForm = {
@@ -99,6 +103,7 @@ export function ApiConfigPage() {
   const storedAlphaFeedBinding = useMemo(() => readAlphaFeedApiBinding(), []);
   const storedAlphaFeedStreamBinding = useMemo(() => readAlphaFeedStreamBinding(), []);
   const storedLongPortBinding = useMemo(() => readLongPortApiBinding(), []);
+  const [marketDataProviderSettings, setMarketDataProviderSettings] = useState(() => readMarketDataProviderSettings());
   const [alphaFeedForm, setAlphaFeedForm] = useState<AlphaFeedApiForm>({
     ...defaultAlphaFeedForm,
     apiUrl: storedAlphaFeedBinding?.apiUrl ?? defaultAlphaFeedForm.apiUrl,
@@ -132,6 +137,7 @@ export function ApiConfigPage() {
   const navigate = useAppStore((state) => state.navigate);
   const hasDesktopBridge = Boolean(window.quantDesktop?.alphaFeed);
   const providerBindingState = {
+    stockSdkPrimaryEnabled: marketDataProviderSettings.stockSdkPrimaryEnabled,
     alphaFeedRestBound: Boolean(storedAlphaFeedBinding),
     alphaFeedWebSocketPrepared: Boolean(storedAlphaFeedStreamBinding),
     longBridgeBound: Boolean(storedLongPortBinding),
@@ -147,6 +153,14 @@ export function ApiConfigPage() {
 
   const updateLongPortField = (field: keyof LongPortApiForm, value: string) => {
     setLongPortForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateStockSdkPrimaryEnabled = (enabled: boolean) => {
+    const nextSettings = writeMarketDataProviderSettings({
+      ...marketDataProviderSettings,
+      stockSdkPrimaryEnabled: enabled,
+    });
+    setMarketDataProviderSettings(nextSettings);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -383,6 +397,17 @@ export function ApiConfigPage() {
                   <span key={badge}>{badge}</span>
                 ))}
               </div>
+              <label className="provider-toggle-row">
+                <input
+                  checked={marketDataProviderSettings.stockSdkPrimaryEnabled}
+                  onChange={(event) => updateStockSdkPrimaryEnabled(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>
+                  <strong>启用 Stock SDK 灰度主源</strong>
+                  <small>开启后图表优先尝试 Stock SDK；不可用、限频或权限不足时自动降级到备用数据源。</small>
+                </span>
+              </label>
             </div>
           </details>
 

@@ -10,7 +10,7 @@ The system currently uses a split provider model:
 
 The next decision is to introduce a provider-neutral market-data gateway before changing production traffic. `chengzuopeng/stock-sdk` is a candidate primary provider, while AlphaFeed REST, AlphaFeed WebSocket, and LongBridge should become fallback providers after the gateway is in place.
 
-This document is a design and migration plan. The `stock-sdk` adapter exists behind the provider gateway, but it is disabled by default and is not yet authorized as the production primary source.
+This document is a design and migration plan. The `stock-sdk` adapter exists behind the provider gateway and can be enabled only through the guarded local `stockSdkPrimaryEnabled` switch. The default remains off, so AlphaFeed REST/WebSocket and LongBridge continue to protect production chart behavior.
 
 ## Candidate Primary Provider: stock-sdk
 
@@ -416,6 +416,8 @@ Implemented acceptance:
 
 ### Step 9: Provider Diagnostics And Status Hardening
 
+Status: completed. The app now has a provider-diagnostics formatter in `apps/desktop/src/features/marketData/marketDataProviderDiagnostics.ts`, chart status messages include active provider/capability/fallback information, and the API configuration page exposes the guarded Stock SDK primary-source switch.
+
 Scope:
 
 - Surface active provider, fallback provider, latest provider health, and reason for fallback in the chart status area.
@@ -428,6 +430,30 @@ Acceptance:
 - Users can see whether data came from `stock-sdk`, AlphaFeed REST, AlphaFeed WebSocket, or LongBridge.
 - Fallback events are visible without breaking chart rendering.
 - Provider settings and diagnostics are documented.
+
+Implemented acceptance:
+
+- `stockSdkPrimaryEnabled` can be toggled from the API configuration page and persists through provider settings.
+- Provider priority status can show `stock-sdk` as `待接入` or `已启用`.
+- Chart status diagnostics summarize provider label, capability, health status, latency/check time, and fallback source.
+- Unit tests cover provider labels, status labels, fallback summaries, and the guarded primary status.
+
+### Step 10: Provider-Neutral Desktop IPC
+
+Status: planned.
+
+Scope:
+
+- Add `window.quantDesktop.marketData.*` methods that delegate to the provider gateway in the main process.
+- Keep existing AlphaFeed and LongBridge bridge methods as compatibility endpoints until the provider-neutral IPC path is stable.
+- Move renderer pages closer to provider-neutral requests and away from credential-aware provider construction.
+
+Acceptance:
+
+- Renderer chart code can request quotes/bars through provider-neutral IPC.
+- Existing encrypted credentials remain readable.
+- Existing chart behavior, cache behavior, and strategy behavior remain unchanged.
+- Typecheck, desktop tests, build, and provider probes pass.
 
 ## Security Policy
 

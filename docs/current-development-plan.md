@@ -2,7 +2,7 @@
 
 ## Status
 
-The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 8 are complete; the next slice is provider diagnostics, visible status, clearer fallback/error messaging, and documentation hardening.
+The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 9 are complete; the next slice is provider-neutral desktop IPC hardening and richer provider diagnostics history.
 
 Completed foundations:
 
@@ -33,6 +33,7 @@ Completed foundations:
 - Market Data Provider Gateway phase 6 is in place: the `stock-sdk` gateway adapter exists behind an injectable operations boundary, defaults to `unconfigured`, is not used by the production chart flow, and has tests for symbol normalization, quote/bar normalization, deterministic `open: 0` repair, invalid OHLC rejection, and fallback behavior.
 - Market Data Provider Gateway phase 7 is in place: `npm run probe:stock-sdk` validates real `stock-sdk@2.3.0` quote, daily, weekly, and 1m intraday data for CN/HK/US through the gateway adapter. The latest run passed 10/10 checks and is documented in `docs/stock-sdk-data-test-report.md`.
 - Market Data Provider Gateway phase 8 is in place: the chart gateway can register the real `stock-sdk` operations as the primary provider only when `stockSdkPrimaryEnabled` is explicitly enabled in provider settings. The default setting remains off, and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback paths remain active and covered by tests.
+- Market Data Provider Gateway phase 9 is in place: the API configuration page exposes the guarded `stockSdkPrimaryEnabled` switch, provider priority status can show `stock-sdk` as enabled, and the chart status badge uses provider diagnostics to show active provider, health state, capability, and fallback source.
 
 ## Current Data Flow
 
@@ -50,7 +51,7 @@ Completed foundations:
 12. On the `1d` chart, the active symbol quote is read from the snapshot cache and merged into the current trading-day candle.
 13. On the `realtime` chart, the active symbol can load LongBridge 1m candlesticks into the `realtime` cache, capped at 1,000 bars per request. During market hours, live quote snapshots can append new points; after close, polling stops and only historical intraday data remains.
 14. If LongBridge realtime-page history is delayed, the cache merge keeps newer live bars and the chart status explains whether the gap has been bridged.
-15. AlphaFeed stream/REST health is surfaced in the chart top bar with latency, latest check time, and degraded states.
+15. Provider health is surfaced in the chart top bar with active provider, capability, fallback source, latency, latest check time, and degraded states.
 16. Settings exposes cache size, indexed entries, retention cleanup, and full cache clearing.
 17. Dashboard shows provider state, quote count, and K-line count.
 
@@ -185,6 +186,20 @@ Acceptance:
 - If `stock-sdk` is unavailable, quote fallback uses AlphaFeed REST, historical fallback uses LongBridge, and intraday fallback uses AlphaFeed REST then LongBridge.
 - Tests prove both default old priority and enabled fallback behavior.
 
+### 2.11. Provider Diagnostics And Status Hardening
+
+Status: completed.
+
+Goal: make the multi-provider model visible to users and safer to operate during the guarded `stock-sdk` rollout.
+
+Acceptance:
+
+- The API configuration page exposes a UI-safe toggle for `stockSdkPrimaryEnabled`.
+- Provider priority status can distinguish `stock-sdk` as `待接入` or `已启用`.
+- The chart status badge can show whether realtime quotes, historical bars, or intraday bars were served by `stock-sdk`, AlphaFeed REST, AlphaFeed WebSocket, or LongBridge.
+- Fallback from a higher-priority provider is visible in the diagnostic message.
+- Diagnostics remain in the app market-data feature layer; chart rendering and strategy packages still do not depend on provider SDKs.
+
 ### 3. Super Chart Capability Completion
 
 Goal: complete the TradingView-like super chart as the unified surface for market data, indicators, strategy overlays, drawing tools, and future plugin layers.
@@ -208,12 +223,15 @@ Deferred:
 
 ### 4. Mixed Provider Diagnostics
 
+Status: first pass completed in phase 2.11; richer history/timeline remains.
+
 Goal: make the multi-provider model visible and easier to debug.
 
 Acceptance:
 
 - Surface whether the current chart is using `stock-sdk REST`, `AlphaFeed REST`, `AlphaFeed WebSocket`, or `LongBridge`.
 - Surface which provider served the current quote snapshot and each active bar batch.
+- Add a compact provider-event timeline for repeated fallback, rate-limit, and delayed-history events.
 - Keep broker/account integration behind desktop IPC.
 
 ### 5. AlphaFeed WebSocket Runtime Hardening
