@@ -103,6 +103,36 @@ describe("AlphaFeed REST gateway compatibility provider", () => {
     assert.equal(result.ok, true);
     assert.equal(result.provider, "longbridge");
     assert.deepEqual(result.triedProviders, ["alphafeed-rest", "longbridge"]);
+    assert.equal(result.ok ? result.health.status : "", "delayed");
+  });
+
+  it("preserves rate-limit diagnostics when every fallback provider is unavailable", async () => {
+    const alphaProvider = createAlphaFeedRestGatewayProvider({
+      fetchQuoteSnapshot: async () => ({
+        ok: false,
+        error: {
+          message: "rate limited",
+          health: {
+            status: "rate_limited",
+            message: "rate limited",
+            checkedAt: "2026-07-07T00:00:00.000Z",
+            latencyMs: 12,
+            nextRetryAt: "2026-07-07T00:02:00.000Z",
+          },
+        },
+      }),
+      fetchHistoricalBars: async () => ({ ok: true, bars: [], health: { status: "ok", message: "ok", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 1 } }),
+      fetchIntradayBars: async () => ({ ok: true, bars: [], health: { status: "ok", message: "ok", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 1 } }),
+    });
+    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([alphaProvider]), ["alphafeed-rest"]);
+
+    const result = await gateway.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]);
+
+    assert.equal(result.ok, false);
+    assert.equal(result.ok ? "" : result.error.provider, "alphafeed-rest");
+    assert.deepEqual(result.triedProviders, ["alphafeed-rest"]);
+    assert.equal(result.ok ? "" : result.health[0]?.status, "rateLimited");
+    assert.equal(result.ok ? "" : result.health[0]?.nextRetryAt, "2026-07-07T00:02:00.000Z");
   });
 });
 

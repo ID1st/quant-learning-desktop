@@ -42,6 +42,7 @@ Completed foundations:
 - Provider-neutral Desktop IPC stage 5 historical/intraday migration is complete: main-process market-data handlers now serve historical bars and intraday bars through the secure-credential-backed provider registry, and the chart's `realtime`, `1d`, and `1w` bar loading uses `window.quantDesktop.marketData.fetchHistoricalBars` or `fetchIntradayBars` when available.
 - Provider-neutral Desktop IPC stage 6 WebSocket stream migration is complete: AlphaFeed WebSocket connect/read/disconnect now uses secure main-process credential reads and `window.quantDesktop.marketData.*` stream methods when available, while the legacy AlphaFeed stream bridge remains as a compatibility fallback.
 - Provider-neutral Desktop IPC stage 7 chart renderer migration is complete: `ChartWorkspacePage` no longer reads provider credentials or constructs provider gateways directly. It uses a chart-facing market-data access layer that prefers `window.quantDesktop.marketData.*` and keeps the old gateway path only as a non-desktop compatibility fallback.
+- Provider-neutral Desktop IPC stage 8 diagnostics hardening is complete: main-process provider status now reports registered provider health and capabilities, IPC tests cover provider status, fallback metadata, primary-provider failures, stream unauthorized/rate-limited states, and gateway diagnostics now return the latest failed-provider health after operation errors.
 
 ## Current Data Flow
 
@@ -87,7 +88,7 @@ Important constraints:
 
 ### 0. Provider-Neutral Desktop IPC
 
-Status: active; stage 7 chart renderer migration completed, provider diagnostics/error test expansion pending.
+Status: active; stage 8 provider diagnostics/error tests completed, final verification and build pass pending.
 
 Goal: expose a provider-neutral desktop bridge at `window.quantDesktop.marketData.*` and move chart market-data requests out of renderer-side provider construction.
 
@@ -108,8 +109,8 @@ Recommended implementation slices:
 4. Completed: route historical and intraday bar requests through the new IPC.
 5. Completed: route AlphaFeed WebSocket stream control through the new IPC.
 6. Completed: remove renderer-side gateway construction from the chart page.
-7. Next: add fallback, health, and error-diagnostics tests.
-8. Run final desktop tests, typecheck, build, and `probe:stock-sdk`.
+7. Completed: add fallback, health, and error-diagnostics tests.
+8. Next: run final desktop tests, typecheck, build, and `probe:stock-sdk`.
 
 ### 1. Market Data Provider Gateway Planning
 

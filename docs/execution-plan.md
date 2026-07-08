@@ -241,7 +241,7 @@ Deferred:
 
 Status:
 
-- Stage 7 chart renderer migration completed; provider diagnostics/error test expansion pending.
+- Stage 8 provider diagnostics/error test expansion completed; final verification pending.
 
 Goal:
 
@@ -267,8 +267,8 @@ Implementation order:
 4. Completed: migrate historical and intraday bar requests, preserving the `realtime` uses-intraday rule.
 5. Completed: migrate stream connect/read/disconnect.
 6. Completed: remove renderer-side provider gateway construction from the chart page.
-7. Next: add fallback, provider-health, error-classification, and bridge-shape tests.
-8. Run `npm run test:desktop`, `npm run typecheck`, `npm run build`, and `npm run probe:stock-sdk`.
+7. Completed: add fallback, provider-health, error-classification, and bridge-shape tests.
+8. Next: run `npm run test:desktop`, `npm run typecheck`, `npm run build`, and `npm run probe:stock-sdk`.
 
 Acceptance:
 

@@ -250,6 +250,8 @@ export function createMarketDataGateway(
           triedProviders,
         };
       } catch (error) {
+        const latestHealth = await provider.getHealth();
+        healthViews[healthViews.length - 1] = latestHealth;
         lastError = {
           code: "PROVIDER_UNAVAILABLE",
           message: `${provider.displayName} request failed`,

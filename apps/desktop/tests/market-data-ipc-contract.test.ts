@@ -9,6 +9,7 @@ import {
 } from "../src/electron/marketDataIpcContract.ts";
 import type { SecureCredentialStore } from "../src/electron/secureCredentialStore.ts";
 import type { AlphaFeedStreamSession } from "../src/electron/alphaFeedStreamBridge.ts";
+import type { AlphaFeedProviderHealth } from "../src/electron/alphaFeedBridge.ts";
 
 test("market data IPC channels are stable provider-neutral contracts", () => {
   assert.deepEqual(marketDataIpcChannels, {
@@ -100,6 +101,31 @@ test("market data IPC shell returns structured unavailable errors for unwired re
   assert.deepEqual(result.error.health, []);
 });
 
+test("market data IPC handlers expose provider status from secure main-side provider registry", async () => {
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createCredentialStoreWithFallbackCredentials(),
+    stockSdkOperations: {
+      fetchQuoteSnapshot: async () => [],
+      fetchHistoricalBars: async () => [],
+      fetchIntradayBars: async () => [],
+    },
+  });
+
+  const result = await handlers.getProviderStatus({ source: "diagnostics" });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.data.priority, marketDataIpcDefaultProviderPriority);
+  assert.deepEqual(
+    result.data.providers.map((provider) => provider.provider),
+    ["stock-sdk", "alphafeed-rest", "longbridge"],
+  );
+  assert.deepEqual(
+    result.data.providers.map((provider) => provider.status),
+    ["healthy", "healthy", "delayed"],
+  );
+  assert.equal(result.data.capabilities.length, 3);
+});
+
 test("market data IPC handlers fetch quote snapshots through stock sdk primary without renderer credentials", async () => {
   const handlers = createMarketDataIpcHandlers({
     credentialStore: createEmptyCredentialStore(),
@@ -133,6 +159,32 @@ test("market data IPC handlers fetch quote snapshots through stock sdk primary w
   assert.equal(result.meta.provider, "stock-sdk");
   assert.deepEqual(result.meta.fallback.triedProviders, ["stock-sdk"]);
   assert.equal(result.data[0]?.symbol, "AAPL.US");
+});
+
+test("market data IPC handlers preserve provider diagnostics when a primary provider request fails", async () => {
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createEmptyCredentialStore(),
+    stockSdkOperations: {
+      fetchQuoteSnapshot: async () => {
+        throw new Error("stock quote unavailable");
+      },
+      fetchHistoricalBars: async () => [],
+      fetchIntradayBars: async () => [],
+    },
+  });
+
+  const result = await handlers.fetchQuoteSnapshot({
+    context: { source: "chart" },
+    items: [{ symbol: "AAPL.US", market: "US", name: "Apple Inc." }],
+    providerPolicy: { stockSdkPrimaryEnabled: true },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.ok ? "" : result.error.code, "PROVIDER_UNAVAILABLE");
+  assert.equal(result.ok ? "" : result.error.provider, "stock-sdk");
+  assert.deepEqual(result.ok ? [] : result.error.fallback.triedProviders, ["stock-sdk"]);
+  assert.equal(result.ok ? "" : result.error.health[0]?.provider, "stock-sdk");
+  assert.equal(result.ok ? "" : result.error.health[0]?.status, "unavailable");
 });
 
 test("market data IPC handlers return no capable provider when stock sdk is disabled and no fallback credentials exist", async () => {
@@ -302,12 +354,52 @@ test("market data IPC stream connect reports unconfigured when stream credential
   assert.deepEqual(result.ok ? [] : result.error.fallback.triedProviders, ["alphafeed-websocket"]);
 });
 
-function createStreamHealth(status: "ok", message: string) {
+test("market data IPC stream maps permission and rate-limit health into provider-neutral diagnostics", async () => {
+  const states: Array<ReturnType<typeof createStreamHealth>> = [
+    createStreamHealth("permission_denied", "stream permission denied"),
+    createStreamHealth("rate_limited", "stream rate limited", "2026-07-06T20:02:00.000Z"),
+  ];
+  const streamSession: AlphaFeedStreamSession = {
+    async connect() {
+      const health = states.shift() ?? createStreamHealth("ok", "stream connected");
+      return { ok: true, state: "fallback", health };
+    },
+    async readSnapshot() {
+      return { ok: true, state: "fallback", health: createStreamHealth("error", "fallback"), snapshots: [] };
+    },
+    async disconnect() {
+      return { ok: true, state: "idle", health: createStreamHealth("ok", "stream disconnected") };
+    },
+  };
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createCredentialStoreWithStreamCredentials(),
+    streamSession,
+  });
+
+  const unauthorized = await handlers.connectQuoteStream({
+    context: { source: "chart" },
+    items: [{ symbol: "AAPL.US", market: "US", name: "Apple Inc." }],
+  });
+  const rateLimited = await handlers.connectQuoteStream({
+    context: { source: "chart" },
+    items: [{ symbol: "AAPL.US", market: "US", name: "Apple Inc." }],
+  });
+
+  assert.equal(unauthorized.ok, true);
+  assert.equal(unauthorized.ok ? unauthorized.meta.health.status : "", "unauthorized");
+  assert.equal(unauthorized.ok ? unauthorized.data.state : "", "fallback");
+  assert.equal(rateLimited.ok, true);
+  assert.equal(rateLimited.ok ? rateLimited.meta.health.status : "", "rateLimited");
+  assert.equal(rateLimited.ok ? rateLimited.meta.health.nextRetryAt : "", "2026-07-06T20:02:00.000Z");
+});
+
+function createStreamHealth(status: AlphaFeedProviderHealth["status"], message: string, nextRetryAt?: string) {
   return {
     status,
     message,
     checkedAt: "2026-07-06T20:00:00.000Z",
     latencyMs: 1,
+    nextRetryAt,
   };
 }
 
@@ -315,6 +407,19 @@ function createCredentialStoreWithStreamCredentials(): SecureCredentialStore {
   return {
     ...createEmptyCredentialStore(),
     readAlphaFeedStreamCredentials: () => ({ wsUrl: "wss://stream.example.test", apiKey: "stream-key" }),
+  };
+}
+
+function createCredentialStoreWithFallbackCredentials(): SecureCredentialStore {
+  return {
+    ...createEmptyCredentialStore(),
+    readAlphaFeedCredentials: () => ({ apiUrl: "https://alpha.example.test", apiKey: "alpha-test-key" }),
+    readLongPortCredentials: () => ({
+      apiUrl: "https://longbridge.example.test",
+      appKey: "long-app-key",
+      appSecret: "long-app-secret",
+      accessToken: "long-access-token",
+    }),
   };
 }
 

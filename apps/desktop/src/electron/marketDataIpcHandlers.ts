@@ -56,6 +56,23 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
 
   return {
     ...shell,
+    async getProviderStatus() {
+      const providers = createMarketDataProviders(true, {
+        credentialStore,
+        stockSdkOperations: dependencies.stockSdkOperations,
+      });
+      const health = await Promise.all(providers.map((provider) => provider.getHealth()));
+
+      return {
+        ok: true,
+        data: {
+          priority: marketDataIpcDefaultProviderPriority,
+          providers: health,
+          capabilities: providers.map((provider) => provider.capability),
+          checkedAt: new Date().toISOString(),
+        },
+      };
+    },
     async fetchQuoteSnapshot(request) {
       const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
         credentialStore,

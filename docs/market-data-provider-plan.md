@@ -476,7 +476,7 @@ Acceptance:
 
 ### Step 11: Provider-Neutral Desktop IPC
 
-Status: stage 7 chart renderer migration completed; provider diagnostics/error test expansion pending.
+Status: stage 8 provider diagnostics/error test expansion completed; final verification pending.
 
 Scope:
 
@@ -521,8 +521,8 @@ Migration plan:
 4. Completed: move historical and intraday bar requests into the main-process IPC handler, preserving the `realtime` uses-intraday rule.
 5. Completed: move AlphaFeed WebSocket connect/read/disconnect behind the provider-neutral stream methods.
 6. Completed: replace chart workspace gateway construction with chart-facing access calls that prefer `window.quantDesktop.marketData.*` and keep cache/strategy behavior unchanged.
-7. Next: add diagnostics tests for fallback order, rate-limit/unauthorized/network errors, delayed provider states, and provider status reporting.
-8. Run desktop tests, typecheck, build, and `probe:stock-sdk`; then record a rollback commit.
+7. Completed: add diagnostics tests for fallback order, rate-limit/unauthorized/network errors, delayed provider states, and provider status reporting.
+8. Next: run desktop tests, typecheck, build, and `probe:stock-sdk`; then record a rollback commit.
 
 Stage 2 implementation notes:
 
@@ -576,6 +576,13 @@ Stage 7 implementation notes:
 - In desktop mode, quote snapshots, historical bars, intraday bars, and stream control are routed through `window.quantDesktop.marketData.*`.
 - The legacy renderer gateway remains isolated inside the access layer for non-desktop/browser compatibility and still preserves Stock SDK, AlphaFeed REST/WebSocket, and LongBridge behavior.
 - Desktop tests cover that provider-neutral access does not read legacy credentials or call legacy AlphaFeed/LongBridge bridge methods when `marketData` IPC is available.
+
+Stage 8 implementation notes:
+
+- `getProviderStatus` is now wired in the provider-neutral main-process handler and reports provider priority, provider health views, capabilities, and checked time from the secure main-side provider registry.
+- IPC tests now cover provider status, Stock SDK primary-provider failure diagnostics, stream unauthorized health, stream rate-limit health, and unconfigured stream credentials.
+- Compatibility provider tests now cover rate-limit diagnostics when every fallback provider is unavailable and delayed LongBridge health when fallback succeeds.
+- `MarketDataGateway` now refreshes a provider's health after an operation throws, so error responses carry the latest failed-provider status instead of the pre-request status.
 
 Acceptance:
 
