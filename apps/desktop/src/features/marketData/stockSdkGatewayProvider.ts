@@ -230,19 +230,17 @@ function mapStockSdkQuoteSnapshots(
 function findQuoteRecordForRequest(
   records: readonly StockSdkRawRecord[],
   request: StockSdkQuoteRequest,
-  fallbackIndex: number,
+  _fallbackIndex: number,
 ): StockSdkRawRecord | undefined {
   const requestKeys = new Set([
     normalizeComparableSymbol(request.providerSymbol),
     normalizeComparableSymbol(request.symbol),
   ]);
 
-  return (
-    records.find((record) => {
-      const recordSymbol = readOptionalString(record, ["providerSymbol", "symbol", "code", "secid", "securityCode"]);
-      return recordSymbol ? requestKeys.has(normalizeComparableSymbol(recordSymbol)) : false;
-    }) ?? records[fallbackIndex]
-  );
+  return records.find((record) => {
+    const recordSymbol = readOptionalString(record, ["providerSymbol", "symbol", "code", "secid", "securityCode"]);
+    return recordSymbol ? requestKeys.has(normalizeComparableSymbol(recordSymbol)) : false;
+  });
 }
 
 function mapStockSdkQuoteSnapshot(

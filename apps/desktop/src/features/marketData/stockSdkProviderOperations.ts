@@ -47,7 +47,7 @@ export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkCli
               ? await sdk.quotes.hk(providerSymbols)
               : await sdk.quotes.us(providerSymbols);
 
-        records.push(...toRawRecords(result).map((record) => attachProviderSymbol(record, group)));
+        records.push(...toRawRecords(result).map((record, index) => attachProviderSymbol(record, group, index)));
       }
 
       return records;
@@ -76,7 +76,6 @@ export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkCli
         period: request.period as "1" | "5" | "15" | "30" | "60",
         adjust: "" as const,
         ndays: 5,
-        ...toIntradayRangeOptions(request),
       };
 
       if (request.market === "CN") {
@@ -107,11 +106,12 @@ async function createStockSdkClient(): Promise<StockSdkClient> {
   }) as StockSdkClient;
 }
 
-function attachProviderSymbol(record: StockSdkRawRecord, requests: readonly StockSdkQuoteRequest[]): StockSdkRawRecord {
+function attachProviderSymbol(record: StockSdkRawRecord, requests: readonly StockSdkQuoteRequest[], index: number): StockSdkRawRecord {
   const recordCode = String(record.code ?? record.symbol ?? record.secid ?? "").toUpperCase();
   const match =
     requests.find((request) => sameSymbol(recordCode, request.providerSymbol)) ??
-    requests.find((request) => sameSymbol(recordCode, request.symbol));
+    requests.find((request) => sameSymbol(recordCode, request.symbol)) ??
+    requests[index];
 
   return {
     ...record,
@@ -134,27 +134,10 @@ function toHistoryRangeOptions(request: StockSdkBarRequest) {
   };
 }
 
-function toIntradayRangeOptions(request: StockSdkBarRequest) {
-  return {
-    startDate: request.startTime ? formatDateTime(request.startTime) : undefined,
-    endDate: request.endTime ? formatDateTime(request.endTime) : undefined,
-  };
-}
-
 function formatDate(timestamp: number) {
   const date = new Date(timestamp);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}${month}${day}`;
-}
-
-function formatDateTime(timestamp: number) {
-  const date = new Date(timestamp);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-  return `${year}-${month}-${day} ${hour}:${minute}`;
 }

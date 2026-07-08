@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   createMarketDataGateway,
   createMarketDataProviderRegistry,
+  type GatewayMarketDataBar,
   type GatewayMarketDataProvider,
   type GatewayMarketQuoteSnapshot,
   type MarketDataProviderCapability,
@@ -26,6 +27,8 @@ function createProvider(
   status: MarketDataProviderHealthStatus,
   capability: MarketDataProviderCapability = baseCapability,
   fetchQuoteSnapshot: GatewayMarketDataProvider["fetchQuoteSnapshot"] = async () => [],
+  fetchHistoricalBars?: GatewayMarketDataProvider["fetchHistoricalBars"],
+  fetchIntradayBars?: GatewayMarketDataProvider["fetchIntradayBars"],
 ): GatewayMarketDataProvider {
   return {
     id,
@@ -39,6 +42,8 @@ function createProvider(
       capability,
     }),
     fetchQuoteSnapshot,
+    fetchHistoricalBars,
+    fetchIntradayBars,
   };
 }
 
@@ -147,5 +152,46 @@ describe("MarketDataGateway", () => {
     assert.equal(result.provider, "longbridge");
     assert.deepEqual(result.triedProviders, ["alphafeed-rest", "longbridge"]);
     assert.deepEqual(result.data, [quote]);
+  });
+
+  it("falls back when a bar provider returns no bars", async () => {
+    const bar: GatewayMarketDataBar = {
+      provider: "stock-sdk",
+      market: "US",
+      symbol: "AAPL.US",
+      timeframe: "1m",
+      timestamp: Date.parse("2026-07-07T13:30:00.000Z"),
+      open: 294,
+      high: 295,
+      low: 293,
+      close: 294.28,
+      volume: 1000,
+    };
+    const barCapability: MarketDataProviderCapability = {
+      ...baseCapability,
+      realtimeQuote: false,
+      historicalBars: true,
+      intradayBars: true,
+      timeframes: ["1d", "1w", "1m"],
+    };
+    const registry = createMarketDataProviderRegistry([
+      createProvider("alphafeed-rest", "healthy", barCapability, async () => [], async () => [], async () => []),
+      createProvider(
+        "stock-sdk",
+        "healthy",
+        barCapability,
+        async () => [],
+        async () => [{ ...bar, timeframe: "1d" }],
+        async () => [bar],
+      ),
+    ]);
+    const gateway = createMarketDataGateway(registry, ["alphafeed-rest", "stock-sdk"]);
+
+    const result = await gateway.fetchIntradayBars({ market: "US", symbol: "AAPL.US", timeframe: "1m" });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.provider, "stock-sdk");
+    assert.deepEqual(result.triedProviders, ["alphafeed-rest", "stock-sdk"]);
+    assert.deepEqual(result.data, [bar]);
   });
 });

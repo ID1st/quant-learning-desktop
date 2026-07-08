@@ -87,7 +87,7 @@ const realtimeWatchlist: MarketWatchlistItem[] = symbols.map((item) => ({
 const timeframes: Timeframe[] = ["realtime", "1d", "1w"];
 const realtimeRateLimitBackoffMs = 120_000;
 const enableAlphaFeedHistoricalIntradayBackfill = false;
-const longPortRealtimeHistoryCount = 1_000;
+const realtimeHistoryBarCount = 1_000;
 const longPortRealtimeDelayWarningMs = 5 * 60_000;
 const strategyRegistry = createPresetStrategyRegistry();
 const presetStrategies = strategyRegistry.list();
@@ -627,8 +627,8 @@ function formatRealtimeGapStatus(bars: MarketDataBar[], key: { symbol: string; m
 
   const gapMinutes = Math.round(gap.gapMs / 60_000);
   return gap.isBridgedByLiveData
-    ? `长桥历史分时落后约 ${gapMinutes} 分钟，AlphaFeed 实时点已补齐最新走势`
-    : `长桥历史分时落后约 ${gapMinutes} 分钟，等待 AlphaFeed 实时点补齐`;
+    ? `历史分时落后约 ${gapMinutes} 分钟，实时源已补齐最新走势`
+    : `历史分时落后约 ${gapMinutes} 分钟，等待实时源补齐`;
 }
 
 function getStrategyLayerStatus(
@@ -842,7 +842,7 @@ export function ChartWorkspacePage() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadLongPortHistory = async () => {
+    const loadMarketDataHistory = async () => {
       const isRealtimeHistory = timeframe === "realtime";
       const windowRange = isRealtimeHistory ? getIntradayHistoryWindow(activeSymbol.market) : null;
 
@@ -856,8 +856,11 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        if (!marketDataAccess.hasHistoricalSource) {
-          const waitingHealth = createRealtimeHealthView("waiting", "等待长桥凭据以加载历史 K 线");
+        if (isRealtimeHistory ? !marketDataAccess.hasIntradaySource : !marketDataAccess.hasHistoricalSource) {
+          const waitingHealth = createRealtimeHealthView(
+            "waiting",
+            isRealtimeHistory ? "等待主行情源或备用源以加载历史分时" : "等待主行情源或备用源以加载历史 K 线",
+          );
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
           return;
@@ -869,7 +872,7 @@ export function ChartWorkspacePage() {
           timeframe: isRealtimeHistory ? ("1m" as const) : timeframe,
           startTime: windowRange?.startTime,
           endTime: windowRange?.endTime,
-          count: isRealtimeHistory ? longPortRealtimeHistoryCount : timeframe === "1w" ? 260 : 600,
+          count: isRealtimeHistory ? realtimeHistoryBarCount : timeframe === "1w" ? 260 : 600,
         };
         const providerCapability = isRealtimeHistory ? "intradayBars" : "historicalBars";
         const result = await fetchChartBars({
@@ -898,7 +901,10 @@ export function ChartWorkspacePage() {
         const resultBars = gatewayBarsToMarketDataBars(result.data, isRealtimeHistory ? "realtime" : undefined);
 
         if (resultBars.length === 0) {
-          const emptyHealth = createRealtimeHealthView("waiting", "长桥暂无可用历史 K 线数据");
+          const emptyHealth = createRealtimeHealthView(
+            "waiting",
+            isRealtimeHistory ? "主行情源与备用源暂无可用历史分时数据" : "主行情源与备用源暂无可用历史 K 线数据",
+          );
           setRealtimeHealth(emptyHealth);
           setRealtimeStatus(emptyHealth.message);
           return;
@@ -945,7 +951,7 @@ export function ChartWorkspacePage() {
       }
     };
 
-    void loadLongPortHistory();
+    void loadMarketDataHistory();
 
     return () => {
       cancelled = true;
@@ -973,7 +979,7 @@ export function ChartWorkspacePage() {
         }
 
         if (!marketDataAccess.hasIntradaySource) {
-          const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed 凭据以加载历史分时");
+          const waitingHealth = createRealtimeHealthView("waiting", "等待备用源凭据以加载历史分时");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
           return;
@@ -1020,7 +1026,7 @@ export function ChartWorkspacePage() {
         );
 
         if (realtimeBars.length === 0) {
-          const emptyHealth = createRealtimeHealthView("waiting", "AlphaFeed 暂无历史分时数据");
+          const emptyHealth = createRealtimeHealthView("waiting", "备用源暂无历史分时数据");
           setRealtimeHealth(emptyHealth);
           setRealtimeStatus(emptyHealth.message);
           return;
@@ -1102,7 +1108,7 @@ export function ChartWorkspacePage() {
         }
 
         if (!marketDataAccess.hasQuoteSource && !marketDataAccess.hasStreamSource) {
-          const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed 凭据");
+          const waitingHealth = createRealtimeHealthView("waiting", "等待主行情源或备用实时源");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
           timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
@@ -1166,7 +1172,7 @@ export function ChartWorkspacePage() {
         }
 
         if (!marketDataAccess.hasQuoteSource) {
-          const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed REST 凭据");
+          const waitingHealth = createRealtimeHealthView("waiting", "等待主行情源或备用 REST 实时源");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
           timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);

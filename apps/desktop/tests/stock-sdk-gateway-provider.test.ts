@@ -9,6 +9,7 @@ import {
   type StockSdkGatewayProviderOperations,
   type StockSdkQuoteRequest,
 } from "../src/features/marketData/stockSdkGatewayProvider.ts";
+import { createStockSdkGatewayProviderOperations } from "../src/features/marketData/stockSdkProviderOperations.ts";
 import { createMarketDataGateway, createMarketDataProviderRegistry } from "../src/features/marketData/marketDataProviderGateway.ts";
 import type {
   GatewayMarketDataProvider,
@@ -155,6 +156,29 @@ describe("Stock SDK gateway provider", () => {
     );
   });
 
+  it("does not map unmatched stock-sdk quote records to the requested symbol by array index", async () => {
+    const provider = createStockSdkGatewayProvider(
+      {
+        fetchQuoteSnapshot: async () => [
+          {
+            name: "Kweichow Moutai",
+            price: 1199.3,
+            previousClose: 1188.8,
+            timestamp: 1_788_288_000_000,
+          },
+        ],
+        fetchHistoricalBars: async () => [],
+        fetchIntradayBars: async () => [],
+      },
+      { enabled: true },
+    );
+
+    await assert.rejects(
+      () => provider.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]),
+      /returned no quote for AAPL\.US/,
+    );
+  });
+
   it("maps historical and intraday bars while repairing deterministic zero opens", async () => {
     const capturedHistorical: string[] = [];
     const capturedIntraday: string[] = [];
@@ -207,6 +231,45 @@ describe("Stock SDK gateway provider", () => {
       /inconsistent OHLC/,
     );
     assert.equal((await provider.getHealth()).status, "unavailable");
+  });
+});
+
+describe("Stock SDK provider operations", () => {
+  it("uses ndays instead of strict start and end time options for intraday bars", async () => {
+    const capturedOptions: Record<string, unknown>[] = [];
+    const operations = createStockSdkGatewayProviderOperations({
+      quotes: {
+        cn: async () => [],
+        hk: async () => [],
+        us: async () => [],
+      },
+      kline: {
+        cn: async () => [],
+        cnMinute: async () => [],
+        hk: async () => [],
+        hkMinute: async () => [],
+        us: async () => [],
+        usMinute: async (_symbol, options) => {
+          capturedOptions.push(options);
+          return [];
+        },
+      },
+    });
+
+    await operations.fetchIntradayBars({
+      market: "US",
+      symbol: "AAPL.US",
+      providerSymbol: "105.AAPL",
+      timeframe: "1m",
+      period: "1",
+      startTime: Date.parse("2026-07-07T13:30:00.000Z"),
+      endTime: Date.parse("2026-07-07T20:00:00.000Z"),
+    });
+
+    assert.equal(capturedOptions[0]?.period, "1");
+    assert.equal(capturedOptions[0]?.ndays, 5);
+    assert.equal("startDate" in (capturedOptions[0] ?? {}), false);
+    assert.equal("endDate" in (capturedOptions[0] ?? {}), false);
   });
 });
 

@@ -218,6 +218,7 @@ export function createMarketDataGateway(
   const runWithFallback = async <Data>(
     capability: MarketDataProviderCapabilityKey,
     operation: (provider: GatewayMarketDataProvider) => Promise<Data>,
+    isUsableData: (data: Data) => boolean = () => true,
   ): Promise<MarketDataGatewayResult<Data>> => {
     const candidates = orderProviders(registry.listByCapability(capability));
     const triedProviders: GatewayMarketDataProviderId[] = [];
@@ -241,6 +242,16 @@ export function createMarketDataGateway(
       try {
         const data = await operation(provider);
         const latestHealth = await provider.getHealth();
+        healthViews[healthViews.length - 1] = latestHealth;
+
+        if (!isUsableData(data)) {
+          lastError = {
+            code: "PROVIDER_UNAVAILABLE",
+            message: `${provider.displayName} returned no usable data`,
+            provider: provider.id,
+          };
+          continue;
+        }
 
         return {
           ok: true,
@@ -290,7 +301,7 @@ export function createMarketDataGateway(
         }
 
         return provider.fetchHistoricalBars(request);
-      }),
+      }, hasBars),
     fetchIntradayBars: (request) =>
       runWithFallback<readonly GatewayMarketDataBar[]>("intradayBars", (provider) => {
         if (!hasIntradayBarProvider(provider)) {
@@ -298,8 +309,12 @@ export function createMarketDataGateway(
         }
 
         return provider.fetchIntradayBars(request);
-      }),
+      }, hasBars),
   };
+}
+
+function hasBars(bars: readonly GatewayMarketDataBar[]) {
+  return bars.length > 0;
 }
 
 function getPriority(priority: readonly GatewayMarketDataProviderId[], providerId: GatewayMarketDataProviderId) {
