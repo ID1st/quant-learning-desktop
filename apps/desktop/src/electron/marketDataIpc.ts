@@ -9,6 +9,7 @@ import {
   type MarketDataIpcStreamReadRequest,
 } from "./marketDataIpcContract.ts";
 import type { MarketDataIpcBarRequest } from "./marketDataIpcContract.ts";
+export { createMarketDataIpcHandlers, type MarketDataIpcHandlerDependencies } from "./marketDataIpcHandlers.ts";
 
 export function registerMarketDataIpcHandlers(handlers: MarketDataIpcHandlers = createMarketDataIpcShellHandlers()) {
   ipcMain.handle(marketDataIpcChannels.getProviderStatus, (_event, context: MarketDataIpcRequestContext) =>

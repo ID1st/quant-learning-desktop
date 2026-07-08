@@ -476,7 +476,7 @@ Acceptance:
 
 ### Step 11: Provider-Neutral Desktop IPC
 
-Status: stage 3 preload/main shell completed; quote snapshot migration not started.
+Status: stage 4 quote snapshot migration completed; historical/intraday migration not started.
 
 Scope:
 
@@ -517,8 +517,8 @@ Migration plan:
 
 1. Completed: add shared IPC request/response types and channel names for provider-neutral market data without changing runtime behavior.
 2. Completed: add a preload/main empty shell for `window.quantDesktop.marketData.*` with typed methods and tests that assert the bridge shape.
-3. Next: move quote snapshot gateway construction into the main-process IPC handler while leaving legacy AlphaFeed/LongBridge bridge methods intact.
-4. Move historical and intraday bar requests into the main-process IPC handler, preserving the `realtime` uses-intraday rule.
+3. Completed: move quote snapshot gateway construction into the main-process IPC handler while leaving legacy AlphaFeed/LongBridge bridge methods intact.
+4. Next: move historical and intraday bar requests into the main-process IPC handler, preserving the `realtime` uses-intraday rule.
 5. Move AlphaFeed WebSocket connect/read/disconnect behind the provider-neutral stream methods.
 6. Replace chart workspace gateway construction with `window.quantDesktop.marketData.*` calls and keep cache/strategy behavior unchanged.
 7. Add diagnostics tests for fallback order, rate-limit/unauthorized/network errors, delayed provider states, and provider status reporting.
@@ -542,6 +542,15 @@ Stage 3 implementation notes:
 - Added renderer global types in `apps/desktop/src/vite-env.d.ts` for provider-neutral market-data requests, results, errors, health, fallback metadata, bars, quotes, and stream state.
 - Extended `apps/desktop/tests/market-data-ipc-contract.test.ts` to verify shell provider status and structured unavailable errors.
 - No chart, cache, strategy, API configuration, or provider selection behavior was switched in this stage.
+
+Stage 4 implementation notes:
+
+- Added `apps/desktop/src/electron/marketDataIpcHandlers.ts` as the Electron-safe provider-neutral handler factory without importing `ipcMain`, so handler behavior can be tested in Node.
+- The main process now builds the quote snapshot gateway from secure credential reads and provider adapters. Stock SDK remains the default primary provider, with AlphaFeed REST and LongBridge registered from encrypted credentials when available.
+- `apps/desktop/src/pages/ChartWorkspacePage.tsx` now uses `window.quantDesktop.marketData.fetchQuoteSnapshot` for batch quote polling when the provider-neutral bridge exists, while preserving the old renderer gateway path as compatibility fallback.
+- The renderer no longer needs AlphaFeed or LongBridge credentials for the quote polling request path. WebSocket, historical bars, and intraday bars still use the previous paths until later migration stages.
+- `marketDataIpcContract.ts` and renderer types now allow a temporary `providerPolicy.stockSdkPrimaryEnabled` flag so the existing user-facing Stock SDK opt-out remains respected while provider policy is moved behind the desktop boundary.
+- Desktop tests cover Stock SDK primary quote fetch through the provider-neutral handler and the no-provider error path when Stock SDK is disabled and no fallback credentials exist.
 
 Acceptance:
 

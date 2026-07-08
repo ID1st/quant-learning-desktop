@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createMarketDataIpcHandlers } from "../src/electron/marketDataIpcHandlers.ts";
 import {
   createMarketDataIpcShellHandlers,
   marketDataIpcChannels,
   marketDataIpcDefaultProviderPriority,
   type MarketDataIpcQuoteSnapshotResult,
 } from "../src/electron/marketDataIpcContract.ts";
+import type { SecureCredentialStore } from "../src/electron/secureCredentialStore.ts";
 
 test("market data IPC channels are stable provider-neutral contracts", () => {
   assert.deepEqual(marketDataIpcChannels, {
@@ -96,3 +98,75 @@ test("market data IPC shell returns structured unavailable errors for unwired re
   assert.deepEqual(result.error.fallback.triedProviders, []);
   assert.deepEqual(result.error.health, []);
 });
+
+test("market data IPC handlers fetch quote snapshots through stock sdk primary without renderer credentials", async () => {
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createEmptyCredentialStore(),
+    stockSdkOperations: {
+      fetchQuoteSnapshot: async () => [
+        {
+          providerSymbol: "AAPL",
+          code: "AAPL",
+          price: 312.66,
+          prevClose: 308.63,
+          open: 307.36,
+          high: 314.2,
+          low: 307,
+          volume: 1,
+          amount: 1,
+          time: "2026-07-06 16:00:01",
+        },
+      ],
+      fetchHistoricalBars: async () => [],
+      fetchIntradayBars: async () => [],
+    },
+  });
+
+  const result = await handlers.fetchQuoteSnapshot({
+    context: { source: "chart" },
+    items: [{ symbol: "AAPL.US", market: "US", name: "Apple Inc." }],
+    providerPolicy: { stockSdkPrimaryEnabled: true },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.meta.provider, "stock-sdk");
+  assert.deepEqual(result.meta.fallback.triedProviders, ["stock-sdk"]);
+  assert.equal(result.data[0]?.symbol, "AAPL.US");
+});
+
+test("market data IPC handlers return no capable provider when stock sdk is disabled and no fallback credentials exist", async () => {
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createEmptyCredentialStore(),
+    stockSdkOperations: {
+      fetchQuoteSnapshot: async () => {
+        throw new Error("should not be called");
+      },
+      fetchHistoricalBars: async () => [],
+      fetchIntradayBars: async () => [],
+    },
+  });
+
+  const result = await handlers.fetchQuoteSnapshot({
+    context: { source: "chart" },
+    items: [{ symbol: "AAPL.US", market: "US", name: "Apple Inc." }],
+    providerPolicy: { stockSdkPrimaryEnabled: false },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "NO_CAPABLE_PROVIDER");
+  assert.deepEqual(result.error.fallback.triedProviders, []);
+});
+
+function createEmptyCredentialStore(): SecureCredentialStore {
+  return {
+    saveAlphaFeedCredentials: () => undefined,
+    readAlphaFeedCredentials: () => null,
+    clearAlphaFeedCredentials: () => undefined,
+    saveAlphaFeedStreamCredentials: () => undefined,
+    readAlphaFeedStreamCredentials: () => null,
+    clearAlphaFeedStreamCredentials: () => undefined,
+    saveLongPortCredentials: () => undefined,
+    readLongPortCredentials: () => null,
+    clearLongPortCredentials: () => undefined,
+  };
+}

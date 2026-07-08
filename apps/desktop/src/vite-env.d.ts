@@ -166,6 +166,9 @@ interface QuantDesktopMarketDataBridge {
   fetchQuoteSnapshot(request: {
     readonly context: QuantDesktopMarketDataRequestContext;
     readonly items: readonly QuantDesktopMarketDataRequestItem[];
+    readonly providerPolicy?: {
+      readonly stockSdkPrimaryEnabled?: boolean;
+    };
   }): Promise<QuantDesktopMarketDataResult<readonly QuantDesktopMarketQuoteSnapshot[]>>;
   fetchHistoricalBars(request: {
     readonly context: QuantDesktopMarketDataRequestContext;

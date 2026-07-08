@@ -20,7 +20,7 @@ function toSafeCredentialError(error: unknown) {
   return error instanceof Error && error.message.trim() ? error.message : "安全凭据操作失败。";
 }
 
-function createMainSecureCredentialStore() {
+export function createMainSecureCredentialStore() {
   return createSecureCredentialStore(
     createJsonFilePersistenceStore(createNodeJsonFilePersistenceDriver(join(app.getPath("userData"), "secure-credentials.json"))),
     {
@@ -31,9 +31,7 @@ function createMainSecureCredentialStore() {
   );
 }
 
-export function registerSecureCredentialIpcHandlers() {
-  const credentialStore = createMainSecureCredentialStore();
-
+export function registerSecureCredentialIpcHandlers(credentialStore = createMainSecureCredentialStore()) {
   ipcMain.handle("secureCredentials:saveAlphaFeed", (_event, credentials: AlphaFeedApiCredentials): SecureCredentialInvokeResult<null> => {
     try {
       credentialStore.saveAlphaFeedCredentials(credentials);

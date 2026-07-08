@@ -39,6 +39,7 @@ import {
   isMarketSessionOpen,
 } from "../features/marketData/intradayHistoryService";
 import {
+  type ChartMarketDataGateways,
   createChartMarketDataGateways,
   gatewayBarsToAlphaFeedMarketDataBars,
   gatewayBarsToMarketDataBars,
@@ -51,6 +52,7 @@ import {
 } from "../features/marketData/marketDataProviderDiagnostics";
 import type {
   GatewayMarketDataProviderId,
+  GatewayMarketQuoteSnapshot,
   MarketDataProviderCapabilityKey,
   MarketDataProviderHealthView,
 } from "../features/marketData/marketDataProviderGateway";
@@ -518,6 +520,59 @@ function createRealtimeHealthViewFromGateway(
     checkedAt: health.checkedAt,
     latencyMs: health.latencyMs,
     nextRetryAt: health.nextRetryAt,
+  };
+}
+
+type ChartQuoteSnapshotBatchResult =
+  | {
+      readonly ok: true;
+      readonly data: readonly GatewayMarketQuoteSnapshot[];
+      readonly health: MarketDataProviderHealthView;
+      readonly triedProviders: readonly GatewayMarketDataProviderId[];
+    }
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly message: string;
+      };
+      readonly health: readonly MarketDataProviderHealthView[];
+      readonly triedProviders: readonly GatewayMarketDataProviderId[];
+    };
+
+async function fetchQuoteSnapshotBatch(options: {
+  readonly batch: readonly MarketWatchlistItem[];
+  readonly marketDataGateways: ChartMarketDataGateways;
+  readonly providerNeutralQuoteBridge?: QuantDesktopMarketDataBridge;
+  readonly stockSdkPrimaryEnabled: boolean;
+}): Promise<ChartQuoteSnapshotBatchResult> {
+  if (!options.providerNeutralQuoteBridge) {
+    return options.marketDataGateways.quoteSnapshots.fetchQuoteSnapshot(options.batch);
+  }
+
+  const result = await options.providerNeutralQuoteBridge.fetchQuoteSnapshot({
+    context: { source: "chart" },
+    items: options.batch,
+    providerPolicy: {
+      stockSdkPrimaryEnabled: options.stockSdkPrimaryEnabled,
+    },
+  });
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: {
+        message: result.error.message,
+      },
+      health: result.error.health,
+      triedProviders: result.error.fallback.triedProviders,
+    };
+  }
+
+  return {
+    ok: true,
+    data: result.data,
+    health: result.meta.health,
+    triedProviders: result.meta.fallback.triedProviders,
   };
 }
 
@@ -1040,6 +1095,7 @@ export function ChartWorkspacePage() {
         const credentials = await readSavedAlphaFeedCredentials();
         const streamCredentials = await readSavedAlphaFeedStreamCredentials();
         const streamBinding = readAlphaFeedStreamBinding();
+        const providerNeutralQuoteBridge = window.quantDesktop?.marketData;
         const marketDataGateways = createChartMarketDataGateways({
           bridge: window.quantDesktop,
           alphaFeedCredentials: credentials,
@@ -1053,7 +1109,7 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        if (!credentials && !streamCredentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
+        if (!providerNeutralQuoteBridge && !credentials && !streamCredentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
           const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed 凭据");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
@@ -1098,7 +1154,7 @@ export function ChartWorkspacePage() {
             return;
           }
 
-          if (!credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
+          if (!providerNeutralQuoteBridge && !credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
             const streamGatewayHealth = streamResult.ok ? streamResult.health : streamResult.health[0] ?? connectHealth;
             const streamHealth = streamGatewayHealth
               ? createRealtimeHealthViewFromGateway(streamGatewayHealth, streamResult.ok ? "WebSocket 正在连接，等待首批快照" : streamGatewayHealth.message)
@@ -1110,7 +1166,7 @@ export function ChartWorkspacePage() {
           }
         }
 
-        if (!credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
+        if (!providerNeutralQuoteBridge && !credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
           const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed REST 凭据");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
@@ -1124,7 +1180,12 @@ export function ChartWorkspacePage() {
         let latestTriedProviders: readonly GatewayMarketDataProviderId[] = [];
 
         for (const batch of batches) {
-          const result = await marketDataGateways.quoteSnapshots.fetchQuoteSnapshot(batch);
+          const result = await fetchQuoteSnapshotBatch({
+            batch,
+            marketDataGateways,
+            providerNeutralQuoteBridge,
+            stockSdkPrimaryEnabled: marketDataProviderSettings.stockSdkPrimaryEnabled,
+          });
 
           if (cancelled) {
             return;

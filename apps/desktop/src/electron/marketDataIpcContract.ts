@@ -73,6 +73,9 @@ export interface MarketDataIpcProviderStatus {
 export interface MarketDataIpcQuoteSnapshotRequest {
   readonly context: MarketDataIpcRequestContext;
   readonly items: readonly MarketDataProviderRequestItem[];
+  readonly providerPolicy?: {
+    readonly stockSdkPrimaryEnabled?: boolean;
+  };
 }
 
 export interface MarketDataIpcBarRequest {
