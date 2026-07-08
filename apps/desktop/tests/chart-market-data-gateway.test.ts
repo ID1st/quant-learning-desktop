@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   createChartMarketDataGateways,
+  gatewayBarsToMarketDataBars,
   gatewayQuoteSnapshotsToMarketQuoteSnapshots,
 } from "../src/features/marketData/chartMarketDataGateway.ts";
 
@@ -334,6 +335,29 @@ describe("chart market data gateways", () => {
     assert.equal(snapshot?.highPrice, 295);
     assert.equal(snapshot?.lowPrice, 293);
     assert.equal(snapshot?.amount, 294_280);
+  });
+
+  it("can normalize intraday gateway bars into realtime cache bars", () => {
+    const [realtimeBar] = gatewayBarsToMarketDataBars(
+      [
+        {
+          provider: "stock-sdk",
+          market: "US",
+          symbol: "AAPL.US",
+          timeframe: "1m",
+          timestamp: Date.parse("2026-07-07T13:30:00.000Z"),
+          open: 310,
+          high: 311,
+          low: 309,
+          close: 310.66,
+          volume: 1000,
+        },
+      ],
+      "realtime",
+    );
+
+    assert.equal(realtimeBar?.provider, "stock-sdk");
+    assert.equal(realtimeBar?.timeframe, "realtime");
   });
 });
 

@@ -8,29 +8,29 @@ import {
 import { createMemoryStorageDriver, LocalDatabase } from "../src/features/persistence/localDatabase.ts";
 
 describe("market data provider settings", () => {
-  it("keeps stock-sdk primary disabled by default", () => {
+  it("keeps stock-sdk primary enabled by default", () => {
     const database = new LocalDatabase(createMemoryStorageDriver(), "test");
-
-    assert.deepEqual(readMarketDataProviderSettings(database), {
-      stockSdkPrimaryEnabled: false,
-    });
-  });
-
-  it("persists the guarded stock-sdk primary switch", () => {
-    const database = new LocalDatabase(createMemoryStorageDriver(), "test");
-
-    writeMarketDataProviderSettings({ stockSdkPrimaryEnabled: true }, database);
 
     assert.deepEqual(readMarketDataProviderSettings(database), {
       stockSdkPrimaryEnabled: true,
     });
   });
 
-  it("sanitizes malformed settings back to a closed switch", () => {
+  it("persists the guarded stock-sdk primary switch", () => {
+    const database = new LocalDatabase(createMemoryStorageDriver(), "test");
+
+    writeMarketDataProviderSettings({ stockSdkPrimaryEnabled: false }, database);
+
+    assert.deepEqual(readMarketDataProviderSettings(database), {
+      stockSdkPrimaryEnabled: false,
+    });
+  });
+
+  it("sanitizes malformed settings back to the open default", () => {
     const database = new LocalDatabase(
       createMemoryStorageDriver({
         "test.market-data-provider-settings": JSON.stringify({
-          version: 1,
+          version: 2,
           data: { stockSdkPrimaryEnabled: "true" },
         }),
       }),
@@ -38,7 +38,7 @@ describe("market data provider settings", () => {
     );
 
     assert.deepEqual(readMarketDataProviderSettings(database), {
-      stockSdkPrimaryEnabled: false,
+      stockSdkPrimaryEnabled: true,
     });
   });
 });

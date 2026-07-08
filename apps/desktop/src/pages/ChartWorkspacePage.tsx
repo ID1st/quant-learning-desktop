@@ -816,14 +816,18 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        const result = await marketDataGateways.historicalBars.fetchHistoricalBars({
+        const barRequest = {
           symbol: activeSymbol.dataSymbol,
           market: activeSymbol.market,
-          timeframe: isRealtimeHistory ? "1m" : timeframe,
+          timeframe: isRealtimeHistory ? ("1m" as const) : timeframe,
           startTime: windowRange?.startTime,
           endTime: windowRange?.endTime,
           count: isRealtimeHistory ? longPortRealtimeHistoryCount : timeframe === "1w" ? 260 : 600,
-        });
+        };
+        const result = isRealtimeHistory
+          ? await marketDataGateways.intradayBars.fetchIntradayBars(barRequest)
+          : await marketDataGateways.historicalBars.fetchHistoricalBars(barRequest);
+        const providerCapability = isRealtimeHistory ? "intradayBars" : "historicalBars";
 
         if (cancelled) {
           return;
@@ -833,7 +837,7 @@ export function ChartWorkspacePage() {
           const errorHealth =
             result.health[0] !== undefined
               ? createRealtimeHealthViewFromGateway(result.health[0], result.error.message, {
-                  capability: "historicalBars",
+                  capability: providerCapability,
                   triedProviders: result.triedProviders,
                 })
               : createRealtimeHealthView("error", result.error.message);
@@ -842,7 +846,7 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        const resultBars = gatewayBarsToMarketDataBars(result.data);
+        const resultBars = gatewayBarsToMarketDataBars(result.data, isRealtimeHistory ? "realtime" : undefined);
 
         if (resultBars.length === 0) {
           const emptyHealth = createRealtimeHealthView("waiting", "长桥暂无可用历史 K 线数据");
@@ -880,7 +884,7 @@ export function ChartWorkspacePage() {
             : `历史分时已加载 ${written.length} 点，收盘后停止追加`
           : `历史 K 线已加载 ${written.length} 根`;
         const healthView = createRealtimeHealthViewFromGateway(result.health, historicalMessage, {
-          capability: "historicalBars",
+          capability: providerCapability,
           triedProviders: result.triedProviders,
         });
         setRealtimeHealth(healthView);

@@ -5,9 +5,9 @@ export interface MarketDataProviderSettings {
 }
 
 const COLLECTION_KEY = "market-data-provider-settings";
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2;
 const defaultSettings: MarketDataProviderSettings = {
-  stockSdkPrimaryEnabled: false,
+  stockSdkPrimaryEnabled: true,
 };
 
 export function readMarketDataProviderSettings(database: LocalDatabase = appLocalDatabase): MarketDataProviderSettings {
@@ -34,6 +34,9 @@ function sanitizeMarketDataProviderSettings(value: unknown): MarketDataProviderS
 
   const candidate = value as Partial<MarketDataProviderSettings>;
   return {
-    stockSdkPrimaryEnabled: candidate.stockSdkPrimaryEnabled === true,
+    stockSdkPrimaryEnabled:
+      typeof candidate.stockSdkPrimaryEnabled === "boolean"
+        ? candidate.stockSdkPrimaryEnabled
+        : defaultSettings.stockSdkPrimaryEnabled,
   };
 }

@@ -180,11 +180,14 @@ export function gatewayQuoteSnapshotsToMarketQuoteSnapshots(
   });
 }
 
-export function gatewayBarsToMarketDataBars(bars: readonly GatewayMarketDataBar[]): MarketDataBar[] {
+export function gatewayBarsToMarketDataBars(
+  bars: readonly GatewayMarketDataBar[],
+  timeframeOverride?: Timeframe,
+): MarketDataBar[] {
   return bars.map((bar) => ({
     symbol: bar.symbol,
     market: bar.market,
-    timeframe: bar.timeframe,
+    timeframe: timeframeOverride ?? bar.timeframe,
     timestamp: bar.timestamp,
     open: bar.open,
     high: bar.high,

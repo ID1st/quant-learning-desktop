@@ -10,7 +10,7 @@ The system currently uses a split provider model:
 
 The next decision is to introduce a provider-neutral market-data gateway before changing production traffic. `chengzuopeng/stock-sdk` is a candidate primary provider, while AlphaFeed REST, AlphaFeed WebSocket, and LongBridge should become fallback providers after the gateway is in place.
 
-This document is a design and migration plan. The `stock-sdk` adapter exists behind the provider gateway and can be enabled only through the guarded local `stockSdkPrimaryEnabled` switch. The default remains off, so AlphaFeed REST/WebSocket and LongBridge continue to protect production chart behavior.
+This document is a design and migration plan. The `stock-sdk` adapter exists behind the provider gateway and is enabled by default through the guarded local `stockSdkPrimaryEnabled` switch. Users can still turn it off, and AlphaFeed REST/WebSocket plus LongBridge continue to protect production chart behavior as fallback providers.
 
 ## Candidate Primary Provider: stock-sdk
 
@@ -394,7 +394,7 @@ Acceptance:
 
 ### Step 8: Controlled Primary Switch
 
-Status: completed. The chart-facing gateway now supports a guarded `stockSdkPrimaryEnabled` provider setting. The default setting is off, so existing AlphaFeed/LongBridge behavior remains unchanged. When enabled, `stock-sdk` is registered as the first quote, historical bar, and intraday bar provider, while AlphaFeed REST, AlphaFeed WebSocket, and LongBridge remain fallback providers.
+Status: completed. The chart-facing gateway now supports a guarded `stockSdkPrimaryEnabled` provider setting. The default setting is on, while an explicit user opt-out remains supported. When enabled, `stock-sdk` is registered as the first quote, historical bar, and intraday bar provider, while AlphaFeed REST, AlphaFeed WebSocket, and LongBridge remain fallback providers.
 
 Scope:
 
@@ -409,10 +409,28 @@ Acceptance:
 
 Implemented acceptance:
 
-- `stock-sdk` primary source is guarded by `stockSdkPrimaryEnabled` and is off by default.
+- `stock-sdk` primary source is guarded by `stockSdkPrimaryEnabled` and is on by default for new or malformed settings.
 - The chart gateway can use real `stock-sdk` operations when enabled.
 - Tests cover default legacy priorities, enabled stock-first priorities, and fallback to AlphaFeed/LongBridge when `stock-sdk` is unavailable.
 - Full visible provider diagnostics are intentionally carried into Step 9.
+
+### Step 8.5: Realtime History Path Correction
+
+Status: completed.
+
+Scope:
+
+- Route super-chart `realtime` history through `intradayBars.fetchIntradayBars` instead of `historicalBars.fetchHistoricalBars`.
+- Normalize returned `1m` intraday gateway bars into `timeframe: "realtime"` before writing the chart cache.
+- Keep `1d` and `1w` loading on `historicalBars.fetchHistoricalBars`.
+- Keep AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback behavior intact.
+
+Acceptance:
+
+- `stock-sdk` can serve `realtime` history through the intraday gateway path.
+- LongBridge remains able to backfill realtime history through its compatibility provider.
+- Realtime cache merge receives `timeframe: "realtime"` bars and no longer drops `1m` gateway bars.
+- Desktop tests and typecheck pass.
 
 ### Step 9: Provider Diagnostics And Status Hardening
 
@@ -510,6 +528,6 @@ Acceptance:
 
 ## Remaining Work
 
-1. Confirm whether `stock-sdk` exposes or plans a native WebSocket stream. Until then, do not model it as a WebSocket provider.
-2. Add a UI-safe toggle and diagnostics surface for the guarded `stock-sdk` primary switch.
-3. Add richer visible mixed-source diagnostics, for example provider labels, active source badges, or provider timeline.
+1. Add provider-neutral desktop IPC through `window.quantDesktop.marketData.*` so renderer pages no longer construct provider gateways from concrete credentials.
+2. Add a richer provider-event timeline for fallback, rate-limit, delayed-history, and source-switch events.
+3. Confirm whether `stock-sdk` exposes or plans a native WebSocket stream. Until then, do not model it as a WebSocket provider.
