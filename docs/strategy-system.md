@@ -155,6 +155,23 @@ Layering rules:
 - Multiple strategies can be rendered at the same time by sorting `zIndex`.
 - Chart packages consume `StrategyRenderOutput[]`, not strategy internals.
 
+### Desktop Real-Bar Runtime Boundary
+
+The desktop app runs chart strategies through `apps/desktop/src/features/strategies/chartStrategyRuntime.ts`.
+
+Runtime input rules:
+
+- Strategy input bars must come from normalized `MarketDataBar` cache data converted by `marketBarsToStrategyBars`.
+- Strategy runtime code must not import or call AlphaFeed, LongBridge, Stock SDK, or provider-specific adapters.
+- Super chart parameter, symbol, timeframe, and cached-bar changes create a new `runChartStrategies` call and replace the previous output.
+- Strategy management previews use cached realtime bars when available; if no cache exists, strategies receive an empty bar list and report no-data/placeholder output.
+
+Runtime output rules:
+
+- The chart consumes `signals`, `render.elements`, `metrics`, `logs`, and `alerts` from strategy output.
+- The chart converts strategy render elements into chart layer elements through a narrow adapter; strategies do not call chart APIs directly.
+- Existing scope excludes real trading, order submission, full backtest reports, and a full Pine Script compiler.
+
 Metric examples:
 
 - win_rate

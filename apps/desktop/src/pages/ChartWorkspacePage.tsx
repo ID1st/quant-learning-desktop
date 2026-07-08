@@ -5,12 +5,18 @@ import {
   createEmptyStrategyRegistry,
   createPresetStrategyRegistry,
   createRunnableUserStrategyDefinition,
-  runRegisteredStrategy,
   type StrategyDefinition,
   type StrategyParameterDefinition,
   type StrategyRunResult,
+  type StrategyVisualElement,
 } from "@quant/strategy-engine";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
+import {
+  buildChartStrategyLogItems,
+  buildChartStrategySignalRows,
+  runChartStrategies,
+  type ChartStrategyWorkspaceState,
+} from "../features/strategies/chartStrategyRuntime";
 import { marketBarsToCandles, marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
 import { readMarketBarCache, writeMarketBarCache, type MarketDataBar } from "../features/marketData/marketBarCacheService";
 import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService";
@@ -93,11 +99,7 @@ const strategyRegistry = createPresetStrategyRegistry();
 const presetStrategies = strategyRegistry.list();
 const WORKSPACE_PREFERENCES_KEY = "quant-learning.chart-workspace-preferences";
 
-interface StrategyWorkspaceState {
-  enabled: boolean;
-  showLayer: boolean;
-  parameters: Record<string, unknown>;
-}
+type StrategyWorkspaceState = ChartStrategyWorkspaceState;
 
 interface ChartWorkspacePreferences {
   version: 4;
@@ -295,62 +297,12 @@ function saveWorkspacePreferences(preferences: ChartWorkspacePreferences) {
   }
 }
 
-function toChartLayerElement(element: ReturnType<typeof runRegisteredStrategy>["output"]["render"]["elements"][number]): ChartLayerElement | null {
+function toChartLayerElement(element: StrategyVisualElement): ChartLayerElement | null {
   if (element.kind === "signal-marker" || element.kind === "price-line" || element.kind === "trend-line" || element.kind === "band") {
     return element;
   }
 
   return null;
-}
-
-function createFailedStrategyRunResult(
-  strategy: StrategyDefinition,
-  settings: StrategyWorkspaceState,
-  symbol: string,
-  market: Market,
-  timeframe: Timeframe,
-  message: string,
-): StrategyRunResult {
-  return {
-    strategy,
-    input: {
-      symbol,
-      market,
-      timeframe,
-      bars: [],
-      parameters: settings.parameters,
-      runMode: "backtest",
-      enabled: settings.enabled,
-    },
-    output: {
-      signals: [],
-      overlays: [],
-      render: {
-        strategyId: strategy.key,
-        strategyName: strategy.name,
-        enabled: false,
-        zIndex: 10,
-        elements: [],
-      },
-      metrics: {},
-      logs: [`${strategy.name} 运行失败：${message}`],
-      alerts: [],
-    },
-  };
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "未知错误";
-}
-
-function getUnsupportedTimeframeMessage(strategy: StrategyDefinition, timeframe: Timeframe) {
-  const supported = strategy.supportedTimeframes.join(" / ");
-  const dataLimitNote =
-    strategy.key === "utorb"
-      ? "UTORB 属于开盘区间突破策略，需要分钟级 K 线计算开盘高低点；当前 AlphaFeed 套餐下超级图表仅开放 1d / 1w 真实 K 线。"
-      : "当前图表周期不在该策略声明的支持范围内。";
-
-  return `${dataLimitNote} 当前周期：${timeframe}；策略支持周期：${supported}。`;
 }
 
 function formatLogTime(timestamp: number) {
@@ -361,11 +313,8 @@ function formatLogTime(timestamp: number) {
   }).format(timestamp);
 }
 
-function formatSignalTime(timestamp: number) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(timestamp);
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "未知错误";
 }
 
 function formatStrategySource(strategy: StrategyDefinition) {
@@ -715,40 +664,15 @@ export function ChartWorkspacePage() {
   const strategyInputBars = cachedStrategyBars;
   const strategyRuns = useMemo(
     () =>
-      chartStrategies.map((strategy, index) => {
-        const settings = strategySettings[strategy.key] ?? getDefaultStrategyState(strategy, index);
-        let result: StrategyRunResult;
-        const isTimeframeSupported = strategy.supportedTimeframes.includes(timeframe);
-
-        try {
-          result = isTimeframeSupported
-            ? runRegisteredStrategy(chartStrategyRegistry, {
-                strategyKey: strategy.key,
-                symbol: activeSymbol.dataSymbol,
-                market: activeSymbol.market,
-                timeframe,
-                bars: strategyInputBars,
-                runMode: "backtest",
-                enabled: settings.enabled,
-                parameters: settings.parameters,
-              })
-            : createFailedStrategyRunResult(
-                strategy,
-                settings,
-                activeSymbol.dataSymbol,
-                activeSymbol.market,
-                timeframe,
-                getUnsupportedTimeframeMessage(strategy, timeframe),
-              );
-        } catch (error) {
-          result = createFailedStrategyRunResult(strategy, settings, activeSymbol.dataSymbol, activeSymbol.market, timeframe, getErrorMessage(error));
-        }
-
-        return {
-          strategy,
-          settings,
-          result,
-        };
+      runChartStrategies({
+        strategies: chartStrategies,
+        registry: chartStrategyRegistry,
+        settingsByStrategyKey: strategySettings,
+        resolveDefaultSettings: getDefaultStrategyState,
+        symbol: activeSymbol.dataSymbol,
+        market: activeSymbol.market,
+        timeframe,
+        bars: strategyInputBars,
       }),
     [activeSymbol.dataSymbol, activeSymbol.market, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySettings, timeframe],
   );
@@ -767,26 +691,8 @@ export function ChartWorkspacePage() {
   const totalSignalCount = strategyRuns.reduce((total, { result }) => total + result.output.signals.length, 0);
   const activeConfigStrategyRun = strategyRuns.find(({ strategy }) => strategy.key === activeConfigStrategyKey);
   const strategyLogTime = formatLogTime(Date.now());
-  const strategyLogItems = strategyRuns.flatMap(({ result, settings }) =>
-    settings.enabled
-      ? [
-          `运行 ${result.strategy.name}，标的 ${activeSymbol.symbol}，周期 ${timeframe}。`,
-          ...result.output.logs,
-          ...result.output.alerts.map((alert) => `提醒：${alert}`),
-        ]
-      : [`${result.strategy.name} 当前已停用。`],
-  );
-  const signalRows = strategyRuns.flatMap(({ result }) =>
-    result.output.signals.map((signal, index) => ({
-      id: `${result.strategy.key}-${signal.type}-${signal.timestamp}-${index}`,
-      strategyName: result.strategy.name,
-      time: formatSignalTime(signal.timestamp),
-      direction: signal.type === "buy" ? "买入" : signal.type === "sell" ? "卖出" : "提醒",
-      tone: signal.type,
-      price: signal.price === undefined ? "-" : signal.price.toFixed(2),
-      label: signal.label ?? "策略信号",
-    })),
-  );
+  const strategyLogItems = buildChartStrategyLogItems(strategyRuns, { symbol: activeSymbol.symbol, timeframe });
+  const signalRows = buildChartStrategySignalRows(strategyRuns);
   const updateStrategyState = (strategyKey: string, updater: (state: StrategyWorkspaceState) => StrategyWorkspaceState) => {
     setStrategySettings((current) => {
       const strategyIndex = chartStrategies.findIndex((strategy) => strategy.key === strategyKey);

@@ -313,6 +313,8 @@ Acceptance:
 
 ### 6. Strategy Uses Real Bars
 
+Status: completed.
+
 Goal: run built-in strategies on cached bars instead of generated chart data.
 
 Acceptance:
@@ -320,6 +322,13 @@ Acceptance:
 - UTORB and Trend Targets run on cached bars.
 - Parameter changes recompute layers.
 - Strategy logs and signals update from real bar input.
+
+Completion notes:
+
+- The super chart converts `MarketDataBar` cache entries through `marketBarsToStrategyBars` before running strategies.
+- `apps/desktop/src/features/strategies/chartStrategyRuntime.ts` is the chart-facing strategy runtime boundary. It accepts normalized bars, strategy settings, and registry references only; it does not depend on AlphaFeed, LongBridge, Stock SDK, or any provider implementation.
+- The strategy management page now previews preset and draft strategies with cached AAPL realtime bars when available instead of hard-coded sample bars.
+- `apps/desktop/tests/chart-strategy-runtime.test.ts` covers UTORB and Trend Targets running from the same normalized realtime bars, chart-facing signals/logs/render output, and parameter-driven recomputation.
 
 ## Deferred
 

@@ -6,11 +6,13 @@ import {
   createUserStrategyDraftDefinition,
   preflightPineStrategySource,
   runRegisteredStrategy,
-  type Bar,
   type StrategyDefinition,
   type StrategyParameterDefinition,
 } from "@quant/strategy-engine";
+import type { Timeframe } from "@quant/shared";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
+import { marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
+import { readMarketBarCache } from "../features/marketData/marketBarCacheService";
 import {
   Activity,
   AlertTriangle,
@@ -34,17 +36,8 @@ type StrategyStatus = "enabled" | "disabled";
 type StrategyFilter = "all" | StrategyStatus;
 
 const registry = createPresetStrategyRegistry();
-
-const sampleStart = Date.UTC(2026, 0, 2, 14, 30);
-const sampleMinute = 60 * 1000;
-const sampleBars: Bar[] = [
-  { timestamp: sampleStart, open: 100, high: 103, low: 99, close: 101, volume: 100000 },
-  { timestamp: sampleStart + 15 * sampleMinute, open: 101, high: 104, low: 100, close: 102, volume: 110000 },
-  { timestamp: sampleStart + 30 * sampleMinute, open: 102, high: 105, low: 101, close: 105, volume: 125000 },
-  { timestamp: sampleStart + 45 * sampleMinute, open: 105, high: 106, low: 97, close: 98, volume: 135000 },
-  { timestamp: sampleStart + 60 * sampleMinute, open: 98, high: 101, low: 96, close: 100, volume: 118000 },
-  { timestamp: sampleStart + 75 * sampleMinute, open: 100, high: 103, low: 98, close: 102, volume: 122000 },
-];
+const strategyPreviewSymbol = { symbol: "AAPL.US", displaySymbol: "AAPL", market: "US" as const };
+const strategyPreviewTimeframe: Timeframe = "realtime";
 
 const samplePineSource = `//@version=5
 indicator("用户策略示例", overlay=true)
@@ -125,15 +118,26 @@ export function StrategyManagementPage() {
   const enabledCount = Object.values(strategyStatus).filter((status) => status === "enabled").length;
   const userDraftReadyCount = importedDrafts.filter((draft) => draft.definition.translation.status === "ready").length;
   const userDraftReviewCount = importedDrafts.filter((draft) => draft.definition.translation.status === "manual-review").length;
+  const strategyPreviewBars = useMemo(
+    () =>
+      marketBarsToStrategyBars(
+        readMarketBarCache({
+          symbol: strategyPreviewSymbol.symbol,
+          market: strategyPreviewSymbol.market,
+          timeframe: strategyPreviewTimeframe,
+        }),
+      ),
+    [],
+  );
   const strategyRuns = useMemo(
     () =>
       strategies.map((strategy) => {
         const result = runRegisteredStrategy(registry, {
           strategyKey: strategy.key,
-          symbol: "AAPL",
-          market: "US",
-          timeframe: "15m",
-          bars: sampleBars,
+          symbol: strategyPreviewSymbol.symbol,
+          market: strategyPreviewSymbol.market,
+          timeframe: strategyPreviewTimeframe,
+          bars: strategyPreviewBars,
           runMode: "backtest",
           enabled: strategyStatus[strategy.key] === "enabled",
         });
@@ -144,7 +148,7 @@ export function StrategyManagementPage() {
           result,
         };
       }),
-    [strategies, strategyStatus],
+    [strategies, strategyPreviewBars, strategyStatus],
   );
   const totalSignalCount = strategyRuns.reduce((total, item) => total + item.result.output.signals.length, 0);
   const totalLayerElementCount = strategyRuns.reduce((total, item) => total + item.result.output.render.elements.length, 0);
@@ -174,15 +178,15 @@ export function StrategyManagementPage() {
       runnable,
       result: runRegisteredStrategy(draftRegistry, {
         strategyKey: runnable.strategy.key,
-        symbol: "AAPL",
-        market: "US",
-        timeframe: "15m",
-        bars: sampleBars,
+        symbol: strategyPreviewSymbol.symbol,
+        market: strategyPreviewSymbol.market,
+        timeframe: strategyPreviewTimeframe,
+        bars: strategyPreviewBars,
         runMode: "backtest",
         enabled: true,
       }),
     };
-  }, [selectedDraft]);
+  }, [selectedDraft, strategyPreviewBars]);
   const filteredStrategies = strategies.filter((strategy) => {
     const status = strategyStatus[strategy.key];
     const normalizedKeyword = keyword.trim().toLowerCase();
@@ -198,10 +202,10 @@ export function StrategyManagementPage() {
   const runResult = selectedStrategy
     ? runRegisteredStrategy(registry, {
         strategyKey: selectedStrategy.key,
-        symbol: "AAPL",
-        market: "US",
-        timeframe: "15m",
-        bars: sampleBars,
+        symbol: strategyPreviewSymbol.symbol,
+        market: strategyPreviewSymbol.market,
+        timeframe: strategyPreviewTimeframe,
+        bars: strategyPreviewBars,
         runMode: "backtest",
         enabled: strategyStatus[selectedStrategy.key] === "enabled",
       })

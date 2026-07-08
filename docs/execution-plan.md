@@ -337,6 +337,12 @@ Deferred:
 
 ## 11. Milestone 8: Strategy Engine
 
+Status:
+
+- Runtime foundation completed for the current built-in strategy scope.
+- Chart-facing runtime boundary added in `apps/desktop/src/features/strategies/chartStrategyRuntime.ts`.
+- Super chart and strategy management now feed strategies from normalized cached market bars rather than generated/sample bars.
+
 Goal:
 
 - Implement the independent strategy runtime.
@@ -357,6 +363,12 @@ Acceptance:
 - Strategy output is deterministic.
 
 ## 12. Milestone 9: Preset Strategies
+
+Status:
+
+- UTORB and Trend Targets are available as built-in TypeScript strategies.
+- Both strategies run through the shared strategy engine and can consume cached realtime bars from the market-data cache.
+- Strategy outputs include signals, render elements, metrics, logs, and alerts for the chart-facing layer.
 
 Goal:
 
