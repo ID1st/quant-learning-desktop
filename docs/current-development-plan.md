@@ -39,6 +39,7 @@ Completed foundations:
 - Provider-neutral Desktop IPC stage 2 contract is complete: `apps/desktop/src/electron/marketDataIpcContract.ts` defines typed `window.quantDesktop.marketData.*` request/response contracts, channel names, error codes, fallback metadata, provider status payloads, stream states, and the default provider priority. No runtime behavior has been switched yet.
 - Provider-neutral Desktop IPC stage 3 shell is complete: `apps/desktop/src/electron/marketDataIpc.ts` registers provider-neutral shell handlers, `main.ts` registers them, `preload.ts` exposes `window.quantDesktop.marketData.*`, and `vite-env.d.ts` declares the renderer bridge types. The shell returns provider status plus structured unavailable errors until live provider wiring begins.
 - Provider-neutral Desktop IPC stage 4 quote snapshot migration is complete: the main process builds the quote snapshot gateway from secure credential reads and provider adapters, and the chart's batch quote polling uses `window.quantDesktop.marketData.fetchQuoteSnapshot` when available. Historical bars, intraday bars, and WebSocket stream control remain on the previous paths for the next stages.
+- Provider-neutral Desktop IPC stage 5 historical/intraday migration is complete: main-process market-data handlers now serve historical bars and intraday bars through the secure-credential-backed provider registry, and the chart's `realtime`, `1d`, and `1w` bar loading uses `window.quantDesktop.marketData.fetchHistoricalBars` or `fetchIntradayBars` when available.
 
 ## Current Data Flow
 
@@ -84,7 +85,7 @@ Important constraints:
 
 ### 0. Provider-Neutral Desktop IPC
 
-Status: active; stage 4 quote snapshot migration completed, historical/intraday migration pending.
+Status: active; stage 5 historical/intraday migration completed, WebSocket stream migration pending.
 
 Goal: expose a provider-neutral desktop bridge at `window.quantDesktop.marketData.*` and move chart market-data requests out of renderer-side provider construction.
 
@@ -102,8 +103,8 @@ Recommended implementation slices:
 1. Completed: add provider-neutral IPC contract types and channel names.
 2. Completed: add `marketData` preload/main shell without changing chart behavior.
 3. Completed: route quote snapshot requests through the new IPC.
-4. Next: route historical and intraday bar requests through the new IPC.
-5. Route AlphaFeed WebSocket stream control through the new IPC.
+4. Completed: route historical and intraday bar requests through the new IPC.
+5. Next: route AlphaFeed WebSocket stream control through the new IPC.
 6. Remove renderer-side gateway construction from the chart page.
 7. Add fallback, health, and error-diagnostics tests.
 8. Run final desktop tests, typecheck, build, and `probe:stock-sdk`.

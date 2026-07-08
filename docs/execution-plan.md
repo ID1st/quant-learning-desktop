@@ -241,7 +241,7 @@ Deferred:
 
 Status:
 
-- Stage 4 quote snapshot migration completed; historical/intraday migration pending.
+- Stage 5 historical/intraday migration completed; WebSocket stream migration pending.
 
 Goal:
 
@@ -264,8 +264,8 @@ Implementation order:
 1. Completed: define provider-neutral IPC contract types, channel names, and error/health payloads in `apps/desktop/src/electron/marketDataIpcContract.ts`.
 2. Completed: add typed preload/main shell without switching the chart.
 3. Completed: migrate quote snapshot requests.
-4. Next: migrate historical and intraday bar requests, preserving the `realtime` uses-intraday rule.
-5. Migrate stream connect/read/disconnect.
+4. Completed: migrate historical and intraday bar requests, preserving the `realtime` uses-intraday rule.
+5. Next: migrate stream connect/read/disconnect.
 6. Remove renderer-side provider gateway construction from the chart page.
 7. Add fallback, provider-health, error-classification, and bridge-shape tests.
 8. Run `npm run test:desktop`, `npm run typecheck`, `npm run build`, and `npm run probe:stock-sdk`.

@@ -9,7 +9,6 @@ import {
   marketDataIpcDefaultProviderPriority,
   type MarketDataIpcError,
   type MarketDataIpcHandlers,
-  type MarketDataIpcQuoteSnapshotRequest,
 } from "./marketDataIpcContract.ts";
 import type { SecureCredentialStore } from "./secureCredentialStore.ts";
 import {
@@ -48,7 +47,7 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
   return {
     ...shell,
     async fetchQuoteSnapshot(request) {
-      const providers = createQuoteSnapshotProviders(request, {
+      const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
         credentialStore,
         stockSdkOperations: dependencies.stockSdkOperations,
       });
@@ -58,18 +57,43 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
 
       return toIpcGatewayResult(result);
     },
+    async fetchHistoricalBars(request) {
+      const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
+        credentialStore,
+        stockSdkOperations: dependencies.stockSdkOperations,
+      });
+      const gateway = createMarketDataGateway(
+        createMarketDataProviderRegistry(providers),
+        createHistoricalBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true),
+      );
+      const result = await gateway.fetchHistoricalBars(request.request);
+
+      return toIpcGatewayResult(result);
+    },
+    async fetchIntradayBars(request) {
+      const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
+        credentialStore,
+        stockSdkOperations: dependencies.stockSdkOperations,
+      });
+      const gateway = createMarketDataGateway(
+        createMarketDataProviderRegistry(providers),
+        createIntradayBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true),
+      );
+      const result = await gateway.fetchIntradayBars(request.request);
+
+      return toIpcGatewayResult(result);
+    },
   };
 }
 
-function createQuoteSnapshotProviders(
-  request: MarketDataIpcQuoteSnapshotRequest,
+function createMarketDataProviders(
+  stockSdkPrimaryEnabled: boolean,
   dependencies: {
     readonly credentialStore: SecureCredentialStore;
     readonly stockSdkOperations?: StockSdkGatewayProviderOperations;
   },
 ) {
   const providers: GatewayMarketDataProvider[] = [];
-  const stockSdkPrimaryEnabled = request.providerPolicy?.stockSdkPrimaryEnabled ?? true;
 
   if (stockSdkPrimaryEnabled) {
     providers.push(
@@ -106,6 +130,14 @@ function createQuoteSnapshotProviders(
 
 function createQuoteSnapshotPriority(stockSdkPrimaryEnabled: boolean): readonly GatewayMarketDataProviderId[] {
   return stockSdkPrimaryEnabled ? marketDataIpcDefaultProviderPriority : ["alphafeed-rest", "longbridge"];
+}
+
+function createHistoricalBarsPriority(stockSdkPrimaryEnabled: boolean): readonly GatewayMarketDataProviderId[] {
+  return stockSdkPrimaryEnabled ? ["stock-sdk", "longbridge", "alphafeed-rest"] : ["longbridge", "alphafeed-rest"];
+}
+
+function createIntradayBarsPriority(stockSdkPrimaryEnabled: boolean): readonly GatewayMarketDataProviderId[] {
+  return stockSdkPrimaryEnabled ? ["stock-sdk", "alphafeed-rest", "longbridge"] : ["alphafeed-rest", "longbridge"];
 }
 
 function toIpcGatewayResult<Data>(result: MarketDataGatewayResult<Data>) {

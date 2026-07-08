@@ -476,7 +476,7 @@ Acceptance:
 
 ### Step 11: Provider-Neutral Desktop IPC
 
-Status: stage 4 quote snapshot migration completed; historical/intraday migration not started.
+Status: stage 5 historical/intraday migration completed; WebSocket stream migration not started.
 
 Scope:
 
@@ -518,8 +518,8 @@ Migration plan:
 1. Completed: add shared IPC request/response types and channel names for provider-neutral market data without changing runtime behavior.
 2. Completed: add a preload/main empty shell for `window.quantDesktop.marketData.*` with typed methods and tests that assert the bridge shape.
 3. Completed: move quote snapshot gateway construction into the main-process IPC handler while leaving legacy AlphaFeed/LongBridge bridge methods intact.
-4. Next: move historical and intraday bar requests into the main-process IPC handler, preserving the `realtime` uses-intraday rule.
-5. Move AlphaFeed WebSocket connect/read/disconnect behind the provider-neutral stream methods.
+4. Completed: move historical and intraday bar requests into the main-process IPC handler, preserving the `realtime` uses-intraday rule.
+5. Next: move AlphaFeed WebSocket connect/read/disconnect behind the provider-neutral stream methods.
 6. Replace chart workspace gateway construction with `window.quantDesktop.marketData.*` calls and keep cache/strategy behavior unchanged.
 7. Add diagnostics tests for fallback order, rate-limit/unauthorized/network errors, delayed provider states, and provider status reporting.
 8. Run desktop tests, typecheck, build, and `probe:stock-sdk`; then record a rollback commit.
@@ -551,6 +551,15 @@ Stage 4 implementation notes:
 - The renderer no longer needs AlphaFeed or LongBridge credentials for the quote polling request path. WebSocket, historical bars, and intraday bars still use the previous paths until later migration stages.
 - `marketDataIpcContract.ts` and renderer types now allow a temporary `providerPolicy.stockSdkPrimaryEnabled` flag so the existing user-facing Stock SDK opt-out remains respected while provider policy is moved behind the desktop boundary.
 - Desktop tests cover Stock SDK primary quote fetch through the provider-neutral handler and the no-provider error path when Stock SDK is disabled and no fallback credentials exist.
+
+Stage 5 implementation notes:
+
+- The provider-neutral main-process handler now wires `fetchHistoricalBars` and `fetchIntradayBars` through the same secure-credential-backed provider registry as quote snapshots.
+- Historical bar priority matches the chart gateway behavior: Stock SDK, LongBridge, AlphaFeed REST when Stock SDK is enabled; otherwise LongBridge then AlphaFeed REST.
+- Intraday bar priority matches the chart gateway behavior: Stock SDK, AlphaFeed REST, LongBridge when Stock SDK is enabled; otherwise AlphaFeed REST then LongBridge.
+- The chart's historical K-line load and realtime intraday-history load now call `window.quantDesktop.marketData.fetchHistoricalBars` or `fetchIntradayBars` when available, while preserving the old renderer gateway fallback path.
+- The `realtime` chart history still requests provider `1m` bars through `intradayBars` and normalizes them into the `realtime` cache before merging with live points.
+- Desktop tests cover Stock SDK historical bars and realtime-history intraday bars through the provider-neutral handler.
 
 Acceptance:
 

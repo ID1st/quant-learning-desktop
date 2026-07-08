@@ -157,6 +157,64 @@ test("market data IPC handlers return no capable provider when stock sdk is disa
   assert.deepEqual(result.error.fallback.triedProviders, []);
 });
 
+test("market data IPC handlers fetch historical bars through stock sdk primary", async () => {
+  const calls: string[] = [];
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createEmptyCredentialStore(),
+    stockSdkOperations: {
+      fetchQuoteSnapshot: async () => [],
+      fetchHistoricalBars: async () => {
+        calls.push("history");
+        return [{ date: "2026-07-06", open: 307.36, high: 314.2, low: 307, close: 312.66, volume: 1 }];
+      },
+      fetchIntradayBars: async () => {
+        calls.push("intraday");
+        return [];
+      },
+    },
+  });
+
+  const result = await handlers.fetchHistoricalBars({
+    context: { source: "chart" },
+    request: { symbol: "AAPL.US", market: "US", timeframe: "1d", count: 600 },
+    providerPolicy: { stockSdkPrimaryEnabled: true },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.meta.provider, "stock-sdk");
+  assert.equal(result.data[0]?.timeframe, "1d");
+  assert.deepEqual(calls, ["history"]);
+});
+
+test("market data IPC handlers fetch realtime history through intraday bars", async () => {
+  const calls: string[] = [];
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createEmptyCredentialStore(),
+    stockSdkOperations: {
+      fetchQuoteSnapshot: async () => [],
+      fetchHistoricalBars: async () => {
+        calls.push("history");
+        return [];
+      },
+      fetchIntradayBars: async () => {
+        calls.push("intraday");
+        return [{ time: "2026-07-06 09:30", open: 0, high: 286.9, low: 286.61, close: 286.86, volume: 1 }];
+      },
+    },
+  });
+
+  const result = await handlers.fetchIntradayBars({
+    context: { source: "chart" },
+    request: { symbol: "AAPL.US", market: "US", timeframe: "1m", count: 1_000 },
+    providerPolicy: { stockSdkPrimaryEnabled: true },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.meta.provider, "stock-sdk");
+  assert.equal(result.data[0]?.timeframe, "1m");
+  assert.deepEqual(calls, ["intraday"]);
+});
+
 function createEmptyCredentialStore(): SecureCredentialStore {
   return {
     saveAlphaFeedCredentials: () => undefined,

@@ -82,6 +82,9 @@ export interface MarketDataIpcBarRequest {
   readonly context: MarketDataIpcRequestContext;
   readonly request: MarketDataBarRequest;
   readonly capability: Extract<MarketDataProviderCapabilityKey, "historicalBars" | "intradayBars">;
+  readonly providerPolicy?: {
+    readonly stockSdkPrimaryEnabled?: boolean;
+  };
 }
 
 export interface MarketDataIpcStreamConnectRequest {

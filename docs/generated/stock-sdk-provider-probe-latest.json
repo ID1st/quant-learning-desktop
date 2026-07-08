@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-08T03:19:58.446Z",
+  "generatedAt": "2026-07-08T06:15:57.880Z",
   "package": {
     "name": "stock-sdk",
     "version": "2.3.0"
@@ -26,17 +26,17 @@
     {
       "name": "quote.cn-hk-us",
       "status": "passed",
-      "latencyMs": 1449,
+      "latencyMs": 1480,
       "data": {
         "rows": 3,
         "samples": [
           {
             "market": "CN",
             "symbol": "600519.SH",
-            "price": 1185.97,
+            "price": 1197.09,
             "previousClose": 1188.8,
-            "timestamp": 1783480797000,
-            "quoteAgeSeconds": 3,
+            "timestamp": 1783491357000,
+            "quoteAgeSeconds": 2,
             "fields": {
               "price": true,
               "previousClose": true,
@@ -50,10 +50,10 @@
           {
             "market": "HK",
             "symbol": "00700.HK",
-            "price": 476.6,
+            "price": 479.2,
             "previousClose": 461.2,
-            "timestamp": 1783479895000,
-            "quoteAgeSeconds": 905,
+            "timestamp": 1783490455000,
+            "quoteAgeSeconds": 904,
             "fields": {
               "price": true,
               "previousClose": true,
@@ -70,7 +70,7 @@
             "price": 310.66,
             "previousClose": 312.66,
             "timestamp": 1783454401000,
-            "quoteAgeSeconds": 26399,
+            "quoteAgeSeconds": 36958,
             "fields": {
               "price": true,
               "previousClose": true,
@@ -87,7 +87,7 @@
     {
       "name": "historical.CN.1d",
       "status": "passed",
-      "latencyMs": 2738,
+      "latencyMs": 8475,
       "data": {
         "rows": 5956,
         "first": {
@@ -107,10 +107,10 @@
           "timeframe": "1d",
           "timestamp": 1783440000000,
           "open": 1188.77,
-          "high": 1195,
+          "high": 1198.98,
           "low": 1177,
-          "close": 1185.97,
-          "volume": 11643
+          "close": 1196.65,
+          "volume": 19321
         },
         "zeroOpenCount": 0,
         "invalidOhlcCount": 0
@@ -119,7 +119,7 @@
     {
       "name": "historical.CN.1w",
       "status": "passed",
-      "latencyMs": 549,
+      "latencyMs": 524,
       "data": {
         "rows": 1254,
         "first": {
@@ -141,8 +141,8 @@
           "open": 1186,
           "high": 1215,
           "low": 1177,
-          "close": 1185.97,
-          "volume": 79978
+          "close": 1196.65,
+          "volume": 87656
         },
         "zeroOpenCount": 0,
         "invalidOhlcCount": 0
@@ -151,9 +151,9 @@
     {
       "name": "intraday.CN.1m",
       "status": "passed",
-      "latencyMs": 517,
+      "latencyMs": 521,
       "data": {
-        "rows": 1075,
+        "rows": 1162,
         "first": {
           "market": "CN",
           "symbol": "600519.SH",
@@ -169,12 +169,12 @@
           "market": "CN",
           "symbol": "600519.SH",
           "timeframe": "1m",
-          "timestamp": 1783480800000,
-          "open": 1185.99,
-          "high": 1185.99,
-          "low": 1185.91,
-          "close": 1185.97,
-          "volume": 28
+          "timestamp": 1783491420000,
+          "open": 1196.65,
+          "high": 1196.65,
+          "low": 1196.65,
+          "close": 1196.65,
+          "volume": 3
         },
         "zeroOpenCount": 0,
         "invalidOhlcCount": 0
@@ -183,7 +183,7 @@
     {
       "name": "historical.HK.1d",
       "status": "passed",
-      "latencyMs": 3152,
+      "latencyMs": 1999,
       "data": {
         "rows": 5434,
         "first": {
@@ -203,10 +203,10 @@
           "timeframe": "1d",
           "timestamp": 1783440000000,
           "open": 461.2,
-          "high": 478.8,
+          "high": 480,
           "low": 460.6,
-          "close": 476.4,
-          "volume": 24349476
+          "close": 479.6,
+          "volume": 38273372
         },
         "zeroOpenCount": 0,
         "invalidOhlcCount": 0
@@ -215,7 +215,7 @@
     {
       "name": "historical.HK.1w",
       "status": "passed",
-      "latencyMs": 597,
+      "latencyMs": 403,
       "data": {
         "rows": 1152,
         "first": {
@@ -235,10 +235,10 @@
           "timeframe": "1w",
           "timestamp": 1783440000000,
           "open": 432.8,
-          "high": 479.8,
+          "high": 480,
           "low": 425.4,
-          "close": 476.2,
-          "volume": 121276593
+          "close": 479.6,
+          "volume": 135197589
         },
         "zeroOpenCount": 0,
         "invalidOhlcCount": 0
@@ -247,9 +247,9 @@
     {
       "name": "intraday.HK.1m",
       "status": "passed",
-      "latencyMs": 732,
+      "latencyMs": 406,
       "data": {
-        "rows": 1436,
+        "rows": 1552,
         "first": {
           "market": "HK",
           "symbol": "00700.HK",
@@ -265,12 +265,12 @@
           "market": "HK",
           "symbol": "00700.HK",
           "timeframe": "1m",
-          "timestamp": 1783480860000,
-          "open": 476.4,
-          "high": 476.4,
-          "low": 476.2,
-          "close": 476.2,
-          "volume": 11900
+          "timestamp": 1783491420000,
+          "open": 479.6,
+          "high": 479.6,
+          "low": 479.4,
+          "close": 479.4,
+          "volume": 18400
         },
         "zeroOpenCount": 0,
         "invalidOhlcCount": 0
@@ -279,7 +279,7 @@
     {
       "name": "historical.US.1d",
       "status": "passed",
-      "latencyMs": 2722,
+      "latencyMs": 2369,
       "data": {
         "rows": 10539,
         "first": {
@@ -311,7 +311,7 @@
     {
       "name": "historical.US.1w",
       "status": "passed",
-      "latencyMs": 678,
+      "latencyMs": 423,
       "data": {
         "rows": 2184,
         "first": {
@@ -343,7 +343,7 @@
     {
       "name": "intraday.US.1m",
       "status": "passed",
-      "latencyMs": 610,
+      "latencyMs": 409,
       "data": {
         "rows": 1955,
         "first": {

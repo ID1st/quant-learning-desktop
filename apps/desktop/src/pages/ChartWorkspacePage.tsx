@@ -51,6 +51,7 @@ import {
   type MarketDataProviderDiagnosticSummary,
 } from "../features/marketData/marketDataProviderDiagnostics";
 import type {
+  GatewayMarketDataBar,
   GatewayMarketDataProviderId,
   GatewayMarketQuoteSnapshot,
   MarketDataProviderCapabilityKey,
@@ -539,6 +540,22 @@ type ChartQuoteSnapshotBatchResult =
       readonly triedProviders: readonly GatewayMarketDataProviderId[];
     };
 
+type ChartBarsBatchResult =
+  | {
+      readonly ok: true;
+      readonly data: readonly GatewayMarketDataBar[];
+      readonly health: MarketDataProviderHealthView;
+      readonly triedProviders: readonly GatewayMarketDataProviderId[];
+    }
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly message: string;
+      };
+      readonly health: readonly MarketDataProviderHealthView[];
+      readonly triedProviders: readonly GatewayMarketDataProviderId[];
+    };
+
 async function fetchQuoteSnapshotBatch(options: {
   readonly batch: readonly MarketWatchlistItem[];
   readonly marketDataGateways: ChartMarketDataGateways;
@@ -556,6 +573,57 @@ async function fetchQuoteSnapshotBatch(options: {
       stockSdkPrimaryEnabled: options.stockSdkPrimaryEnabled,
     },
   });
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: {
+        message: result.error.message,
+      },
+      health: result.error.health,
+      triedProviders: result.error.fallback.triedProviders,
+    };
+  }
+
+  return {
+    ok: true,
+    data: result.data,
+    health: result.meta.health,
+    triedProviders: result.meta.fallback.triedProviders,
+  };
+}
+
+async function fetchChartBars(options: {
+  readonly capability: "historicalBars" | "intradayBars";
+  readonly request: {
+    readonly symbol: string;
+    readonly market: Market;
+    readonly timeframe: Timeframe;
+    readonly count?: number;
+    readonly startTime?: number;
+    readonly endTime?: number;
+  };
+  readonly marketDataGateways: ChartMarketDataGateways;
+  readonly providerNeutralMarketDataBridge?: QuantDesktopMarketDataBridge;
+  readonly stockSdkPrimaryEnabled: boolean;
+}): Promise<ChartBarsBatchResult> {
+  if (!options.providerNeutralMarketDataBridge) {
+    return options.capability === "intradayBars"
+      ? options.marketDataGateways.intradayBars.fetchIntradayBars(options.request)
+      : options.marketDataGateways.historicalBars.fetchHistoricalBars(options.request);
+  }
+
+  const request = {
+    context: { source: "chart" as const },
+    request: options.request,
+    providerPolicy: {
+      stockSdkPrimaryEnabled: options.stockSdkPrimaryEnabled,
+    },
+  };
+  const result =
+    options.capability === "intradayBars"
+      ? await options.providerNeutralMarketDataBridge.fetchIntradayBars(request)
+      : await options.providerNeutralMarketDataBridge.fetchHistoricalBars(request);
 
   if (!result.ok) {
     return {
@@ -853,6 +921,7 @@ export function ChartWorkspacePage() {
 
       try {
         const credentials = await readSavedLongPortCredentials();
+        const providerNeutralMarketDataBridge = window.quantDesktop?.marketData;
 
         if (cancelled) {
           return;
@@ -864,7 +933,7 @@ export function ChartWorkspacePage() {
           enableStockSdkPrimary: marketDataProviderSettings.stockSdkPrimaryEnabled,
         });
 
-        if (!credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
+        if (!providerNeutralMarketDataBridge && !credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
           const waitingHealth = createRealtimeHealthView("waiting", "等待长桥凭据以加载历史 K 线");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
@@ -879,10 +948,14 @@ export function ChartWorkspacePage() {
           endTime: windowRange?.endTime,
           count: isRealtimeHistory ? longPortRealtimeHistoryCount : timeframe === "1w" ? 260 : 600,
         };
-        const result = isRealtimeHistory
-          ? await marketDataGateways.intradayBars.fetchIntradayBars(barRequest)
-          : await marketDataGateways.historicalBars.fetchHistoricalBars(barRequest);
         const providerCapability = isRealtimeHistory ? "intradayBars" : "historicalBars";
+        const result = await fetchChartBars({
+          capability: providerCapability,
+          request: barRequest,
+          marketDataGateways,
+          providerNeutralMarketDataBridge,
+          stockSdkPrimaryEnabled: marketDataProviderSettings.stockSdkPrimaryEnabled,
+        });
 
         if (cancelled) {
           return;
@@ -970,6 +1043,7 @@ export function ChartWorkspacePage() {
 
       try {
         const credentials = await readSavedAlphaFeedCredentials();
+        const providerNeutralMarketDataBridge = window.quantDesktop?.marketData;
 
         if (cancelled) {
           return;
@@ -981,20 +1055,26 @@ export function ChartWorkspacePage() {
           enableStockSdkPrimary: marketDataProviderSettings.stockSdkPrimaryEnabled,
         });
 
-        if (!credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
+        if (!providerNeutralMarketDataBridge && !credentials && !marketDataProviderSettings.stockSdkPrimaryEnabled) {
           const waitingHealth = createRealtimeHealthView("waiting", "等待 AlphaFeed 凭据以加载历史分时");
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
           return;
         }
 
-        const result = await marketDataGateways.intradayBars.fetchIntradayBars({
-          symbol: activeSymbol.dataSymbol,
-          market: activeSymbol.market,
-          timeframe: "1m",
-          startTime: windowRange.startTime,
-          endTime: windowRange.endTime,
-          count: 10_000,
+        const result = await fetchChartBars({
+          capability: "intradayBars",
+          request: {
+            symbol: activeSymbol.dataSymbol,
+            market: activeSymbol.market,
+            timeframe: "1m",
+            startTime: windowRange.startTime,
+            endTime: windowRange.endTime,
+            count: 10_000,
+          },
+          marketDataGateways,
+          providerNeutralMarketDataBridge,
+          stockSdkPrimaryEnabled: marketDataProviderSettings.stockSdkPrimaryEnabled,
         });
 
         if (cancelled) {

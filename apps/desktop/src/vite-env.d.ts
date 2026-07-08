@@ -173,10 +173,16 @@ interface QuantDesktopMarketDataBridge {
   fetchHistoricalBars(request: {
     readonly context: QuantDesktopMarketDataRequestContext;
     readonly request: QuantDesktopMarketDataBarRequest;
+    readonly providerPolicy?: {
+      readonly stockSdkPrimaryEnabled?: boolean;
+    };
   }): Promise<QuantDesktopMarketDataResult<readonly QuantDesktopMarketDataBar[]>>;
   fetchIntradayBars(request: {
     readonly context: QuantDesktopMarketDataRequestContext;
     readonly request: QuantDesktopMarketDataBarRequest;
+    readonly providerPolicy?: {
+      readonly stockSdkPrimaryEnabled?: boolean;
+    };
   }): Promise<QuantDesktopMarketDataResult<readonly QuantDesktopMarketDataBar[]>>;
   connectQuoteStream(request: {
     readonly context: QuantDesktopMarketDataRequestContext;
