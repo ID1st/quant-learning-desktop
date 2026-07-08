@@ -2,16 +2,21 @@
 
 ## 1. Current Status
 
-The repository is an early-stage project scaffold.
+The repository is now in Phase 4 module development.
 
-Current files:
+Completed major foundations:
 
-- `AGENTS.md`
-- `trading-strategies/utorb.md`
-- `trading-strategies/trend-targets.md`
-- Additional strategy notes under `trading-strategies/`
+- Monorepo scaffold with Electron-facing desktop app, React/Vite UI, shared packages, chart package, strategy engine, plugin-loader boundary, and desktop tests.
+- TradingView-like workstation UI with chart workspace, watchlist, API configuration, strategy management, settings, and diagnostics surfaces.
+- Provider-neutral Market Data Gateway with `stock-sdk` as guarded/default primary source and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge as fallback providers.
+- Provider-neutral desktop IPC through `window.quantDesktop.marketData.*` for provider status, quote snapshots, historical bars, intraday bars, and quote stream control.
+- Local market cache for quotes, bars, provider metadata, and cache cleanup.
+- Built-in UTORB and Trend Targets strategies translated into TypeScript runtime implementations.
+- Strategy chart runtime now consumes normalized cached market bars and emits signals, logs, metrics, alerts, and declarative render elements.
 
-There is no application source code, package manifest, test framework, or build script yet.
+Current recommended next milestone:
+
+- Continue Milestone 7.5: Super Chart Capability Completion. UI/display optimization round 1 is complete; the next work should focus on provider diagnostics timeline, indicator controls, drawing-tool state, and deeper layer ordering controls.
 
 ## 2. Execution Rule
 
@@ -305,12 +310,20 @@ Acceptance:
 
 ## 10. Milestone 7.5: Super Chart Capability Completion
 
+Status:
+
+- Partially complete. Core chart interactions, provider-neutral data loading, realtime intraday history, strategy render layers, current price display, and settings scaffold are in place.
+- UI/display optimization round 1 is complete: chart-first viewport, collapsible watchlist, compact bottom dock, on-demand strategy configuration, first-pass layer controls, and candle-first price scaling are in place.
+- Next work should continue into provider diagnostics timeline, indicator controls, drawing-tool state, deeper layer ordering controls, and UI verification.
+
 Goal:
 
 - Complete the super chart as the unified TradingView-like surface for market data, indicators, strategy overlays, drawing tools, and future plugin layers.
 
 Deliverables:
 
+- UI/display optimization pass: chart-first viewport, compact top/side/bottom panels, reduced font density, strategy settings moved behind on-demand dialogs/drawers, and no unnecessary scrolling in the primary workstation.
+- Chart rendering polish: clearer realtime line/K-line modes, readable Beijing-time x-axis labels, stable price y-axis labels, current-price label treatment, crosshair feedback, volume density, and explicit loading/empty/degraded states.
 - Zoom, pan, crosshair, OHLCV hover, current price line, latest price label, and view reset.
 - Beijing-time x-axis labels, price y-axis labels, and right price-axis drag scaling.
 - Chart toolbar, left drawing toolbar, chart settings entry, and right-click menu UI.
@@ -324,6 +337,9 @@ Deliverables:
 Acceptance:
 
 - Chart interactions are usable with cached bars and realtime daily quote polling.
+- The chart workspace fits normal desktop viewports without burying the main chart below large configuration panels.
+- Strategy and indicator details are available on demand without crowding the default chart surface.
+- Browser verification passed for 1366x768, 1440x900, and 1920x1080 with no page-level vertical scroll, no button overflow, and no blank chart state.
 - Realtime chart preserves newer AlphaFeed points when LongBridge intraday history is delayed and reports the gap without generating synthetic intermediate prices.
 - Strategy, indicator, and drawing overlays do not call chart internals directly.
 - The chart remains ready for future plugin-provided indicators and strategy layers.
@@ -342,6 +358,7 @@ Status:
 - Runtime foundation completed for the current built-in strategy scope.
 - Chart-facing runtime boundary added in `apps/desktop/src/features/strategies/chartStrategyRuntime.ts`.
 - Super chart and strategy management now feed strategies from normalized cached market bars rather than generated/sample bars.
+- Parameter changes recompute strategy output, and chart-facing logs/signals/render elements are generated from real cached bar input.
 
 Goal:
 
@@ -369,6 +386,7 @@ Status:
 - UTORB and Trend Targets are available as built-in TypeScript strategies.
 - Both strategies run through the shared strategy engine and can consume cached realtime bars from the market-data cache.
 - Strategy outputs include signals, render elements, metrics, logs, and alerts for the chart-facing layer.
+- Full Pine Script compiler support remains deferred. The original Pine files remain preserved as reference material.
 
 Goal:
 
@@ -387,6 +405,11 @@ Acceptance:
 - Behavior differences from Pine are documented.
 
 ## 13. Milestone 10: Plugin System
+
+Status:
+
+- Not started beyond package boundary and design documentation.
+- This should start after the chart layer/render-command model is stable enough for plugin-provided indicators and strategies.
 
 Goal:
 
@@ -410,6 +433,11 @@ Acceptance:
 
 ## 14. Milestone 11: Learning System
 
+Status:
+
+- Not started beyond design documentation.
+- This should follow the chart and strategy surfaces so lessons can link to working strategies and chart states.
+
 Goal:
 
 - Add learning workflows around strategy research.
@@ -427,6 +455,11 @@ Acceptance:
 - Users can study a strategy, run it, and review results in one flow.
 
 ## 15. Milestone 12: Hardening
+
+Status:
+
+- Not started as a dedicated milestone.
+- Packaging should wait until market data, strategy display, plugin MVP scope, and security review are stable.
 
 Goal:
 

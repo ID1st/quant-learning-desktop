@@ -2,15 +2,14 @@
 
 ## Current Decision
 
-The system currently uses a split provider model:
+The system now uses a provider-neutral market-data model:
 
-- AlphaFeed REST and optional AlphaFeed WebSocket provide same-day quote updates.
-- LongBridge provides historical K-line and intraday-history backfill.
-- LongBridge also remains the broker/account integration path for future trading workflows.
+- `stock-sdk` is the guarded/default primary REST provider for quotes, historical bars, and intraday bars.
+- AlphaFeed REST remains a fallback provider for quote and bar requests.
+- AlphaFeed WebSocket member channel remains a fallback streaming quote provider when configured.
+- LongBridge remains a fallback data provider and the future broker/account integration path.
 
-The next decision is to introduce a provider-neutral market-data gateway before changing production traffic. `chengzuopeng/stock-sdk` is a candidate primary provider, while AlphaFeed REST, AlphaFeed WebSocket, and LongBridge should become fallback providers after the gateway is in place.
-
-This document is a design and migration plan. The `stock-sdk` adapter exists behind the provider gateway and is enabled by default through the guarded local `stockSdkPrimaryEnabled` switch. Users can still turn it off, and AlphaFeed REST/WebSocket plus LongBridge continue to protect production chart behavior as fallback providers.
+Provider selection, credential reads, fallback, error classification, and concrete provider operations are now behind the desktop IPC surface `window.quantDesktop.marketData.*`. Renderer chart code uses the chart-facing access layer and no longer constructs concrete provider gateways directly.
 
 ## Candidate Primary Provider: stock-sdk
 
@@ -58,7 +57,7 @@ The priority should eventually be configurable, but the first implementation sho
 
 Provider-specific code must stay behind typed boundaries.
 
-Renderer pages must not call external APIs directly. They should call `MarketDataGateway` or a narrow desktop bridge method that delegates to gateway/provider adapters.
+Renderer pages must not call external APIs directly. They should call the chart-facing access layer, which prefers `window.quantDesktop.marketData.*` in desktop mode and keeps the legacy gateway path only as a non-desktop compatibility fallback.
 
 The current direct bridge methods remain supported during migration:
 
@@ -73,7 +72,7 @@ The current direct bridge methods remain supported during migration:
 - `window.quantDesktop.longPort.fetchQuoteSnapshot`
 - `window.quantDesktop.longPort.fetchHistoricalBars`
 
-The target bridge should add provider-neutral methods after the gateway exists:
+The provider-neutral bridge is implemented with these methods:
 
 - `window.quantDesktop.marketData.getProviderStatus`
 - `window.quantDesktop.marketData.verifyProvider`
@@ -645,6 +644,9 @@ Acceptance:
 
 ## Remaining Work
 
-1. Add provider-neutral desktop IPC through `window.quantDesktop.marketData.*` so renderer pages no longer construct provider gateways from concrete credentials.
+1. Integrate provider status into the chart UI optimization pass so loading, waiting-data, delayed-history, fallback, and empty-data states are visible without crowding the chart.
 2. Add a richer provider-event timeline for fallback, rate-limit, delayed-history, and source-switch events.
-3. Confirm whether `stock-sdk` exposes or plans a native WebSocket stream. Until then, do not model it as a WebSocket provider.
+3. Keep validating `stock-sdk` data quality across more symbols and market sessions, especially US intraday, HK/CN delayed behavior, and abnormal OHLC rows.
+4. Confirm whether `stock-sdk` exposes or plans a native WebSocket stream. Until then, do not model it as a WebSocket provider.
+5. Keep AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback paths active until the primary source has enough runtime history.
+6. Add packaging-time security review for market-data IPC, credential storage, and legacy compatibility bridges.

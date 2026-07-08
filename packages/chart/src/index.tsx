@@ -190,28 +190,6 @@ function isFiniteNumber(value: number) {
   return Number.isFinite(value);
 }
 
-function getLayerPriceRange(strategyLayers: ChartLayer[]) {
-  return strategyLayers.flatMap((layer) =>
-    layer.enabled
-      ? layer.elements.flatMap((element) => {
-          if (element.visible === false) {
-            return [];
-          }
-
-          if (element.kind === "band") {
-            return [element.fromPrice, element.toPrice].filter(isFiniteNumber);
-          }
-
-          if (element.kind === "trend-line") {
-            return element.points.map((point) => point.price).filter(isFiniteNumber);
-          }
-
-          return isFiniteNumber(element.price) ? [element.price] : [];
-        })
-      : [],
-  );
-}
-
 export function ChartViewport({
   candles: providedCandles,
   context = defaultContext,
@@ -276,14 +254,14 @@ export function ChartViewport({
   const visibleCount = Math.max(1, visibleCandles.length);
   const candleGap = (width - paddingX * 2) / visibleCount;
   const candleWidth = Math.max(5, candleGap * 0.58);
-  const layerPrices = showStrategyLayers ? getLayerPriceRange(strategyLayers) : [];
   const candleHighs = visibleCandles.map((candle) => candle.high).filter(isFiniteNumber);
   const candleLows = visibleCandles.map((candle) => candle.low).filter(isFiniteNumber);
   const candleVolumes = visibleCandles.map((candle) => candle.volume).filter(isFiniteNumber);
-  const priceCandidates = [...candleHighs, ...candleLows, ...layerPrices];
+  const priceCandidates = [...candleHighs, ...candleLows];
   const autoMaxPrice = Math.max(...priceCandidates);
   const autoMinPrice = Math.min(...priceCandidates);
-  const scaledPriceRange = getScaledPriceRange(autoMinPrice, autoMaxPrice, priceScaleFactor);
+  const autoPadding = Math.max((autoMaxPrice - autoMinPrice) * 0.08, autoMaxPrice * 0.002, 0.01);
+  const scaledPriceRange = getScaledPriceRange(autoMinPrice - autoPadding, autoMaxPrice + autoPadding, priceScaleFactor);
   const maxPrice = scaledPriceRange.max;
   const minPrice = scaledPriceRange.min;
   const maxVolume = Math.max(1, ...candleVolumes);

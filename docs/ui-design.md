@@ -333,3 +333,24 @@ Recommended design language:
 - Strategy and learning features are visible but do not crowd the chart.
 - Right and bottom panels can be collapsed.
 - Built-in strategies are discoverable from both chart and strategy pages.
+
+## 17. Super Chart UI Optimization Round 1
+
+Status: completed.
+
+Implemented:
+
+- Chart-first layout with a tighter top toolbar and a fixed-height compact bottom dock.
+- Right watchlist can collapse from the full panel to a narrow rail so the chart gains horizontal space.
+- Bottom dock now uses a status strip plus tabs for Layers, Signals, and Logs instead of showing all panels at once.
+- Strategy parameters remain available through the existing configuration dialog rather than occupying persistent workspace space.
+- First-pass layer controls expose strategy enable, layer visibility, status, render element count, z-index display, and configuration entry.
+- Chart price scaling is candle-first with padding, so distant strategy target lines do not flatten the main price movement.
+- Browser smoke verification covered 1366x768, 1440x900, and 1920x1080 without page-level vertical scroll, button overflow, or blank chart state.
+
+Remaining UI work:
+
+- Provider diagnostics timeline.
+- Indicator layer controls beyond the moving average.
+- Drawing-tool state and command model placeholder.
+- Explicit layer reordering controls once indicator and drawing layers join strategy layers.

@@ -2,7 +2,7 @@
 
 ## Status
 
-The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 10 are complete. The current hotfix makes the Stock SDK primary source default-on and routes super-chart `realtime` history through the intraday gateway. The active next slice is provider-neutral desktop IPC hardening so provider selection, credential reads, fallback, and provider operations move behind `window.quantDesktop.marketData.*`.
+The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 10 are complete, Provider-neutral Desktop IPC stages 1 through 10 are complete, the built-in strategies now run from normalized cached market bars, and Super Chart UI/display optimization round 1 is complete. The active next slice should continue Super Chart Capability Completion with richer provider diagnostics timeline, indicator controls, and drawing-tool foundations.
 
 Completed foundations:
 
@@ -45,6 +45,9 @@ Completed foundations:
 - Provider-neutral Desktop IPC stage 8 diagnostics hardening is complete: main-process provider status now reports registered provider health and capabilities, IPC tests cover provider status, fallback metadata, primary-provider failures, stream unauthorized/rate-limited states, and gateway diagnostics now return the latest failed-provider health after operation errors.
 - Provider-neutral Desktop IPC stage 9 final verification is complete: `npm run test:desktop`, `npm run typecheck`, `npm run build`, and `npm run probe:stock-sdk` passed. The latest Stock SDK probe passed 10/10 checks and refreshed `docs/generated/stock-sdk-provider-probe-latest.json`.
 - Provider-neutral Desktop IPC stage 10 final review is complete: the final audit confirmed the chart page no longer reads provider credentials or constructs concrete provider gateways, the legacy AlphaFeed/LongBridge bridges remain available, and the provider-neutral IPC bridge covers provider status, quotes, historical bars, intraday bars, and stream connect/read/disconnect.
+- Strategy real-bar runtime slice is complete: UTORB and Trend Targets now run on normalized cached bars through `apps/desktop/src/features/strategies/chartStrategyRuntime.ts`; the chart and strategy management pages no longer rely on generated/sample strategy bars; parameter changes recompute strategy output; logs, signals, metrics, alerts, and render elements are exposed to the chart-facing layer.
+- Super Chart UI/display optimization round 1 is complete: the chart workspace now uses a tighter chart-first layout, a collapsible right watchlist, a compact bottom status/tab dock, on-demand strategy configuration, first-pass layer controls, and candle-first price scaling so strategy overlays do not flatten the price view.
+- Browser verification covered 1366x768, 1440x900, and 1920x1080. The chart workspace had no page-level vertical scroll, no button overflow, no blank chart state, and watchlist collapse reduced the right panel from 210px to 44px while expanding the chart area.
 
 ## Current Data Flow
 
@@ -87,6 +90,40 @@ Important constraints:
 - Renderer pages must stop constructing concrete provider gateways before the project is considered ready for packaging/security review.
 
 ## Next Tasks
+
+### Recommended Next Slice: Super Chart Capability Completion Round 2
+
+Status: ready.
+
+Goal: build on the completed chart-first layout and finish the remaining chart workstation controls before moving into plugins, learning workflows, or packaging.
+
+Recommended implementation slices:
+
+1. Add richer provider diagnostics timeline: active provider, fallback events, rate-limit events, delayed-history events, latest update time, and data-gap explanations.
+2. Expand indicator controls beyond the current moving average: at minimum moving average variants and a provider-neutral indicator render layer.
+3. Improve drawing-tool scaffolding: UI state, selected tool, cancel/reset, and persisted command model placeholder; defer full drawing persistence.
+4. Add explicit z-index ordering controls for strategy/indicator layers after the layer model is expanded beyond the current first-pass display.
+5. Add browser smoke verification for the super chart with real cached bars, realtime intraday history, strategy layers, and provider status after each chart slice.
+
+Acceptance:
+
+- Existing `realtime`, `1d`, and `1w` chart behavior remains stable.
+- The chart workspace keeps the TradingView-like information hierarchy: chart first, compact controls second, detailed settings only on demand.
+- Chart content remains legible at normal desktop sizes without scrolling the main workstation.
+- Strategy output continues to enter the chart only through declarative render elements.
+- Provider diagnostics are understandable without exposing provider credentials.
+- `npm run test:desktop`, `npm run typecheck`, and `npm run build` pass after the slice.
+
+### Remaining Product Milestones
+
+1. Super Chart UI/display optimization.
+2. Super Chart layer controls and provider diagnostics timeline.
+3. Indicator and drawing-tool foundations.
+4. AlphaFeed WebSocket Runtime Hardening after exact member-channel protocol details are confirmed.
+5. Plugin System MVP: manifest, permission model, capability registry, sample plugin, failure isolation.
+6. Learning System MVP: strategy explanation pages, learning records, practice/review notes.
+7. Backtest MVP if the user decides it is still required: date range, deterministic run, summary metrics, result persistence.
+8. Desktop packaging and hardening: Electron build target, secure storage review, update path, error reporting, cache/data migration checks.
 
 ### 0. Provider-Neutral Desktop IPC
 
@@ -267,6 +304,8 @@ Acceptance:
 - Desktop tests and typecheck pass.
 
 ### 3. Super Chart Capability Completion
+
+Status: next recommended slice.
 
 Goal: complete the TradingView-like super chart as the unified surface for market data, indicators, strategy overlays, drawing tools, and future plugin layers.
 

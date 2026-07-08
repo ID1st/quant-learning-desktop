@@ -61,6 +61,7 @@ import {
   Bell,
   CheckCircle2,
   Crosshair,
+  ChevronRight,
   Eye,
   EyeOff,
   Gauge,
@@ -68,10 +69,10 @@ import {
   LineChart,
   MousePointer2,
   PencilLine,
-  Plus,
   RotateCcw,
   Ruler,
   ShieldCheck,
+  SlidersHorizontal,
   Settings2,
   TerminalSquare,
 } from "lucide-react";
@@ -115,6 +116,8 @@ interface ChartWorkspacePreferences {
   realtimePollIntervalMs: number;
   strategies: Record<string, StrategyWorkspaceState>;
 }
+
+type ChartBottomTab = "layers" | "signals" | "logs";
 
 interface ChartContextMenuState {
   x: number;
@@ -550,6 +553,19 @@ function formatRealtimeHealthDetail(health: RealtimeProviderHealthView) {
   return parts.join(" · ");
 }
 
+function formatStatusClock(value: string | undefined) {
+  if (!value) {
+    return "--:--:--";
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
+}
+
 function formatQuotePrice(snapshot: MarketQuoteSnapshot | undefined, fallback: string) {
   return snapshot ? snapshot.lastPrice.toFixed(snapshot.lastPrice >= 1000 ? 2 : 2) : fallback;
 }
@@ -651,6 +667,8 @@ export function ChartWorkspacePage() {
   const [realtimePollIntervalMs, setRealtimePollIntervalMs] = useState(workspacePreferences.realtimePollIntervalMs);
   const [strategySettings, setStrategySettings] = useState(workspacePreferences.strategies);
   const [activeConfigStrategyKey, setActiveConfigStrategyKey] = useState<string | null>(null);
+  const [isWatchlistCollapsed, setIsWatchlistCollapsed] = useState(false);
+  const [bottomTab, setBottomTab] = useState<ChartBottomTab>("layers");
   const [isChartSettingsOpen, setIsChartSettingsOpen] = useState(false);
   const [chartContextMenu, setChartContextMenu] = useState<ChartContextMenuState | null>(null);
   const [chartResetViewKey, setChartResetViewKey] = useState(0);
@@ -1264,6 +1282,15 @@ export function ChartWorkspacePage() {
             <Settings2 size={16} />
             <span>图表设置</span>
           </button>
+          <button
+            aria-label={isWatchlistCollapsed ? "show watchlist" : "hide watchlist"}
+            className={!isWatchlistCollapsed ? "active" : ""}
+            onClick={() => setIsWatchlistCollapsed((value) => !value)}
+            type="button"
+          >
+            {isWatchlistCollapsed ? <ChevronRight size={16} /> : <Eye size={16} />}
+            <span>观察</span>
+          </button>
           {timeframe === "realtime" && (
             <label className="polling-interval-control">
               <span>分时形态</span>
@@ -1294,7 +1321,7 @@ export function ChartWorkspacePage() {
         </div>
       </header>
 
-      <div className="chart-workspace-grid">
+      <div className={isWatchlistCollapsed ? "chart-workspace-grid watchlist-collapsed" : "chart-workspace-grid"}>
         <aside className="chart-tool-rail" aria-label="画线工具">
           <button className="active" type="button" title="光标">
             <MousePointer2 size={18} />
@@ -1430,14 +1457,19 @@ export function ChartWorkspacePage() {
           )}
         </main>
 
-        <aside className="watchlist-panel">
+        <aside className={isWatchlistCollapsed ? "watchlist-panel collapsed" : "watchlist-panel"}>
           <div className="panel-heading">
             <div>
               <p>观察列表</p>
               <h2>多市场</h2>
             </div>
-            <button type="button" title="添加标的">
-              <Plus size={17} />
+            <button
+              aria-label={isWatchlistCollapsed ? "show watchlist" : "hide watchlist"}
+              onClick={() => setIsWatchlistCollapsed((value) => !value)}
+              type="button"
+              title={isWatchlistCollapsed ? "展开观察列表" : "折叠观察列表"}
+            >
+              {isWatchlistCollapsed ? <ChevronRight size={17} /> : <EyeOff size={17} />}
             </button>
           </div>
 
@@ -1561,102 +1593,133 @@ export function ChartWorkspacePage() {
       )}
 
       <footer className="chart-bottom-panel">
-        <div className="bottom-strategy-panel">
-          <p>策略面板</p>
-          <div className="bottom-panel-heading">
-            <strong>{enabledStrategyCount} 个策略启用</strong>
-            <span>
-              {canShowStrategyLayers
-                ? `${totalSignalCount} 个信号，${strategyLayerElementCount} 个图层元素`
-                : "策略图层已隐藏"}
-            </span>
-            <button
-              aria-label={showStrategyLayers ? "隐藏策略图层" : "显示策略图层"}
-              onClick={() => setShowStrategyLayers((value) => !value)}
-              type="button"
-            >
-              {showStrategyLayers ? <Eye size={14} /> : <EyeOff size={14} />}
-            </button>
-          </div>
-          <div className="bottom-layer-list">
-            {strategyRuns.map(({ strategy, settings, result }) => {
-              const layerStatus = getStrategyLayerStatus(strategy, settings, result, timeframe, strategyInputBars.length);
-              const isLayerVisible = settings.enabled && canShowStrategyLayers && settings.showLayer && layerStatus.className === "active";
-
-              return (
-                <div className={isLayerVisible ? "layer-item active" : `layer-item ${layerStatus.className}`} key={strategy.key}>
-                  <span>
-                    <strong>
-                      {strategy.name}
-                      <em className={`strategy-source-badge ${strategy.sourceType}`}>{formatStrategySource(strategy)}</em>
-                      <em className={`layer-status-badge ${layerStatus.className}`}>{layerStatus.label}</em>
-                    </strong>
-                    <small>{`${result.output.render.elements.length} 个元素`}</small>
-                  </span>
-                  <div className="layer-actions">
-                    <button
-                      aria-pressed={settings.enabled}
-                      className={settings.enabled ? "active" : ""}
-                      onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, enabled: !state.enabled, showLayer: !state.enabled }))}
-                      type="button"
-                    >
-                      启用
-                    </button>
-                    <button
-                      aria-pressed={settings.showLayer}
-                      className={settings.showLayer ? "active" : ""}
-                      disabled={!settings.enabled}
-                      onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, showLayer: !state.showLayer }))}
-                      type="button"
-                    >
-                      图层
-                    </button>
-                    <button onClick={() => setActiveConfigStrategyKey(strategy.key)} type="button">
-                      <Settings2 size={13} />
-                      参数
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <div className="bottom-status-strip" aria-label="行情状态">
+          <span className={getRealtimeHealthBadgeClass(realtimeHealth.status)}>{realtimeHealth.status}</span>
+          <strong>{cachedCandles.length > 0 ? `${cachedCandles.length} 根K线` : "等待行情数据"}</strong>
+          <em>{formatRealtimeHealthDetail(realtimeHealth)}</em>
+          <small>更新 {formatStatusClock(realtimeHealth.checkedAt)}</small>
         </div>
-        <div>
-          <p>信号明细</p>
-          <strong>{signalRows.length > 0 ? `${signalRows.length} 个策略信号` : "暂无策略信号"}</strong>
-          {signalRows.length > 0 ? (
-            <div className="signal-detail-list" aria-label="策略信号明细">
-              {signalRows.map((signal) => (
-                <div className={`signal-detail-row ${signal.tone}`} key={signal.id}>
-                  <ShieldCheck size={14} />
-                  <span>{signal.time}</span>
-                  <strong>{signal.direction}</strong>
-                  <small>{signal.price}</small>
-                  <em>{signal.strategyName} / {signal.label}</em>
-                </div>
-              ))}
+
+        <div className="bottom-tabbar" role="tablist" aria-label="图表底部面板">
+          <button className={bottomTab === "layers" ? "active" : ""} onClick={() => setBottomTab("layers")} role="tab" type="button">
+            <Layers3 size={14} />
+            图层
+          </button>
+          <button className={bottomTab === "signals" ? "active" : ""} onClick={() => setBottomTab("signals")} role="tab" type="button">
+            <ShieldCheck size={14} />
+            信号
+          </button>
+          <button className={bottomTab === "logs" ? "active" : ""} onClick={() => setBottomTab("logs")} role="tab" type="button">
+            <TerminalSquare size={14} />
+            日志
+          </button>
+        </div>
+
+        <div className="bottom-panel-body">
+          {bottomTab === "layers" && (
+            <div className="bottom-strategy-panel">
+              <div className="bottom-panel-heading">
+                <strong>{enabledStrategyCount} 个策略启用</strong>
+                <span>{canShowStrategyLayers ? `${totalSignalCount} 个信号，${strategyLayerElementCount} 个图层元素` : "策略图层已隐藏"}</span>
+                <button
+                  aria-label={showStrategyLayers ? "隐藏策略图层" : "显示策略图层"}
+                  onClick={() => setShowStrategyLayers((value) => !value)}
+                  type="button"
+                >
+                  {showStrategyLayers ? <Eye size={14} /> : <EyeOff size={14} />}
+                </button>
+              </div>
+              <div className="bottom-layer-list">
+                {strategyRuns.map(({ strategy, settings, result }) => {
+                  const layerStatus = getStrategyLayerStatus(strategy, settings, result, timeframe, strategyInputBars.length);
+                  const isLayerVisible = settings.enabled && canShowStrategyLayers && settings.showLayer && layerStatus.className === "active";
+
+                  return (
+                    <div className={isLayerVisible ? "layer-item active" : `layer-item ${layerStatus.className}`} key={strategy.key}>
+                      <span>
+                        <strong>
+                          {strategy.name}
+                          <em className={`strategy-source-badge ${strategy.sourceType}`}>{formatStrategySource(strategy)}</em>
+                          <em className={`layer-status-badge ${layerStatus.className}`}>{layerStatus.label}</em>
+                        </strong>
+                        <small>{`${result.output.render.elements.length} 个元素 · z${result.output.render.zIndex}`}</small>
+                      </span>
+                      <div className="layer-actions">
+                        <button
+                          aria-pressed={settings.enabled}
+                          className={settings.enabled ? "active" : ""}
+                          onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, enabled: !state.enabled, showLayer: !state.enabled }))}
+                          type="button"
+                        >
+                          启用
+                        </button>
+                        <button
+                          aria-pressed={settings.showLayer}
+                          className={settings.showLayer ? "active" : ""}
+                          disabled={!settings.enabled}
+                          onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, showLayer: !state.showLayer }))}
+                          type="button"
+                        >
+                          图层
+                        </button>
+                        <button onClick={() => setActiveConfigStrategyKey(strategy.key)} type="button">
+                          <SlidersHorizontal size={13} />
+                          参数
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          ) : (
-            <span>当前参数下没有触发买卖信号。</span>
           )}
-        </div>
-        <div>
-          <p>日志窗口</p>
-          <strong>策略运行日志</strong>
-          <div className="chart-log-list" role="log" aria-label="策略运行日志">
-            {strategyLogItems.map((item, index) => {
-              const isAlert = item.startsWith("提醒：");
-              const Icon = isAlert ? Bell : index === 0 ? TerminalSquare : CheckCircle2;
 
-              return (
-                <div className={isAlert ? "alert" : ""} key={`${item}-${index}`}>
-                  <Icon size={14} />
-                  <span>{strategyLogTime}</span>
-                  <small>{item}</small>
+          {bottomTab === "signals" && (
+            <div className="bottom-single-panel">
+              <div className="bottom-panel-heading">
+                <strong>{signalRows.length > 0 ? `${signalRows.length} 个策略信号` : "暂无策略信号"}</strong>
+                <span>仅展示当前标的和周期下的策略输出</span>
+              </div>
+              {signalRows.length > 0 ? (
+                <div className="signal-detail-list" aria-label="策略信号明细">
+                  {signalRows.map((signal) => (
+                    <div className={`signal-detail-row ${signal.tone}`} key={signal.id}>
+                      <ShieldCheck size={14} />
+                      <span>{signal.time}</span>
+                      <strong>{signal.direction}</strong>
+                      <small>{signal.price}</small>
+                      <em>{signal.strategyName} / {signal.label}</em>
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
+              ) : (
+                <span>当前参数下没有触发买卖信号。</span>
+              )}
+            </div>
+          )}
+
+          {bottomTab === "logs" && (
+            <div className="bottom-single-panel">
+              <div className="bottom-panel-heading">
+                <strong>策略运行日志</strong>
+                <span>{strategyLogItems.length} 条记录</span>
+              </div>
+              <div className="chart-log-list" role="log" aria-label="策略运行日志">
+                {strategyLogItems.map((item, index) => {
+                  const isAlert = item.toLowerCase().includes("alert");
+                  const Icon = isAlert ? Bell : index === 0 ? TerminalSquare : CheckCircle2;
+
+                  return (
+                    <div className={isAlert ? "alert" : ""} key={`${item}-${index}`}>
+                      <Icon size={14} />
+                      <span>{strategyLogTime}</span>
+                      <small>{item}</small>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </footer>
     </section>

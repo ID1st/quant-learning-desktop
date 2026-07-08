@@ -821,8 +821,8 @@ input {
 
 .chart-workspace-page {
   display: grid;
-  grid-template-rows: 46px minmax(0, 1fr) 136px;
-  gap: 6px;
+  grid-template-rows: 42px minmax(0, 1fr) 108px;
+  gap: 5px;
   height: calc(100vh - 48px);
   min-height: 0;
   overflow: hidden;
@@ -830,13 +830,13 @@ input {
 
 .chart-topbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto auto;
-  gap: 8px;
+  grid-template-columns: minmax(200px, 1fr) auto minmax(0, auto);
+  gap: 6px;
   align-items: center;
   border: 1px solid rgba(73, 91, 112, 0.44);
   border-radius: 8px;
   background: rgba(12, 18, 26, 0.92);
-  padding: 6px 8px;
+  padding: 5px 7px;
 }
 
 .symbol-search {
@@ -900,7 +900,13 @@ input {
 .chart-toggle-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  min-width: 0;
+}
+
+.chart-toggle-group {
+  justify-content: flex-end;
+  overflow: hidden;
 }
 
 .timeframe-tabs button,
@@ -912,7 +918,7 @@ input {
   align-items: center;
   justify-content: center;
   min-width: 30px;
-  height: 30px;
+  height: 28px;
   border: 1px solid rgba(73, 91, 112, 0.44);
   border-radius: 6px;
   background: rgba(8, 13, 20, 0.54);
@@ -934,15 +940,16 @@ input {
 }
 
 .chart-toggle-group button {
-  gap: 6px;
-  padding: 0 8px;
+  gap: 5px;
+  padding: 0 7px;
+  white-space: nowrap;
 }
 
 .polling-interval-control {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
+  height: 28px;
   border: 1px solid rgba(73, 91, 112, 0.44);
   border-radius: 6px;
   background: rgba(8, 13, 20, 0.54);
@@ -967,9 +974,13 @@ input {
 
 .chart-workspace-grid {
   display: grid;
-  grid-template-columns: 40px minmax(640px, 1fr) 224px;
-  gap: 6px;
+  grid-template-columns: 38px minmax(560px, 1fr) 210px;
+  gap: 5px;
   min-height: 0;
+}
+
+.chart-workspace-grid.watchlist-collapsed {
+  grid-template-columns: 38px minmax(560px, 1fr) 44px;
 }
 
 .chart-tool-rail,
@@ -984,8 +995,8 @@ input {
 .chart-tool-rail {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 6px 5px;
+  gap: 5px;
+  padding: 5px 4px;
 }
 
 .chart-main-panel {
@@ -997,7 +1008,7 @@ input {
 
 .chart-viewport {
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: 30px 30px minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   background: #080d12;
@@ -1007,11 +1018,11 @@ input {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 34px;
+  min-height: 30px;
   border-bottom: 1px solid rgba(73, 91, 112, 0.34);
   color: #8f9caf;
-  padding: 0 12px;
-  font-size: 12px;
+  padding: 0 10px;
+  font-size: 11px;
   overflow-x: auto;
 }
 
@@ -1023,20 +1034,20 @@ input {
 .chart-interaction-toolbar {
   display: flex;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 5px;
   border-bottom: 1px solid rgba(73, 91, 112, 0.22);
   background: rgba(8, 13, 20, 0.54);
-  padding: 6px 10px;
+  padding: 4px 8px;
 }
 
 .chart-interaction-toolbar button {
-  height: 26px;
+  height: 22px;
   border: 1px solid rgba(73, 91, 112, 0.48);
   border-radius: 6px;
   background: rgba(12, 18, 26, 0.7);
   color: #b9c4d2;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   padding: 0 9px;
 }
@@ -1433,10 +1444,27 @@ input {
   display: grid;
   grid-template-rows: auto 1fr;
   align-content: start;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   min-height: 0;
-  padding: 10px;
+  padding: 8px;
+}
+
+.watchlist-panel.collapsed {
+  place-items: start center;
+  padding: 8px 5px;
+}
+
+.watchlist-panel.collapsed .panel-heading {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 0;
+}
+
+.watchlist-panel.collapsed .panel-heading div,
+.watchlist-panel.collapsed .watchlist-items {
+  display: none;
 }
 
 .panel-heading {
@@ -1472,7 +1500,7 @@ input {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 12px;
-  min-height: 52px;
+  min-height: 46px;
   border: 1px solid rgba(73, 91, 112, 0.36);
   border-radius: 8px;
   background: rgba(8, 13, 20, 0.44);
@@ -1832,22 +1860,89 @@ input {
 
 .chart-bottom-panel {
   display: grid;
-  grid-template-columns: minmax(430px, 1.4fr) minmax(260px, 0.9fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(260px, 1fr) auto;
+  grid-template-rows: 34px minmax(0, 1fr);
   gap: 0;
   overflow: hidden;
 }
 
-.chart-bottom-panel > div {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 5px;
+.bottom-status-strip,
+.bottom-tabbar,
+.bottom-panel-body {
   min-height: 0;
-  border-right: 1px solid rgba(73, 91, 112, 0.34);
-  padding: 10px;
 }
 
-.chart-bottom-panel > div:last-child {
-  border-right: 0;
+.bottom-status-strip {
+  display: flex;
+  grid-column: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border-right: 1px solid rgba(73, 91, 112, 0.34);
+  border-bottom: 1px solid rgba(73, 91, 112, 0.34);
+  padding: 6px 10px;
+}
+
+.bottom-status-strip em,
+.bottom-status-strip small {
+  min-width: 0;
+  color: #8f9caf;
+  font-size: 11px;
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bottom-status-strip strong {
+  white-space: nowrap;
+}
+
+.bottom-tabbar {
+  display: flex;
+  grid-column: 2;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid rgba(73, 91, 112, 0.34);
+  padding: 4px 8px;
+}
+
+.bottom-tabbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 25px;
+  border: 1px solid rgba(73, 91, 112, 0.44);
+  border-radius: 6px;
+  background: rgba(8, 13, 20, 0.5);
+  color: #8f9caf;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 0 8px;
+}
+
+.bottom-tabbar button.active,
+.bottom-tabbar button:hover {
+  border-color: rgba(66, 223, 173, 0.48);
+  background: rgba(66, 223, 173, 0.1);
+  color: #f5f8ff;
+}
+
+.bottom-panel-body {
+  display: grid;
+  grid-column: 1 / -1;
+  overflow: hidden;
+}
+
+.bottom-strategy-panel,
+.bottom-single-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 5px;
+  min-height: 0;
+  padding: 7px 9px;
 }
 
 .chart-bottom-panel strong {
@@ -1885,8 +1980,8 @@ input {
 
 .bottom-layer-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
   min-height: 0;
   overflow: auto;
 }
