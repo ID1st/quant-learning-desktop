@@ -20,7 +20,7 @@ docs/generated/stock-sdk-provider-probe-latest.json
 
 ## Latest Result
 
-- Generated at: `2026-07-07T13:03:58.844Z`
+- Generated at: `2026-07-08T06:42:04.808Z`
 - Package: `stock-sdk@2.3.0`
 - Production impact: `not-enabled`
 - Total checks: `10`
@@ -40,13 +40,13 @@ docs/generated/stock-sdk-provider-probe-latest.json
 | Check | Result | Notes |
 | --- | --- | --- |
 | CN/HK/US quote snapshot | Passed | Normalized quote snapshots include price, previous close, open, high, low, volume, amount, and timestamp. |
-| CN daily K-line | Passed | 5,955 rows, no zero-open rows after normalization, no invalid OHLC rows. |
+| CN daily K-line | Passed | 5,956 rows, no zero-open rows after normalization, no invalid OHLC rows. |
 | CN weekly K-line | Passed | 1,254 rows, no zero-open rows after normalization, no invalid OHLC rows. |
-| CN 1m intraday | Passed | 1,205 rows, zero-open source rows are repaired at adapter boundary, no invalid OHLC rows after normalization. |
-| HK daily K-line | Passed | 5,433 rows, no zero-open rows after normalization, no invalid OHLC rows. |
+| CN 1m intraday | Passed | 1,188 rows, zero-open source rows are repaired at adapter boundary, no invalid OHLC rows after normalization. |
+| HK daily K-line | Passed | 5,434 rows, no zero-open rows after normalization, no invalid OHLC rows. |
 | HK weekly K-line | Passed | 1,152 rows, no zero-open rows after normalization, no invalid OHLC rows. |
-| HK 1m intraday | Passed | 1,655 rows, zero-open source rows are repaired at adapter boundary, no invalid OHLC rows after normalization. |
-| US daily K-line | Passed | 10,538 rows, no zero-open rows after normalization, no invalid OHLC rows. |
+| HK 1m intraday | Passed | 1,578 rows, zero-open source rows are repaired at adapter boundary, no invalid OHLC rows after normalization. |
+| US daily K-line | Passed | 10,539 rows, no zero-open rows after normalization, no invalid OHLC rows. |
 | US weekly K-line | Passed | 2,184 rows, no zero-open rows after normalization, no invalid OHLC rows. |
 | US 1m intraday | Passed | 1,955 rows, zero-open source rows are repaired at adapter boundary, no invalid OHLC rows after normalization. |
 

@@ -476,7 +476,7 @@ Acceptance:
 
 ### Step 11: Provider-Neutral Desktop IPC
 
-Status: stage 8 provider diagnostics/error test expansion completed; final verification pending.
+Status: stage 9 final verification completed; final review and rollback commit pending.
 
 Scope:
 
@@ -522,7 +522,8 @@ Migration plan:
 5. Completed: move AlphaFeed WebSocket connect/read/disconnect behind the provider-neutral stream methods.
 6. Completed: replace chart workspace gateway construction with chart-facing access calls that prefer `window.quantDesktop.marketData.*` and keep cache/strategy behavior unchanged.
 7. Completed: add diagnostics tests for fallback order, rate-limit/unauthorized/network errors, delayed provider states, and provider status reporting.
-8. Next: run desktop tests, typecheck, build, and `probe:stock-sdk`; then record a rollback commit.
+8. Completed: run desktop tests, typecheck, build, and `probe:stock-sdk`.
+9. Next: final review and rollback commit.
 
 Stage 2 implementation notes:
 
@@ -583,6 +584,14 @@ Stage 8 implementation notes:
 - IPC tests now cover provider status, Stock SDK primary-provider failure diagnostics, stream unauthorized health, stream rate-limit health, and unconfigured stream credentials.
 - Compatibility provider tests now cover rate-limit diagnostics when every fallback provider is unavailable and delayed LongBridge health when fallback succeeds.
 - `MarketDataGateway` now refreshes a provider's health after an operation throws, so error responses carry the latest failed-provider status instead of the pre-request status.
+
+Stage 9 verification notes:
+
+- `npm run test:desktop` passed with 105 tests.
+- `npm run typecheck` passed.
+- `npm run build` passed.
+- `npm run probe:stock-sdk` passed 10/10 checks and refreshed `docs/generated/stock-sdk-provider-probe-latest.json`.
+- The provider-neutral IPC migration keeps Stock SDK as the default primary provider and keeps AlphaFeed REST, AlphaFeed WebSocket, and LongBridge as fallback providers.
 
 Acceptance:
 

@@ -241,7 +241,7 @@ Deferred:
 
 Status:
 
-- Stage 8 provider diagnostics/error test expansion completed; final verification pending.
+- Stage 9 final verification completed; final review and rollback commit pending.
 
 Goal:
 
@@ -268,7 +268,8 @@ Implementation order:
 5. Completed: migrate stream connect/read/disconnect.
 6. Completed: remove renderer-side provider gateway construction from the chart page.
 7. Completed: add fallback, provider-health, error-classification, and bridge-shape tests.
-8. Next: run `npm run test:desktop`, `npm run typecheck`, `npm run build`, and `npm run probe:stock-sdk`.
+8. Completed: run `npm run test:desktop`, `npm run typecheck`, `npm run build`, and `npm run probe:stock-sdk`.
+9. Next: final review and rollback commit.
 
 Acceptance:
 
