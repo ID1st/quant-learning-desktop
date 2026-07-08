@@ -2,7 +2,7 @@
 
 ## Status
 
-The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 10 are complete. The current hotfix makes the Stock SDK primary source default-on and routes super-chart `realtime` history through the intraday gateway. The next separate slice is provider-neutral desktop IPC hardening and richer provider diagnostics history.
+The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 10 are complete. The current hotfix makes the Stock SDK primary source default-on and routes super-chart `realtime` history through the intraday gateway. The active next slice is provider-neutral desktop IPC hardening so provider selection, credential reads, fallback, and provider operations move behind `window.quantDesktop.marketData.*`.
 
 Completed foundations:
 
@@ -35,6 +35,7 @@ Completed foundations:
 - Market Data Provider Gateway phase 8 is in place: the chart gateway can register the real `stock-sdk` operations as the primary provider when `stockSdkPrimaryEnabled` is enabled in provider settings. The default setting is now on, users can still turn it off, and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback paths remain active and covered by tests.
 - Market Data Provider Gateway phase 9 is in place: the API configuration page exposes the guarded `stockSdkPrimaryEnabled` switch, provider priority status can show `stock-sdk` as enabled, and the chart status badge uses provider diagnostics to show active provider, health state, capability, and fallback source.
 - Market Data Provider Gateway phase 10 is in place: the gateway migration slice has passed final review, desktop tests, typecheck, production build, and the controlled `stock-sdk` probe. The final verified state is recorded as a git rollback point.
+- Provider-neutral Desktop IPC stage 1 audit is complete: the chart still constructs gateway providers in renderer space, reads concrete provider credentials through `apiConfigService`, and can dynamically execute `stock-sdk` operations from the renderer gateway path. The next implementation stage is to add a typed `window.quantDesktop.marketData.*` contract while keeping existing AlphaFeed and LongBridge compatibility bridges intact.
 
 ## Current Data Flow
 
@@ -74,8 +75,35 @@ Important constraints:
 - Existing AlphaFeed and LongBridge credentials and cache entries must remain readable.
 - `stock-sdk` should not be marked as native WebSocket-capable until a real stream implementation exists. It should be modeled as REST plus optional polling-driven streaming.
 - Provider-specific quirks must stay behind the desktop bridge and provider adapters.
+- Renderer pages must stop constructing concrete provider gateways before the project is considered ready for packaging/security review.
 
 ## Next Tasks
+
+### 0. Provider-Neutral Desktop IPC
+
+Status: active; stage 1 audit completed, implementation pending.
+
+Goal: expose a provider-neutral desktop bridge at `window.quantDesktop.marketData.*` and move chart market-data requests out of renderer-side provider construction.
+
+Acceptance:
+
+- `window.quantDesktop.marketData.getProviderStatus`, `fetchQuoteSnapshot`, `fetchHistoricalBars`, `fetchIntradayBars`, `connectQuoteStream`, `readQuoteStreamSnapshot`, and `disconnectQuoteStream` exist behind typed IPC.
+- Stock SDK remains the default primary provider, with AlphaFeed REST, AlphaFeed WebSocket, and LongBridge as fallback providers.
+- Existing `window.quantDesktop.alphaFeed.*` and `window.quantDesktop.longPort.*` methods remain available as compatibility endpoints during migration.
+- The chart page no longer reads provider credentials or constructs provider gateways after the migration completes.
+- `realtime` history continues to use `intradayBars` and normalize returned minute bars into the `realtime` cache.
+- Each stage updates documentation, passes `npm run typecheck`, receives review, and creates a rollback commit.
+
+Recommended implementation slices:
+
+1. Add provider-neutral IPC contract types and channel names.
+2. Add `marketData` preload/main shell without changing chart behavior.
+3. Route quote snapshot requests through the new IPC.
+4. Route historical and intraday bar requests through the new IPC.
+5. Route AlphaFeed WebSocket stream control through the new IPC.
+6. Remove renderer-side gateway construction from the chart page.
+7. Add fallback, health, and error-diagnostics tests.
+8. Run final desktop tests, typecheck, build, and `probe:stock-sdk`.
 
 ### 1. Market Data Provider Gateway Planning
 

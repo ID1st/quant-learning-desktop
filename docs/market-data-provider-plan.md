@@ -476,13 +476,53 @@ Acceptance:
 
 ### Step 11: Provider-Neutral Desktop IPC
 
-Status: planned as a follow-up slice after the gateway migration objective.
+Status: stage 1 audit completed; implementation not started.
 
 Scope:
 
 - Add `window.quantDesktop.marketData.*` methods that delegate to the provider gateway in the main process.
 - Keep existing AlphaFeed and LongBridge bridge methods as compatibility endpoints until the provider-neutral IPC path is stable.
 - Move renderer pages closer to provider-neutral requests and away from credential-aware provider construction.
+- Move provider selection, secure credential reads, fallback order, health classification, and concrete provider operations to the desktop boundary.
+
+Current audit findings:
+
+- `apps/desktop/src/electron/preload.ts` exposes `window.quantDesktop.alphaFeed.*` and `window.quantDesktop.longPort.*`, but does not yet expose `window.quantDesktop.marketData.*`.
+- `apps/desktop/src/electron/providerDataIpcContract.ts` and `apps/desktop/src/electron/providerDataIpc.ts` are provider-specific compatibility IPC layers. They require renderer-side callers to pass AlphaFeed or LongBridge credentials.
+- `apps/desktop/src/pages/ChartWorkspacePage.tsx` reads saved AlphaFeed, AlphaFeed WebSocket, and LongBridge credentials from `apiConfigService`, then constructs `createChartMarketDataGateways` inside the renderer.
+- `apps/desktop/src/features/marketData/chartMarketDataGateway.ts` registers `stock-sdk`, AlphaFeed REST, AlphaFeed WebSocket, and LongBridge providers in renderer space. It already uses the provider-neutral gateway contracts, but the construction boundary is still wrong for the desktop security model.
+- `apps/desktop/src/features/marketData/stockSdkProviderOperations.ts` dynamically imports and executes `stock-sdk` from the renderer-side gateway path when the guarded primary provider is enabled.
+- Cache and strategy modules consume normalized bars/quotes and provider IDs, so they should not need provider-specific changes if IPC responses preserve the current gateway result shape.
+
+Target IPC surface:
+
+```ts
+window.quantDesktop.marketData.getProviderStatus()
+window.quantDesktop.marketData.fetchQuoteSnapshot(items)
+window.quantDesktop.marketData.fetchHistoricalBars(request)
+window.quantDesktop.marketData.fetchIntradayBars(request)
+window.quantDesktop.marketData.connectQuoteStream(items)
+window.quantDesktop.marketData.readQuoteStreamSnapshot(items)
+window.quantDesktop.marketData.disconnectQuoteStream()
+```
+
+Target response contract:
+
+- Quote and bar responses preserve `provider`, `market`, `symbol`, `timeframe`, `timestamp`, and `delayLevel` metadata.
+- Error responses include a stable code, message, tried provider list, provider health list, and optional retry hint.
+- Health responses include current provider priority, capability, status, latency, delay level, and fallback source.
+- `realtime` chart history must continue to request intraday data through `fetchIntradayBars`, then normalize returned minute bars into the `realtime` cache.
+
+Migration plan:
+
+1. Add shared IPC request/response types and channel names for provider-neutral market data without changing runtime behavior.
+2. Add a preload/main empty shell for `window.quantDesktop.marketData.*` with typed methods and tests that assert the bridge shape.
+3. Move quote snapshot gateway construction into the main-process IPC handler while leaving legacy AlphaFeed/LongBridge bridge methods intact.
+4. Move historical and intraday bar requests into the main-process IPC handler, preserving the `realtime` uses-intraday rule.
+5. Move AlphaFeed WebSocket connect/read/disconnect behind the provider-neutral stream methods.
+6. Replace chart workspace gateway construction with `window.quantDesktop.marketData.*` calls and keep cache/strategy behavior unchanged.
+7. Add diagnostics tests for fallback order, rate-limit/unauthorized/network errors, delayed provider states, and provider status reporting.
+8. Run desktop tests, typecheck, build, and `probe:stock-sdk`; then record a rollback commit.
 
 Acceptance:
 
@@ -490,6 +530,7 @@ Acceptance:
 - Existing encrypted credentials remain readable.
 - Existing chart behavior, cache behavior, and strategy behavior remain unchanged.
 - Typecheck, desktop tests, build, and provider probes pass.
+- Existing `window.quantDesktop.alphaFeed.*` and `window.quantDesktop.longPort.*` compatibility endpoints remain available until the new IPC path is proven stable.
 
 ## Security Policy
 

@@ -237,6 +237,48 @@ Deferred:
 - Native WebSocket support for `stock-sdk` unless a real upstream stream API is confirmed.
 - Provider-neutral desktop IPC (`window.quantDesktop.marketData.*`) as the next follow-up slice.
 
+## 8.5. Milestone 6.5: Provider-Neutral Desktop IPC
+
+Status:
+
+- Stage 1 audit completed; implementation pending.
+
+Goal:
+
+- Move market-data provider selection, credential reads, fallback, errors, health, and concrete provider operations behind a provider-neutral desktop IPC surface.
+
+Deliverables:
+
+- `window.quantDesktop.marketData.getProviderStatus`.
+- `window.quantDesktop.marketData.fetchQuoteSnapshot`.
+- `window.quantDesktop.marketData.fetchHistoricalBars`.
+- `window.quantDesktop.marketData.fetchIntradayBars`.
+- `window.quantDesktop.marketData.connectQuoteStream`.
+- `window.quantDesktop.marketData.readQuoteStreamSnapshot`.
+- `window.quantDesktop.marketData.disconnectQuoteStream`.
+- Main-process provider gateway factory that registers `stock-sdk`, AlphaFeed REST, AlphaFeed WebSocket, and LongBridge using secure credential reads.
+- Compatibility preservation for existing AlphaFeed and LongBridge bridge methods.
+
+Implementation order:
+
+1. Define provider-neutral IPC contract types, channel names, and error/health payloads.
+2. Add typed preload/main shell without switching the chart.
+3. Migrate quote snapshot requests.
+4. Migrate historical and intraday bar requests, preserving the `realtime` uses-intraday rule.
+5. Migrate stream connect/read/disconnect.
+6. Remove renderer-side provider gateway construction from the chart page.
+7. Add fallback, provider-health, error-classification, and bridge-shape tests.
+8. Run `npm run test:desktop`, `npm run typecheck`, `npm run build`, and `npm run probe:stock-sdk`.
+
+Acceptance:
+
+- Chart `realtime`, `1d`, and `1w` behavior does not regress.
+- Stock SDK remains default primary.
+- AlphaFeed REST, AlphaFeed WebSocket, and LongBridge remain fallback providers.
+- Renderer chart code no longer directly reads provider credentials or constructs concrete provider gateways.
+- Each quote and bar response carries provider, market, symbol, timeframe, and timestamp metadata.
+- Existing cache and strategy modules keep using normalized data and do not depend on concrete provider SDKs.
+
 ## 9. Milestone 7: Chart Module
 
 Goal:
