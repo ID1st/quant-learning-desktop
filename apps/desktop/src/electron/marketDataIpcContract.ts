@@ -90,6 +90,9 @@ export interface MarketDataIpcBarRequest {
 export interface MarketDataIpcStreamConnectRequest {
   readonly context: MarketDataIpcRequestContext;
   readonly items: readonly MarketDataProviderRequestItem[];
+  readonly providerPolicy?: {
+    readonly alphaFeedStreamMode?: "watchlist" | "all-symbols";
+  };
 }
 
 export interface MarketDataIpcStreamReadRequest {

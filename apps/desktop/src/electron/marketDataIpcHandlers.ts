@@ -1,4 +1,11 @@
 import {
+  createAlphaFeedStreamSession,
+  type AlphaFeedStreamConnectionState,
+  type AlphaFeedStreamSession,
+} from "./alphaFeedStreamBridge.ts";
+import type { AlphaFeedProviderHealth } from "./alphaFeedBridge.ts";
+import type { MarketQuoteSnapshot } from "../features/marketData/marketDataSyncService.ts";
+import {
   fetchAlphaFeedHistoricalBarsWithRest,
   fetchAlphaFeedIntradayBarsWithRest,
   fetchAlphaFeedQuoteSnapshotsWithRest,
@@ -9,6 +16,7 @@ import {
   marketDataIpcDefaultProviderPriority,
   type MarketDataIpcError,
   type MarketDataIpcHandlers,
+  type MarketDataIpcResult,
 } from "./marketDataIpcContract.ts";
 import type { SecureCredentialStore } from "./secureCredentialStore.ts";
 import {
@@ -34,11 +42,13 @@ import { createStockSdkGatewayProviderOperations } from "../features/marketData/
 export interface MarketDataIpcHandlerDependencies {
   readonly credentialStore?: SecureCredentialStore;
   readonly stockSdkOperations?: StockSdkGatewayProviderOperations;
+  readonly streamSession?: AlphaFeedStreamSession;
 }
 
 export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDependencies = {}): MarketDataIpcHandlers {
   const shell = createMarketDataIpcShellHandlers();
   const credentialStore = dependencies.credentialStore;
+  const streamSession = dependencies.streamSession ?? createAlphaFeedStreamSession();
 
   if (!credentialStore) {
     return shell;
@@ -82,6 +92,38 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       const result = await gateway.fetchIntradayBars(request.request);
 
       return toIpcGatewayResult(result);
+    },
+    async connectQuoteStream(request) {
+      const credentials = credentialStore.readAlphaFeedStreamCredentials();
+
+      if (!credentials) {
+        return createProviderUnavailableResult("AlphaFeed WebSocket credentials are not configured.");
+      }
+
+      const result = await streamSession.connect({
+        credentials,
+        mode: request.providerPolicy?.alphaFeedStreamMode ?? "watchlist",
+        watchlist: toWatchlistItems(request.items),
+      });
+
+      return toIpcStreamResult(result.state, result.health);
+    },
+    async readQuoteStreamSnapshot() {
+      const result = await streamSession.readSnapshot();
+
+      return {
+        ok: true,
+        data: {
+          snapshots: result.snapshots.map(mapStreamQuoteSnapshot),
+          state: mapStreamState(result.state),
+        },
+        meta: createStreamMeta(result.health, result.state),
+      };
+    },
+    async disconnectQuoteStream() {
+      const result = await streamSession.disconnect();
+
+      return toIpcStreamResult(result.state, result.health);
     },
   };
 }
@@ -180,6 +222,117 @@ function toIpcGatewayError(
       triedProviders,
     },
     health,
+  };
+}
+
+function createProviderUnavailableResult<Data>(message: string): MarketDataIpcResult<Data> {
+  return {
+    ok: false,
+    error: {
+      code: "PROVIDER_UNCONFIGURED",
+      message,
+      fallback: {
+        triedProviders: ["alphafeed-websocket"] as const,
+      },
+      health: [],
+    },
+  };
+}
+
+function toIpcStreamResult(state: AlphaFeedStreamConnectionState, health: AlphaFeedProviderHealth) {
+  return {
+    ok: true,
+    data: {
+      state: mapStreamState(state),
+    },
+    meta: createStreamMeta(health, state),
+  } as const;
+}
+
+function createStreamMeta(health: AlphaFeedProviderHealth, state: AlphaFeedStreamConnectionState) {
+  const mappedHealth: MarketDataProviderHealthView = {
+    provider: "alphafeed-websocket",
+    status: mapStreamHealthStatus(health.status, state),
+    message: health.message,
+    checkedAt: health.checkedAt,
+    latencyMs: health.latencyMs,
+    nextRetryAt: health.nextRetryAt,
+    capability: {
+      realtimeQuote: true,
+      historicalBars: false,
+      intradayBars: false,
+      websocket: true,
+      batchQuote: false,
+      markets: ["US", "HK", "CN"],
+      timeframes: ["realtime"],
+      delayLevel: "realtime",
+    },
+  };
+
+  return {
+    provider: "alphafeed-websocket" as const,
+    health: mappedHealth,
+    servedAt: new Date().toISOString(),
+    fallback: {
+      activeProvider: "alphafeed-websocket" as const,
+      triedProviders: ["alphafeed-websocket"] as const,
+    },
+  };
+}
+
+function mapStreamState(state: AlphaFeedStreamConnectionState) {
+  if (state === "idle") {
+    return "idle" as const;
+  }
+
+  if (state === "connecting") {
+    return "connecting" as const;
+  }
+
+  if (state === "connected") {
+    return "connected" as const;
+  }
+
+  return "fallback" as const;
+}
+
+function mapStreamHealthStatus(status: AlphaFeedProviderHealth["status"], state: AlphaFeedStreamConnectionState): MarketDataProviderHealthView["status"] {
+  if (status === "ok" && state === "fallback") {
+    return "degraded";
+  }
+
+  if (status === "ok") {
+    return "healthy";
+  }
+
+  if (status === "auth_failed" || status === "permission_denied") {
+    return "unauthorized";
+  }
+
+  if (status === "rate_limited") {
+    return "rateLimited";
+  }
+
+  return "unavailable";
+}
+
+function mapStreamQuoteSnapshot(snapshot: MarketQuoteSnapshot) {
+  return {
+    provider: "alphafeed-websocket" as const,
+    market: snapshot.market,
+    symbol: snapshot.symbol,
+    price: snapshot.lastPrice,
+    previousClose: snapshot.previousClose,
+    openPrice: snapshot.openPrice,
+    highPrice: snapshot.highPrice,
+    lowPrice: snapshot.lowPrice,
+    change: snapshot.lastPrice - snapshot.previousClose,
+    changePercent: snapshot.changePercent,
+    timestamp: new Date(snapshot.quoteTime).getTime(),
+    volume: snapshot.volume,
+    amount: snapshot.amount,
+    receivedAt: snapshot.receivedAt,
+    delayLevel: "realtime" as const,
   };
 }
 

@@ -40,6 +40,7 @@ Completed foundations:
 - Provider-neutral Desktop IPC stage 3 shell is complete: `apps/desktop/src/electron/marketDataIpc.ts` registers provider-neutral shell handlers, `main.ts` registers them, `preload.ts` exposes `window.quantDesktop.marketData.*`, and `vite-env.d.ts` declares the renderer bridge types. The shell returns provider status plus structured unavailable errors until live provider wiring begins.
 - Provider-neutral Desktop IPC stage 4 quote snapshot migration is complete: the main process builds the quote snapshot gateway from secure credential reads and provider adapters, and the chart's batch quote polling uses `window.quantDesktop.marketData.fetchQuoteSnapshot` when available. Historical bars, intraday bars, and WebSocket stream control remain on the previous paths for the next stages.
 - Provider-neutral Desktop IPC stage 5 historical/intraday migration is complete: main-process market-data handlers now serve historical bars and intraday bars through the secure-credential-backed provider registry, and the chart's `realtime`, `1d`, and `1w` bar loading uses `window.quantDesktop.marketData.fetchHistoricalBars` or `fetchIntradayBars` when available.
+- Provider-neutral Desktop IPC stage 6 WebSocket stream migration is complete: AlphaFeed WebSocket connect/read/disconnect now uses secure main-process credential reads and `window.quantDesktop.marketData.*` stream methods when available, while the legacy AlphaFeed stream bridge remains as a compatibility fallback.
 
 ## Current Data Flow
 
@@ -50,9 +51,9 @@ Completed foundations:
 5. Initial sync can warm cached bars, while the chart workspace can load active-symbol historical bars on demand.
 6. Quote snapshots and K-line bars are written to local cache.
 7. Chart workspace reads cached K-line bars by symbol, market, and timeframe.
-8. The chart workspace creates provider-neutral gateway adapters from the saved desktop credentials and calls the gateway for historical bars, intraday bars, quote polling, and stream snapshots. `stock-sdk` is registered as primary by default through the guarded provider setting; users can disable it to preserve the existing AlphaFeed/LongBridge priorities.
-9. If AlphaFeed WebSocket member credentials exist, the desktop main process opens the stream session first and normalizes incoming quotes into the same snapshot cache through the gateway adapter.
-10. If WebSocket is still connecting, disconnected, unauthorized, permission-denied, or has no first snapshot, the chart workspace keeps using AlphaFeed REST batch polling as fallback through the gateway adapter.
+8. The chart workspace uses the provider-neutral desktop IPC bridge for quote snapshots, historical bars, intraday bars, and AlphaFeed WebSocket stream control when available. A renderer-side gateway path remains only as the compatibility fallback until the next migration slice removes it.
+9. If AlphaFeed WebSocket member credentials exist, the desktop main process opens the stream session first and normalizes incoming quotes into the same snapshot cache through the provider-neutral stream response.
+10. If WebSocket is still connecting, disconnected, unauthorized, permission-denied, unconfigured, or has no first snapshot, the chart workspace keeps using AlphaFeed REST batch polling as fallback through the provider-neutral quote path.
 11. AlphaFeed REST polling fetches the deduplicated watchlist in batches and keeps the latest quote snapshot per symbol.
 12. On the `1d` chart, the active symbol quote is read from the snapshot cache and merged into the current trading-day candle.
 13. On the `realtime` chart, the active symbol loads 1m history through `intradayBars` and normalizes returned bars into the `realtime` cache. During market hours, live quote snapshots can append new points; after close, polling stops and only historical intraday data remains.
@@ -85,7 +86,7 @@ Important constraints:
 
 ### 0. Provider-Neutral Desktop IPC
 
-Status: active; stage 5 historical/intraday migration completed, WebSocket stream migration pending.
+Status: active; stage 6 WebSocket stream migration completed, renderer gateway construction removal pending.
 
 Goal: expose a provider-neutral desktop bridge at `window.quantDesktop.marketData.*` and move chart market-data requests out of renderer-side provider construction.
 
@@ -104,8 +105,8 @@ Recommended implementation slices:
 2. Completed: add `marketData` preload/main shell without changing chart behavior.
 3. Completed: route quote snapshot requests through the new IPC.
 4. Completed: route historical and intraday bar requests through the new IPC.
-5. Next: route AlphaFeed WebSocket stream control through the new IPC.
-6. Remove renderer-side gateway construction from the chart page.
+5. Completed: route AlphaFeed WebSocket stream control through the new IPC.
+6. Next: remove renderer-side gateway construction from the chart page.
 7. Add fallback, health, and error-diagnostics tests.
 8. Run final desktop tests, typecheck, build, and `probe:stock-sdk`.
 

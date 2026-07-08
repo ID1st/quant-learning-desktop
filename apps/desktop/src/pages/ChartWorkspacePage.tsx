@@ -644,6 +644,74 @@ async function fetchChartBars(options: {
   };
 }
 
+async function connectQuoteStreamForChart(options: {
+  readonly items: readonly MarketWatchlistItem[];
+  readonly marketDataGateways: ChartMarketDataGateways;
+  readonly providerNeutralMarketDataBridge?: QuantDesktopMarketDataBridge;
+  readonly alphaFeedStreamMode?: "watchlist" | "all-symbols";
+}): Promise<MarketDataProviderHealthView | null> {
+  if (!options.providerNeutralMarketDataBridge) {
+    return options.marketDataGateways.connectQuoteStream(options.items);
+  }
+
+  const result = await options.providerNeutralMarketDataBridge.connectQuoteStream({
+    context: { source: "chart" },
+    items: options.items,
+    providerPolicy: {
+      alphaFeedStreamMode: options.alphaFeedStreamMode ?? "watchlist",
+    },
+  });
+
+  return result.ok ? result.meta.health : result.error.health[0] ?? null;
+}
+
+async function readQuoteStreamSnapshotForChart(options: {
+  readonly items: readonly MarketWatchlistItem[];
+  readonly marketDataGateways: ChartMarketDataGateways;
+  readonly providerNeutralMarketDataBridge?: QuantDesktopMarketDataBridge;
+}): Promise<
+  | {
+      readonly ok: true;
+      readonly snapshots: readonly MarketQuoteSnapshot[];
+      readonly health: MarketDataProviderHealthView;
+    }
+  | {
+      readonly ok: false;
+      readonly health: readonly MarketDataProviderHealthView[];
+    }
+> {
+  if (!options.providerNeutralMarketDataBridge) {
+    return options.marketDataGateways.readQuoteStreamSnapshot(options.items);
+  }
+
+  const result = await options.providerNeutralMarketDataBridge.readQuoteStreamSnapshot({
+    context: { source: "chart" },
+    items: options.items,
+  });
+
+  if (!result.ok) {
+    return { ok: false, health: result.error.health };
+  }
+
+  return {
+    ok: true,
+    snapshots: gatewayQuoteSnapshotsToMarketQuoteSnapshots(result.data.snapshots),
+    health: result.meta.health,
+  };
+}
+
+async function disconnectQuoteStreamForChart(options: {
+  readonly marketDataGateways: ChartMarketDataGateways;
+  readonly providerNeutralMarketDataBridge?: QuantDesktopMarketDataBridge;
+}) {
+  if (!options.providerNeutralMarketDataBridge) {
+    await options.marketDataGateways.disconnectQuoteStream();
+    return;
+  }
+
+  await options.providerNeutralMarketDataBridge.disconnectQuoteStream({ source: "chart" });
+}
+
 function getRealtimeHealthBadgeClass(status: RealtimeProviderHealthView["status"]) {
   if (status === "ok") {
     return "data-source-badge live";
@@ -1173,9 +1241,9 @@ export function ChartWorkspacePage() {
 
       try {
         const credentials = await readSavedAlphaFeedCredentials();
-        const streamCredentials = await readSavedAlphaFeedStreamCredentials();
-        const streamBinding = readAlphaFeedStreamBinding();
         const providerNeutralQuoteBridge = window.quantDesktop?.marketData;
+        const streamCredentials = providerNeutralQuoteBridge ? null : await readSavedAlphaFeedStreamCredentials();
+        const streamBinding = readAlphaFeedStreamBinding();
         const marketDataGateways = createChartMarketDataGateways({
           bridge: window.quantDesktop,
           alphaFeedCredentials: credentials,
@@ -1183,7 +1251,11 @@ export function ChartWorkspacePage() {
           alphaFeedStreamBinding: streamBinding,
           enableStockSdkPrimary: marketDataProviderSettings.stockSdkPrimaryEnabled,
         });
-        disconnectQuoteStream = marketDataGateways.disconnectQuoteStream;
+        disconnectQuoteStream = () =>
+          disconnectQuoteStreamForChart({
+            marketDataGateways,
+            providerNeutralMarketDataBridge: providerNeutralQuoteBridge,
+          });
 
         if (cancelled) {
           return;
@@ -1197,14 +1269,23 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        if (streamCredentials && streamBinding) {
-          const connectHealth = await marketDataGateways.connectQuoteStream(realtimeWatchlist);
+        if (streamBinding && (providerNeutralQuoteBridge || streamCredentials)) {
+          const connectHealth = await connectQuoteStreamForChart({
+            items: realtimeWatchlist,
+            marketDataGateways,
+            providerNeutralMarketDataBridge: providerNeutralQuoteBridge,
+            alphaFeedStreamMode: streamBinding.mode,
+          });
 
           if (cancelled) {
             return;
           }
 
-          const streamResult = await marketDataGateways.readQuoteStreamSnapshot(realtimeWatchlist);
+          const streamResult = await readQuoteStreamSnapshotForChart({
+            items: realtimeWatchlist,
+            marketDataGateways,
+            providerNeutralMarketDataBridge: providerNeutralQuoteBridge,
+          });
 
           if (cancelled) {
             return;

@@ -187,6 +187,9 @@ interface QuantDesktopMarketDataBridge {
   connectQuoteStream(request: {
     readonly context: QuantDesktopMarketDataRequestContext;
     readonly items: readonly QuantDesktopMarketDataRequestItem[];
+    readonly providerPolicy?: {
+      readonly alphaFeedStreamMode?: "watchlist" | "all-symbols";
+    };
   }): Promise<QuantDesktopMarketDataResult<{ readonly state: QuantDesktopMarketDataStreamState }>>;
   readQuoteStreamSnapshot(request: {
     readonly context: QuantDesktopMarketDataRequestContext;

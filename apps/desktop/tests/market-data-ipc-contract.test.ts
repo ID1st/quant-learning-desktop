@@ -8,6 +8,7 @@ import {
   type MarketDataIpcQuoteSnapshotResult,
 } from "../src/electron/marketDataIpcContract.ts";
 import type { SecureCredentialStore } from "../src/electron/secureCredentialStore.ts";
+import type { AlphaFeedStreamSession } from "../src/electron/alphaFeedStreamBridge.ts";
 
 test("market data IPC channels are stable provider-neutral contracts", () => {
   assert.deepEqual(marketDataIpcChannels, {
@@ -214,6 +215,108 @@ test("market data IPC handlers fetch realtime history through intraday bars", as
   assert.equal(result.data[0]?.timeframe, "1m");
   assert.deepEqual(calls, ["intraday"]);
 });
+
+test("market data IPC handlers control quote stream through secure desktop credentials", async () => {
+  const calls: string[] = [];
+  const streamSession: AlphaFeedStreamSession = {
+    async connect(request) {
+      calls.push(`connect:${request.mode}:${Boolean(request.credentials.apiKey)}:${request.watchlist.length}`);
+      return {
+        ok: true,
+        state: "connected",
+        health: createStreamHealth("ok", "stream connected"),
+      };
+    },
+    async readSnapshot() {
+      calls.push("read");
+      return {
+        ok: true,
+        state: "connected",
+        health: createStreamHealth("ok", "stream updated"),
+        snapshots: [
+          {
+            symbol: "AAPL.US",
+            market: "US",
+            lastPrice: 312.66,
+            previousClose: 308.63,
+            openPrice: 307.36,
+            highPrice: 314.2,
+            lowPrice: 307,
+            changePercent: 1.31,
+            volume: 100,
+            amount: 31_266,
+            quoteTime: "2026-07-06T20:00:01.000Z",
+            receivedAt: "2026-07-06T20:00:02.000Z",
+            provider: "alphafeed",
+          },
+        ],
+      };
+    },
+    async disconnect() {
+      calls.push("disconnect");
+      return {
+        ok: true,
+        state: "idle",
+        health: createStreamHealth("ok", "stream disconnected"),
+      };
+    },
+  };
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createCredentialStoreWithStreamCredentials(),
+    streamSession,
+  });
+
+  const connected = await handlers.connectQuoteStream({
+    context: { source: "chart" },
+    items: [{ symbol: "AAPL.US", market: "US", name: "Apple Inc." }],
+    providerPolicy: { alphaFeedStreamMode: "all-symbols" },
+  });
+  const snapshot = await handlers.readQuoteStreamSnapshot({
+    context: { source: "chart" },
+    items: [{ symbol: "AAPL.US", market: "US", name: "Apple Inc." }],
+  });
+  const disconnected = await handlers.disconnectQuoteStream({ source: "chart" });
+
+  assert.equal(connected.ok, true);
+  assert.equal(connected.ok ? connected.data.state : "", "connected");
+  assert.equal(snapshot.ok, true);
+  assert.equal(snapshot.ok ? snapshot.data.snapshots[0]?.provider : "", "alphafeed-websocket");
+  assert.equal(snapshot.ok ? snapshot.data.snapshots[0]?.price : 0, 312.66);
+  assert.equal(disconnected.ok, true);
+  assert.equal(disconnected.ok ? disconnected.data.state : "", "idle");
+  assert.deepEqual(calls, ["connect:all-symbols:true:1", "read", "disconnect"]);
+});
+
+test("market data IPC stream connect reports unconfigured when stream credentials are absent", async () => {
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createEmptyCredentialStore(),
+  });
+
+  const result = await handlers.connectQuoteStream({
+    context: { source: "chart" },
+    items: [{ symbol: "AAPL.US", market: "US", name: "Apple Inc." }],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.ok ? "" : result.error.code, "PROVIDER_UNCONFIGURED");
+  assert.deepEqual(result.ok ? [] : result.error.fallback.triedProviders, ["alphafeed-websocket"]);
+});
+
+function createStreamHealth(status: "ok", message: string) {
+  return {
+    status,
+    message,
+    checkedAt: "2026-07-06T20:00:00.000Z",
+    latencyMs: 1,
+  };
+}
+
+function createCredentialStoreWithStreamCredentials(): SecureCredentialStore {
+  return {
+    ...createEmptyCredentialStore(),
+    readAlphaFeedStreamCredentials: () => ({ wsUrl: "wss://stream.example.test", apiKey: "stream-key" }),
+  };
+}
 
 function createEmptyCredentialStore(): SecureCredentialStore {
   return {

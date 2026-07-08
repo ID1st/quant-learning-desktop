@@ -476,7 +476,7 @@ Acceptance:
 
 ### Step 11: Provider-Neutral Desktop IPC
 
-Status: stage 5 historical/intraday migration completed; WebSocket stream migration not started.
+Status: stage 6 WebSocket stream migration completed; renderer gateway construction removal pending.
 
 Scope:
 
@@ -519,8 +519,8 @@ Migration plan:
 2. Completed: add a preload/main empty shell for `window.quantDesktop.marketData.*` with typed methods and tests that assert the bridge shape.
 3. Completed: move quote snapshot gateway construction into the main-process IPC handler while leaving legacy AlphaFeed/LongBridge bridge methods intact.
 4. Completed: move historical and intraday bar requests into the main-process IPC handler, preserving the `realtime` uses-intraday rule.
-5. Next: move AlphaFeed WebSocket connect/read/disconnect behind the provider-neutral stream methods.
-6. Replace chart workspace gateway construction with `window.quantDesktop.marketData.*` calls and keep cache/strategy behavior unchanged.
+5. Completed: move AlphaFeed WebSocket connect/read/disconnect behind the provider-neutral stream methods.
+6. Next: replace chart workspace gateway construction with `window.quantDesktop.marketData.*` calls and keep cache/strategy behavior unchanged.
 7. Add diagnostics tests for fallback order, rate-limit/unauthorized/network errors, delayed provider states, and provider status reporting.
 8. Run desktop tests, typecheck, build, and `probe:stock-sdk`; then record a rollback commit.
 
@@ -560,6 +560,14 @@ Stage 5 implementation notes:
 - The chart's historical K-line load and realtime intraday-history load now call `window.quantDesktop.marketData.fetchHistoricalBars` or `fetchIntradayBars` when available, while preserving the old renderer gateway fallback path.
 - The `realtime` chart history still requests provider `1m` bars through `intradayBars` and normalizes them into the `realtime` cache before merging with live points.
 - Desktop tests cover Stock SDK historical bars and realtime-history intraday bars through the provider-neutral handler.
+
+Stage 6 implementation notes:
+
+- The provider-neutral main-process handler now controls AlphaFeed WebSocket connect/read/disconnect through the existing stream session, using secure AlphaFeed stream credentials from the desktop credential store.
+- `MarketDataIpcStreamConnectRequest` carries the existing AlphaFeed stream mode policy so the chart can keep watchlist or all-symbol member-channel behavior without reading stream credentials in renderer space.
+- Stream snapshot responses are normalized into provider-neutral quote snapshots with `provider: "alphafeed-websocket"`, realtime delay metadata, stream health, and fallback metadata.
+- The chart workspace now prefers `window.quantDesktop.marketData.connectQuoteStream`, `readQuoteStreamSnapshot`, and `disconnectQuoteStream` when available, while preserving the old renderer gateway stream path for compatibility.
+- Desktop tests cover secure-credential stream control, all-symbol mode forwarding, normalized stream snapshots, disconnect state, and the unconfigured stream credential error path.
 
 Acceptance:
 
