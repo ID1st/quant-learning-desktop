@@ -241,7 +241,7 @@ Deferred:
 
 Status:
 
-- Stage 9 final verification completed; final review and rollback commit pending.
+- Completed.
 
 Goal:
 
@@ -269,7 +269,7 @@ Implementation order:
 6. Completed: remove renderer-side provider gateway construction from the chart page.
 7. Completed: add fallback, provider-health, error-classification, and bridge-shape tests.
 8. Completed: run `npm run test:desktop`, `npm run typecheck`, `npm run build`, and `npm run probe:stock-sdk`.
-9. Next: final review and rollback commit.
+9. Completed: final review and rollback commit.
 
 Acceptance:
 

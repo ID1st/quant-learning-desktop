@@ -44,6 +44,7 @@ Completed foundations:
 - Provider-neutral Desktop IPC stage 7 chart renderer migration is complete: `ChartWorkspacePage` no longer reads provider credentials or constructs provider gateways directly. It uses a chart-facing market-data access layer that prefers `window.quantDesktop.marketData.*` and keeps the old gateway path only as a non-desktop compatibility fallback.
 - Provider-neutral Desktop IPC stage 8 diagnostics hardening is complete: main-process provider status now reports registered provider health and capabilities, IPC tests cover provider status, fallback metadata, primary-provider failures, stream unauthorized/rate-limited states, and gateway diagnostics now return the latest failed-provider health after operation errors.
 - Provider-neutral Desktop IPC stage 9 final verification is complete: `npm run test:desktop`, `npm run typecheck`, `npm run build`, and `npm run probe:stock-sdk` passed. The latest Stock SDK probe passed 10/10 checks and refreshed `docs/generated/stock-sdk-provider-probe-latest.json`.
+- Provider-neutral Desktop IPC stage 10 final review is complete: the final audit confirmed the chart page no longer reads provider credentials or constructs concrete provider gateways, the legacy AlphaFeed/LongBridge bridges remain available, and the provider-neutral IPC bridge covers provider status, quotes, historical bars, intraday bars, and stream connect/read/disconnect.
 
 ## Current Data Flow
 
@@ -89,7 +90,7 @@ Important constraints:
 
 ### 0. Provider-Neutral Desktop IPC
 
-Status: active; stage 9 final verification completed, final review/rollback commit and completion audit pending.
+Status: completed.
 
 Goal: expose a provider-neutral desktop bridge at `window.quantDesktop.marketData.*` and move chart market-data requests out of renderer-side provider construction.
 
@@ -112,7 +113,7 @@ Recommended implementation slices:
 6. Completed: remove renderer-side gateway construction from the chart page.
 7. Completed: add fallback, health, and error-diagnostics tests.
 8. Completed: run final desktop tests, typecheck, build, and `probe:stock-sdk`.
-9. Next: final review, rollback commit, and completion audit.
+9. Completed: final review, rollback commit, and completion audit.
 
 ### 1. Market Data Provider Gateway Planning
 

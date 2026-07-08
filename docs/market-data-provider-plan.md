@@ -476,7 +476,7 @@ Acceptance:
 
 ### Step 11: Provider-Neutral Desktop IPC
 
-Status: stage 9 final verification completed; final review and rollback commit pending.
+Status: completed.
 
 Scope:
 
@@ -523,7 +523,7 @@ Migration plan:
 6. Completed: replace chart workspace gateway construction with chart-facing access calls that prefer `window.quantDesktop.marketData.*` and keep cache/strategy behavior unchanged.
 7. Completed: add diagnostics tests for fallback order, rate-limit/unauthorized/network errors, delayed provider states, and provider status reporting.
 8. Completed: run desktop tests, typecheck, build, and `probe:stock-sdk`.
-9. Next: final review and rollback commit.
+9. Completed: final review and rollback commit.
 
 Stage 2 implementation notes:
 
@@ -592,6 +592,13 @@ Stage 9 verification notes:
 - `npm run build` passed.
 - `npm run probe:stock-sdk` passed 10/10 checks and refreshed `docs/generated/stock-sdk-provider-probe-latest.json`.
 - The provider-neutral IPC migration keeps Stock SDK as the default primary provider and keeps AlphaFeed REST, AlphaFeed WebSocket, and LongBridge as fallback providers.
+
+Stage 10 final review notes:
+
+- Final source audit confirmed `ChartWorkspacePage` uses the chart-facing market-data access layer and no longer imports provider credential readers or constructs concrete provider gateways.
+- Final source audit confirmed `window.quantDesktop.marketData.*` is exposed from preload and registered in main for provider status, quote snapshots, historical bars, intraday bars, and stream connect/read/disconnect.
+- Final source audit confirmed legacy `window.quantDesktop.alphaFeed.*` and `window.quantDesktop.longPort.*` compatibility bridges remain exposed.
+- Final git rollback point records the completed Provider-neutral Desktop IPC migration.
 
 Acceptance:
 
