@@ -438,9 +438,27 @@ Implemented acceptance:
 - Chart status diagnostics summarize provider label, capability, health status, latency/check time, and fallback source.
 - Unit tests cover provider labels, status labels, fallback summaries, and the guarded primary status.
 
-### Step 10: Provider-Neutral Desktop IPC
+### Step 10: Final Review, Verification, And Rollback Point
 
-Status: planned.
+Status: completed.
+
+Scope:
+
+- Re-audit phases 1 through 9 against the original Market Data Provider Gateway objective.
+- Run final desktop tests, full typecheck, production build, and controlled `stock-sdk` provider probe.
+- Review provider fallback safety, credential boundaries, cache compatibility, and generated-file hygiene.
+- Commit the final verified state as a rollback point.
+
+Acceptance:
+
+- AlphaFeed REST, AlphaFeed WebSocket, and LongBridge remain fallback providers.
+- `stock-sdk` remains guarded behind `stockSdkPrimaryEnabled`.
+- Existing chart behavior, cache behavior, and strategy behavior remain protected by tests.
+- Typecheck, desktop tests, build, and provider probes pass.
+
+### Step 11: Provider-Neutral Desktop IPC
+
+Status: planned as a follow-up slice after the gateway migration objective.
 
 Scope:
 

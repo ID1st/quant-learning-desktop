@@ -2,7 +2,7 @@
 
 ## Status
 
-The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 9 are complete; the next slice is provider-neutral desktop IPC hardening and richer provider diagnostics history.
+The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 10 are complete; the next separate slice is provider-neutral desktop IPC hardening and richer provider diagnostics history.
 
 Completed foundations:
 
@@ -34,6 +34,7 @@ Completed foundations:
 - Market Data Provider Gateway phase 7 is in place: `npm run probe:stock-sdk` validates real `stock-sdk@2.3.0` quote, daily, weekly, and 1m intraday data for CN/HK/US through the gateway adapter. The latest run passed 10/10 checks and is documented in `docs/stock-sdk-data-test-report.md`.
 - Market Data Provider Gateway phase 8 is in place: the chart gateway can register the real `stock-sdk` operations as the primary provider only when `stockSdkPrimaryEnabled` is explicitly enabled in provider settings. The default setting remains off, and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback paths remain active and covered by tests.
 - Market Data Provider Gateway phase 9 is in place: the API configuration page exposes the guarded `stockSdkPrimaryEnabled` switch, provider priority status can show `stock-sdk` as enabled, and the chart status badge uses provider diagnostics to show active provider, health state, capability, and fallback source.
+- Market Data Provider Gateway phase 10 is in place: the gateway migration slice has passed final review, desktop tests, typecheck, production build, and the controlled `stock-sdk` probe. The final verified state is recorded as a git rollback point.
 
 ## Current Data Flow
 
@@ -199,6 +200,20 @@ Acceptance:
 - The chart status badge can show whether realtime quotes, historical bars, or intraday bars were served by `stock-sdk`, AlphaFeed REST, AlphaFeed WebSocket, or LongBridge.
 - Fallback from a higher-priority provider is visible in the diagnostic message.
 - Diagnostics remain in the app market-data feature layer; chart rendering and strategy packages still do not depend on provider SDKs.
+
+### 2.12. Final Gateway Review And Verification
+
+Status: completed.
+
+Goal: close the Market Data Provider Gateway migration objective with an auditable final verification pass.
+
+Acceptance:
+
+- Re-check the final implementation against phases 1 through 9.
+- Run the desktop test suite, full typecheck, production build, and controlled `stock-sdk` provider probe.
+- Review the final diff for scope, provider fallback safety, credential handling, cache compatibility, and generated-file hygiene.
+- Update current development, market-data provider, and execution plan documents.
+- Commit the final verified state as a rollback point.
 
 ### 3. Super Chart Capability Completion
 

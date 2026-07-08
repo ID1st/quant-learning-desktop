@@ -217,7 +217,7 @@ Progress:
 - Phase 7 completed: `stock-sdk@2.3.0` controlled real-data probe passed 10/10 checks for CN/HK/US quote snapshots, daily bars, weekly bars, and 1m intraday bars through the gateway adapter. Findings are recorded in `docs/stock-sdk-data-test-report.md`.
 - Phase 8 completed: a guarded provider setting can register `stock-sdk` as the primary chart gateway provider while keeping AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback providers active. The default remains off.
 - Phase 9 completed: provider diagnostics now summarize active source, capability, health state, and fallback source in chart status messages. The API configuration page exposes the guarded Stock SDK primary-source switch and provider priority can show `stock-sdk` as enabled.
-- Phase 10 planned: move provider-neutral requests behind desktop IPC so renderer pages no longer need to construct provider gateways from concrete credentials.
+- Phase 10 completed: final review, desktop tests, typecheck, production build, controlled `stock-sdk` probe, documentation updates, and a git rollback point close the Market Data Provider Gateway migration objective.
 
 Acceptance:
 
@@ -233,6 +233,7 @@ Deferred:
 
 - Direct production switch to `stock-sdk`.
 - Native WebSocket support for `stock-sdk` unless a real upstream stream API is confirmed.
+- Provider-neutral desktop IPC (`window.quantDesktop.marketData.*`) as the next follow-up slice.
 
 ## 9. Milestone 7: Chart Module
 
