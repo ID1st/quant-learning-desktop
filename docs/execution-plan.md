@@ -241,7 +241,7 @@ Deferred:
 
 Status:
 
-- Stage 2 contract completed; preload/main shell pending.
+- Stage 3 preload/main shell completed; quote snapshot migration pending.
 
 Goal:
 
@@ -262,8 +262,8 @@ Deliverables:
 Implementation order:
 
 1. Completed: define provider-neutral IPC contract types, channel names, and error/health payloads in `apps/desktop/src/electron/marketDataIpcContract.ts`.
-2. Next: add typed preload/main shell without switching the chart.
-3. Migrate quote snapshot requests.
+2. Completed: add typed preload/main shell without switching the chart.
+3. Next: migrate quote snapshot requests.
 4. Migrate historical and intraday bar requests, preserving the `realtime` uses-intraday rule.
 5. Migrate stream connect/read/disconnect.
 6. Remove renderer-side provider gateway construction from the chart page.

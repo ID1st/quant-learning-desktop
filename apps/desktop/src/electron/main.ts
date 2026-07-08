@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
+import { registerMarketDataIpcHandlers } from "./marketDataIpc";
 import { registerProviderDataIpcHandlers } from "./providerDataIpc";
 import { registerSecureCredentialIpcHandlers } from "./secureCredentialIpc";
 
@@ -50,6 +51,7 @@ export function createMainWindow(): BrowserWindow {
 }
 
 void app.whenReady().then(() => {
+  registerMarketDataIpcHandlers();
   registerProviderDataIpcHandlers();
   registerSecureCredentialIpcHandlers();
   createMainWindow();

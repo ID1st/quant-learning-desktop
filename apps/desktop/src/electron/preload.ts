@@ -14,6 +14,8 @@ import type {
 import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
 import type { AlphaFeedStreamConnectionState, AlphaFeedStreamMode } from "./alphaFeedStreamBridge";
 import { createDesktopBridgeFromPersistenceStore, createMemoryPersistenceStore } from "./localPersistence";
+import { marketDataIpcChannels } from "./marketDataIpcContract";
+import type { MarketDataIpcBridge } from "./marketDataIpcContract";
 import { providerDataIpcChannels } from "./providerDataIpcContract";
 import type { AlphaFeedStreamCredentials } from "./secureCredentialStore";
 
@@ -36,6 +38,7 @@ export interface DesktopBridge {
     readLongPort(): Promise<{ ok: true; credentials: LongPortApiCredentials | null } | { ok: false; error: { message: string } }>;
     clearLongPort(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
   };
+  readonly marketData: MarketDataIpcBridge;
   readonly longPort: {
     verifyCredentials(credentials: LongPortApiCredentials): Promise<
       | {
@@ -160,6 +163,10 @@ async function invokeProviderData<T>(channel: string, ...payload: unknown[]): Pr
   return ipcRenderer.invoke(channel, ...payload) as Promise<T>;
 }
 
+async function invokeMarketData<T>(channel: string, payload?: unknown): Promise<T> {
+  return ipcRenderer.invoke(channel, payload) as Promise<T>;
+}
+
 export const desktopBridge: DesktopBridge = {
   platform: "desktop",
   version: "0.1.0",
@@ -222,6 +229,15 @@ export const desktopBridge: DesktopBridge = {
       );
       return result.ok ? { ok: true } : result;
     },
+  },
+  marketData: {
+    getProviderStatus: (context) => invokeMarketData(marketDataIpcChannels.getProviderStatus, context),
+    fetchQuoteSnapshot: (request) => invokeMarketData(marketDataIpcChannels.fetchQuoteSnapshot, request),
+    fetchHistoricalBars: (request) => invokeMarketData(marketDataIpcChannels.fetchHistoricalBars, request),
+    fetchIntradayBars: (request) => invokeMarketData(marketDataIpcChannels.fetchIntradayBars, request),
+    connectQuoteStream: (request) => invokeMarketData(marketDataIpcChannels.connectQuoteStream, request),
+    readQuoteStreamSnapshot: (request) => invokeMarketData(marketDataIpcChannels.readQuoteStreamSnapshot, request),
+    disconnectQuoteStream: (context) => invokeMarketData(marketDataIpcChannels.disconnectQuoteStream, context),
   },
   longPort: {
     verifyCredentials: (credentials) => invokeProviderData(providerDataIpcChannels.verifyLongPortCredentials, credentials),

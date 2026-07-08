@@ -476,7 +476,7 @@ Acceptance:
 
 ### Step 11: Provider-Neutral Desktop IPC
 
-Status: stage 2 contract completed; preload/main shell not started.
+Status: stage 3 preload/main shell completed; quote snapshot migration not started.
 
 Scope:
 
@@ -516,8 +516,8 @@ Target response contract:
 Migration plan:
 
 1. Completed: add shared IPC request/response types and channel names for provider-neutral market data without changing runtime behavior.
-2. Next: add a preload/main empty shell for `window.quantDesktop.marketData.*` with typed methods and tests that assert the bridge shape.
-3. Move quote snapshot gateway construction into the main-process IPC handler while leaving legacy AlphaFeed/LongBridge bridge methods intact.
+2. Completed: add a preload/main empty shell for `window.quantDesktop.marketData.*` with typed methods and tests that assert the bridge shape.
+3. Next: move quote snapshot gateway construction into the main-process IPC handler while leaving legacy AlphaFeed/LongBridge bridge methods intact.
 4. Move historical and intraday bar requests into the main-process IPC handler, preserving the `realtime` uses-intraday rule.
 5. Move AlphaFeed WebSocket connect/read/disconnect behind the provider-neutral stream methods.
 6. Replace chart workspace gateway construction with `window.quantDesktop.marketData.*` calls and keep cache/strategy behavior unchanged.
@@ -532,6 +532,16 @@ Stage 2 implementation notes:
 - Added `marketDataIpcDefaultProviderPriority` with `stock-sdk`, AlphaFeed REST, AlphaFeed WebSocket, and LongBridge in the target order.
 - Added `apps/desktop/tests/market-data-ipc-contract.test.ts` to protect channel names, provider priority, and metadata-bearing result shape.
 - No renderer, preload, main-process handler, chart, cache, strategy, or provider behavior was switched in this stage.
+
+Stage 3 implementation notes:
+
+- Added `apps/desktop/src/electron/marketDataIpc.ts` to register provider-neutral `marketData:*` IPC handlers.
+- Added `createMarketDataIpcShellHandlers()` so the bridge can exist before live provider wiring and return structured `PROVIDER_UNAVAILABLE` errors for unwired quote/bar/stream calls.
+- Registered the shell in `apps/desktop/src/electron/main.ts` without removing or changing the existing AlphaFeed and LongBridge compatibility bridges.
+- Exposed `window.quantDesktop.marketData.*` from `apps/desktop/src/electron/preload.ts`.
+- Added renderer global types in `apps/desktop/src/vite-env.d.ts` for provider-neutral market-data requests, results, errors, health, fallback metadata, bars, quotes, and stream state.
+- Extended `apps/desktop/tests/market-data-ipc-contract.test.ts` to verify shell provider status and structured unavailable errors.
+- No chart, cache, strategy, API configuration, or provider selection behavior was switched in this stage.
 
 Acceptance:
 

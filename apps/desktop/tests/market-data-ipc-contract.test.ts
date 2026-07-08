@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  createMarketDataIpcShellHandlers,
   marketDataIpcChannels,
   marketDataIpcDefaultProviderPriority,
   type MarketDataIpcQuoteSnapshotResult,
@@ -72,4 +73,26 @@ test("market data IPC result shape carries provider metadata and fallback diagno
   assert.equal(result.ok, true);
   assert.equal(result.data[0]?.provider, "stock-sdk");
   assert.equal(result.meta.fallback.triedProviders[0], "stock-sdk");
+});
+
+test("market data IPC shell exposes provider status before live wiring", async () => {
+  const handlers = createMarketDataIpcShellHandlers();
+  const result = await handlers.getProviderStatus({ source: "diagnostics" });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.data.priority, marketDataIpcDefaultProviderPriority);
+  assert.deepEqual(result.data.providers, []);
+});
+
+test("market data IPC shell returns structured unavailable errors for unwired requests", async () => {
+  const handlers = createMarketDataIpcShellHandlers();
+  const result = await handlers.fetchQuoteSnapshot({
+    context: { source: "chart" },
+    items: [{ symbol: "AAPL.US", market: "US", name: "Apple Inc." }],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "PROVIDER_UNAVAILABLE");
+  assert.deepEqual(result.error.fallback.triedProviders, []);
+  assert.deepEqual(result.error.health, []);
 });

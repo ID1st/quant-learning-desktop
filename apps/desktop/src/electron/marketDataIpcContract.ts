@@ -95,7 +95,15 @@ export interface MarketDataIpcStreamControlMeta extends MarketDataIpcSuccessMeta
   readonly state: MarketDataIpcStreamState;
 }
 
-export type MarketDataIpcProviderStatusResult = MarketDataIpcResult<MarketDataIpcProviderStatus>;
+export type MarketDataIpcProviderStatusResult =
+  | {
+      readonly ok: true;
+      readonly data: MarketDataIpcProviderStatus;
+    }
+  | {
+      readonly ok: false;
+      readonly error: MarketDataIpcError;
+    };
 export type MarketDataIpcQuoteSnapshotResult = MarketDataIpcResult<readonly GatewayMarketQuoteSnapshot[]>;
 export type MarketDataIpcBarsResult = MarketDataIpcResult<readonly GatewayMarketDataBar[]>;
 export type MarketDataIpcStreamConnectResult = MarketDataIpcResult<{ readonly state: MarketDataIpcStreamState }>;
@@ -115,6 +123,8 @@ export interface MarketDataIpcBridge {
   disconnectQuoteStream(context: MarketDataIpcRequestContext): Promise<MarketDataIpcStreamDisconnectResult>;
 }
 
+export type MarketDataIpcHandlers = MarketDataIpcBridge;
+
 export const marketDataIpcDefaultProviderPriority = [
   "stock-sdk",
   "alphafeed-rest",
@@ -131,3 +141,51 @@ export const marketDataIpcChannels = {
   readQuoteStreamSnapshot: "marketData:readQuoteStreamSnapshot",
   disconnectQuoteStream: "marketData:disconnectQuoteStream",
 } as const;
+
+export function createMarketDataIpcShellHandlers(): MarketDataIpcHandlers {
+  return {
+    async getProviderStatus() {
+      return {
+        ok: true,
+        data: {
+          priority: marketDataIpcDefaultProviderPriority,
+          providers: [],
+          capabilities: [],
+          checkedAt: new Date().toISOString(),
+        },
+      };
+    },
+    async fetchQuoteSnapshot() {
+      return createUnavailableResult("Provider-neutral market data quote IPC is registered but not wired yet.");
+    },
+    async fetchHistoricalBars() {
+      return createUnavailableResult("Provider-neutral market data historical bars IPC is registered but not wired yet.");
+    },
+    async fetchIntradayBars() {
+      return createUnavailableResult("Provider-neutral market data intraday bars IPC is registered but not wired yet.");
+    },
+    async connectQuoteStream() {
+      return createUnavailableResult("Provider-neutral market data stream IPC is registered but not wired yet.");
+    },
+    async readQuoteStreamSnapshot() {
+      return createUnavailableResult("Provider-neutral market data stream IPC is registered but not wired yet.");
+    },
+    async disconnectQuoteStream() {
+      return createUnavailableResult("Provider-neutral market data stream IPC is registered but not wired yet.");
+    },
+  };
+}
+
+function createUnavailableResult<T>(message: string): MarketDataIpcResult<T> {
+  return {
+    ok: false,
+    error: {
+      code: "PROVIDER_UNAVAILABLE",
+      message,
+      fallback: {
+        triedProviders: [],
+      },
+      health: [],
+    },
+  };
+}
