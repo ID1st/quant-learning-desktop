@@ -241,7 +241,7 @@ Deferred:
 
 Status:
 
-- Stage 1 audit completed; implementation pending.
+- Stage 2 contract completed; preload/main shell pending.
 
 Goal:
 
@@ -261,8 +261,8 @@ Deliverables:
 
 Implementation order:
 
-1. Define provider-neutral IPC contract types, channel names, and error/health payloads.
-2. Add typed preload/main shell without switching the chart.
+1. Completed: define provider-neutral IPC contract types, channel names, and error/health payloads in `apps/desktop/src/electron/marketDataIpcContract.ts`.
+2. Next: add typed preload/main shell without switching the chart.
 3. Migrate quote snapshot requests.
 4. Migrate historical and intraday bar requests, preserving the `realtime` uses-intraday rule.
 5. Migrate stream connect/read/disconnect.

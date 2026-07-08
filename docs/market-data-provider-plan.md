@@ -476,7 +476,7 @@ Acceptance:
 
 ### Step 11: Provider-Neutral Desktop IPC
 
-Status: stage 1 audit completed; implementation not started.
+Status: stage 2 contract completed; preload/main shell not started.
 
 Scope:
 
@@ -515,14 +515,23 @@ Target response contract:
 
 Migration plan:
 
-1. Add shared IPC request/response types and channel names for provider-neutral market data without changing runtime behavior.
-2. Add a preload/main empty shell for `window.quantDesktop.marketData.*` with typed methods and tests that assert the bridge shape.
+1. Completed: add shared IPC request/response types and channel names for provider-neutral market data without changing runtime behavior.
+2. Next: add a preload/main empty shell for `window.quantDesktop.marketData.*` with typed methods and tests that assert the bridge shape.
 3. Move quote snapshot gateway construction into the main-process IPC handler while leaving legacy AlphaFeed/LongBridge bridge methods intact.
 4. Move historical and intraday bar requests into the main-process IPC handler, preserving the `realtime` uses-intraday rule.
 5. Move AlphaFeed WebSocket connect/read/disconnect behind the provider-neutral stream methods.
 6. Replace chart workspace gateway construction with `window.quantDesktop.marketData.*` calls and keep cache/strategy behavior unchanged.
 7. Add diagnostics tests for fallback order, rate-limit/unauthorized/network errors, delayed provider states, and provider status reporting.
 8. Run desktop tests, typecheck, build, and `probe:stock-sdk`; then record a rollback commit.
+
+Stage 2 implementation notes:
+
+- Added `apps/desktop/src/electron/marketDataIpcContract.ts` as the provider-neutral desktop IPC contract.
+- Added stable channel names for provider status, quote snapshots, historical bars, intraday bars, quote stream connect/read/disconnect.
+- Added typed request context, error codes, fallback metadata, provider status payloads, stream states, and success/error result shapes.
+- Added `marketDataIpcDefaultProviderPriority` with `stock-sdk`, AlphaFeed REST, AlphaFeed WebSocket, and LongBridge in the target order.
+- Added `apps/desktop/tests/market-data-ipc-contract.test.ts` to protect channel names, provider priority, and metadata-bearing result shape.
+- No renderer, preload, main-process handler, chart, cache, strategy, or provider behavior was switched in this stage.
 
 Acceptance:
 

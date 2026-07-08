@@ -35,7 +35,8 @@ Completed foundations:
 - Market Data Provider Gateway phase 8 is in place: the chart gateway can register the real `stock-sdk` operations as the primary provider when `stockSdkPrimaryEnabled` is enabled in provider settings. The default setting is now on, users can still turn it off, and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback paths remain active and covered by tests.
 - Market Data Provider Gateway phase 9 is in place: the API configuration page exposes the guarded `stockSdkPrimaryEnabled` switch, provider priority status can show `stock-sdk` as enabled, and the chart status badge uses provider diagnostics to show active provider, health state, capability, and fallback source.
 - Market Data Provider Gateway phase 10 is in place: the gateway migration slice has passed final review, desktop tests, typecheck, production build, and the controlled `stock-sdk` probe. The final verified state is recorded as a git rollback point.
-- Provider-neutral Desktop IPC stage 1 audit is complete: the chart still constructs gateway providers in renderer space, reads concrete provider credentials through `apiConfigService`, and can dynamically execute `stock-sdk` operations from the renderer gateway path. The next implementation stage is to add a typed `window.quantDesktop.marketData.*` contract while keeping existing AlphaFeed and LongBridge compatibility bridges intact.
+- Provider-neutral Desktop IPC stage 1 audit is complete: the chart still constructs gateway providers in renderer space, reads concrete provider credentials through `apiConfigService`, and can dynamically execute `stock-sdk` operations from the renderer gateway path.
+- Provider-neutral Desktop IPC stage 2 contract is complete: `apps/desktop/src/electron/marketDataIpcContract.ts` defines typed `window.quantDesktop.marketData.*` request/response contracts, channel names, error codes, fallback metadata, provider status payloads, stream states, and the default provider priority. No runtime behavior has been switched yet.
 
 ## Current Data Flow
 
@@ -81,7 +82,7 @@ Important constraints:
 
 ### 0. Provider-Neutral Desktop IPC
 
-Status: active; stage 1 audit completed, implementation pending.
+Status: active; stage 2 contract completed, preload/main shell pending.
 
 Goal: expose a provider-neutral desktop bridge at `window.quantDesktop.marketData.*` and move chart market-data requests out of renderer-side provider construction.
 
@@ -96,8 +97,8 @@ Acceptance:
 
 Recommended implementation slices:
 
-1. Add provider-neutral IPC contract types and channel names.
-2. Add `marketData` preload/main shell without changing chart behavior.
+1. Completed: add provider-neutral IPC contract types and channel names.
+2. Next: add `marketData` preload/main shell without changing chart behavior.
 3. Route quote snapshot requests through the new IPC.
 4. Route historical and intraday bar requests through the new IPC.
 5. Route AlphaFeed WebSocket stream control through the new IPC.
