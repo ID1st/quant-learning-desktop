@@ -8,7 +8,7 @@ import {
   type LongPortApiCredentials,
 } from "@quant/api-client";
 import type { Market } from "@quant/shared";
-import { appLocalDatabase } from "../persistence/localDatabase";
+import { appLocalDatabase } from "../persistence/localDatabase.ts";
 
 export { ALPHAFEED_DEFAULT_API_URL, LONGPORT_DEFAULT_HTTP_URL };
 

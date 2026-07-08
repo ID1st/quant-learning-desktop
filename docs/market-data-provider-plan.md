@@ -476,7 +476,7 @@ Acceptance:
 
 ### Step 11: Provider-Neutral Desktop IPC
 
-Status: stage 6 WebSocket stream migration completed; renderer gateway construction removal pending.
+Status: stage 7 chart renderer migration completed; provider diagnostics/error test expansion pending.
 
 Scope:
 
@@ -520,8 +520,8 @@ Migration plan:
 3. Completed: move quote snapshot gateway construction into the main-process IPC handler while leaving legacy AlphaFeed/LongBridge bridge methods intact.
 4. Completed: move historical and intraday bar requests into the main-process IPC handler, preserving the `realtime` uses-intraday rule.
 5. Completed: move AlphaFeed WebSocket connect/read/disconnect behind the provider-neutral stream methods.
-6. Next: replace chart workspace gateway construction with `window.quantDesktop.marketData.*` calls and keep cache/strategy behavior unchanged.
-7. Add diagnostics tests for fallback order, rate-limit/unauthorized/network errors, delayed provider states, and provider status reporting.
+6. Completed: replace chart workspace gateway construction with chart-facing access calls that prefer `window.quantDesktop.marketData.*` and keep cache/strategy behavior unchanged.
+7. Next: add diagnostics tests for fallback order, rate-limit/unauthorized/network errors, delayed provider states, and provider status reporting.
 8. Run desktop tests, typecheck, build, and `probe:stock-sdk`; then record a rollback commit.
 
 Stage 2 implementation notes:
@@ -568,6 +568,14 @@ Stage 6 implementation notes:
 - Stream snapshot responses are normalized into provider-neutral quote snapshots with `provider: "alphafeed-websocket"`, realtime delay metadata, stream health, and fallback metadata.
 - The chart workspace now prefers `window.quantDesktop.marketData.connectQuoteStream`, `readQuoteStreamSnapshot`, and `disconnectQuoteStream` when available, while preserving the old renderer gateway stream path for compatibility.
 - Desktop tests cover secure-credential stream control, all-symbol mode forwarding, normalized stream snapshots, disconnect state, and the unconfigured stream credential error path.
+
+Stage 7 implementation notes:
+
+- Added a chart-facing `createChartMarketDataAccess` layer that hides provider-neutral IPC and legacy gateway fallback behind one interface.
+- `ChartWorkspacePage` no longer imports provider credential readers or `createChartMarketDataGateways`.
+- In desktop mode, quote snapshots, historical bars, intraday bars, and stream control are routed through `window.quantDesktop.marketData.*`.
+- The legacy renderer gateway remains isolated inside the access layer for non-desktop/browser compatibility and still preserves Stock SDK, AlphaFeed REST/WebSocket, and LongBridge behavior.
+- Desktop tests cover that provider-neutral access does not read legacy credentials or call legacy AlphaFeed/LongBridge bridge methods when `marketData` IPC is available.
 
 Acceptance:
 

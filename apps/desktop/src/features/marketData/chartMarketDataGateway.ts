@@ -1,6 +1,12 @@
 import type { Market, Timeframe } from "@quant/shared";
 import type { AlphaFeedMarketDataBar } from "@quant/api-client";
-import type { AlphaFeedStreamBinding } from "../api/apiConfigService.ts";
+import {
+  readAlphaFeedStreamBinding,
+  readSavedAlphaFeedCredentials,
+  readSavedAlphaFeedStreamCredentials,
+  readSavedLongPortCredentials,
+  type AlphaFeedStreamBinding,
+} from "../api/apiConfigService.ts";
 import {
   createAlphaFeedRestGatewayProvider,
   createAlphaFeedWebSocketGatewayProvider,
@@ -52,6 +58,105 @@ export interface ChartMarketDataGateways {
     readonly health: readonly MarketDataProviderHealthView[];
   }>;
   disconnectQuoteStream(): Promise<void>;
+}
+
+export type ChartQuoteSnapshotBatchResult =
+  | {
+      readonly ok: true;
+      readonly data: readonly GatewayMarketQuoteSnapshot[];
+      readonly health: MarketDataProviderHealthView;
+      readonly triedProviders: readonly GatewayMarketDataProviderId[];
+    }
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly message: string;
+      };
+      readonly health: readonly MarketDataProviderHealthView[];
+      readonly triedProviders: readonly GatewayMarketDataProviderId[];
+    };
+
+export type ChartBarsBatchResult =
+  | {
+      readonly ok: true;
+      readonly data: readonly GatewayMarketDataBar[];
+      readonly health: MarketDataProviderHealthView;
+      readonly triedProviders: readonly GatewayMarketDataProviderId[];
+    }
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly message: string;
+      };
+      readonly health: readonly MarketDataProviderHealthView[];
+      readonly triedProviders: readonly GatewayMarketDataProviderId[];
+    };
+
+export interface ChartMarketDataAccess {
+  readonly hasQuoteSource: boolean;
+  readonly hasHistoricalSource: boolean;
+  readonly hasIntradaySource: boolean;
+  readonly hasStreamSource: boolean;
+  fetchQuoteSnapshotBatch(batch: readonly MarketWatchlistItem[]): Promise<ChartQuoteSnapshotBatchResult>;
+  fetchBars(options: {
+    readonly capability: "historicalBars" | "intradayBars";
+    readonly request: {
+      readonly symbol: string;
+      readonly market: Market;
+      readonly timeframe: Timeframe;
+      readonly count?: number;
+      readonly startTime?: number;
+      readonly endTime?: number;
+    };
+  }): Promise<ChartBarsBatchResult>;
+  connectQuoteStream(items: readonly MarketWatchlistItem[], mode?: "watchlist" | "all-symbols"): Promise<MarketDataProviderHealthView | null>;
+  readQuoteStreamSnapshot(items: readonly MarketWatchlistItem[]): Promise<
+    | {
+        readonly ok: true;
+        readonly snapshots: readonly MarketQuoteSnapshot[];
+        readonly health: MarketDataProviderHealthView;
+      }
+    | {
+        readonly ok: false;
+        readonly health: readonly MarketDataProviderHealthView[];
+      }
+  >;
+  disconnectQuoteStream(): Promise<void>;
+}
+
+interface ChartMarketDataAccessConfig {
+  readonly bridge?: QuantDesktopBridge;
+  readonly enableStockSdkPrimary: boolean;
+}
+
+export async function createChartMarketDataAccess(config: ChartMarketDataAccessConfig): Promise<ChartMarketDataAccess> {
+  const providerNeutralBridge = config.bridge?.marketData;
+
+  if (providerNeutralBridge) {
+    return createProviderNeutralChartMarketDataAccess(providerNeutralBridge, config.enableStockSdkPrimary);
+  }
+
+  const [alphaFeedCredentials, alphaFeedStreamCredentials, longPortCredentials] = await Promise.all([
+    readSavedAlphaFeedCredentials(),
+    readSavedAlphaFeedStreamCredentials(),
+    readSavedLongPortCredentials(),
+  ]);
+  const alphaFeedStreamBinding = readAlphaFeedStreamBinding();
+  const gateways = createChartMarketDataGateways({
+    bridge: config.bridge,
+    alphaFeedCredentials,
+    alphaFeedStreamCredentials,
+    alphaFeedStreamBinding,
+    longPortCredentials,
+    enableStockSdkPrimary: config.enableStockSdkPrimary,
+  });
+
+  return createLegacyChartMarketDataAccess(gateways, {
+    hasQuoteSource: config.enableStockSdkPrimary || Boolean(alphaFeedCredentials) || Boolean(longPortCredentials),
+    hasHistoricalSource: config.enableStockSdkPrimary || Boolean(longPortCredentials) || Boolean(alphaFeedCredentials),
+    hasIntradaySource: config.enableStockSdkPrimary || Boolean(alphaFeedCredentials) || Boolean(longPortCredentials),
+    hasStreamSource: Boolean(alphaFeedStreamCredentials && alphaFeedStreamBinding),
+  });
 }
 
 export function createChartMarketDataGateways(config: ChartMarketDataGatewayConfig): ChartMarketDataGateways {
@@ -146,6 +251,131 @@ export function createChartMarketDataGateways(config: ChartMarketDataGatewayConf
     async disconnectQuoteStream() {
       await streamProvider?.disconnectStream();
     },
+  };
+}
+
+function createProviderNeutralChartMarketDataAccess(
+  bridge: QuantDesktopMarketDataBridge,
+  stockSdkPrimaryEnabled: boolean,
+): ChartMarketDataAccess {
+  return {
+    hasQuoteSource: true,
+    hasHistoricalSource: true,
+    hasIntradaySource: true,
+    hasStreamSource: true,
+    async fetchQuoteSnapshotBatch(batch) {
+      const result = await bridge.fetchQuoteSnapshot({
+        context: { source: "chart" },
+        items: batch,
+        providerPolicy: {
+          stockSdkPrimaryEnabled,
+        },
+      });
+
+      return toChartQuoteSnapshotBatchResult(result);
+    },
+    async fetchBars(options) {
+      const request = {
+        context: { source: "chart" as const },
+        request: options.request,
+        providerPolicy: {
+          stockSdkPrimaryEnabled,
+        },
+      };
+      const result =
+        options.capability === "intradayBars"
+          ? await bridge.fetchIntradayBars(request)
+          : await bridge.fetchHistoricalBars(request);
+
+      return toChartBarsBatchResult(result);
+    },
+    async connectQuoteStream(items, mode = "watchlist") {
+      const result = await bridge.connectQuoteStream({
+        context: { source: "chart" },
+        items,
+        providerPolicy: {
+          alphaFeedStreamMode: mode,
+        },
+      });
+
+      return result.ok ? result.meta.health : result.error.health[0] ?? null;
+    },
+    async readQuoteStreamSnapshot(items) {
+      const result = await bridge.readQuoteStreamSnapshot({
+        context: { source: "chart" },
+        items,
+      });
+
+      if (!result.ok) {
+        return { ok: false, health: result.error.health };
+      }
+
+      return {
+        ok: true,
+        snapshots: gatewayQuoteSnapshotsToMarketQuoteSnapshots(result.data.snapshots),
+        health: result.meta.health,
+      };
+    },
+    async disconnectQuoteStream() {
+      await bridge.disconnectQuoteStream({ source: "chart" });
+    },
+  };
+}
+
+function createLegacyChartMarketDataAccess(
+  gateways: ChartMarketDataGateways,
+  availability: Pick<ChartMarketDataAccess, "hasQuoteSource" | "hasHistoricalSource" | "hasIntradaySource" | "hasStreamSource">,
+): ChartMarketDataAccess {
+  return {
+    ...availability,
+    fetchQuoteSnapshotBatch: (batch) => gateways.quoteSnapshots.fetchQuoteSnapshot(batch),
+    fetchBars: (options) =>
+      options.capability === "intradayBars"
+        ? gateways.intradayBars.fetchIntradayBars(options.request)
+        : gateways.historicalBars.fetchHistoricalBars(options.request),
+    connectQuoteStream: (items) => gateways.connectQuoteStream(items),
+    readQuoteStreamSnapshot: (items) => gateways.readQuoteStreamSnapshot(items),
+    disconnectQuoteStream: () => gateways.disconnectQuoteStream(),
+  };
+}
+
+function toChartQuoteSnapshotBatchResult(result: QuantDesktopMarketDataResult<readonly GatewayMarketQuoteSnapshot[]>): ChartQuoteSnapshotBatchResult {
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: {
+        message: result.error.message,
+      },
+      health: result.error.health,
+      triedProviders: result.error.fallback.triedProviders,
+    };
+  }
+
+  return {
+    ok: true,
+    data: result.data,
+    health: result.meta.health,
+    triedProviders: result.meta.fallback.triedProviders,
+  };
+}
+
+function toChartBarsBatchResult(result: QuantDesktopMarketDataResult<readonly GatewayMarketDataBar[]>): ChartBarsBatchResult {
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: {
+        message: result.error.message,
+      },
+      health: result.error.health,
+      triedProviders: result.error.fallback.triedProviders,
+    };
+  }
+
+  return {
+    ok: true,
+    data: result.data,
+    health: result.meta.health,
+    triedProviders: result.meta.fallback.triedProviders,
   };
 }
 

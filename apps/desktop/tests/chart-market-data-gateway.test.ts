@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  createChartMarketDataAccess,
   createChartMarketDataGateways,
   gatewayBarsToMarketDataBars,
   gatewayQuoteSnapshotsToMarketQuoteSnapshots,
@@ -47,6 +48,161 @@ const bar = {
 };
 
 describe("chart market data gateways", () => {
+  it("uses provider-neutral desktop IPC access without touching legacy provider credentials", async () => {
+    const calls: string[] = [];
+    const access = await createChartMarketDataAccess({
+      enableStockSdkPrimary: true,
+      bridge: {
+        platform: "desktop",
+        version: "test",
+        secureCredentials: {
+          readAlphaFeed: async () => {
+            throw new Error("legacy alpha credentials should not be read");
+          },
+          readAlphaFeedStream: async () => {
+            throw new Error("legacy stream credentials should not be read");
+          },
+          readLongPort: async () => {
+            throw new Error("legacy longbridge credentials should not be read");
+          },
+        },
+        alphaFeed: {
+          fetchQuoteSnapshot: async () => {
+            throw new Error("legacy alpha quote should not be called");
+          },
+          fetchHistoricalBars: async () => {
+            throw new Error("legacy alpha bars should not be called");
+          },
+          fetchIntradayBars: async () => {
+            throw new Error("legacy alpha intraday should not be called");
+          },
+        },
+        longPort: {
+          fetchQuoteSnapshot: async () => {
+            throw new Error("legacy longbridge quote should not be called");
+          },
+          fetchHistoricalBars: async () => {
+            throw new Error("legacy longbridge bars should not be called");
+          },
+        },
+        marketData: {
+          getProviderStatus: async () => {
+            throw new Error("provider status is not part of this chart access path");
+          },
+          fetchQuoteSnapshot: async () => {
+            calls.push("marketData.quote");
+            return {
+              ok: true,
+              data: [
+                {
+                  provider: "stock-sdk",
+                  market: "US",
+                  symbol: "AAPL.US",
+                  name: "Apple Inc.",
+                  price: 312.66,
+                  previousClose: 308.63,
+                  timestamp: 1_788_566_401_000,
+                  receivedAt: "2026-07-06T20:00:01.000Z",
+                  delayLevel: "unknown",
+                },
+              ],
+              meta: marketDataMeta("stock-sdk", "realtimeQuote"),
+            };
+          },
+          fetchHistoricalBars: async () => {
+            calls.push("marketData.history");
+            return {
+              ok: true,
+              data: [{ ...bar, provider: "stock-sdk" }],
+              meta: marketDataMeta("stock-sdk", "historicalBars"),
+            };
+          },
+          fetchIntradayBars: async () => {
+            calls.push("marketData.intraday");
+            return {
+              ok: true,
+              data: [{ ...bar, provider: "stock-sdk", timeframe: "1m" }],
+              meta: marketDataMeta("stock-sdk", "intradayBars"),
+            };
+          },
+          connectQuoteStream: async () => {
+            calls.push("marketData.stream.connect");
+            return {
+              ok: true,
+              data: { state: "connected" },
+              meta: marketDataMeta("alphafeed-websocket", "realtimeQuote"),
+            };
+          },
+          readQuoteStreamSnapshot: async () => {
+            calls.push("marketData.stream.read");
+            return {
+              ok: true,
+              data: {
+                state: "connected",
+                snapshots: [
+                  {
+                    provider: "alphafeed-websocket",
+                    market: "US",
+                    symbol: "AAPL.US",
+                    price: 313,
+                    previousClose: 308.63,
+                    timestamp: 1_788_566_402_000,
+                    receivedAt: "2026-07-06T20:00:02.000Z",
+                    delayLevel: "realtime",
+                  },
+                ],
+              },
+              meta: marketDataMeta("alphafeed-websocket", "realtimeQuote"),
+            };
+          },
+          disconnectQuoteStream: async () => {
+            calls.push("marketData.stream.disconnect");
+            return {
+              ok: true,
+              data: { state: "idle" },
+              meta: marketDataMeta("alphafeed-websocket", "realtimeQuote"),
+            };
+          },
+        },
+      } as QuantDesktopBridge,
+    });
+
+    const quote = await access.fetchQuoteSnapshotBatch([{ market: "US", symbol: "AAPL.US", name: "Apple Inc.", source: "preset" }]);
+    const history = await access.fetchBars({
+      capability: "historicalBars",
+      request: { market: "US", symbol: "AAPL.US", timeframe: "1d" },
+    });
+    const intraday = await access.fetchBars({
+      capability: "intradayBars",
+      request: { market: "US", symbol: "AAPL.US", timeframe: "1m" },
+    });
+    const connected = await access.connectQuoteStream([{ market: "US", symbol: "AAPL.US", name: "Apple Inc.", source: "preset" }]);
+    const stream = await access.readQuoteStreamSnapshot([{ market: "US", symbol: "AAPL.US", name: "Apple Inc.", source: "preset" }]);
+    await access.disconnectQuoteStream();
+
+    assert.equal(access.hasQuoteSource, true);
+    assert.equal(access.hasHistoricalSource, true);
+    assert.equal(access.hasIntradaySource, true);
+    assert.equal(access.hasStreamSource, true);
+    assert.equal(quote.ok, true);
+    assert.equal(quote.ok ? quote.health.provider : "", "stock-sdk");
+    assert.equal(history.ok, true);
+    assert.equal(history.ok ? history.data[0]?.provider : "", "stock-sdk");
+    assert.equal(intraday.ok, true);
+    assert.equal(intraday.ok ? intraday.data[0]?.timeframe : "", "1m");
+    assert.equal(connected?.provider, "alphafeed-websocket");
+    assert.equal(stream.ok, true);
+    assert.equal(stream.ok ? stream.snapshots[0]?.provider : "", "alphafeed-websocket");
+    assert.deepEqual(calls, [
+      "marketData.quote",
+      "marketData.history",
+      "marketData.intraday",
+      "marketData.stream.connect",
+      "marketData.stream.read",
+      "marketData.stream.disconnect",
+    ]);
+  });
+
   it("keeps the chart history path on LongBridge before AlphaFeed fallback", async () => {
     const calls: string[] = [];
     const gateways = createChartMarketDataGateways({
@@ -368,4 +524,34 @@ function health(status: AlphaFeedProviderHealth["status"]): AlphaFeedProviderHea
     checkedAt: "2026-07-07T00:00:00.000Z",
     latencyMs: 1,
   };
+}
+
+function marketDataMeta(
+  provider: "stock-sdk" | "alphafeed-websocket",
+  capability: "realtimeQuote" | "historicalBars" | "intradayBars",
+) {
+  return {
+    provider,
+    servedAt: "2026-07-07T00:00:00.000Z",
+    fallback: {
+      activeProvider: provider,
+      triedProviders: [provider],
+    },
+    health: {
+      provider,
+      status: "healthy",
+      message: "ok",
+      checkedAt: "2026-07-07T00:00:00.000Z",
+      capability: {
+        realtimeQuote: capability === "realtimeQuote",
+        historicalBars: capability === "historicalBars",
+        intradayBars: capability === "intradayBars",
+        websocket: provider === "alphafeed-websocket",
+        batchQuote: capability === "realtimeQuote" && provider !== "alphafeed-websocket",
+        markets: ["US", "HK", "CN"],
+        timeframes: capability === "historicalBars" ? ["1d", "1w"] : ["realtime"],
+        delayLevel: provider === "alphafeed-websocket" ? "realtime" : "unknown",
+      },
+    },
+  } as const;
 }
