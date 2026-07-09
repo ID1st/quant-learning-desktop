@@ -98,6 +98,12 @@ export interface ChartViewportProps {
   resetViewKey?: number;
 }
 
+interface ChartScaleDomain {
+  minPrice: number;
+  maxPrice: number;
+  maxVolume: number;
+}
+
 const defaultContext: ChartContext = {
   symbol: "AAPL",
   market: "US",
@@ -190,6 +196,34 @@ function isFiniteNumber(value: number) {
   return Number.isFinite(value);
 }
 
+function createDefaultVisibleRange(candleCount: number): ChartVisibleRange {
+  return {
+    start: Math.max(0, candleCount - 96),
+    end: candleCount,
+  };
+}
+
+function calculateScaleDomain(candles: CandlePoint[], range: ChartVisibleRange): ChartScaleDomain {
+  const safeRange = clampChartVisibleRange(range, candles.length);
+  const domainCandles = candles.slice(safeRange.start, safeRange.end);
+  const highs = domainCandles.map((candle) => candle.high).filter(isFiniteNumber);
+  const lows = domainCandles.map((candle) => candle.low).filter(isFiniteNumber);
+  const volumes = domainCandles.map((candle) => candle.volume).filter(isFiniteNumber);
+  const closeFallbacks = domainCandles.map((candle) => candle.close).filter(isFiniteNumber);
+  const fallbackPrice = closeFallbacks[closeFallbacks.length - 1] ?? 1;
+  const maxPrice = Math.max(...highs);
+  const minPrice = Math.min(...lows);
+  const safeMaxPrice = isFiniteNumber(maxPrice) ? maxPrice : fallbackPrice;
+  const safeMinPrice = isFiniteNumber(minPrice) ? minPrice : fallbackPrice;
+  const padding = Math.max((safeMaxPrice - safeMinPrice) * 0.08, safeMaxPrice * 0.002, 0.01);
+
+  return {
+    minPrice: safeMinPrice - padding,
+    maxPrice: safeMaxPrice + padding,
+    maxVolume: Math.max(1, ...volumes),
+  };
+}
+
 export function ChartViewport({
   candles: providedCandles,
   context = defaultContext,
@@ -207,10 +241,8 @@ export function ChartViewport({
 }: ChartViewportProps) {
   const generatedCandles = useMemo(() => generateCandles(context), [context]);
   const candles = providedCandles ?? generatedCandles;
-  const [visibleRange, setVisibleRange] = useState<ChartVisibleRange>(() => ({
-    start: Math.max(0, candles.length - 96),
-    end: candles.length,
-  }));
+  const [visibleRange, setVisibleRange] = useState<ChartVisibleRange>(() => createDefaultVisibleRange(candles.length));
+  const [scaleDomain, setScaleDomain] = useState<ChartScaleDomain>(() => calculateScaleDomain(candles, createDefaultVisibleRange(candles.length)));
   const [hoverIndex, setHoverIndex] = useState<number | null>(candles.length - 1);
   const dragStateRef = useRef<
     | { mode: "pan"; pointerId: number; startX: number; startRange: ChartVisibleRange }
@@ -226,7 +258,9 @@ export function ChartViewport({
   const hasCandles = candles.length > 0;
 
   useEffect(() => {
-    setVisibleRange({ start: Math.max(0, candles.length - 96), end: candles.length });
+    const nextRange = createDefaultVisibleRange(candles.length);
+    setVisibleRange(nextRange);
+    setScaleDomain(calculateScaleDomain(candles, nextRange));
     setHoverIndex(candles.length > 0 ? candles.length - 1 : null);
     setPriceScaleFactor(1);
   }, [candles, context.symbol, context.market, context.timeframe, resetViewKey]);
@@ -254,17 +288,10 @@ export function ChartViewport({
   const visibleCount = Math.max(1, visibleCandles.length);
   const candleGap = (width - paddingX * 2) / visibleCount;
   const candleWidth = Math.max(5, candleGap * 0.58);
-  const candleHighs = visibleCandles.map((candle) => candle.high).filter(isFiniteNumber);
-  const candleLows = visibleCandles.map((candle) => candle.low).filter(isFiniteNumber);
-  const candleVolumes = visibleCandles.map((candle) => candle.volume).filter(isFiniteNumber);
-  const priceCandidates = [...candleHighs, ...candleLows];
-  const autoMaxPrice = Math.max(...priceCandidates);
-  const autoMinPrice = Math.min(...priceCandidates);
-  const autoPadding = Math.max((autoMaxPrice - autoMinPrice) * 0.08, autoMaxPrice * 0.002, 0.01);
-  const scaledPriceRange = getScaledPriceRange(autoMinPrice - autoPadding, autoMaxPrice + autoPadding, priceScaleFactor);
+  const scaledPriceRange = getScaledPriceRange(scaleDomain.minPrice, scaleDomain.maxPrice, priceScaleFactor);
   const maxPrice = scaledPriceRange.max;
   const minPrice = scaledPriceRange.min;
-  const maxVolume = Math.max(1, ...candleVolumes);
+  const maxVolume = scaleDomain.maxVolume;
   const priceRange = Math.max(1, maxPrice - minPrice);
   const safeHoverIndex = hoverIndex === null ? null : Math.min(hoverIndex, candles.length - 1);
   const hoveredCandle = safeHoverIndex === null ? candles[candles.length - 1] : candles[safeHoverIndex];
@@ -324,7 +351,14 @@ export function ChartViewport({
     const rect = event.currentTarget.getBoundingClientRect();
     const anchorRatio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     const zoomFactor = event.deltaY < 0 ? 0.84 : 1.18;
-    setVisibleRange((current) => zoomChartVisibleRange(current, candles.length, anchorRatio, zoomFactor));
+    applyVisibleRangeWithScale((current) => zoomChartVisibleRange(current, candles.length, anchorRatio, zoomFactor));
+  };
+  const applyVisibleRangeWithScale = (resolveRange: (current: ChartVisibleRange) => ChartVisibleRange) => {
+    setVisibleRange((current) => {
+      const nextRange = resolveRange(current);
+      setScaleDomain(calculateScaleDomain(candles, nextRange));
+      return nextRange;
+    });
   };
   const handlePointerDown = (event: PointerEvent<SVGSVGElement>) => {
     if (event.button !== 0) {
@@ -371,7 +405,9 @@ export function ChartViewport({
     }
   };
   const resetInteractionView = () => {
-    setVisibleRange({ start: Math.max(0, candles.length - 96), end: candles.length });
+    const nextRange = createDefaultVisibleRange(candles.length);
+    setVisibleRange(nextRange);
+    setScaleDomain(calculateScaleDomain(candles, nextRange));
     setHoverIndex(candles.length - 1);
     setPriceScaleFactor(1);
   };
@@ -405,10 +441,10 @@ export function ChartViewport({
       </div>
 
       <div className="chart-interaction-toolbar" aria-label="图表缩放和平移">
-        <button onClick={() => setVisibleRange((current) => zoomChartVisibleRange(current, candles.length, 0.5, 0.84))} type="button">
+        <button onClick={() => applyVisibleRangeWithScale((current) => zoomChartVisibleRange(current, candles.length, 0.5, 0.84))} type="button">
           放大
         </button>
-        <button onClick={() => setVisibleRange((current) => zoomChartVisibleRange(current, candles.length, 0.5, 1.18))} type="button">
+        <button onClick={() => applyVisibleRangeWithScale((current) => zoomChartVisibleRange(current, candles.length, 0.5, 1.18))} type="button">
           缩小
         </button>
         <button onClick={() => setVisibleRange((current) => panChartVisibleRange(current, candles.length, -Math.max(1, Math.round((current.end - current.start) * 0.25))))} type="button">
