@@ -4,11 +4,19 @@ import {
   clampChartVisibleRange,
   getScaledPriceRange,
   panChartVisibleRange,
+  syncChartVisibleRangeForDataUpdate,
   zoomChartVisibleRange,
   type ChartVisibleRange,
 } from "./viewportMath.ts";
 
-export { clampChartVisibleRange, getScaledPriceRange, panChartVisibleRange, zoomChartVisibleRange, type ChartVisibleRange } from "./viewportMath.ts";
+export {
+  clampChartVisibleRange,
+  getScaledPriceRange,
+  panChartVisibleRange,
+  syncChartVisibleRangeForDataUpdate,
+  zoomChartVisibleRange,
+  type ChartVisibleRange,
+} from "./viewportMath.ts";
 
 export interface ChartContext {
   symbol: string;
@@ -239,11 +247,17 @@ export function ChartViewport({
   displayMode = "candlestick",
   resetViewKey = 0,
 }: ChartViewportProps) {
-  const generatedCandles = useMemo(() => generateCandles(context), [context]);
+  const generatedCandles = useMemo(() => generateCandles(context), [context.symbol, context.market, context.timeframe]);
   const candles = providedCandles ?? generatedCandles;
+  const contextKey = `${context.market}:${context.symbol}:${context.timeframe}`;
   const [visibleRange, setVisibleRange] = useState<ChartVisibleRange>(() => createDefaultVisibleRange(candles.length));
   const [scaleDomain, setScaleDomain] = useState<ChartScaleDomain>(() => calculateScaleDomain(candles, createDefaultVisibleRange(candles.length)));
   const [hoverIndex, setHoverIndex] = useState<number | null>(candles.length - 1);
+  const previousChartStateRef = useRef({
+    candleCount: candles.length,
+    contextKey,
+    resetViewKey,
+  });
   const dragStateRef = useRef<
     | { mode: "pan"; pointerId: number; startX: number; startRange: ChartVisibleRange }
     | { mode: "price-scale"; pointerId: number; startY: number; startScaleFactor: number }
@@ -258,12 +272,33 @@ export function ChartViewport({
   const hasCandles = candles.length > 0;
 
   useEffect(() => {
-    const nextRange = createDefaultVisibleRange(candles.length);
-    setVisibleRange(nextRange);
-    setScaleDomain(calculateScaleDomain(candles, nextRange));
-    setHoverIndex(candles.length > 0 ? candles.length - 1 : null);
-    setPriceScaleFactor(1);
-  }, [candles, context.symbol, context.market, context.timeframe, resetViewKey]);
+    const previous = previousChartStateRef.current;
+    const shouldResetScale = previous.contextKey !== contextKey || previous.resetViewKey !== resetViewKey;
+
+    if (shouldResetScale || (previous.candleCount === 0 && candles.length > 0)) {
+      const nextRange = createDefaultVisibleRange(candles.length);
+      setVisibleRange(nextRange);
+      setScaleDomain(calculateScaleDomain(candles, nextRange));
+      setHoverIndex(candles.length > 0 ? candles.length - 1 : null);
+      setPriceScaleFactor(1);
+      previousChartStateRef.current = { candleCount: candles.length, contextKey, resetViewKey };
+      return;
+    }
+
+    setVisibleRange((current) => syncChartVisibleRangeForDataUpdate(current, previous.candleCount, candles.length));
+    setHoverIndex((current) => {
+      if (candles.length === 0) {
+        return null;
+      }
+
+      if (current === null) {
+        return null;
+      }
+
+      return current >= previous.candleCount - 1 ? candles.length - 1 : Math.min(current, candles.length - 1);
+    });
+    previousChartStateRef.current = { candleCount: candles.length, contextKey, resetViewKey };
+  }, [candles, contextKey, resetViewKey]);
 
   if (!hasCandles) {
     return (
@@ -297,7 +332,10 @@ export function ChartViewport({
   const hoveredCandle = safeHoverIndex === null ? candles[candles.length - 1] : candles[safeHoverIndex];
 
   const priceToY = (price: number) => chartTop + ((maxPrice - price) / priceRange) * priceHeight;
-  const volumeToY = (volume: number) => volumeTop + volumeHeight - (volume / maxVolume) * volumeHeight;
+  const volumeToY = (volume: number) => {
+    const boundedVolume = Math.max(0, Math.min(volume, maxVolume));
+    return volumeTop + volumeHeight - (boundedVolume / maxVolume) * volumeHeight;
+  };
   const indexToX = (index: number) => paddingX + (index - safeVisibleRange.start) * candleGap + candleGap / 2;
   const timestampToX = (timestamp: number) => {
     const exactIndex = candles.findIndex((candle) => candle.timestamp === timestamp);

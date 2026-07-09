@@ -37,6 +37,24 @@ export function panChartVisibleRange(range: ChartVisibleRange, total: number, de
   return clampChartVisibleRange({ start: current.start + shift, end: current.end + shift }, total);
 }
 
+export function syncChartVisibleRangeForDataUpdate(range: ChartVisibleRange, previousTotal: number, nextTotal: number): ChartVisibleRange {
+  const safePreviousTotal = Math.max(0, Math.floor(previousTotal));
+  const safeNextTotal = Math.max(0, Math.floor(nextTotal));
+
+  if (safeNextTotal === 0) {
+    return { start: 0, end: 0 };
+  }
+
+  const windowSize = Math.max(1, range.end - range.start);
+  const wasPinnedToLatest = safePreviousTotal === 0 || range.end >= safePreviousTotal;
+
+  if (wasPinnedToLatest) {
+    return clampChartVisibleRange({ start: safeNextTotal - windowSize, end: safeNextTotal }, safeNextTotal);
+  }
+
+  return clampChartVisibleRange(range, safeNextTotal);
+}
+
 export function getScaledPriceRange(minPrice: number, maxPrice: number, scaleFactor: number) {
   const safeMin = Math.min(minPrice, maxPrice);
   const safeMax = Math.max(minPrice, maxPrice);
