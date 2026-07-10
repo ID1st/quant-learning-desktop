@@ -33,14 +33,16 @@ export function AppShell({ children }: PropsWithChildren) {
           <TerminalSquare size={20} />
           <span>量化学习</span>
         </div>
-        <nav>
+        <nav aria-label="工作区导航">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
               <button
+                aria-label={item.label}
                 className={currentRoute === item.route ? "active" : ""}
                 key={item.route}
                 onClick={() => navigate(item.route)}
+                title={item.label}
                 type="button"
               >
                 <Icon size={18} />
@@ -49,7 +51,7 @@ export function AppShell({ children }: PropsWithChildren) {
             );
           })}
         </nav>
-        <button className="logout-button" onClick={handleLogout} type="button">
+        <button aria-label="退出登录" className="logout-button" onClick={handleLogout} title="退出登录" type="button">
           <LogOut size={18} />
           <span>退出登录</span>
         </button>

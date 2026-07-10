@@ -1,8 +1,32 @@
 :root {
   color-scheme: dark;
-  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
-  background: #080d12;
-  color: #d9e2ea;
+  --font-ui: Inter, "Noto Sans SC", "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  --font-data: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --bg-canvas: #0b0f14;
+  --bg-sidebar: #0d1219;
+  --bg-surface: #111820;
+  --bg-raised: #18212c;
+  --border-subtle: #263241;
+  --border-strong: #354458;
+  --text-primary: #f2f5f8;
+  --text-secondary: #9caabc;
+  --text-muted: #6f7f92;
+  --accent: #4d8dff;
+  --accent-soft: rgba(77, 141, 255, 0.13);
+  --success: #20c997;
+  --warning: #f4b740;
+  --danger: #f06a6a;
+  --radius-control: 6px;
+  --radius-overlay: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  font-family: var(--font-ui);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
 }
 
 * {
@@ -13,7 +37,11 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #080d12;
+  background: var(--bg-canvas);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button {
@@ -24,54 +52,85 @@ input {
   font: inherit;
 }
 
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(77, 141, 255, 0.3);
+  color: var(--text-primary);
+}
+
 .app-shell {
   display: grid;
-  grid-template-columns: 248px 1fr;
+  grid-template-columns: 72px minmax(0, 1fr);
   min-height: 100vh;
 }
 
 .app-sidebar {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #25303a;
-  background: #0b1117;
-  padding: 16px;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--bg-sidebar);
+  padding: var(--space-3) 10px;
 }
 
 .app-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 40px;
-  margin-bottom: 20px;
-  font-weight: 700;
+  display: none;
 }
 
 .app-sidebar nav {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .app-sidebar button {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  height: 38px;
+  justify-content: center;
+  width: 48px;
+  height: 40px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
-  color: #8d9aa8;
+  color: var(--text-secondary);
   cursor: pointer;
-  padding: 0 10px;
-  text-align: left;
+  padding: 0;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
 .app-sidebar button.active,
 .app-sidebar button:hover {
-  border-color: #25303a;
-  background: #10161d;
-  color: #d9e2ea;
+  border-color: var(--border-subtle);
+  background: var(--bg-raised);
+  color: var(--text-primary);
+}
+
+.app-sidebar button.active {
+  border-color: rgba(77, 141, 255, 0.62);
+  background: var(--accent-soft);
+  color: #9bc0ff;
+}
+
+.app-sidebar button span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .logout-button {
@@ -1016,6 +1075,7 @@ input {
 
 .chart-legend {
   display: flex;
+  font-family: var(--font-data);
   align-items: center;
   gap: 12px;
   min-height: 30px;
@@ -1289,6 +1349,7 @@ input {
 }
 
 .price-axis-labels text {
+  font-family: var(--font-data);
   fill: #7f8da2;
   font-size: 11px;
   font-weight: 700;
@@ -1301,6 +1362,7 @@ input {
 }
 
 .time-axis-labels text {
+  font-family: var(--font-data);
   fill: #7f8da2;
   font-size: 10px;
   font-weight: 700;
@@ -1522,6 +1584,7 @@ input {
 }
 
 .watchlist-items strong {
+  font-variant-numeric: tabular-nums;
   color: #f5f8ff;
   font-size: 13px;
 }
@@ -1873,6 +1936,7 @@ input {
 }
 
 .bottom-status-strip {
+  font-family: var(--font-data);
   display: flex;
   grid-column: 1;
   align-items: center;
@@ -3663,7 +3727,9 @@ input {
 
 .app-content {
   min-width: 0;
-  padding: 24px;
+  min-height: 100vh;
+  background: var(--bg-canvas);
+  padding: var(--space-5) var(--space-6);
 }
 
 .placeholder-page {
@@ -3694,11 +3760,35 @@ input {
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: 60px minmax(0, 1fr);
   }
 
   .app-sidebar {
+    align-items: center;
+    flex-direction: row;
     border-right: 0;
-    border-bottom: 1px solid #25303a;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 6px 10px;
+  }
+
+  .app-sidebar nav {
+    display: flex;
+    gap: 6px;
+  }
+
+  .app-sidebar button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .logout-button {
+    margin-top: 0;
+    margin-left: auto;
+  }
+
+  .app-content {
+    min-height: 0;
+    padding: var(--space-4);
   }
 
   .login-topbar,
