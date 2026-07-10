@@ -216,6 +216,24 @@ describe("Stock SDK gateway provider", () => {
     assert.equal(intradayBars[2]?.open, 85);
   });
 
+  it("repairs a small provider rounding mismatch between close and high", async () => {
+    const provider = createStockSdkGatewayProvider(
+      {
+        fetchQuoteSnapshot: async () => [],
+        fetchHistoricalBars: async () => [],
+        fetchIntradayBars: async () => [
+          { datetime: "2026-07-09 16:00:00", open: 316.07, high: 316.21, low: 315.9, close: 316.22, volume: 12_800_715 },
+        ],
+      },
+      { enabled: true },
+    );
+
+    const bars = await provider.fetchIntradayBars({ market: "US", symbol: "AAPL.US", timeframe: "1m" });
+
+    assert.equal(bars[0]?.high, 316.22);
+    assert.equal((await provider.getHealth()).status, "healthy");
+  });
+
   it("rejects inconsistent OHLC values before they reach the chart", async () => {
     const provider = createStockSdkGatewayProvider(
       {

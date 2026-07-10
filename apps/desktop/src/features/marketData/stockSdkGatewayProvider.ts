@@ -288,6 +288,7 @@ function mapStockSdkBars(
     const high = readFiniteNumber(record, ["high", "highestPrice"]);
     const low = readFiniteNumber(record, ["low", "lowestPrice"]);
     const repairedOpen = repairOpenPrice(readFiniteNumber(record, ["open", "openingPrice"], true), close, previousClose, high, low);
+    const repairedExtremes = repairMinorOhlcPrecisionMismatch(repairedOpen, high, low, close);
     const bar: GatewayMarketDataBar = {
       provider: "stock-sdk",
       market: request.market,
@@ -295,8 +296,8 @@ function mapStockSdkBars(
       timeframe: request.timeframe,
       timestamp: readTimestamp(record, ["timestamp", "datetime", "dateTime", "time", "date"]),
       open: repairedOpen,
-      high,
-      low,
+      high: repairedExtremes.high,
+      low: repairedExtremes.low,
       close,
       volume: readOptionalFiniteNumber(record, ["volume", "vol"]) ?? 0,
       amount: readOptionalFiniteNumber(record, ["amount", "turnover"]),
@@ -315,6 +316,20 @@ function repairOpenPrice(open: number, close: number, previousClose: number | un
   }
 
   return previousClose && previousClose >= low && previousClose <= high ? previousClose : close;
+}
+
+function repairMinorOhlcPrecisionMismatch(open: number, high: number, low: number, close: number) {
+  const repairedHigh = Math.max(high, open, close);
+  const repairedLow = Math.min(low, open, close);
+  const correction = Math.max(Math.abs(repairedHigh - high), Math.abs(repairedLow - low));
+  const referencePrice = Math.max(Math.abs(open), Math.abs(high), Math.abs(low), Math.abs(close));
+  const tolerance = Math.max(0.02, referencePrice * 0.00005);
+
+  if (correction > tolerance) {
+    return { high, low };
+  }
+
+  return { high: repairedHigh, low: repairedLow };
 }
 
 function validateBar(bar: GatewayMarketDataBar) {

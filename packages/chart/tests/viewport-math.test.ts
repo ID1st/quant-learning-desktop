@@ -21,10 +21,14 @@ test("chart zoom keeps the cursor anchor near the same candle", () => {
   assert.deepEqual(zoomedOut, { start: 20, end: 80 });
 });
 
-test("chart pan keeps the current window size and stops at edges", () => {
+test("chart pan keeps the current window size and stops at the left edge", () => {
   assert.deepEqual(panChartVisibleRange({ start: 20, end: 50 }, 100, 10), { start: 30, end: 60 });
   assert.deepEqual(panChartVisibleRange({ start: 20, end: 50 }, 100, -50), { start: 0, end: 30 });
-  assert.deepEqual(panChartVisibleRange({ start: 80, end: 100 }, 100, 25), { start: 80, end: 100 });
+});
+
+test("chart pan can reserve a right-side future area after the latest candle", () => {
+  assert.deepEqual(panChartVisibleRange({ start: 80, end: 100 }, 100, 25, 30), { start: 105, end: 125 });
+  assert.deepEqual(panChartVisibleRange({ start: 80, end: 100 }, 100, 80, 30), { start: 110, end: 130 });
 });
 
 test("chart data updates keep the latest window pinned without changing its size", () => {
@@ -33,6 +37,10 @@ test("chart data updates keep the latest window pinned without changing its size
 
 test("chart data updates preserve historical viewing window", () => {
   assert.deepEqual(syncChartVisibleRangeForDataUpdate({ start: 20, end: 80 }, 100, 101), { start: 20, end: 80 });
+});
+
+test("chart data updates preserve a user-selected right-side future area", () => {
+  assert.deepEqual(syncChartVisibleRangeForDataUpdate({ start: 105, end: 125 }, 100, 101, 30), { start: 106, end: 126 });
 });
 
 test("scaled price range keeps price center and changes vertical density", () => {

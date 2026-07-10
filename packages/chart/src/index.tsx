@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEven
 import type { Market, Timeframe } from "@quant/shared";
 import {
   clampChartVisibleRange,
+  getChartFuturePaddingBars,
   getScaledPriceRange,
   panChartVisibleRange,
   syncChartVisibleRangeForDataUpdate,
@@ -11,6 +12,7 @@ import {
 
 export {
   clampChartVisibleRange,
+  getChartFuturePaddingBars,
   getScaledPriceRange,
   panChartVisibleRange,
   syncChartVisibleRangeForDataUpdate,
@@ -285,7 +287,9 @@ export function ChartViewport({
       return;
     }
 
-    setVisibleRange((current) => syncChartVisibleRangeForDataUpdate(current, previous.candleCount, candles.length));
+    setVisibleRange((current) =>
+      syncChartVisibleRangeForDataUpdate(current, previous.candleCount, candles.length, getChartFuturePaddingBars(current)),
+    );
     setHoverIndex((current) => {
       if (candles.length === 0) {
         return null;
@@ -318,10 +322,12 @@ export function ChartViewport({
   const volumeTop = 410;
   const volumeHeight = 76;
   const paddingX = 54;
-  const safeVisibleRange = clampChartVisibleRange(visibleRange, candles.length);
+  const priceAxisWidth = 86;
+  const plotRight = width - priceAxisWidth;
+  const safeVisibleRange = clampChartVisibleRange(visibleRange, candles.length, 12, getChartFuturePaddingBars(visibleRange));
   const visibleCandles = candles.slice(safeVisibleRange.start, safeVisibleRange.end);
-  const visibleCount = Math.max(1, visibleCandles.length);
-  const candleGap = (width - paddingX * 2) / visibleCount;
+  const visibleCount = Math.max(1, safeVisibleRange.end - safeVisibleRange.start);
+  const candleGap = (plotRight - paddingX) / visibleCount;
   const candleWidth = Math.max(5, candleGap * 0.58);
   const scaledPriceRange = getScaledPriceRange(scaleDomain.minPrice, scaleDomain.maxPrice, priceScaleFactor);
   const maxPrice = scaledPriceRange.max;
@@ -361,6 +367,7 @@ export function ChartViewport({
     .slice(safeVisibleRange.start, safeVisibleRange.end)
     .map((price, offset) => ({ x: indexToX(safeVisibleRange.start + offset), y: priceToY(price) }));
   const maPath = createSmoothPath(maPoints);
+  const chartDepthPath = maPath ? `${maPath} L ${plotRight} ${volumeTop - 26} L ${paddingX} ${volumeTop - 26} Z` : null;
   const closeLinePath = createSmoothPath(
     visibleCandles.map((candle, offset) => ({
       x: indexToX(safeVisibleRange.start + offset),
@@ -389,7 +396,9 @@ export function ChartViewport({
     const rect = event.currentTarget.getBoundingClientRect();
     const anchorRatio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     const zoomFactor = event.deltaY < 0 ? 0.84 : 1.18;
-    applyVisibleRangeWithScale((current) => zoomChartVisibleRange(current, candles.length, anchorRatio, zoomFactor));
+    applyVisibleRangeWithScale((current) =>
+      zoomChartVisibleRange(current, candles.length, anchorRatio, zoomFactor, getChartFuturePaddingBars(current)),
+    );
   };
   const applyVisibleRangeWithScale = (resolveRange: (current: ChartVisibleRange) => ChartVisibleRange) => {
     setVisibleRange((current) => {
@@ -408,7 +417,7 @@ export function ChartViewport({
     const x = (event.clientX - rect.left) * ratio;
 
     event.currentTarget.setPointerCapture(event.pointerId);
-    if (x >= width - paddingX) {
+    if (x >= plotRight) {
       dragStateRef.current = { mode: "price-scale", pointerId: event.pointerId, startY: event.clientY, startScaleFactor: priceScaleFactor };
       setIsScalingPriceAxis(true);
       return;
@@ -433,7 +442,14 @@ export function ChartViewport({
     const rect = event.currentTarget.getBoundingClientRect();
     const windowSize = Math.max(1, dragState.startRange.end - dragState.startRange.start);
     const deltaBars = -((event.clientX - dragState.startX) / Math.max(1, rect.width)) * windowSize;
-    setVisibleRange(panChartVisibleRange(dragState.startRange, candles.length, deltaBars));
+    setVisibleRange(
+      panChartVisibleRange(
+        dragState.startRange,
+        candles.length,
+        deltaBars,
+        getChartFuturePaddingBars(dragState.startRange),
+      ),
+    );
   };
   const handlePointerUp = (event: PointerEvent<SVGSVGElement>) => {
     if (dragStateRef.current?.pointerId === event.pointerId) {
@@ -479,16 +495,54 @@ export function ChartViewport({
       </div>
 
       <div className="chart-interaction-toolbar" aria-label="图表缩放和平移">
-        <button onClick={() => applyVisibleRangeWithScale((current) => zoomChartVisibleRange(current, candles.length, 0.5, 0.84))} type="button">
+        <button
+          onClick={() =>
+            applyVisibleRangeWithScale((current) =>
+              zoomChartVisibleRange(current, candles.length, 0.5, 0.84, getChartFuturePaddingBars(current)),
+            )
+          }
+          type="button"
+        >
           放大
         </button>
-        <button onClick={() => applyVisibleRangeWithScale((current) => zoomChartVisibleRange(current, candles.length, 0.5, 1.18))} type="button">
+        <button
+          onClick={() =>
+            applyVisibleRangeWithScale((current) =>
+              zoomChartVisibleRange(current, candles.length, 0.5, 1.18, getChartFuturePaddingBars(current)),
+            )
+          }
+          type="button"
+        >
           缩小
         </button>
-        <button onClick={() => setVisibleRange((current) => panChartVisibleRange(current, candles.length, -Math.max(1, Math.round((current.end - current.start) * 0.25))))} type="button">
+        <button
+          onClick={() =>
+            setVisibleRange((current) =>
+              panChartVisibleRange(
+                current,
+                candles.length,
+                -Math.max(1, Math.round((current.end - current.start) * 0.25)),
+                getChartFuturePaddingBars(current),
+              ),
+            )
+          }
+          type="button"
+        >
           左移
         </button>
-        <button onClick={() => setVisibleRange((current) => panChartVisibleRange(current, candles.length, Math.max(1, Math.round((current.end - current.start) * 0.25))))} type="button">
+        <button
+          onClick={() =>
+            setVisibleRange((current) =>
+              panChartVisibleRange(
+                current,
+                candles.length,
+                Math.max(1, Math.round((current.end - current.start) * 0.25)),
+                getChartFuturePaddingBars(current),
+              ),
+            )
+          }
+          type="button"
+        >
           右移
         </button>
         <button onClick={resetInteractionView} type="button">
@@ -516,25 +570,18 @@ export function ChartViewport({
         </defs>
 
         <rect className="chart-bg" height={height} width={width} />
-        <rect
-          className="price-axis-hit-area"
-          height={volumeTop + volumeHeight - chartTop}
-          width={paddingX}
-          x={width - paddingX}
-          y={chartTop}
-        />
         {showGrid &&
           Array.from({ length: 8 }, (_, index) => {
             const y = chartTop + (priceHeight / 7) * index;
-            return <line className="chart-grid-line" key={`h-${index}`} x1={paddingX} x2={width - paddingX} y1={y} y2={y} />;
+            return <line className="chart-grid-line" key={`h-${index}`} x1={paddingX} x2={plotRight} y1={y} y2={y} />;
           })}
         {showGrid &&
           Array.from({ length: 10 }, (_, index) => {
-            const x = paddingX + ((width - paddingX * 2) / 9) * index;
+            const x = paddingX + ((plotRight - paddingX) / 9) * index;
             return <line className="chart-grid-line" key={`v-${index}`} x1={x} x2={x} y1={chartTop} y2={volumeTop + volumeHeight} />;
           })}
 
-        <path className="chart-depth" d={`${maPath} L ${width - paddingX} ${volumeTop - 26} L ${paddingX} ${volumeTop - 26} Z`} />
+        {chartDepthPath && <path className="chart-depth" d={chartDepthPath} />}
 
         {showStrategyLayers &&
           strategyLayers
@@ -561,7 +608,7 @@ export function ChartViewport({
                       className={`strategy-band ${element.tone}`}
                       height={bandHeight}
                       key={`${layer.strategyId}-${element.id}`}
-                      width={Math.max(2, width - paddingX - x)}
+                      width={Math.max(2, plotRight - x)}
                       x={x}
                       y={y}
                     />
@@ -580,7 +627,7 @@ export function ChartViewport({
                     return null;
                   }
                   const labelWidth = Math.max(86, element.label.length * 6.4 + 20);
-                  const labelX = width - paddingX - labelWidth + 6;
+                  const labelX = plotRight - labelWidth + 6;
                   const labelY = y - 20;
 
                   return (
@@ -588,9 +635,9 @@ export function ChartViewport({
                       className={`strategy-price-line ${element.tone}${isProjected ? " projected" : ""}`}
                       key={`${layer.strategyId}-${element.id}`}
                     >
-                      <line x1={lineStartX} x2={width - paddingX} y1={y} y2={y} />
+                      <line x1={lineStartX} x2={plotRight} y1={y} y2={y} />
                       {isProjected && <rect height={30} rx={4} width={labelWidth} x={labelX} y={labelY} />}
-                      <text x={isProjected ? labelX + labelWidth - 10 : width - paddingX - 8} y={isProjected ? y + 5 : y - 6}>
+                      <text x={isProjected ? labelX + labelWidth - 10 : plotRight - 8} y={isProjected ? y + 5 : y - 6}>
                         {element.label}
                       </text>
                     </g>
@@ -697,11 +744,11 @@ export function ChartViewport({
 
         {showCurrentPriceLine && isLatestVisible && (
           <g className={`current-price-line ${latestPriceTone}`}>
-            <line x1={paddingX} x2={width - paddingX} y1={latestPriceY} y2={latestPriceY} />
+            <line x1={paddingX} x2={plotRight} y1={latestPriceY} y2={latestPriceY} />
             {showPriceLabels && (
               <>
-                <rect height={24} rx={4} width={74} x={width - paddingX - 70} y={latestPriceY - 12} />
-                <text x={width - paddingX - 33} y={latestPriceY + 4}>
+                <rect height={24} rx={4} width={74} x={plotRight - 70} y={latestPriceY - 12} />
+                <text x={plotRight - 33} y={latestPriceY + 4}>
                   {formatPrice(latestCandle.close)}
                 </text>
               </>
@@ -711,11 +758,11 @@ export function ChartViewport({
 
         {showPriceLabels && (
           <g className="price-axis-labels">
-            <text className="price-axis-title" x={width - paddingX + 28} y={chartTop + 14}>
+            <text className="price-axis-title" x={plotRight + 10} y={chartTop + 14}>
               价格
             </text>
             {priceTicks.map((price) => (
-              <text key={price} x={width - paddingX + 44} y={priceToY(price) + 4}>
+              <text key={price} x={plotRight + 10} y={priceToY(price) + 4}>
                 {formatPrice(price)}
               </text>
             ))}
@@ -724,8 +771,8 @@ export function ChartViewport({
 
         <g className="time-axis-labels">
           {timeTickOffsets.map((offset) => {
-            const candle = visibleCandles[offset];
             const index = safeVisibleRange.start + offset;
+            const candle = candles[index];
 
             if (!candle) {
               return null;
@@ -742,17 +789,25 @@ export function ChartViewport({
         {showCrosshair && hoverX !== null && (
           <g className="crosshair">
             <line x1={hoverX} x2={hoverX} y1={chartTop} y2={showVolume ? volumeTop + volumeHeight : volumeTop - 26} />
-            <line x1={paddingX} x2={width - paddingX} y1={priceToY(hoveredCandle.close)} y2={priceToY(hoveredCandle.close)} />
+            <line x1={paddingX} x2={plotRight} y1={priceToY(hoveredCandle.close)} y2={priceToY(hoveredCandle.close)} />
             {showPriceLabels && (
               <>
-                <rect className="crosshair-price-label" height={22} rx={4} width={68} x={width - paddingX - 64} y={priceToY(hoveredCandle.close) - 11} />
-                <text className="crosshair-price-text" x={width - paddingX - 30} y={priceToY(hoveredCandle.close) + 4}>
+                <rect className="crosshair-price-label" height={22} rx={4} width={68} x={plotRight - 64} y={priceToY(hoveredCandle.close) - 11} />
+                <text className="crosshair-price-text" x={plotRight - 30} y={priceToY(hoveredCandle.close) + 4}>
                   {formatPrice(hoveredCandle.close)}
                 </text>
               </>
             )}
           </g>
-        )}
+          )}
+
+        <rect
+          className="price-axis-hit-area"
+          height={volumeTop + volumeHeight - chartTop}
+          width={priceAxisWidth}
+          x={plotRight}
+          y={chartTop}
+        />
       </svg>
     </section>
   );

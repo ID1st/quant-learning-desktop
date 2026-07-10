@@ -3,41 +3,63 @@ export interface ChartVisibleRange {
   end: number;
 }
 
-export function clampChartVisibleRange(range: ChartVisibleRange, total: number, minimumWindow = 12): ChartVisibleRange {
+export function clampChartVisibleRange(
+  range: ChartVisibleRange,
+  total: number,
+  minimumWindow = 12,
+  futurePaddingBars = 0,
+): ChartVisibleRange {
   const safeTotal = Math.max(0, Math.floor(total));
   if (safeTotal === 0) {
     return { start: 0, end: 0 };
   }
 
-  const safeMinimumWindow = Math.max(1, Math.min(safeTotal, Math.floor(minimumWindow)));
+  const safeFuturePadding = Math.max(0, Math.floor(futurePaddingBars));
+  const maxEnd = safeTotal + safeFuturePadding;
+  const safeMinimumWindow = Math.max(1, Math.min(maxEnd, Math.floor(minimumWindow)));
   const requestedStart = Math.floor(range.start);
   const requestedEnd = Math.ceil(range.end);
   const requestedWindow = Math.max(safeMinimumWindow, requestedEnd - requestedStart);
-  const windowSize = Math.min(safeTotal, requestedWindow);
-  const start = Math.max(0, Math.min(safeTotal - windowSize, requestedStart));
+  const windowSize = Math.min(maxEnd, requestedWindow);
+  const start = Math.max(0, Math.min(maxEnd - windowSize, requestedStart));
 
   return { start, end: start + windowSize };
 }
 
-export function zoomChartVisibleRange(range: ChartVisibleRange, total: number, anchorRatio: number, zoomFactor: number): ChartVisibleRange {
-  const current = clampChartVisibleRange(range, total);
+export function getChartFuturePaddingBars(range: ChartVisibleRange) {
+  return Math.max(12, Math.round(Math.max(1, range.end - range.start) * 0.5));
+}
+
+export function zoomChartVisibleRange(
+  range: ChartVisibleRange,
+  total: number,
+  anchorRatio: number,
+  zoomFactor: number,
+  futurePaddingBars = 0,
+): ChartVisibleRange {
+  const current = clampChartVisibleRange(range, total, 12, futurePaddingBars);
   const currentWindow = Math.max(1, current.end - current.start);
   const nextWindow = currentWindow * zoomFactor;
   const safeAnchorRatio = Math.max(0, Math.min(1, anchorRatio));
   const anchorIndex = current.start + currentWindow * safeAnchorRatio;
   const nextStart = Math.round(anchorIndex - nextWindow * safeAnchorRatio);
 
-  return clampChartVisibleRange({ start: nextStart, end: nextStart + nextWindow }, total);
+  return clampChartVisibleRange({ start: nextStart, end: nextStart + nextWindow }, total, 12, futurePaddingBars);
 }
 
-export function panChartVisibleRange(range: ChartVisibleRange, total: number, deltaBars: number): ChartVisibleRange {
-  const current = clampChartVisibleRange(range, total);
+export function panChartVisibleRange(range: ChartVisibleRange, total: number, deltaBars: number, futurePaddingBars = 0): ChartVisibleRange {
+  const current = clampChartVisibleRange(range, total, 12, futurePaddingBars);
   const shift = Math.round(deltaBars);
 
-  return clampChartVisibleRange({ start: current.start + shift, end: current.end + shift }, total);
+  return clampChartVisibleRange({ start: current.start + shift, end: current.end + shift }, total, 12, futurePaddingBars);
 }
 
-export function syncChartVisibleRangeForDataUpdate(range: ChartVisibleRange, previousTotal: number, nextTotal: number): ChartVisibleRange {
+export function syncChartVisibleRangeForDataUpdate(
+  range: ChartVisibleRange,
+  previousTotal: number,
+  nextTotal: number,
+  futurePaddingBars = 0,
+): ChartVisibleRange {
   const safePreviousTotal = Math.max(0, Math.floor(previousTotal));
   const safeNextTotal = Math.max(0, Math.floor(nextTotal));
 
@@ -49,10 +71,16 @@ export function syncChartVisibleRangeForDataUpdate(range: ChartVisibleRange, pre
   const wasPinnedToLatest = safePreviousTotal === 0 || range.end >= safePreviousTotal;
 
   if (wasPinnedToLatest) {
-    return clampChartVisibleRange({ start: safeNextTotal - windowSize, end: safeNextTotal }, safeNextTotal);
+    const preservedFuturePadding = Math.max(0, range.end - safePreviousTotal);
+    return clampChartVisibleRange(
+      { start: safeNextTotal - windowSize + preservedFuturePadding, end: safeNextTotal + preservedFuturePadding },
+      safeNextTotal,
+      12,
+      futurePaddingBars,
+    );
   }
 
-  return clampChartVisibleRange(range, safeNextTotal);
+  return clampChartVisibleRange(range, safeNextTotal, 12, futurePaddingBars);
 }
 
 export function getScaledPriceRange(minPrice: number, maxPrice: number, scaleFactor: number) {
