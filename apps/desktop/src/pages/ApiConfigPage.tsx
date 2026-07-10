@@ -104,6 +104,7 @@ export function ApiConfigPage() {
   const storedAlphaFeedStreamBinding = useMemo(() => readAlphaFeedStreamBinding(), []);
   const storedLongPortBinding = useMemo(() => readLongPortApiBinding(), []);
   const [marketDataProviderSettings, setMarketDataProviderSettings] = useState(() => readMarketDataProviderSettings());
+  const [selectedProviderId, setSelectedProviderId] = useState<ApiProviderPriorityItem["id"]>("stock-sdk");
   const [alphaFeedForm, setAlphaFeedForm] = useState<AlphaFeedApiForm>({
     ...defaultAlphaFeedForm,
     apiUrl: storedAlphaFeedBinding?.apiUrl ?? defaultAlphaFeedForm.apiUrl,
@@ -371,9 +372,42 @@ export function ApiConfigPage() {
         </span>
       </header>
 
-      <div className="api-config-grid">
-        <form className="module-card api-config-form" onSubmit={handleSubmit}>
-          <details className="api-provider-section primary-provider" open>
+      <div className="data-source-workspace">
+        <aside className="data-source-provider-nav" aria-label="数据源优先级">
+          <div className="data-source-panel-heading">
+            <span>数据源优先级</span>
+            <small>当前顺序</small>
+          </div>
+          <ol className="provider-navigation-list">
+            {apiProviderPriorityItems.map((provider) => {
+              const providerStatus = getApiProviderStatus(provider.id, providerBindingState);
+              const isSelected = provider.id === selectedProviderId;
+
+              return (
+                <li key={provider.id}>
+                  <button
+                    aria-pressed={isSelected}
+                    className={isSelected ? "active" : ""}
+                    onClick={() => setSelectedProviderId(provider.id)}
+                    type="button"
+                  >
+                    <span className="provider-order">{provider.order}</span>
+                    {getProviderIcon(provider.id)}
+                    <span className="provider-navigation-copy">
+                      <strong>{provider.name}</strong>
+                      <small>{provider.role === "primary" ? "主行情源" : "备用数据源"}</small>
+                    </span>
+                    <em className={`provider-status-pill ${providerStatus}`}>{formatApiProviderStatus(providerStatus)}</em>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="provider-navigation-note">数据源优先级由行情网关统一执行。配置页面只管理连接信息与可用状态。</p>
+        </aside>
+
+        <form className="module-card api-config-form data-source-config-panel" onSubmit={handleSubmit}>
+          <details className={`api-provider-section primary-provider ${selectedProviderId === "stock-sdk" ? "selected" : ""}`} open>
             <summary>
               <div className="module-card-header">
                 <ServerCog size={20} />
@@ -413,7 +447,7 @@ export function ApiConfigPage() {
 
           <div className="api-section-label">备用数据源</div>
 
-          <details className="api-provider-section">
+          <details className={`api-provider-section ${selectedProviderId === "alphafeed-rest" ? "selected" : ""}`} open={selectedProviderId === "alphafeed-rest"}>
             <summary>
               <div className="module-card-header">
                 <DatabaseZap size={20} />
@@ -453,7 +487,7 @@ export function ApiConfigPage() {
             </div>
           </details>
 
-          <details className="api-provider-section">
+          <details className={`api-provider-section ${selectedProviderId === "alphafeed-websocket" ? "selected" : ""}`} open={selectedProviderId === "alphafeed-websocket"}>
             <summary>
               <div className="module-card-header">
                 <RadioTower size={20} />
@@ -526,7 +560,7 @@ export function ApiConfigPage() {
             </div>
           </details>
 
-          <details className="api-provider-section">
+          <details className={`api-provider-section ${selectedProviderId === "longbridge" ? "selected" : ""}`} open={selectedProviderId === "longbridge"}>
             <summary>
               <div className="module-card-header">
                 <ShieldCheck size={20} />
@@ -597,12 +631,20 @@ export function ApiConfigPage() {
           {error && <div className="auth-message error">{error}</div>}
           {status && <div className="auth-message success">{status}</div>}
 
-          <button className="primary-auth-action" disabled={isSubmitting || !hasDesktopBridge} type="submit">
+          <button
+            className={selectedProviderId === "alphafeed-rest" ? "primary-auth-action" : "primary-auth-action provider-submit-hidden"}
+            disabled={isSubmitting || !hasDesktopBridge}
+            type="submit"
+          >
             {isSubmitting ? "验证中..." : "验证并保存备用数据源"}
           </button>
         </form>
 
-        <aside className="module-card api-status-card">
+        <aside className="module-card api-status-card data-source-diagnostics">
+          <div className="data-source-panel-heading diagnostics-heading">
+            <span>运行诊断</span>
+            <small>连接、同步与安全状态</small>
+          </div>
           <div className="module-card-header">
             <RefreshCw size={20} />
             <div>

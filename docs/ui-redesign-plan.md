@@ -73,3 +73,19 @@ Verification requirements:
 - `npm run build`
 - `npm run test:chart`
 - Browser smoke verification for desktop and compact navigation states.
+
+## Slice 2 Status
+
+Completed:
+
+- Data Source Center now uses provider priority navigation, a single selected configuration surface, and a separate diagnostics column.
+- Existing AlphaFeed REST, AlphaFeed WebSocket, LongBridge, and Stock SDK configuration/state logic remains unchanged.
+- Internal implementation-phase copy is removed from the main data-source workspace.
+- Dashboard is now a task-oriented Today Workspace with real provider, cache, watchlist, and sync state.
+- Unconfigured users receive a functional route to Data Source Center instead of a card-heavy empty dashboard.
+
+Verification:
+
+- Data Source Center and Today Workspace have no horizontal overflow at 1280x800, 1440x900, or 1920x1080.
+- The selected provider controls which configuration panel is visible.
+- Dashboard calls-to-action navigate to the existing Data Source Center or Super Chart routes.
