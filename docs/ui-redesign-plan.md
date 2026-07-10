@@ -89,3 +89,17 @@ Verification:
 - Data Source Center and Today Workspace have no horizontal overflow at 1280x800, 1440x900, or 1920x1080.
 - The selected provider controls which configuration panel is visible.
 - Dashboard calls-to-action navigate to the existing Data Source Center or Super Chart routes.
+
+## Slice 3 Status
+
+Completed:
+
+- Strategy Center now keeps the strategy directory, selected strategy details/parameters, and runtime results in one three-panel research workspace.
+- Pine import and draft preflight are opened only through an explicit Import Pine dialog.
+- Existing preflight, draft, parameter, and strategy runtime logic remains unchanged.
+- Card-heavy summary counters and implementation-stage copy are removed from the default research surface.
+
+Verification:
+
+- Strategy Center and Import Pine dialog work at 1280x800, 1440x900, and 1920x1080 without page-level overflow.
+- The Super Chart remains reachable and renders after strategy navigation at the same three viewport sizes.

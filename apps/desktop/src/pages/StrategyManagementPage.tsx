@@ -30,6 +30,7 @@ import {
   SlidersHorizontal,
   Tags,
   Trash2,
+  X,
 } from "lucide-react";
 
 type StrategyStatus = "enabled" | "disabled";
@@ -105,6 +106,7 @@ export function StrategyManagementPage() {
   const [filter, setFilter] = useState<StrategyFilter>("all");
   const [keyword, setKeyword] = useState("");
   const [pineSourceDraft, setPineSourceDraft] = useState(samplePineSource);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const importedDrafts = useUserStrategyDraftStore((state) => state.drafts);
   const selectedDraftId = useUserStrategyDraftStore((state) => state.selectedDraftId);
   const addImportedDraft = useUserStrategyDraftStore((state) => state.addDraft);
@@ -237,9 +239,20 @@ export function StrategyManagementPage() {
   return (
     <section className="strategy-page">
       <header className="module-header">
+        <div className="strategy-page-heading">
         <p>策略管理</p>
         <h1>策略库与运行管理</h1>
         <span>集中管理预制策略、用户 Pine 草稿和后续插件策略。当前用户草稿仅进入管理与转译准备阶段，不执行用户代码。</span>
+        </div>
+        <div className="strategy-header-status" aria-label="策略概览">
+          <span>预制 {strategies.length}</span>
+          <span>启用 {enabledCount}</span>
+          <span>草稿 {importedDrafts.length}</span>
+        </div>
+        <button className="strategy-import-trigger" onClick={() => setIsImportDialogOpen(true)} type="button">
+          <FilePlus2 size={16} />
+          导入 Pine
+        </button>
       </header>
 
       <div className="strategy-summary-grid">
@@ -270,7 +283,17 @@ export function StrategyManagementPage() {
         </div>
       </div>
 
-      <section className="module-card strategy-import-panel">
+      {isImportDialogOpen && (
+        <div className="strategy-import-backdrop" role="presentation" onClick={() => setIsImportDialogOpen(false)}>
+          <section
+            aria-label="导入 Pine 策略"
+            className="module-card strategy-import-panel strategy-import-dialog"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <button aria-label="关闭导入" className="strategy-import-close" onClick={() => setIsImportDialogOpen(false)} type="button">
+              <X size={16} />
+            </button>
         <div className="module-card-header">
           <FilePlus2 size={20} />
           <div>
@@ -576,7 +599,9 @@ export function StrategyManagementPage() {
             </div>
           </div>
         )}
-      </section>
+          </section>
+        </div>
+      )}
 
       <div className="strategy-workspace-grid">
         <aside className="module-card strategy-list-panel">
