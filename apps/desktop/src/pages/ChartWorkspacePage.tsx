@@ -48,6 +48,7 @@ import {
   type ChartQuoteSnapshotBatchResult,
 } from "../features/marketData/chartMarketDataGateway";
 import { readMarketDataProviderSettings } from "../features/marketData/marketDataProviderSettings";
+import { createChartIndicatorLayers, defaultChartIndicatorSettings, type ChartIndicatorSettings } from "../features/chartIndicators/chartIndicators";
 import {
   summarizeMarketDataProviderHealth,
   type MarketDataProviderDiagnosticSummary,
@@ -121,7 +122,7 @@ const WORKSPACE_PREFERENCES_KEY = "quant-learning.chart-workspace-preferences";
 type StrategyWorkspaceState = ChartStrategyWorkspaceState;
 
 interface ChartWorkspacePreferences {
-  version: 4;
+  version: 5;
   showSignals: boolean;
   showStrategyLayers: boolean;
   showMovingAverage: boolean;
@@ -133,6 +134,7 @@ interface ChartWorkspacePreferences {
   intradayDisplayMode: ChartDisplayMode;
   realtimePollIntervalMs: number;
   strategies: Record<string, StrategyWorkspaceState>;
+  indicators: ChartIndicatorSettings;
 }
 
 type ChartBottomTab = "layers" | "signals" | "logs";
@@ -159,7 +161,7 @@ function getDefaultStrategyState(strategy: StrategyDefinition, index: number): S
 
 function createDefaultWorkspacePreferences(): ChartWorkspacePreferences {
   return {
-    version: 4,
+    version: 5,
     showSignals: true,
     showStrategyLayers: true,
     showMovingAverage: true,
@@ -174,6 +176,7 @@ function createDefaultWorkspacePreferences(): ChartWorkspacePreferences {
       settings[strategy.key] = getDefaultStrategyState(strategy, index);
       return settings;
     }, {}),
+    indicators: defaultChartIndicatorSettings,
   };
 }
 
@@ -282,12 +285,12 @@ function readWorkspacePreferences(): ChartWorkspacePreferences {
       };
     }
 
-    if (parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4) {
+    if (parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4 && parsed.version !== 5) {
       return defaultPreferences;
     }
 
     return {
-      version: 4,
+      version: 5,
       showSignals: typeof parsed.showSignals === "boolean" ? parsed.showSignals : defaultPreferences.showSignals,
       showStrategyLayers:
         typeof parsed.showStrategyLayers === "boolean" ? parsed.showStrategyLayers : defaultPreferences.showStrategyLayers,
@@ -304,6 +307,17 @@ function readWorkspacePreferences(): ChartWorkspacePreferences {
         settings[strategy.key] = normalizeStrategyState(strategy, index, parsed.strategies?.[strategy.key]);
         return settings;
       }, {}),
+      indicators: {
+        movingAverage: {
+          enabled: typeof parsed.indicators?.movingAverage?.enabled === "boolean" ? parsed.indicators.movingAverage.enabled : parsed.showMovingAverage !== false,
+          window: Number.isFinite(parsed.indicators?.movingAverage?.window) ? Math.max(2, Math.min(240, parsed.indicators.movingAverage.window)) : 9,
+        },
+        bollingerBands: {
+          enabled: typeof parsed.indicators?.bollingerBands?.enabled === "boolean" ? parsed.indicators.bollingerBands.enabled : false,
+          window: Number.isFinite(parsed.indicators?.bollingerBands?.window) ? Math.max(2, Math.min(240, parsed.indicators.bollingerBands.window)) : 20,
+          multiplier: Number.isFinite(parsed.indicators?.bollingerBands?.multiplier) ? Math.max(0.1, Math.min(6, parsed.indicators.bollingerBands.multiplier)) : 2,
+        },
+      },
     };
   } catch {
     return defaultPreferences;
@@ -676,7 +690,8 @@ export function ChartWorkspacePage() {
   const quoteSnapshotsByKeyRef = useRef<Record<string, MarketQuoteSnapshot>>({});
   const [showSignals, setShowSignals] = useState(workspacePreferences.showSignals);
   const [showStrategyLayers, setShowStrategyLayers] = useState(workspacePreferences.showStrategyLayers);
-  const [showMovingAverage, setShowMovingAverage] = useState(workspacePreferences.showMovingAverage);
+  const [indicatorSettings, setIndicatorSettings] = useState<ChartIndicatorSettings>(workspacePreferences.indicators);
+  const [isIndicatorSettingsOpen, setIsIndicatorSettingsOpen] = useState(false);
   const [showCrosshair, setShowCrosshair] = useState(workspacePreferences.showCrosshair);
   const [showGrid, setShowGrid] = useState(workspacePreferences.showGrid);
   const [showVolume, setShowVolume] = useState(workspacePreferences.showVolume);
@@ -706,6 +721,7 @@ export function ChartWorkspacePage() {
     [watchlist],
   );
   const cachedCandles = useMemo(() => marketBarsToCandles(displayedMarketBars), [displayedMarketBars]);
+  const indicatorLayers = useMemo(() => createChartIndicatorLayers(cachedCandles, indicatorSettings), [cachedCandles, indicatorSettings]);
   const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(displayedMarketBars), [displayedMarketBars]);
   const renderedCandles = cachedCandles;
   const strategyInputBars = cachedStrategyBars;
@@ -1243,10 +1259,10 @@ export function ChartWorkspacePage() {
 
   useEffect(() => {
     const preferences: ChartWorkspacePreferences = {
-      version: 4,
+      version: 5,
       showSignals,
       showStrategyLayers,
-      showMovingAverage,
+      showMovingAverage: indicatorSettings.movingAverage.enabled,
       showCrosshair,
       showGrid,
       showVolume,
@@ -1255,6 +1271,7 @@ export function ChartWorkspacePage() {
       intradayDisplayMode,
       realtimePollIntervalMs,
       strategies: strategySettings,
+      indicators: indicatorSettings,
     };
 
     saveWorkspacePreferences(preferences);
@@ -1264,7 +1281,7 @@ export function ChartWorkspacePage() {
     showCrosshair,
     showCurrentPriceLine,
     showGrid,
-    showMovingAverage,
+    indicatorSettings,
     showPriceLabels,
     showSignals,
     showStrategyLayers,
@@ -1354,9 +1371,13 @@ export function ChartWorkspacePage() {
         </div>
 
         <div className="chart-toggle-group">
-          <button className={showMovingAverage ? "active" : ""} onClick={() => setShowMovingAverage((value) => !value)} type="button">
+          <button className={indicatorSettings.movingAverage.enabled ? "active" : ""} onClick={() => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, enabled: !current.movingAverage.enabled } }))} type="button">
             <LineChart size={16} />
             <span>均线</span>
+          </button>
+          <button className={isIndicatorSettingsOpen ? "active" : ""} onClick={() => setIsIndicatorSettingsOpen((value) => !value)} type="button">
+            <SlidersHorizontal size={16} />
+            <span>指标</span>
           </button>
           <button className={showSignals ? "active" : ""} onClick={() => setShowSignals((value) => !value)} type="button">
             <Gauge size={16} />
@@ -1455,14 +1476,25 @@ export function ChartWorkspacePage() {
             showCrosshair={showCrosshair}
             showCurrentPriceLine={showCurrentPriceLine}
             showGrid={showGrid}
-            showMovingAverage={showMovingAverage}
+            showMovingAverage={false}
             showPriceLabels={showPriceLabels}
             showSignals={showSignals}
             showStrategyLayers={canShowStrategyLayers}
             showVolume={showVolume}
             resetViewKey={chartResetViewKey}
             strategyLayers={strategyLayers}
+            layers={indicatorLayers}
           />
+          {isIndicatorSettingsOpen && (
+            <section className="chart-settings-popover indicator-settings-popover" aria-label="指标管理">
+              <div className="chart-settings-heading"><strong>指标管理</strong><button onClick={() => setIsIndicatorSettingsOpen(false)} type="button">关闭</button></div>
+              <label className="parameter-toggle"><span><strong>均线</strong><small>显示趋势均线</small></span><input checked={indicatorSettings.movingAverage.enabled} onChange={(event) => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, enabled: event.currentTarget.checked } }))} type="checkbox" /></label>
+              <label><span>均线周期</span><input min="2" max="240" onChange={(event) => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, window: Number(event.currentTarget.value) || 9 } }))} type="number" value={indicatorSettings.movingAverage.window} /></label>
+              <label className="parameter-toggle"><span><strong>布林带</strong><small>显示波动区间</small></span><input checked={indicatorSettings.bollingerBands.enabled} onChange={(event) => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, enabled: event.currentTarget.checked } }))} type="checkbox" /></label>
+              <label><span>布林周期</span><input min="2" max="240" onChange={(event) => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, window: Number(event.currentTarget.value) || 20 } }))} type="number" value={indicatorSettings.bollingerBands.window} /></label>
+              <label><span>标准差倍数</span><input min="0.1" max="6" step="0.1" onChange={(event) => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, multiplier: Number(event.currentTarget.value) || 2 } }))} type="number" value={indicatorSettings.bollingerBands.multiplier} /></label>
+            </section>
+          )}
           {isChartSettingsOpen && (
             <section className="chart-settings-popover" aria-label="图表设置">
               <div className="chart-settings-heading">

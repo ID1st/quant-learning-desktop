@@ -92,12 +92,25 @@ export interface ChartLayer {
   elements: ChartLayerElement[];
 }
 
+export type ChartLayerSource = "strategy" | "indicator" | "drawing";
+
+export interface ChartRenderLayer {
+  id: string;
+  name: string;
+  source: ChartLayerSource;
+  enabled: boolean;
+  visible: boolean;
+  zIndex: number;
+  elements: ChartLayerElement[];
+}
+
 export interface ChartViewportProps {
   context?: ChartContext;
   candles?: CandlePoint[];
   showSignals?: boolean;
   showMovingAverage?: boolean;
   strategyLayers?: ChartLayer[];
+  layers?: ChartRenderLayer[];
   showStrategyLayers?: boolean;
   showCrosshair?: boolean;
   showGrid?: boolean;
@@ -240,6 +253,7 @@ export function ChartViewport({
   showSignals = true,
   showMovingAverage = true,
   strategyLayers = [],
+  layers = [],
   showStrategyLayers = true,
   showCrosshair = true,
   showGrid = true,
@@ -584,8 +598,17 @@ export function ChartViewport({
         {chartDepthPath && <path className="chart-depth" d={chartDepthPath} />}
 
         {showStrategyLayers &&
-          strategyLayers
-            .filter((layer) => layer.enabled)
+          [...strategyLayers.map((layer): ChartRenderLayer => ({
+            id: layer.strategyId,
+            name: layer.strategyName,
+            source: "strategy",
+            enabled: layer.enabled,
+            visible: true,
+            zIndex: layer.zIndex,
+            elements: layer.elements,
+          })), ...layers]
+            .filter((layer) => layer.enabled && layer.visible)
+            .sort((left, right) => left.zIndex - right.zIndex)
             .flatMap((layer) =>
               layer.elements.map((element) => {
                 if (element.visible === false) {
@@ -607,7 +630,7 @@ export function ChartViewport({
                     <rect
                       className={`strategy-band ${element.tone}`}
                       height={bandHeight}
-                      key={`${layer.strategyId}-${element.id}`}
+                      key={`${layer.id}-${element.id}`}
                       width={Math.max(2, plotRight - x)}
                       x={x}
                       y={y}
@@ -633,7 +656,7 @@ export function ChartViewport({
                   return (
                     <g
                       className={`strategy-price-line ${element.tone}${isProjected ? " projected" : ""}`}
-                      key={`${layer.strategyId}-${element.id}`}
+                      key={`${layer.id}-${element.id}`}
                     >
                       <line x1={lineStartX} x2={plotRight} y1={y} y2={y} />
                       {isProjected && <rect height={30} rx={4} width={labelWidth} x={labelX} y={labelY} />}
@@ -658,7 +681,7 @@ export function ChartViewport({
                     <path
                       className={`strategy-trend-line ${element.tone}`}
                       d={createSmoothPath(visibleTrendPoints)}
-                      key={`${layer.strategyId}-${element.id}`}
+                      key={`${layer.id}-${element.id}`}
                     />
                   );
                 }
@@ -678,7 +701,7 @@ export function ChartViewport({
                     : `${x},${y + 18} ${x - 8},${y + 3} ${x + 8},${y + 3}`;
 
                 return (
-                  <g className={`strategy-signal-marker ${element.tone}`} key={`${layer.strategyId}-${element.id}`}>
+                  <g className={`strategy-signal-marker ${element.tone}`} key={`${layer.id}-${element.id}`}>
                     <polygon points={points} />
                   </g>
                 );
