@@ -11,6 +11,7 @@ interface StockSdkClient {
     cn(codes: string[]): Promise<readonly unknown[]>;
     hk(codes: string[]): Promise<readonly unknown[]>;
     us(codes: string[]): Promise<readonly unknown[]>;
+    timeline?(code: string): Promise<unknown>;
   };
   readonly kline: {
     cn(symbol: string, options: Record<string, unknown>): Promise<readonly unknown[]>;
@@ -78,16 +79,34 @@ export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkCli
         adjust: "" as const,
         ndays: 5,
       };
+      const canUseTimeline = canUseTencentTimeline(request, sdk);
 
-      if (request.market === "CN") {
-        return toRawRecords(await withRequestTimeout(sdk.kline.cnMinute(request.providerSymbol, options), "Stock SDK CN intraday"));
+      if (canUseTimeline) {
+        try {
+          return await fetchTencentTimelineBars(sdk, request);
+        } catch {
+          // The minute K-line endpoint remains a secondary path when Tencent
+          // cannot serve the current-session timeline for a symbol.
+        }
       }
 
-      if (request.market === "HK") {
-        return toRawRecords(await withRequestTimeout(sdk.kline.hkMinute(request.providerSymbol, options), "Stock SDK HK intraday"));
-      }
+      try {
+        if (request.market === "CN") {
+          return toRawRecords(await withRequestTimeout(sdk.kline.cnMinute(request.providerSymbol, options), "Stock SDK CN intraday"));
+        }
 
-      return toRawRecords(await withRequestTimeout(sdk.kline.usMinute(request.providerSymbol, options), "Stock SDK US intraday"));
+        if (request.market === "HK") {
+          return toRawRecords(await withRequestTimeout(sdk.kline.hkMinute(request.providerSymbol, options), "Stock SDK HK intraday"));
+        }
+
+        return toRawRecords(await withRequestTimeout(sdk.kline.usMinute(request.providerSymbol, options), "Stock SDK US intraday"));
+      } catch (error) {
+        if (!canUseTimeline || !isNetworkFailure(error)) {
+          throw error;
+        }
+
+        return fetchTencentTimelineBars(sdk, request);
+      }
     },
     async searchInstruments(query) {
       const sdk = await getSdk();
@@ -145,14 +164,127 @@ function sameSymbol(left: string, right: string) {
 }
 
 function normalizeComparableSymbol(symbol: string) {
-  return symbol.trim().toUpperCase().replace(/^HK/u, "").replace(/\.HK$|\.US$|\.SH$|\.SZ$/u, "");
+  return symbol
+    .trim()
+    .toUpperCase()
+    .replace(/^HK/u, "")
+    .replace(/\.(HK|US|SH|SZ|OQ|N)$/u, "");
+}
+
+function canUseTencentTimeline(
+  request: StockSdkBarRequest,
+  sdk: StockSdkClient,
+): sdk is StockSdkClient & { readonly quotes: StockSdkClient["quotes"] & { timeline(code: string): Promise<unknown> } } {
+  return (
+    request.period === "1" &&
+    (request.market === "CN" || request.market === "HK") &&
+    typeof sdk.quotes.timeline === "function"
+  );
+}
+
+async function fetchTencentTimelineBars(
+  sdk: StockSdkClient & { readonly quotes: StockSdkClient["quotes"] & { timeline(code: string): Promise<unknown> } },
+  request: StockSdkBarRequest,
+) {
+  const timeline = await withRequestTimeout(
+    sdk.quotes.timeline(toTencentTimelineSymbol(request)),
+    `Stock SDK ${request.market} Tencent timeline`,
+  );
+  return mapTencentTimelineToBars(timeline);
+}
+
+function isNetworkFailure(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return (
+    message.includes("fetch failed") ||
+    message.includes("socket") ||
+    message.includes("network") ||
+    message.includes("timeout") ||
+    message.includes("timed out")
+  );
+}
+
+function toTencentTimelineSymbol(request: StockSdkBarRequest) {
+  if (request.market === "HK") {
+    return `hk${request.providerSymbol.replace(/^HK/u, "")}`;
+  }
+
+  const symbol = request.symbol.trim().toUpperCase();
+  const code = request.providerSymbol.replace(/^(SH|SZ)/iu, "");
+  const exchange = symbol.endsWith(".SZ") || symbol.startsWith("SZ") || code.startsWith("0") || code.startsWith("3") ? "sz" : "sh";
+  return `${exchange}${code}`;
+}
+
+function mapTencentTimelineToBars(timeline: unknown): readonly StockSdkRawRecord[] {
+  if (!isRecord(timeline) || !Array.isArray(timeline.data)) {
+    throw new Error("Stock SDK Tencent timeline returned no usable intraday data.");
+  }
+
+  let previousVolume = 0;
+  let previousAmount = 0;
+  const bars: StockSdkRawRecord[] = [];
+
+  for (const point of timeline.data) {
+    if (!isRecord(point)) {
+      continue;
+    }
+
+    const timestamp = readFiniteNumber(point.timestamp);
+    const price = readFiniteNumber(point.price);
+    if (timestamp === undefined || price === undefined || price <= 0) {
+      continue;
+    }
+
+    const cumulativeVolume = readFiniteNumber(point.volume) ?? previousVolume;
+    const cumulativeAmount = readFiniteNumber(point.amount) ?? previousAmount;
+    bars.push({
+      timestamp,
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+      volume: Math.max(0, cumulativeVolume - previousVolume),
+      amount: Math.max(0, cumulativeAmount - previousAmount),
+    });
+    previousVolume = cumulativeVolume;
+    previousAmount = cumulativeAmount;
+  }
+
+  if (bars.length === 0) {
+    throw new Error("Stock SDK Tencent timeline returned no usable intraday data.");
+  }
+
+  return bars;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readFiniteNumber(value: unknown) {
+  const numeric = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : NaN;
+  return Number.isFinite(numeric) ? numeric : undefined;
 }
 
 function toHistoryRangeOptions(request: StockSdkBarRequest) {
+  const endTime = request.endTime ?? Date.now();
+  const startTime = request.startTime ?? estimateHistoryStartTime(request, endTime);
+
   return {
-    startDate: request.startTime ? formatDate(request.startTime) : undefined,
-    endDate: request.endTime ? formatDate(request.endTime) : undefined,
+    startDate: startTime ? formatDate(startTime) : undefined,
+    endDate: request.startTime || request.endTime || request.count ? formatDate(endTime) : undefined,
   };
+}
+
+function estimateHistoryStartTime(request: StockSdkBarRequest, endTime: number) {
+  if (!request.count || request.count < 1) {
+    return undefined;
+  }
+
+  // Upstream history endpoints do not accept a bar count. Use a conservative
+  // calendar-day window so the SDK does not fetch an unbounded listing history.
+  const calendarDaysPerBar = request.period === "weekly" ? 8 : 2;
+  return endTime - Math.ceil(request.count) * calendarDaysPerBar * 24 * 60 * 60 * 1_000;
 }
 
 function formatDate(timestamp: number) {

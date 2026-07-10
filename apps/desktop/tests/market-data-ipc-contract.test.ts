@@ -234,7 +234,7 @@ test("market data IPC handlers return no capable provider when stock sdk is disa
   assert.deepEqual(result.error.fallback.triedProviders, []);
 });
 
-test("market data IPC handlers fetch historical bars through stock sdk primary", async () => {
+test("market data IPC handlers fetch CN historical bars through stock sdk primary", async () => {
   const calls: string[] = [];
   const handlers = createMarketDataIpcHandlers({
     credentialStore: createEmptyCredentialStore(),
@@ -253,7 +253,7 @@ test("market data IPC handlers fetch historical bars through stock sdk primary",
 
   const result = await handlers.fetchHistoricalBars({
     context: { source: "chart" },
-    request: { symbol: "AAPL.US", market: "US", timeframe: "1d", count: 600 },
+    request: { symbol: "600519.SH", market: "CN", timeframe: "1d", count: 600 },
     providerPolicy: { stockSdkPrimaryEnabled: true },
   });
 
@@ -263,7 +263,7 @@ test("market data IPC handlers fetch historical bars through stock sdk primary",
   assert.deepEqual(calls, ["history"]);
 });
 
-test("market data IPC handlers fetch realtime history through intraday bars", async () => {
+test("market data IPC handlers fetch CN realtime history through Stock SDK intraday bars", async () => {
   const calls: string[] = [];
   const handlers = createMarketDataIpcHandlers({
     credentialStore: createEmptyCredentialStore(),
@@ -282,7 +282,7 @@ test("market data IPC handlers fetch realtime history through intraday bars", as
 
   const result = await handlers.fetchIntradayBars({
     context: { source: "chart" },
-    request: { symbol: "AAPL.US", market: "US", timeframe: "1m", count: 1_000 },
+    request: { symbol: "600519.SH", market: "CN", timeframe: "1m", count: 1_000 },
     providerPolicy: { stockSdkPrimaryEnabled: true },
   });
 
@@ -292,13 +292,19 @@ test("market data IPC handlers fetch realtime history through intraday bars", as
   assert.deepEqual(calls, ["intraday"]);
 });
 
-test("market data IPC handlers use the emergency US intraday provider after Stock SDK fails", async () => {
+test("market data IPC handlers prefer the verified US bar provider without waiting for Stock SDK K-lines", async () => {
+  let stockSdkHistoricalCalls = 0;
+  let stockSdkIntradayCalls = 0;
   const handlers = createMarketDataIpcHandlers({
     credentialStore: createEmptyCredentialStore(),
     stockSdkOperations: {
       fetchQuoteSnapshot: async () => [],
-      fetchHistoricalBars: async () => [],
+      fetchHistoricalBars: async () => {
+        stockSdkHistoricalCalls += 1;
+        throw new Error("Stock SDK network unavailable");
+      },
       fetchIntradayBars: async () => {
+        stockSdkIntradayCalls += 1;
         throw new Error("Stock SDK network unavailable");
       },
     },
@@ -325,11 +331,21 @@ test("market data IPC handlers use the emergency US intraday provider after Stoc
     request: { symbol: "AAPL.US", market: "US", timeframe: "1m" },
     providerPolicy: { stockSdkPrimaryEnabled: true },
   });
+  const historical = await handlers.fetchHistoricalBars({
+    context: { source: "chart" },
+    request: { symbol: "AAPL.US", market: "US", timeframe: "1d" },
+    providerPolicy: { stockSdkPrimaryEnabled: true },
+  });
 
   assert.equal(result.ok, true);
   assert.equal(result.meta.provider, "yahoo-finance");
-  assert.deepEqual(result.meta.fallback.triedProviders, ["stock-sdk", "yahoo-finance"]);
+  assert.deepEqual(result.meta.fallback.triedProviders, ["yahoo-finance"]);
   assert.equal(result.data[0]?.symbol, "AAPL.US");
+  assert.equal(historical.ok, true);
+  assert.equal(historical.meta.provider, "yahoo-finance");
+  assert.deepEqual(historical.meta.fallback.triedProviders, ["yahoo-finance"]);
+  assert.equal(stockSdkIntradayCalls, 0);
+  assert.equal(stockSdkHistoricalCalls, 0);
 });
 
 test("market data IPC handlers control quote stream through secure desktop credentials", async () => {

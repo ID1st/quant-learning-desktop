@@ -2,9 +2,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
-import { StockSDK } from "stock-sdk";
-
 import { createStockSdkGatewayProvider } from "../apps/desktop/src/features/marketData/stockSdkGatewayProvider.ts";
+import { createStockSdkGatewayProviderOperations } from "../apps/desktop/src/features/marketData/stockSdkProviderOperations.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -16,56 +15,8 @@ const symbols = [
   { market: "US", symbol: "AAPL.US", name: "Apple" },
 ];
 
-const sdk = new StockSDK({
-  retry: { maxRetries: 1, baseDelay: 500 },
-  providerPolicies: {
-    eastmoney: { timeout: 12_000, rateLimit: { requestsPerSecond: 2, maxBurst: 2 } },
-    tencent: { timeout: 12_000, rateLimit: { requestsPerSecond: 2, maxBurst: 2 } },
-  },
-});
-
-const operations = {
-  async fetchQuoteSnapshot(requests) {
-    const records = [];
-    for (const market of ["CN", "HK", "US"]) {
-      const group = requests.filter((request) => request.market === market);
-      if (group.length === 0) {
-        continue;
-      }
-
-      const codes = group.map((request) => request.providerSymbol);
-      const result =
-        market === "CN" ? await sdk.quotes.cn(codes) : market === "HK" ? await sdk.quotes.hk(codes) : await sdk.quotes.us(codes);
-      records.push(...result.map((record) => attachProviderSymbol(record, group)));
-    }
-
-    return records;
-  },
-  async fetchHistoricalBars(request) {
-    const options = { period: request.period, adjust: "", ...toDateRangeOptions(request, false) };
-    if (request.market === "CN") {
-      return sdk.kline.cn(request.providerSymbol, options);
-    }
-
-    if (request.market === "HK") {
-      return sdk.kline.hk(request.providerSymbol, options);
-    }
-
-    return sdk.kline.us(request.providerSymbol, options);
-  },
-  async fetchIntradayBars(request) {
-    const options = { period: request.period, adjust: "", ndays: 5, ...toDateRangeOptions(request, true) };
-    if (request.market === "CN") {
-      return sdk.kline.cnMinute(request.providerSymbol, options);
-    }
-
-    if (request.market === "HK") {
-      return sdk.kline.hkMinute(request.providerSymbol, options);
-    }
-
-    return sdk.kline.usMinute(request.providerSymbol, options);
-  },
-};
+// Exercise the same production adapter that Electron registers behind the IPC gateway.
+const operations = createStockSdkGatewayProviderOperations();
 
 const provider = createStockSdkGatewayProvider(operations, { enabled: true, delayLevel: "unknown" });
 
@@ -75,7 +26,7 @@ const report = {
     name: "stock-sdk",
     version: "2.3.0",
   },
-  productionImpact: "not-enabled",
+  productionImpact: "production-adapter",
   symbols,
   checks: [],
   summary: {
@@ -158,29 +109,6 @@ async function runCheck(name, execute) {
       },
     });
   }
-}
-
-function attachProviderSymbol(record, requests) {
-  const recordCode = String(record?.code ?? record?.symbol ?? record?.secid ?? "").toUpperCase();
-  const match =
-    requests.find((request) => sameSymbol(recordCode, request.providerSymbol)) ??
-    requests.find((request) => sameSymbol(recordCode, request.symbol));
-  return {
-    ...record,
-    providerSymbol: match?.providerSymbol ?? recordCode,
-  };
-}
-
-function sameSymbol(left, right) {
-  return normalizeComparableSymbol(left) === normalizeComparableSymbol(right);
-}
-
-function normalizeComparableSymbol(symbol) {
-  return String(symbol).trim().toUpperCase().replace(/^HK/u, "").replace(/\.HK$|\.US$|\.SH$|\.SZ$/u, "");
-}
-
-function toDateRangeOptions(_request, _isIntraday) {
-  return {};
 }
 
 function assertMinimumRows(rows, minimum, label) {

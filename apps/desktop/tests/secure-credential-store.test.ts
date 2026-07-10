@@ -37,6 +37,38 @@ test("secure credential store saves encrypted AlphaFeed credentials", () => {
   });
 });
 
+test("secure credential store keeps legacy AlphaFeed credentials inactive until explicitly re-saved", () => {
+  const store = createMemoryPersistenceStore();
+  const crypto = createTestCrypto();
+  const encryptedPayload = crypto.encrypt(
+    JSON.stringify({
+      apiUrl: "https://api.alphafeed.org",
+      apiKey: "legacy-alpha-secret",
+    }),
+  );
+  store.setItem(
+    "secure-credentials.alphafeed",
+    JSON.stringify({
+      version: 1,
+      provider: "alphafeed",
+      encryptedPayload,
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    }),
+  );
+  const secureStore = createSecureCredentialStore(store, crypto);
+
+  assert.equal(secureStore.readAlphaFeedCredentials(), null);
+
+  secureStore.saveAlphaFeedCredentials({
+    apiUrl: "https://api.alphafeed.org",
+    apiKey: "new-alpha-secret",
+  });
+  assert.deepEqual(secureStore.readAlphaFeedCredentials(), {
+    apiUrl: "https://api.alphafeed.org",
+    apiKey: "new-alpha-secret",
+  });
+});
+
 test("secure credential store saves encrypted LongBridge credentials", () => {
   const store = createMemoryPersistenceStore();
   const secureStore = createSecureCredentialStore(store, createTestCrypto());
@@ -55,6 +87,44 @@ test("secure credential store saves encrypted LongBridge credentials", () => {
     appKey: "app-key",
     appSecret: "app-secret",
     accessToken: "access-token",
+  });
+});
+
+test("secure credential store keeps legacy LongBridge credentials inactive until explicitly re-saved", () => {
+  const store = createMemoryPersistenceStore();
+  const crypto = createTestCrypto();
+  const encryptedPayload = crypto.encrypt(
+    JSON.stringify({
+      apiUrl: "https://openapi.longportapp.com",
+      appKey: "legacy-app-key",
+      appSecret: "legacy-app-secret",
+      accessToken: "legacy-access-token",
+    }),
+  );
+  store.setItem(
+    "secure-credentials.longport",
+    JSON.stringify({
+      version: 1,
+      provider: "longport",
+      encryptedPayload,
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    }),
+  );
+  const secureStore = createSecureCredentialStore(store, crypto);
+
+  assert.equal(secureStore.readLongPortCredentials(), null);
+
+  secureStore.saveLongPortCredentials({
+    apiUrl: "https://openapi.longportapp.com",
+    appKey: "new-app-key",
+    appSecret: "new-app-secret",
+    accessToken: "new-access-token",
+  });
+  assert.deepEqual(secureStore.readLongPortCredentials(), {
+    apiUrl: "https://openapi.longportapp.com",
+    appKey: "new-app-key",
+    appSecret: "new-app-secret",
+    accessToken: "new-access-token",
   });
 });
 

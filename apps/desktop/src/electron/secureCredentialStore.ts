@@ -31,6 +31,7 @@ interface SecureCredentialEnvelope {
   provider: SecureCredentialProvider;
   encryptedPayload: string;
   updatedAt: string;
+  activatedAt?: string;
 }
 
 const STORAGE_VERSION = 1;
@@ -102,39 +103,46 @@ function readEnvelope(value: string | null, provider: SecureCredentialProvider):
       provider,
       encryptedPayload: parsed.encryptedPayload,
       updatedAt: parsed.updatedAt,
+      activatedAt: typeof parsed.activatedAt === "string" ? parsed.activatedAt : undefined,
     };
   } catch {
     return null;
   }
 }
 
-function createEnvelope(provider: SecureCredentialProvider, encryptedPayload: string): SecureCredentialEnvelope {
+function createEnvelope(
+  provider: SecureCredentialProvider,
+  encryptedPayload: string,
+  activatedAt?: string,
+): SecureCredentialEnvelope {
   return {
     version: STORAGE_VERSION,
     provider,
     encryptedPayload,
     updatedAt: new Date().toISOString(),
+    activatedAt,
   };
 }
 
 export function createSecureCredentialStore(store: LocalPersistenceStore, crypto: SecureCredentialCrypto): SecureCredentialStore {
-  const saveCredentials = (key: string, provider: SecureCredentialProvider, credentials: object) => {
+  const saveCredentials = (key: string, provider: SecureCredentialProvider, credentials: object, activate = false) => {
     if (!crypto.isEncryptionAvailable()) {
       throw new Error("当前系统不支持安全凭据加密。");
     }
 
     const encryptedPayload = crypto.encrypt(JSON.stringify(credentials));
-    store.setItem(key, JSON.stringify(createEnvelope(provider, encryptedPayload)));
+    store.setItem(key, JSON.stringify(createEnvelope(provider, encryptedPayload, activate ? new Date().toISOString() : undefined)));
   };
 
   const readCredentials = <T>(
     key: string,
     provider: SecureCredentialProvider,
     sanitize: (value: unknown) => T | null,
+    requireActivation = false,
   ): T | null => {
     const envelope = readEnvelope(store.getItem(key), provider);
 
-    if (!envelope) {
+    if (!envelope || (requireActivation && !envelope.activatedAt)) {
       return null;
     }
 
@@ -152,9 +160,11 @@ export function createSecureCredentialStore(store: LocalPersistenceStore, crypto
         throw new Error("AlphaFeed 凭据不完整。");
       }
 
-      saveCredentials(ALPHAFEED_CREDENTIAL_KEY, "alphafeed", sanitized);
+      // AlphaFeed REST is opt-in. Legacy encrypted entries without this marker
+      // remain inert until the user explicitly fills and verifies the current form.
+      saveCredentials(ALPHAFEED_CREDENTIAL_KEY, "alphafeed", sanitized, true);
     },
-    readAlphaFeedCredentials: () => readCredentials(ALPHAFEED_CREDENTIAL_KEY, "alphafeed", sanitizeAlphaFeedCredentials),
+    readAlphaFeedCredentials: () => readCredentials(ALPHAFEED_CREDENTIAL_KEY, "alphafeed", sanitizeAlphaFeedCredentials, true),
     clearAlphaFeedCredentials: () => store.removeItem(ALPHAFEED_CREDENTIAL_KEY),
     saveAlphaFeedStreamCredentials: (credentials) => {
       const sanitized = sanitizeAlphaFeedStreamCredentials(credentials);
@@ -173,9 +183,11 @@ export function createSecureCredentialStore(store: LocalPersistenceStore, crypto
         throw new Error("长桥凭据不完整。");
       }
 
-      saveCredentials(LONGPORT_CREDENTIAL_KEY, "longport", sanitized);
+      // LongBridge is opt-in. Legacy encrypted entries without this marker stay
+      // inert until the user explicitly fills and verifies the current form.
+      saveCredentials(LONGPORT_CREDENTIAL_KEY, "longport", sanitized, true);
     },
-    readLongPortCredentials: () => readCredentials(LONGPORT_CREDENTIAL_KEY, "longport", sanitizeLongPortCredentials),
+    readLongPortCredentials: () => readCredentials(LONGPORT_CREDENTIAL_KEY, "longport", sanitizeLongPortCredentials, true),
     clearLongPortCredentials: () => store.removeItem(LONGPORT_CREDENTIAL_KEY),
   };
 }

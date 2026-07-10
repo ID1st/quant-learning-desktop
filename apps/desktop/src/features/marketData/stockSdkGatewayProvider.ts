@@ -496,7 +496,11 @@ function readOptionalString(record: StockSdkRawRecord, keys: readonly string[]) 
 }
 
 function normalizeComparableSymbol(symbol: string) {
-  return symbol.trim().toUpperCase().replace(/^HK/u, "").replace(/\.HK$|\.US$|\.SH$|\.SZ$/u, "");
+  return symbol
+    .trim()
+    .toUpperCase()
+    .replace(/^HK/u, "")
+    .replace(/\.(HK|US|SH|SZ|OQ|N)$/u, "");
 }
 
 function classifyStockSdkFailure(message: string): MarketDataProviderHealthStatus {

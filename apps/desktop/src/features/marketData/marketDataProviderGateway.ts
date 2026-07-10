@@ -235,8 +235,9 @@ export function createMarketDataGateway(
     capability: MarketDataProviderCapabilityKey,
     operation: (provider: GatewayMarketDataProvider) => Promise<Data>,
     isUsableData: (data: Data) => boolean = () => true,
+    isCompatible: (provider: GatewayMarketDataProvider) => boolean = () => true,
   ): Promise<MarketDataGatewayResult<Data>> => {
-    const candidates = orderProviders(registry.listByCapability(capability));
+    const candidates = orderProviders(registry.listByCapability(capability).filter(isCompatible));
     const triedProviders: GatewayMarketDataProviderId[] = [];
     const healthViews: MarketDataProviderHealthView[] = [];
     let lastError: MarketDataGatewayError | undefined;
@@ -309,25 +310,34 @@ export function createMarketDataGateway(
         if (!hasRealtimeQuoteProvider(provider)) {
           throw new Error(`Provider ${provider.id} does not implement fetchQuoteSnapshot.`);
         }
-
         return provider.fetchQuoteSnapshot(items);
-      }),
+      }, undefined, (provider) =>
+        items.every(
+          (item) =>
+            provider.capability.markets.includes(item.market) &&
+            provider.capability.timeframes.includes("realtime"),
+        ),
+      ),
     fetchHistoricalBars: (request) =>
       runWithFallback<readonly GatewayMarketDataBar[]>("historicalBars", (provider) => {
         if (!hasHistoricalBarProvider(provider)) {
           throw new Error(`Provider ${provider.id} does not implement fetchHistoricalBars.`);
         }
-
         return provider.fetchHistoricalBars(request);
-      }, hasBars),
+      }, hasBars, (provider) =>
+        provider.capability.markets.includes(request.market) &&
+        provider.capability.timeframes.includes(request.timeframe),
+      ),
     fetchIntradayBars: (request) =>
       runWithFallback<readonly GatewayMarketDataBar[]>("intradayBars", (provider) => {
         if (!hasIntradayBarProvider(provider)) {
           throw new Error(`Provider ${provider.id} does not implement fetchIntradayBars.`);
         }
-
         return provider.fetchIntradayBars(request);
-      }, hasBars),
+      }, hasBars, (provider) =>
+        provider.capability.markets.includes(request.market) &&
+        provider.capability.timeframes.includes(request.timeframe),
+      ),
     searchInstruments: (query, markets) =>
       runWithFallback<readonly MarketInstrument[]>(
         "instrumentSearch",

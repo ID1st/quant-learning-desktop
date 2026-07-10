@@ -122,7 +122,7 @@ describe("Stock SDK gateway provider", () => {
           capturedRequests.push([...requests]);
           return [
             {
-              symbol: "AAPL",
+              symbol: "AAPL.OQ",
               name: "Apple",
               current: 294.28,
               lastClose: 294.34,
@@ -199,6 +199,24 @@ describe("Stock SDK gateway provider", () => {
       () => provider.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]),
       /returned no quote for AAPL\.US/,
     );
+  });
+
+  it("keeps US share-class suffixes while matching a provider quote", async () => {
+    const provider = createStockSdkGatewayProvider(
+      {
+        fetchQuoteSnapshot: async () => [
+          { code: "BRK.A", name: "Berkshire Hathaway", price: 750_000, timestamp: 1_788_288_000_000 },
+        ],
+        fetchHistoricalBars: async () => [],
+        fetchIntradayBars: async () => [],
+      },
+      { enabled: true },
+    );
+
+    const snapshots = await provider.fetchQuoteSnapshot([{ market: "US", symbol: "BRK.A.US" }]);
+
+    assert.equal(snapshots[0]?.symbol, "BRK.A.US");
+    assert.equal(snapshots[0]?.price, 750_000);
   });
 
   it("maps historical and intraday bars while repairing deterministic zero opens", async () => {
@@ -296,6 +314,98 @@ describe("Stock SDK gateway provider", () => {
 });
 
 describe("Stock SDK provider operations", () => {
+  it("prefers the Stock SDK Tencent timeline for current CN and HK intraday data", async () => {
+    const timelineCalls: string[] = [];
+    let minuteKlineCalls = 0;
+    const operations = createStockSdkGatewayProviderOperations({
+      search: async () => [],
+      quotes: {
+        cn: async () => [],
+        hk: async () => [],
+        us: async () => [],
+        timeline: async (symbol) => {
+          timelineCalls.push(symbol);
+          return {
+            date: "2026-07-10",
+            data: [
+              { time: "09:30", timestamp: 1_784_000_000_000, price: 1200, volume: 100, amount: 120_000 },
+              { time: "09:31", timestamp: 1_784_000_060_000, price: 1201, volume: 160, amount: 192_060 },
+            ],
+          };
+        },
+      },
+      kline: {
+        cn: async () => [],
+        cnMinute: async () => {
+          minuteKlineCalls += 1;
+          throw new Error("Stock SDK CN intraday timed out after 8000ms.");
+        },
+        hk: async () => [],
+        hkMinute: async () => {
+          minuteKlineCalls += 1;
+          throw new Error("fetch failed: UND_ERR_SOCKET");
+        },
+        us: async () => [],
+        usMinute: async () => [],
+      },
+    });
+
+    const cnBars = await operations.fetchIntradayBars({
+      market: "CN",
+      symbol: "600519.SH",
+      providerSymbol: "600519",
+      timeframe: "1m",
+      period: "1",
+    });
+    const hkBars = await operations.fetchIntradayBars({
+      market: "HK",
+      symbol: "00700.HK",
+      providerSymbol: "00700",
+      timeframe: "1m",
+      period: "1",
+    });
+
+    assert.deepEqual(timelineCalls, ["sh600519", "hk00700"]);
+    assert.equal(minuteKlineCalls, 0);
+    assert.deepEqual(cnBars, [
+      { timestamp: 1_784_000_000_000, open: 1200, high: 1200, low: 1200, close: 1200, volume: 100, amount: 120_000 },
+      { timestamp: 1_784_000_060_000, open: 1201, high: 1201, low: 1201, close: 1201, volume: 60, amount: 72_060 },
+    ]);
+    assert.equal(hkBars.length, 2);
+  });
+
+  it("does not use the CN and HK Tencent timeline fallback for US minute data", async () => {
+    let timelineCalled = false;
+    const operations = createStockSdkGatewayProviderOperations({
+      search: async () => [],
+      quotes: {
+        cn: async () => [],
+        hk: async () => [],
+        us: async () => [],
+        timeline: async () => {
+          timelineCalled = true;
+          return { date: "2026-07-10", data: [] };
+        },
+      },
+      kline: {
+        cn: async () => [],
+        cnMinute: async () => [],
+        hk: async () => [],
+        hkMinute: async () => [],
+        us: async () => [],
+        usMinute: async () => {
+          throw new Error("fetch failed: UND_ERR_SOCKET");
+        },
+      },
+    });
+
+    await assert.rejects(
+      () => operations.fetchIntradayBars({ market: "US", symbol: "AAPL.US", providerSymbol: "105.AAPL", timeframe: "1m", period: "1" }),
+      /UND_ERR_SOCKET/,
+    );
+    assert.equal(timelineCalled, false);
+  });
+
   it("uses ndays instead of strict start and end time options for intraday bars", async () => {
     const capturedOptions: Record<string, unknown>[] = [];
     const operations = createStockSdkGatewayProviderOperations({
@@ -332,6 +442,54 @@ describe("Stock SDK provider operations", () => {
     assert.equal(capturedOptions[0]?.ndays, 5);
     assert.equal("startDate" in (capturedOptions[0] ?? {}), false);
     assert.equal("endDate" in (capturedOptions[0] ?? {}), false);
+  });
+
+  it("bounds daily and weekly history requests from the requested bar count", async () => {
+    const capturedOptions: Record<string, unknown>[] = [];
+    const operations = createStockSdkGatewayProviderOperations({
+      search: async () => [],
+      quotes: {
+        cn: async () => [],
+        hk: async () => [],
+        us: async () => [],
+      },
+      kline: {
+        cn: async () => [],
+        cnMinute: async () => [],
+        hk: async (_symbol, options) => {
+          capturedOptions.push(options);
+          return [];
+        },
+        hkMinute: async () => [],
+        us: async () => [],
+        usMinute: async () => [],
+      },
+    });
+
+    await operations.fetchHistoricalBars({
+      market: "HK",
+      symbol: "00700.HK",
+      providerSymbol: "00700",
+      timeframe: "1d",
+      period: "daily",
+      count: 240,
+    });
+    await operations.fetchHistoricalBars({
+      market: "HK",
+      symbol: "00700.HK",
+      providerSymbol: "00700",
+      timeframe: "1w",
+      period: "weekly",
+      count: 260,
+    });
+
+    for (const options of capturedOptions) {
+      assert.match(String(options.startDate), /^\d{8}$/);
+      assert.match(String(options.endDate), /^\d{8}$/);
+      assert.ok(String(options.startDate) < String(options.endDate));
+    }
+    assert.equal(capturedOptions[0]?.period, "daily");
+    assert.equal(capturedOptions[1]?.period, "weekly");
   });
 });
 

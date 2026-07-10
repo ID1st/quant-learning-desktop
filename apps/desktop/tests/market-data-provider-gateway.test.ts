@@ -154,6 +154,47 @@ describe("MarketDataGateway", () => {
     assert.deepEqual(result.data, [quote]);
   });
 
+  it("does not try a US-only fallback for a Hong Kong intraday request", async () => {
+    const barCapability: MarketDataProviderCapability = {
+      ...baseCapability,
+      realtimeQuote: false,
+      intradayBars: true,
+      markets: ["US", "HK", "CN"],
+      timeframes: ["1m"],
+    };
+    let yahooCalled = false;
+    const registry = createMarketDataProviderRegistry([
+      createProvider(
+        "stock-sdk",
+        "healthy",
+        barCapability,
+        async () => [],
+        undefined,
+        async () => {
+          throw new Error("stock intraday unavailable");
+        },
+      ),
+      createProvider(
+        "yahoo-finance",
+        "healthy",
+        { ...barCapability, markets: ["US"] },
+        async () => [],
+        undefined,
+        async () => {
+          yahooCalled = true;
+          return [];
+        },
+      ),
+    ]);
+    const gateway = createMarketDataGateway(registry, ["stock-sdk", "yahoo-finance"]);
+
+    const result = await gateway.fetchIntradayBars({ market: "HK", symbol: "00700.HK", timeframe: "1m" });
+
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.triedProviders, ["stock-sdk"]);
+    assert.equal(yahooCalled, false);
+  });
+
   it("keeps the provider health detail when every capable provider fails", async () => {
     const capability = { ...baseCapability, realtimeQuote: true };
     let failed = false;

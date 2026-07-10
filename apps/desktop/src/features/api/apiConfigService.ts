@@ -30,6 +30,7 @@ export interface LongPortApiBinding {
   verifiedAt: string;
   accountId?: string;
   authMode: "legacy-api-key";
+  activatedAt?: string;
 }
 
 export interface AlphaFeedApiBinding {
@@ -38,6 +39,7 @@ export interface AlphaFeedApiBinding {
   markets: Market[];
   verifiedAt: string;
   authMode: "api-key";
+  activatedAt?: string;
 }
 
 export interface AlphaFeedStreamBinding {
@@ -66,7 +68,7 @@ function sanitizeBinding(value: unknown): LongPortApiBinding | null {
   const appKeyPreview = binding.appKeyPreview ?? binding.keyPreview;
   const verifiedAt = binding.verifiedAt ?? binding.boundAt;
 
-  if (!binding.apiUrl || !appKeyPreview || !verifiedAt || !binding.markets) {
+  if (!binding.apiUrl || !appKeyPreview || !verifiedAt || !binding.markets || !binding.activatedAt) {
     return null;
   }
 
@@ -78,6 +80,7 @@ function sanitizeBinding(value: unknown): LongPortApiBinding | null {
     verifiedAt,
     accountId: binding.accountId,
     authMode: binding.authMode ?? "legacy-api-key",
+    activatedAt: binding.activatedAt,
   };
 }
 
@@ -100,7 +103,7 @@ function sanitizeAlphaFeedBinding(value: unknown): AlphaFeedApiBinding | null {
   }
 
   const binding = value as Partial<AlphaFeedApiBinding>;
-  if (!binding.apiUrl || !binding.apiKeyPreview || !binding.verifiedAt || !binding.markets) {
+  if (!binding.apiUrl || !binding.apiKeyPreview || !binding.verifiedAt || !binding.markets || !binding.activatedAt) {
     return null;
   }
 
@@ -110,6 +113,7 @@ function sanitizeAlphaFeedBinding(value: unknown): AlphaFeedApiBinding | null {
     markets: binding.markets,
     verifiedAt: binding.verifiedAt,
     authMode: "api-key",
+    activatedAt: binding.activatedAt,
   };
 }
 
@@ -358,10 +362,14 @@ export async function verifyLongPortApiConfig(form: LongPortApiForm): Promise<Lo
     },
   );
 
-  const binding = await verifyWithDesktopBridge({
+  const verifiedBinding = await verifyWithDesktopBridge({
     ...credentials,
     apiUrl: credentials.apiUrl || LONGPORT_DEFAULT_HTTP_URL,
   });
+  const binding: LongPortApiBinding = {
+    ...verifiedBinding,
+    activatedAt: new Date().toISOString(),
+  };
 
   await saveLongPortCredentials({
     ...credentials,
@@ -417,10 +425,14 @@ export async function verifyAlphaFeedApiConfig(form: AlphaFeedApiForm): Promise<
     },
   );
 
-  const binding = await verifyAlphaFeedWithDesktopBridge({
+  const verifiedBinding = await verifyAlphaFeedWithDesktopBridge({
     ...credentials,
     apiUrl: credentials.apiUrl || ALPHAFEED_DEFAULT_API_URL,
   });
+  const binding: AlphaFeedApiBinding = {
+    ...verifiedBinding,
+    activatedAt: new Date().toISOString(),
+  };
 
   await saveAlphaFeedCredentials({
     ...credentials,

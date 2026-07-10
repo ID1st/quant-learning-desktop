@@ -31,6 +31,7 @@ import {
   type IntradayBarProvider,
   type MarketDataGatewayError,
   type MarketDataGatewayResult,
+  type MarketDataBarRequest,
   type MarketDataProviderHealthView,
   type MarketDataProviderRequestItem,
 } from "../features/marketData/marketDataProviderGateway.ts";
@@ -97,7 +98,7 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       });
       const gateway = createMarketDataGateway(
         createMarketDataProviderRegistry(providers),
-        createHistoricalBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true),
+        createHistoricalBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, request.request.market),
       );
       const result = await gateway.fetchHistoricalBars(request.request);
 
@@ -111,7 +112,7 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       });
       const gateway = createMarketDataGateway(
         createMarketDataProviderRegistry(providers),
-        createIntradayBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true),
+        createIntradayBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, request.request.market),
       );
       const result = await gateway.fetchIntradayBars(request.request);
 
@@ -210,13 +211,27 @@ function createQuoteSnapshotPriority(stockSdkPrimaryEnabled: boolean): readonly 
   return stockSdkPrimaryEnabled ? marketDataIpcDefaultProviderPriority : ["alphafeed-rest", "longbridge"];
 }
 
-function createHistoricalBarsPriority(stockSdkPrimaryEnabled: boolean): readonly GatewayMarketDataProviderId[] {
+function createHistoricalBarsPriority(
+  stockSdkPrimaryEnabled: boolean,
+  market: MarketDataBarRequest["market"],
+): readonly GatewayMarketDataProviderId[] {
+  if (market === "US") {
+    return ["yahoo-finance", "stock-sdk", "alphafeed-rest", "longbridge"];
+  }
+
   return stockSdkPrimaryEnabled
     ? ["stock-sdk", "yahoo-finance", "alphafeed-rest", "longbridge"]
     : ["yahoo-finance", "alphafeed-rest", "longbridge"];
 }
 
-function createIntradayBarsPriority(stockSdkPrimaryEnabled: boolean): readonly GatewayMarketDataProviderId[] {
+function createIntradayBarsPriority(
+  stockSdkPrimaryEnabled: boolean,
+  market: MarketDataBarRequest["market"],
+): readonly GatewayMarketDataProviderId[] {
+  if (market === "US") {
+    return ["yahoo-finance", "stock-sdk", "alphafeed-rest", "longbridge"];
+  }
+
   return stockSdkPrimaryEnabled
     ? ["stock-sdk", "yahoo-finance", "alphafeed-rest", "longbridge"]
     : ["yahoo-finance", "alphafeed-rest", "longbridge"];
