@@ -880,11 +880,15 @@ textarea:focus-visible {
 
 .chart-workspace-page {
   display: grid;
-  grid-template-rows: 42px minmax(0, 1fr) 108px;
+  grid-template-rows: 42px minmax(0, 1fr) 42px;
   gap: 5px;
   height: calc(100vh - 48px);
   min-height: 0;
   overflow: hidden;
+}
+
+.chart-workspace-page.bottom-dock-expanded {
+  grid-template-rows: 42px minmax(0, 1fr) 218px;
 }
 
 .chart-topbar {
@@ -955,6 +959,16 @@ textarea:focus-visible {
   color: #ff8a80;
 }
 
+.chart-provider-status {
+  width: 10px;
+  min-width: 10px;
+  height: 10px;
+  min-height: 10px;
+  border-radius: 999px;
+  font-size: 0;
+  padding: 0;
+}
+
 .timeframe-tabs,
 .chart-toggle-group {
   display: flex;
@@ -1018,6 +1032,10 @@ textarea:focus-visible {
   padding: 0 7px;
 }
 
+.chart-topbar .polling-interval-control {
+  display: none;
+}
+
 .polling-interval-control select {
   border: 0;
   background: transparent;
@@ -1033,13 +1051,13 @@ textarea:focus-visible {
 
 .chart-workspace-grid {
   display: grid;
-  grid-template-columns: 38px minmax(560px, 1fr) 210px;
+  grid-template-columns: minmax(560px, 1fr) 210px;
   gap: 5px;
   min-height: 0;
 }
 
 .chart-workspace-grid.watchlist-collapsed {
-  grid-template-columns: 38px minmax(560px, 1fr) 44px;
+  grid-template-columns: minmax(560px, 1fr) 44px;
 }
 
 .chart-tool-rail,
@@ -1052,10 +1070,7 @@ textarea:focus-visible {
 }
 
 .chart-tool-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 5px 4px;
+  display: none;
 }
 
 .chart-main-panel {
@@ -1440,6 +1455,20 @@ textarea:focus-visible {
   color: #cbd5e1;
   font-size: 12px;
   font-weight: 800;
+}
+
+.chart-settings-popover .chart-settings-select {
+  align-items: center;
+}
+
+.chart-settings-select select {
+  min-width: 88px;
+  height: 28px;
+  border: 1px solid rgba(73, 91, 112, 0.5);
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  color: var(--text-primary);
+  padding: 0 7px;
 }
 
 .chart-settings-popover input[type="checkbox"] {
@@ -1924,9 +1953,17 @@ textarea:focus-visible {
 .chart-bottom-panel {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) auto;
-  grid-template-rows: 34px minmax(0, 1fr);
+  grid-template-rows: 34px 0;
   gap: 0;
   overflow: hidden;
+}
+
+.chart-bottom-panel.expanded {
+  grid-template-rows: 34px minmax(0, 1fr);
+}
+
+.chart-bottom-panel:not(.expanded) .bottom-panel-body {
+  display: none;
 }
 
 .bottom-status-strip,
@@ -1969,6 +2006,32 @@ textarea:focus-visible {
   gap: 4px;
   border-bottom: 1px solid rgba(73, 91, 112, 0.34);
   padding: 4px 8px;
+}
+
+.bottom-dock-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 25px;
+  border: 1px solid rgba(73, 91, 112, 0.44);
+  border-radius: var(--radius-control);
+  background: rgba(8, 13, 20, 0.5);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.bottom-dock-toggle:hover {
+  border-color: rgba(77, 141, 255, 0.72);
+  color: var(--text-primary);
+}
+
+.bottom-dock-toggle svg {
+  transition: transform 140ms ease;
+}
+
+.chart-bottom-panel.expanded .bottom-dock-toggle svg {
+  transform: rotate(180deg);
 }
 
 .bottom-tabbar button {

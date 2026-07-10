@@ -62,6 +62,7 @@ import {
   CheckCircle2,
   Crosshair,
   ChevronRight,
+  ChevronUp,
   Eye,
   EyeOff,
   Gauge,
@@ -669,6 +670,7 @@ export function ChartWorkspacePage() {
   const [activeConfigStrategyKey, setActiveConfigStrategyKey] = useState<string | null>(null);
   const [isWatchlistCollapsed, setIsWatchlistCollapsed] = useState(false);
   const [bottomTab, setBottomTab] = useState<ChartBottomTab>("layers");
+  const [isBottomDockExpanded, setIsBottomDockExpanded] = useState(false);
   const [isChartSettingsOpen, setIsChartSettingsOpen] = useState(false);
   const [chartContextMenu, setChartContextMenu] = useState<ChartContextMenuState | null>(null);
   const [chartResetViewKey, setChartResetViewKey] = useState(0);
@@ -1241,14 +1243,18 @@ export function ChartWorkspacePage() {
   ]);
 
   return (
-    <section className="chart-workspace-page">
+    <section className={isBottomDockExpanded ? "chart-workspace-page bottom-dock-expanded" : "chart-workspace-page"}>
       <header className="chart-topbar">
         <div className="symbol-search">
           <span>{activeSymbol.market}</span>
           <strong>{activeSymbol.symbol}</strong>
           <small>{activeSymbol.name}</small>
           <em className={cachedCandles.length > 0 ? "data-source-badge live" : "data-source-badge"}>{cachedCandles.length > 0 ? "本地缓存" : "等待数据"}</em>
-          <em className={getRealtimeHealthBadgeClass(realtimeHealth.status)} title={realtimeStatus}>
+          <em
+            aria-label={formatRealtimeHealthDetail(realtimeHealth)}
+            className={`${getRealtimeHealthBadgeClass(realtimeHealth.status)} chart-provider-status`}
+            title={realtimeStatus}
+          >
             {formatRealtimeHealthDetail(realtimeHealth)}
           </em>
         </div>
@@ -1402,6 +1408,33 @@ export function ChartWorkspacePage() {
                   onChange={(event) => setShowCurrentPriceLine(event.currentTarget.checked)}
                   type="checkbox"
                 />
+              </label>
+              {timeframe === "realtime" && (
+                <label className="chart-settings-select">
+                  <span>分时形态</span>
+                  <select
+                    aria-label="分时图表形态"
+                    onChange={(event) => setIntradayDisplayMode(sanitizeChartDisplayMode(event.currentTarget.value))}
+                    value={intradayDisplayMode}
+                  >
+                    <option value="line">折线</option>
+                    <option value="candlestick">K线</option>
+                  </select>
+                </label>
+              )}
+              <label className="chart-settings-select">
+                <span>刷新频率</span>
+                <select
+                  aria-label="实时行情刷新频率"
+                  onChange={(event) => setRealtimePollIntervalMs(sanitizeRealtimePollIntervalMs(Number(event.currentTarget.value)))}
+                  value={realtimePollIntervalMs}
+                >
+                  {realtimePollIntervalOptionsMs.map((intervalMs) => (
+                    <option key={intervalMs} value={intervalMs}>
+                      {intervalMs / 1000}秒
+                    </option>
+                  ))}
+                </select>
               </label>
               <button className="chart-settings-reset" onClick={resetChartView} type="button">
                 <RotateCcw size={14} />
@@ -1592,7 +1625,7 @@ export function ChartWorkspacePage() {
         </div>
       )}
 
-      <footer className="chart-bottom-panel">
+      <footer className={isBottomDockExpanded ? "chart-bottom-panel expanded" : "chart-bottom-panel"}>
         <div className="bottom-status-strip" aria-label="行情状态">
           <span className={getRealtimeHealthBadgeClass(realtimeHealth.status)}>{realtimeHealth.status}</span>
           <strong>{cachedCandles.length > 0 ? `${cachedCandles.length} 根K线` : "等待行情数据"}</strong>
@@ -1601,17 +1634,50 @@ export function ChartWorkspacePage() {
         </div>
 
         <div className="bottom-tabbar" role="tablist" aria-label="图表底部面板">
-          <button className={bottomTab === "layers" ? "active" : ""} onClick={() => setBottomTab("layers")} role="tab" type="button">
+          <button
+            className={bottomTab === "layers" ? "active" : ""}
+            onClick={() => {
+              setBottomTab("layers");
+              setIsBottomDockExpanded(true);
+            }}
+            role="tab"
+            type="button"
+          >
             <Layers3 size={14} />
             图层
           </button>
-          <button className={bottomTab === "signals" ? "active" : ""} onClick={() => setBottomTab("signals")} role="tab" type="button">
+          <button
+            className={bottomTab === "signals" ? "active" : ""}
+            onClick={() => {
+              setBottomTab("signals");
+              setIsBottomDockExpanded(true);
+            }}
+            role="tab"
+            type="button"
+          >
             <ShieldCheck size={14} />
             信号
           </button>
-          <button className={bottomTab === "logs" ? "active" : ""} onClick={() => setBottomTab("logs")} role="tab" type="button">
+          <button
+            className={bottomTab === "logs" ? "active" : ""}
+            onClick={() => {
+              setBottomTab("logs");
+              setIsBottomDockExpanded(true);
+            }}
+            role="tab"
+            type="button"
+          >
             <TerminalSquare size={14} />
             日志
+          </button>
+          <button
+            aria-label={isBottomDockExpanded ? "收起底部面板" : "展开底部面板"}
+            className="bottom-dock-toggle"
+            onClick={() => setIsBottomDockExpanded((value) => !value)}
+            title={isBottomDockExpanded ? "收起底部面板" : "展开底部面板"}
+            type="button"
+          >
+            <ChevronUp size={14} />
           </button>
         </div>
 
