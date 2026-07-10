@@ -38,6 +38,7 @@ import {
   getIntradayHistoryWindow,
   isMarketSessionOpen,
 } from "../features/marketData/intradayHistoryService";
+import { sampleIntradayBarsForRendering } from "../features/marketData/intradayRenderSamplingService";
 import {
   createChartMarketDataAccess,
   gatewayBarsToAlphaFeedMarketDataBars,
@@ -729,11 +730,15 @@ export function ChartWorkspacePage() {
     () => (timeframe === "realtime" && intradayDisplayMode === "candlestick" ? aggregateRealtimePointBarsToMinuteCandles(cachedMarketBars) : cachedMarketBars),
     [cachedMarketBars, intradayDisplayMode, timeframe],
   );
+  const chartRenderBars = useMemo(
+    () => timeframe === "realtime" ? sampleIntradayBarsForRendering(displayedMarketBars) : displayedMarketBars,
+    [displayedMarketBars, timeframe],
+  );
   const currentRealtimeWatchlist = useMemo<MarketWatchlistItem[]>(
     () => watchlist.map((item) => ({ symbol: item.dataSymbol, name: item.name, market: item.market, source: "user" })),
     [watchlist],
   );
-  const cachedCandles = useMemo(() => marketBarsToCandles(displayedMarketBars), [displayedMarketBars]);
+  const cachedCandles = useMemo(() => marketBarsToCandles(chartRenderBars), [chartRenderBars]);
   const indicatorLayers = useMemo(() => createChartIndicatorLayers(cachedCandles, indicatorSettings), [cachedCandles, indicatorSettings]);
   const drawingLayer = useMemo(() => drawingsToLayer(drawings), [drawings]);
   const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(displayedMarketBars), [displayedMarketBars]);
@@ -887,13 +892,22 @@ export function ChartWorkspacePage() {
         }
 
         if (!result.ok) {
+          const cacheTimeframe: Timeframe = isRealtimeHistory ? "realtime" : timeframe;
+          const cachedBars = readMarketBarCache({
+            symbol: activeSymbol.dataSymbol,
+            market: activeSymbol.market,
+            timeframe: cacheTimeframe,
+          });
+          const failureMessage = cachedBars.length > 0
+            ? `${result.error.message}；已保留本地缓存 ${cachedBars.length} 条，后台将继续重试。`
+            : result.error.message;
           const errorHealth =
             result.health[0] !== undefined
-              ? createRealtimeHealthViewFromGateway(result.health[0], result.error.message, {
+              ? createRealtimeHealthViewFromGateway(result.health[0], failureMessage, {
                   capability: providerCapability,
                   triedProviders: result.triedProviders,
                 })
-              : createRealtimeHealthView("error", result.error.message);
+              : createRealtimeHealthView("error", failureMessage);
           setRealtimeHealth(errorHealth);
           setRealtimeStatus(errorHealth.message);
           return;

@@ -1,5 +1,6 @@
 import type {
   GatewayMarketDataBar,
+  HistoricalBarProvider,
   IntradayBarProvider,
   MarketDataBarRequest,
   MarketDataProviderCapability,
@@ -27,71 +28,98 @@ interface YahooFinanceChartPayload {
 export interface YahooFinanceIntradayProviderOptions {
   readonly fetchImpl?: typeof fetch;
   readonly baseUrl?: string;
+  readonly retryDelayMs?: number;
 }
 
 const capability: MarketDataProviderCapability = {
   realtimeQuote: false,
-  historicalBars: false,
+  historicalBars: true,
   intradayBars: true,
   websocket: false,
   batchQuote: false,
   markets: ["US"],
-  timeframes: ["realtime", "1m"],
+  timeframes: ["realtime", "1m", "1d", "1w"],
   rateLimit: { requests: 1, intervalMs: 1_000, scope: "symbol" },
   delayLevel: "unknown",
 };
 
 export function createYahooFinanceIntradayProvider(
   options: YahooFinanceIntradayProviderOptions = {},
-): IntradayBarProvider {
+): HistoricalBarProvider & IntradayBarProvider {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
-  let health: MarketDataProviderHealthView = createHealth("healthy", "Yahoo Finance 应急分时源就绪");
+  let health: MarketDataProviderHealthView = createHealth("healthy", "Yahoo Finance 美股备用源就绪。");
 
   return {
     id: "yahoo-finance",
-    displayName: "Yahoo Finance 应急分时源",
+    displayName: "Yahoo Finance 美股备用源",
     capability,
     getHealth: async () => health,
-    async fetchIntradayBars(request) {
-      assertSupportedRequest(request);
-      const startedAt = Date.now();
-
-      try {
-        const response = await fetchImpl(createRequestUrl(request.symbol, options.baseUrl), { headers: { Accept: "application/json" } });
-        if (!response.ok) {
-          throw new Error(`Yahoo Finance 返回 HTTP ${response.status}`);
-        }
-
-        const bars = mapYahooFinanceBars((await response.json()) as YahooFinanceChartPayload, request);
-        if (bars.length === 0) {
-          throw new Error("Yahoo Finance 未返回可用美股分时数据");
-        }
-
-        health = createHealth("healthy", `Yahoo Finance 已返回 ${bars.length} 个美股分时点`, Date.now() - startedAt);
-        return bars;
-      } catch (error) {
-        const message = error instanceof Error && error.message.trim() ? error.message : "未知网络错误";
-        health = createHealth(classifyFailure(message), `Yahoo Finance 分时请求失败：${message}`);
-        throw error;
-      }
-    },
+    fetchHistoricalBars: (request) => fetchBars(request, "historical"),
+    fetchIntradayBars: (request) => fetchBars(request, "intraday"),
   };
-}
 
-function assertSupportedRequest(request: MarketDataBarRequest) {
-  if (request.market !== "US" || (request.timeframe !== "1m" && request.timeframe !== "realtime")) {
-    throw new Error("Yahoo Finance 应急源仅支持美股 1 分钟分时数据。");
+  async function fetchBars(request: MarketDataBarRequest, kind: "historical" | "intraday") {
+    assertSupportedRequest(request);
+    const startedAt = Date.now();
+
+    try {
+      const response = await fetchWithRetry(fetchImpl, createRequestUrl(request, options.baseUrl), options.retryDelayMs ?? 250);
+      if (!response.ok) {
+        throw new Error(`Yahoo Finance 返回 HTTP ${response.status}`);
+      }
+
+      const bars = mapYahooFinanceBars((await response.json()) as YahooFinanceChartPayload, request);
+      if (bars.length === 0) {
+        throw new Error(`Yahoo Finance 未返回可用美股${kind === "intraday" ? "分时" : "历史 K 线"}数据。`);
+      }
+
+      health = createHealth("healthy", `Yahoo Finance 已返回 ${bars.length} 条美股${kind === "intraday" ? "分时" : "历史 K 线"}。`, Date.now() - startedAt);
+      return bars;
+    } catch (error) {
+      const message = error instanceof Error && error.message.trim() ? error.message : "未知网络错误";
+      health = createHealth(classifyFailure(message), `Yahoo Finance 美股${kind === "intraday" ? "分时" : "历史 K 线"}请求失败：${message}`);
+      throw error;
+    }
   }
 }
 
-function createRequestUrl(symbol: string, baseUrl = "https://query1.finance.yahoo.com") {
-  const ticker = symbol.trim().toUpperCase().replace(/\.US$/u, "");
+function assertSupportedRequest(request: MarketDataBarRequest) {
+  if (request.market !== "US" || !["1m", "realtime", "1d", "1w"].includes(request.timeframe)) {
+    throw new Error("Yahoo Finance 备用源仅支持美股 realtime、1m、1d 和 1w 数据。");
+  }
+}
+
+function createRequestUrl(request: MarketDataBarRequest, baseUrl = "https://query1.finance.yahoo.com") {
+  const ticker = request.symbol.trim().toUpperCase().replace(/\.US$/u, "");
   if (!ticker) {
     throw new Error("美股代码不能为空。");
   }
 
-  const params = new URLSearchParams({ interval: "1m", range: "5d", includePrePost: "false", events: "history" });
+  const [interval, range] =
+    request.timeframe === "1w" ? ["1wk", "10y"] : request.timeframe === "1d" ? ["1d", "5y"] : ["1m", "5d"];
+  const params = new URLSearchParams({ interval, range, includePrePost: "false", events: "history" });
   return `${baseUrl.replace(/\/$/u, "")}/v8/finance/chart/${encodeURIComponent(ticker)}?${params.toString()}`;
+}
+
+async function fetchWithRetry(fetchImpl: typeof fetch, url: string, retryDelayMs: number) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetchImpl(url, { headers: { Accept: "application/json" } });
+      if (response.status < 500 || attempt === 1) return response;
+      lastError = new Error(`Yahoo Finance 返回 HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+      if (attempt === 1 || !isTransientNetworkFailure(error)) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs * (attempt + 1)));
+  }
+  throw lastError instanceof Error ? lastError : new Error("Yahoo Finance 网络请求失败。");
+}
+
+function isTransientNetworkFailure(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  return message.includes("fetch failed") || message.includes("socket") || message.includes("network") || message.includes("timeout");
 }
 
 function mapYahooFinanceBars(payload: YahooFinanceChartPayload, request: MarketDataBarRequest): GatewayMarketDataBar[] {

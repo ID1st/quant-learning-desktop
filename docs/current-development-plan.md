@@ -49,6 +49,15 @@ Completed foundations:
 - Super Chart UI/display optimization round 1 is complete: the chart workspace now uses a tighter chart-first layout, a collapsible right watchlist, a compact bottom status/tab dock, on-demand strategy configuration, first-pass layer controls, and candle-first price scaling so strategy overlays do not flatten the price view.
 - Browser verification covered 1366x768, 1440x900, and 1920x1080. The chart workspace had no page-level vertical scroll, no button overflow, no blank chart state, and watchlist collapse reduced the right panel from 210px to 44px while expanding the chart area.
 
+## Latest Stability Update (2026-07-11)
+
+- Completed market-data stability and intraday rendering performance slice. Chart bar priority is now Stock SDK, Yahoo Finance US-only bar fallback, AlphaFeed REST, AlphaFeed WebSocket, then LongBridge; quote snapshots skip Yahoo because it has no quote capability.
+- Yahoo Finance is explicitly modeled as a US-only best-effort fallback for `1m`, `1d`, and `1w`, with bounded retry for transient network or HTTP 5xx failure. It does not claim websocket or guaranteed realtime capability.
+- Provider-neutral error handling preserves the latest sanitized provider health detail. Stock SDK network failures now report a readable fallback-ready reason instead of only a generic request error.
+- When a history or intraday request fails, the chart keeps any local bars already cached and reports the retained cache count. The cache-to-live merge rule still prevents historical data from overwriting newer live points.
+- Realtime rendering now samples only the render input above 1,200 points while retaining full cache and strategy input. Identical in-flight chart bar requests are deduplicated.
+- Detailed source, capability limits, cache rules, and verification are recorded in `docs/market-data-stability-plan.md`.
+
 ## Current Data Flow
 
 1. User binds AlphaFeed in the desktop app.
@@ -77,9 +86,10 @@ The provider-gateway migration is complete. The next market-data architecture ch
 Target priority:
 
 1. `stock-sdk` primary source, default-on through `stockSdkPrimaryEnabled`.
-2. AlphaFeed REST fallback.
-3. AlphaFeed WebSocket member-channel fallback for streaming quotes when available.
-4. LongBridge fallback and broker/account integration path.
+2. Yahoo Finance US-only fallback for supported chart bars; it is not used for quote snapshots or WebSocket.
+3. AlphaFeed REST fallback.
+4. AlphaFeed WebSocket member-channel fallback for streaming quotes when available.
+5. LongBridge fallback and broker/account integration path.
 
 Important constraints:
 

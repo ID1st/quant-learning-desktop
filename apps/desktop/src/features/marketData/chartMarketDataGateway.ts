@@ -22,6 +22,8 @@ import {
   createMarketDataProviderRegistry,
   type GatewayMarketDataBar,
   type GatewayMarketDataProvider,
+  type HistoricalBarProvider,
+  type IntradayBarProvider,
   type GatewayMarketDataProviderId,
   type GatewayMarketQuoteSnapshot,
   type MarketDataGateway,
@@ -44,6 +46,7 @@ interface ChartMarketDataGatewayConfig {
   } | null;
   readonly enableStockSdkPrimary?: boolean;
   readonly stockSdkOperations?: StockSdkGatewayProviderOperations;
+  readonly yahooFinanceProvider?: HistoricalBarProvider & IntradayBarProvider;
 }
 
 export interface ChartMarketDataGateways {
@@ -136,6 +139,8 @@ interface ChartMarketDataAccessConfig {
   readonly enableStockSdkPrimary: boolean;
 }
 
+const inFlightChartBarRequests = new Map<string, Promise<ChartBarsBatchResult>>();
+
 export async function createChartMarketDataAccess(config: ChartMarketDataAccessConfig): Promise<ChartMarketDataAccess> {
   const providerNeutralBridge = config.bridge?.marketData;
 
@@ -218,15 +223,15 @@ export function createChartMarketDataGateways(config: ChartMarketDataGatewayConf
     );
   }
 
-  providers.push(createYahooFinanceIntradayProvider({ baseUrl: getYahooFinanceBrowserProxyUrl() }));
+  providers.push(config.yahooFinanceProvider ?? createYahooFinanceIntradayProvider({ baseUrl: getYahooFinanceBrowserProxyUrl() }));
 
   const registry = createMarketDataProviderRegistry(providers);
   const historicalPriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
-    ? ["stock-sdk", "longbridge", "alphafeed-rest", "yahoo-finance"]
-    : ["longbridge", "alphafeed-rest", "yahoo-finance"];
+    ? ["stock-sdk", "yahoo-finance", "alphafeed-rest", "longbridge"]
+    : ["yahoo-finance", "alphafeed-rest", "longbridge"];
   const intradayPriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
-    ? ["stock-sdk", "alphafeed-rest", "longbridge", "yahoo-finance"]
-    : ["alphafeed-rest", "longbridge", "yahoo-finance"];
+    ? ["stock-sdk", "yahoo-finance", "alphafeed-rest", "longbridge"]
+    : ["yahoo-finance", "alphafeed-rest", "longbridge"];
   const quotePriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
     ? ["stock-sdk", "alphafeed-rest", "longbridge"]
     : ["alphafeed-rest", "longbridge"];
@@ -302,6 +307,9 @@ function createProviderNeutralChartMarketDataAccess(
       return toChartQuoteSnapshotBatchResult(result);
     },
     async fetchBars(options) {
+      const requestKey = JSON.stringify(["desktop", options.capability, options.request, stockSdkPrimaryEnabled]);
+      const existing = inFlightChartBarRequests.get(requestKey);
+      if (existing) return existing;
       const request = {
         context: { source: "chart" as const },
         request: options.request,
@@ -309,12 +317,13 @@ function createProviderNeutralChartMarketDataAccess(
           stockSdkPrimaryEnabled,
         },
       };
-      const result =
-        options.capability === "intradayBars"
-          ? await bridge.fetchIntradayBars(request)
-          : await bridge.fetchHistoricalBars(request);
-
-      return toChartBarsBatchResult(result);
+      const pending = (options.capability === "intradayBars"
+        ? bridge.fetchIntradayBars(request)
+        : bridge.fetchHistoricalBars(request))
+        .then(toChartBarsBatchResult)
+        .finally(() => inFlightChartBarRequests.delete(requestKey));
+      inFlightChartBarRequests.set(requestKey, pending);
+      return pending;
     },
     async connectQuoteStream(items, mode = "watchlist") {
       const result = await bridge.connectQuoteStream({
@@ -360,14 +369,26 @@ function createLegacyChartMarketDataAccess(
     },
     ...availability,
     fetchQuoteSnapshotBatch: (batch) => gateways.quoteSnapshots.fetchQuoteSnapshot(batch),
-    fetchBars: (options) =>
-      options.capability === "intradayBars"
-        ? gateways.intradayBars.fetchIntradayBars(options.request)
-        : gateways.historicalBars.fetchHistoricalBars(options.request),
+    fetchBars: (options) => dedupeLegacyChartBars(gateways, options),
     connectQuoteStream: (items) => gateways.connectQuoteStream(items),
     readQuoteStreamSnapshot: (items) => gateways.readQuoteStreamSnapshot(items),
     disconnectQuoteStream: () => gateways.disconnectQuoteStream(),
   };
+}
+
+function dedupeLegacyChartBars(
+  gateways: ChartMarketDataGateways,
+  options: Parameters<ChartMarketDataAccess["fetchBars"]>[0],
+) {
+  const requestKey = JSON.stringify(["legacy", options.capability, options.request]);
+  const existing = inFlightChartBarRequests.get(requestKey);
+  if (existing) return existing;
+  const pending = (options.capability === "intradayBars"
+    ? gateways.intradayBars.fetchIntradayBars(options.request)
+    : gateways.historicalBars.fetchHistoricalBars(options.request))
+    .finally(() => inFlightChartBarRequests.delete(requestKey));
+  inFlightChartBarRequests.set(requestKey, pending);
+  return pending;
 }
 
 function toChartQuoteSnapshotBatchResult(result: QuantDesktopMarketDataResult<readonly GatewayMarketQuoteSnapshot[]>): ChartQuoteSnapshotBatchResult {

@@ -212,14 +212,14 @@ function createQuoteSnapshotPriority(stockSdkPrimaryEnabled: boolean): readonly 
 
 function createHistoricalBarsPriority(stockSdkPrimaryEnabled: boolean): readonly GatewayMarketDataProviderId[] {
   return stockSdkPrimaryEnabled
-    ? ["stock-sdk", "longbridge", "alphafeed-rest", "yahoo-finance"]
-    : ["longbridge", "alphafeed-rest", "yahoo-finance"];
+    ? ["stock-sdk", "yahoo-finance", "alphafeed-rest", "longbridge"]
+    : ["yahoo-finance", "alphafeed-rest", "longbridge"];
 }
 
 function createIntradayBarsPriority(stockSdkPrimaryEnabled: boolean): readonly GatewayMarketDataProviderId[] {
   return stockSdkPrimaryEnabled
-    ? ["stock-sdk", "alphafeed-rest", "longbridge", "yahoo-finance"]
-    : ["alphafeed-rest", "longbridge", "yahoo-finance"];
+    ? ["stock-sdk", "yahoo-finance", "alphafeed-rest", "longbridge"]
+    : ["yahoo-finance", "alphafeed-rest", "longbridge"];
 }
 
 function toIpcGatewayResult<Data>(result: MarketDataGatewayResult<Data>) {
@@ -254,7 +254,7 @@ function toIpcGatewayError(
   const providerHealth = error.provider ? health.find((item) => item.provider === error.provider) : undefined;
   return {
     code: mapGatewayErrorCode(error, providerHealth),
-    message: error.message,
+    message: providerHealth?.message ?? error.message,
     provider: error.provider,
     retryAfterMs: providerHealth?.nextRetryAt ? Math.max(0, new Date(providerHealth.nextRetryAt).getTime() - Date.now()) : undefined,
     fallback: {

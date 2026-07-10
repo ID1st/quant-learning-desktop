@@ -148,10 +148,10 @@ export type MarketDataIpcHandlers = MarketDataIpcBridge;
 
 export const marketDataIpcDefaultProviderPriority = [
   "stock-sdk",
+  "yahoo-finance",
   "alphafeed-rest",
   "alphafeed-websocket",
   "longbridge",
-  "yahoo-finance",
 ] as const satisfies readonly GatewayMarketDataProviderId[];
 
 export const marketDataIpcChannels = {

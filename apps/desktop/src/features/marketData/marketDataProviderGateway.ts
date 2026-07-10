@@ -222,10 +222,10 @@ export function createMarketDataGateway(
   registry: MarketDataProviderRegistry,
   priority: readonly GatewayMarketDataProviderId[] = [
     "stock-sdk",
+    "yahoo-finance",
     "alphafeed-rest",
     "alphafeed-websocket",
     "longbridge",
-    "yahoo-finance",
   ],
 ): MarketDataGateway {
   const orderProviders = (providers: readonly GatewayMarketDataProvider[]) =>
@@ -281,7 +281,9 @@ export function createMarketDataGateway(
         healthViews[healthViews.length - 1] = latestHealth;
         lastError = {
           code: "PROVIDER_UNAVAILABLE",
-          message: `${provider.displayName} request failed`,
+          // Health stores the provider-specific, sanitized failure reason. Keep it
+          // through the neutral gateway so the renderer can explain a fallback.
+          message: latestHealth.message || `${provider.displayName} request failed`,
           provider: provider.id,
           cause: error,
         };

@@ -54,6 +54,48 @@ test("Yahoo Finance emergency provider rejects unsupported intraday requests", a
 
   await assert.rejects(
     () => provider.fetchIntradayBars({ market: "HK", symbol: "00700.HK", timeframe: "1m" }),
-    /仅支持美股 1 分钟分时数据/,
+    /仅支持美股 realtime、1m、1d 和 1w 数据/,
   );
+});
+
+test("Yahoo Finance emergency provider retries transient network failures once", async () => {
+  let calls = 0;
+  const provider = createYahooFinanceIntradayProvider({
+    retryDelayMs: 0,
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("fetch failed: UND_ERR_SOCKET");
+      return new Response(JSON.stringify({
+        chart: { result: [{ timestamp: [1_783_000_000], indicators: { quote: [{ open: [315], high: [316], low: [314], close: [315.5], volume: [1] }] } }] },
+      }), { status: 200 });
+    },
+  });
+
+  const bars = await provider.fetchIntradayBars({ market: "US", symbol: "AAPL.US", timeframe: "1m" });
+  assert.equal(calls, 2);
+  assert.equal(bars[0]?.provider, "yahoo-finance");
+});
+
+test("Yahoo Finance emergency provider maps US daily history", async () => {
+  const provider = createYahooFinanceIntradayProvider({
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({
+          chart: {
+            result: [
+              {
+                timestamp: [1_783_000_000],
+                indicators: { quote: [{ open: [315.5], high: [316], low: [315], close: [315.7], volume: [100] }] },
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      ),
+  });
+
+  const bars = await provider.fetchHistoricalBars({ market: "US", symbol: "AAPL.US", timeframe: "1d" });
+
+  assert.equal(bars[0]?.timeframe, "1d");
+  assert.equal(bars[0]?.provider, "yahoo-finance");
 });

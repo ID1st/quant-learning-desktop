@@ -28,10 +28,10 @@ test("market data IPC channels are stable provider-neutral contracts", () => {
 test("market data IPC default provider priority keeps stock sdk primary and existing fallbacks", () => {
   assert.deepEqual(marketDataIpcDefaultProviderPriority, [
     "stock-sdk",
+    "yahoo-finance",
     "alphafeed-rest",
     "alphafeed-websocket",
     "longbridge",
-    "yahoo-finance",
   ]);
 });
 

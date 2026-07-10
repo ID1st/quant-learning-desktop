@@ -7,6 +7,7 @@ import {
   gatewayBarsToMarketDataBars,
   gatewayQuoteSnapshotsToMarketQuoteSnapshots,
 } from "../src/features/marketData/chartMarketDataGateway.ts";
+import { createYahooFinanceIntradayProvider } from "../src/features/marketData/yahooFinanceIntradayProvider.ts";
 
 const alphaFeedCredentials = { apiUrl: "https://example.test", apiKey: "alpha-key" };
 const longPortCredentials = {
@@ -46,6 +47,16 @@ const bar = {
   amount: 294_280,
   provider: "longport" as const,
 };
+
+function createYahooFinanceTestProvider(calls: string[]) {
+  return createYahooFinanceIntradayProvider({
+    retryDelayMs: 0,
+    fetchImpl: async (input) => {
+      calls.push(`yahoo.${String(input).includes("interval=1m") ? "intraday" : "history"}`);
+      return new Response(JSON.stringify({ chart: { result: [{ timestamp: [1_788_288_000], indicators: { quote: [{ open: [294], high: [295], low: [293], close: [294.28], volume: [1] }] } }] } }), { status: 200 });
+    },
+  });
+}
 
 describe("chart market data gateways", () => {
   it("uses provider-neutral desktop IPC access without touching legacy provider credentials", async () => {
@@ -236,13 +247,14 @@ describe("chart market data gateways", () => {
       } as QuantDesktopBridge,
       alphaFeedCredentials,
       longPortCredentials,
+      yahooFinanceProvider: createYahooFinanceTestProvider(calls),
     });
 
     const result = await gateways.historicalBars.fetchHistoricalBars({ market: "US", symbol: "AAPL.US", timeframe: "1d" });
 
     assert.equal(result.ok, true);
-    assert.equal(result.provider, "longbridge");
-    assert.deepEqual(calls, ["longbridge.history"]);
+    assert.equal(result.provider, "yahoo-finance");
+    assert.deepEqual(calls, ["yahoo.history"]);
   });
 
   it("keeps realtime quote polling on AlphaFeed REST before LongBridge fallback", async () => {
@@ -348,6 +360,7 @@ describe("chart market data gateways", () => {
           return [{ time: "2026-07-06 09:30", open: 0, high: 286.9, low: 286.61, close: 286.86, volume: 1 }];
         },
       },
+      yahooFinanceProvider: createYahooFinanceTestProvider(calls),
     });
 
     const quoteResult = await gateways.quoteSnapshots.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]);
@@ -443,6 +456,7 @@ describe("chart market data gateways", () => {
           throw new Error("stock intraday unavailable");
         },
       },
+      yahooFinanceProvider: createYahooFinanceTestProvider(calls),
     });
 
     const quoteResult = await createGateways().quoteSnapshots.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]);
@@ -452,16 +466,16 @@ describe("chart market data gateways", () => {
     assert.equal(quoteResult.ok, true);
     assert.equal(quoteResult.provider, "alphafeed-rest");
     assert.equal(historyResult.ok, true);
-    assert.equal(historyResult.provider, "longbridge");
+    assert.equal(historyResult.provider, "yahoo-finance");
     assert.equal(intradayResult.ok, true);
-    assert.equal(intradayResult.provider, "alphafeed-rest");
+    assert.equal(intradayResult.provider, "yahoo-finance");
     assert.deepEqual(calls, [
       "stock.quote",
       "alphafeed.quote",
       "stock.history",
-      "longbridge.history",
+      "yahoo.history",
       "stock.intraday",
-      "alphafeed.intraday",
+      "yahoo.intraday",
     ]);
   });
 

@@ -272,6 +272,27 @@ describe("Stock SDK gateway provider", () => {
     );
     assert.equal((await provider.getHealth()).status, "unavailable");
   });
+
+  it("reports a readable fallback-ready diagnostic for transient network failures", async () => {
+    const provider = createStockSdkGatewayProvider(
+      {
+        fetchQuoteSnapshot: async () => [],
+        fetchHistoricalBars: async () => [],
+        fetchIntradayBars: async () => {
+          throw new Error("fetch failed: UND_ERR_SOCKET");
+        },
+      },
+      { enabled: true },
+    );
+
+    await assert.rejects(
+      () => provider.fetchIntradayBars({ market: "US", symbol: "AAPL.US", timeframe: "1m" }),
+      /UND_ERR_SOCKET/,
+    );
+    const health = await provider.getHealth();
+    assert.equal(health.status, "unavailable");
+    assert.equal(health.message, "Stock SDK 网络请求失败，已尝试备用数据源。");
+  });
 });
 
 describe("Stock SDK provider operations", () => {

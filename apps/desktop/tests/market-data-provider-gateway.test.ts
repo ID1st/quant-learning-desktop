@@ -154,6 +154,32 @@ describe("MarketDataGateway", () => {
     assert.deepEqual(result.data, [quote]);
   });
 
+  it("keeps the provider health detail when every capable provider fails", async () => {
+    const capability = { ...baseCapability, realtimeQuote: true };
+    let failed = false;
+    const registry = createMarketDataProviderRegistry([
+      {
+        ...createProvider("stock-sdk", "healthy", capability, async () => {
+          failed = true;
+          throw new Error("socket closed");
+        }),
+        getHealth: async () => ({
+          provider: "stock-sdk" as const,
+          status: failed ? ("unavailable" as const) : ("healthy" as const),
+          message: failed ? "Stock SDK 网络请求失败，已尝试备用数据源。" : "Stock SDK 可用。",
+          checkedAt: "2026-07-07T00:00:00.000Z",
+          capability,
+        }),
+      },
+    ]);
+    const gateway = createMarketDataGateway(registry, ["stock-sdk"]);
+
+    const result = await gateway.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]);
+
+    assert.equal(result.ok, false);
+    assert.equal(result.error.message, "Stock SDK 网络请求失败，已尝试备用数据源。");
+  });
+
   it("falls back when a bar provider returns no bars", async () => {
     const bar: GatewayMarketDataBar = {
       provider: "stock-sdk",

@@ -253,8 +253,8 @@ function createStockSdkHealthStore(
     status: initialStatus,
     message:
       initialStatus === "healthy"
-        ? "Stock SDK adapter is enabled for gateway requests."
-        : "Stock SDK adapter is installed but not enabled.",
+        ? "Stock SDK 已启用，可处理行情网关请求。"
+        : "Stock SDK 已安装但尚未启用。",
     checkedAt: new Date(0).toISOString(),
     capability,
   };
@@ -265,7 +265,7 @@ function createStockSdkHealthStore(
       current = {
         provider: "stock-sdk",
         status: capability.delayLevel === "delayed" ? "delayed" : "healthy",
-        message: "Stock SDK request succeeded.",
+        message: "Stock SDK 请求成功。",
         checkedAt: new Date().toISOString(),
         latencyMs,
         capability,
@@ -275,7 +275,7 @@ function createStockSdkHealthStore(
       current = {
         provider: "stock-sdk",
         status: classifyStockSdkFailure(message),
-        message,
+        message: formatStockSdkFailure(message),
         checkedAt: new Date().toISOString(),
         capability,
       };
@@ -510,6 +510,30 @@ function classifyStockSdkFailure(message: string): MarketDataProviderHealthStatu
   }
 
   return "unavailable";
+}
+
+function formatStockSdkFailure(message: string) {
+  const lower = message.toLowerCase();
+
+  if (lower.includes("401") || lower.includes("403") || lower.includes("unauthorized") || lower.includes("permission")) {
+    return "Stock SDK 请求权限不足。";
+  }
+
+  if (lower.includes("429") || lower.includes("rate")) {
+    return "Stock SDK 请求受限，稍后将自动重试。";
+  }
+
+  if (
+    lower.includes("fetch failed") ||
+    lower.includes("und_err_socket") ||
+    lower.includes("socket") ||
+    lower.includes("network") ||
+    lower.includes("timeout")
+  ) {
+    return "Stock SDK 网络请求失败，已尝试备用数据源。";
+  }
+
+  return `Stock SDK 请求失败：${message}`;
 }
 
 function toErrorMessage(error: unknown) {
