@@ -49,6 +49,7 @@ import {
 } from "../features/marketData/chartMarketDataGateway";
 import { readMarketDataProviderSettings } from "../features/marketData/marketDataProviderSettings";
 import { createChartIndicatorLayers, defaultChartIndicatorSettings, type ChartIndicatorSettings } from "../features/chartIndicators/chartIndicators";
+import { drawingsToLayer, readChartDrawings, writeChartDrawings, type ChartDrawing } from "../features/chartDrawings/chartDrawingStore";
 import {
   summarizeMarketDataProviderHealth,
   type MarketDataProviderDiagnosticSummary,
@@ -82,6 +83,7 @@ import {
   Search,
   Trash2,
   X,
+  Type,
 } from "lucide-react";
 
 const symbols: Array<{ symbol: string; dataSymbol: string; name: string; market: Market; price: string; change: string }> = [
@@ -712,6 +714,8 @@ export function ChartWorkspacePage() {
   const [isChartSettingsOpen, setIsChartSettingsOpen] = useState(false);
   const [chartContextMenu, setChartContextMenu] = useState<ChartContextMenuState | null>(null);
   const [chartResetViewKey, setChartResetViewKey] = useState(0);
+  const [drawings, setDrawings] = useState<ChartDrawing[]>(() => readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }));
+  const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const displayedMarketBars = useMemo(
     () => (timeframe === "realtime" && intradayDisplayMode === "candlestick" ? aggregateRealtimePointBarsToMinuteCandles(cachedMarketBars) : cachedMarketBars),
     [cachedMarketBars, intradayDisplayMode, timeframe],
@@ -722,6 +726,7 @@ export function ChartWorkspacePage() {
   );
   const cachedCandles = useMemo(() => marketBarsToCandles(displayedMarketBars), [displayedMarketBars]);
   const indicatorLayers = useMemo(() => createChartIndicatorLayers(cachedCandles, indicatorSettings), [cachedCandles, indicatorSettings]);
+  const drawingLayer = useMemo(() => drawingsToLayer(drawings), [drawings]);
   const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(displayedMarketBars), [displayedMarketBars]);
   const renderedCandles = cachedCandles;
   const strategyInputBars = cachedStrategyBars;
@@ -807,6 +812,11 @@ export function ChartWorkspacePage() {
   useEffect(() => {
     setCachedMarketBars(readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe }));
   }, [activeSymbol.dataSymbol, activeSymbol.market, marketDataProviderSettings.stockSdkPrimaryEnabled, timeframe]);
+
+  useEffect(() => {
+    setDrawings(readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }));
+    setSelectedDrawingId(null);
+  }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1345,6 +1355,32 @@ export function ChartWorkspacePage() {
     }
   };
 
+  const updateDrawings = (nextDrawings: ChartDrawing[]) => {
+    writeChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }, nextDrawings);
+    setDrawings(nextDrawings);
+  };
+
+  const createDrawing = (type: ChartDrawing["type"]) => {
+    const last = cachedCandles[cachedCandles.length - 1];
+    const previous = cachedCandles[Math.max(0, cachedCandles.length - 6)] ?? last;
+    if (!last || !previous) return;
+    const createdAt = new Date().toISOString();
+    const id = `drawing-${Date.now()}`;
+    const drawing: ChartDrawing = type === "trend-line"
+      ? { id, type, visible: true, createdAt, points: [{ timestamp: previous.timestamp ?? 0, price: previous.close }, { timestamp: last.timestamp ?? 0, price: last.close }] }
+      : type === "horizontal-line"
+        ? { id, type, visible: true, createdAt, price: last.close, label: "参考线" }
+        : { id, type, visible: true, createdAt, timestamp: last.timestamp ?? 0, price: last.close, text: "标注" };
+    updateDrawings([...drawings, drawing]);
+    setSelectedDrawingId(id);
+  };
+
+  const toggleDrawingVisibility = (drawingId: string) => updateDrawings(drawings.map((drawing) => drawing.id === drawingId ? { ...drawing, visible: !drawing.visible } : drawing));
+  const deleteDrawing = (drawingId: string) => {
+    updateDrawings(drawings.filter((drawing) => drawing.id !== drawingId));
+    setSelectedDrawingId((current) => current === drawingId ? null : current);
+  };
+
   return (
     <section className={isBottomDockExpanded ? "chart-workspace-page bottom-dock-expanded" : "chart-workspace-page"}>
       <header className="chart-topbar">
@@ -1442,12 +1478,13 @@ export function ChartWorkspacePage() {
           <button type="button" title="十字光标">
             <Crosshair size={18} />
           </button>
-          <button type="button" title="趋势线">
+          <button onClick={() => createDrawing("trend-line")} type="button" title="添加趋势线">
             <PencilLine size={18} />
           </button>
-          <button type="button" title="测距">
+          <button onClick={() => createDrawing("horizontal-line")} type="button" title="添加水平线">
             <Ruler size={18} />
           </button>
+          <button onClick={() => createDrawing("text")} type="button" title="添加文字标注"><Type size={18} /></button>
           <button
             className={isChartSettingsOpen ? "active" : ""}
             onClick={() => setIsChartSettingsOpen((value) => !value)}
@@ -1483,7 +1520,7 @@ export function ChartWorkspacePage() {
             showVolume={showVolume}
             resetViewKey={chartResetViewKey}
             strategyLayers={strategyLayers}
-            layers={indicatorLayers}
+            layers={[drawingLayer, ...indicatorLayers]}
           />
           {isIndicatorSettingsOpen && (
             <section className="chart-settings-popover indicator-settings-popover" aria-label="指标管理">
@@ -1907,6 +1944,18 @@ export function ChartWorkspacePage() {
                     </div>
                   );
                 })}
+                {indicatorLayers.map((layer) => (
+                  <div className="layer-item active" key={layer.id}>
+                    <span><strong>{layer.name}<em className="strategy-source-badge plugin">指标</em></strong><small>{layer.elements.length} 个渲染元素</small></span>
+                    <div className="layer-actions"><button onClick={() => setIsIndicatorSettingsOpen(true)} type="button"><SlidersHorizontal size={13} />参数</button></div>
+                  </div>
+                ))}
+                {drawings.map((drawing) => (
+                  <div className={selectedDrawingId === drawing.id ? "layer-item active" : "layer-item"} key={drawing.id} onClick={() => setSelectedDrawingId(drawing.id)}>
+                    <span><strong>{drawing.type === "trend-line" ? "趋势线" : drawing.type === "horizontal-line" ? "水平线" : "文字标注"}<em className="strategy-source-badge user">绘图</em></strong><small>{drawing.visible ? "显示中" : "已隐藏"}</small></span>
+                    <div className="layer-actions"><button onClick={() => toggleDrawingVisibility(drawing.id)} type="button">{drawing.visible ? "隐藏" : "显示"}</button><button onClick={() => deleteDrawing(drawing.id)} type="button">删除</button></div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

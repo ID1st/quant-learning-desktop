@@ -82,6 +82,14 @@ export type ChartLayerElement =
       tone: Extract<ChartLayerTone, "range" | "risk" | "target" | "stop">;
       fromTimestamp?: number;
       visible?: boolean;
+    }
+  | {
+      id: string;
+      kind: "text";
+      timestamp: number;
+      price: number;
+      text: string;
+      visible?: boolean;
     };
 
 export interface ChartLayer {
@@ -684,6 +692,14 @@ export function ChartViewport({
                       key={`${layer.id}-${element.id}`}
                     />
                   );
+                }
+
+                if (element.kind === "text") {
+                  const x = timestampToX(element.timestamp);
+                  if (x === null || !isFiniteNumber(element.price)) {
+                    return null;
+                  }
+                  return <text className="chart-text-annotation" key={`${layer.id}-${element.id}`} x={x + 6} y={priceToY(element.price) - 8}>{element.text}</text>;
                 }
 
                 if (!isFiniteNumber(element.timestamp) || !isFiniteNumber(element.price)) {
