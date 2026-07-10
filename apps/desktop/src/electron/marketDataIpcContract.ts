@@ -139,6 +139,7 @@ export const marketDataIpcDefaultProviderPriority = [
   "alphafeed-rest",
   "alphafeed-websocket",
   "longbridge",
+  "yahoo-finance",
 ] as const satisfies readonly GatewayMarketDataProviderId[];
 
 export const marketDataIpcChannels = {

@@ -10,6 +10,7 @@ import {
 import type { SecureCredentialStore } from "../src/electron/secureCredentialStore.ts";
 import type { AlphaFeedStreamSession } from "../src/electron/alphaFeedStreamBridge.ts";
 import type { AlphaFeedProviderHealth } from "../src/electron/alphaFeedBridge.ts";
+import { createYahooFinanceIntradayProvider } from "../src/features/marketData/yahooFinanceIntradayProvider.ts";
 
 test("market data IPC channels are stable provider-neutral contracts", () => {
   assert.deepEqual(marketDataIpcChannels, {
@@ -29,6 +30,7 @@ test("market data IPC default provider priority keeps stock sdk primary and exis
     "alphafeed-rest",
     "alphafeed-websocket",
     "longbridge",
+    "yahoo-finance",
   ]);
 });
 
@@ -117,13 +119,13 @@ test("market data IPC handlers expose provider status from secure main-side prov
   assert.deepEqual(result.data.priority, marketDataIpcDefaultProviderPriority);
   assert.deepEqual(
     result.data.providers.map((provider) => provider.provider),
-    ["stock-sdk", "alphafeed-rest", "longbridge"],
+    ["stock-sdk", "alphafeed-rest", "longbridge", "yahoo-finance"],
   );
   assert.deepEqual(
     result.data.providers.map((provider) => provider.status),
-    ["healthy", "healthy", "delayed"],
+    ["healthy", "healthy", "delayed", "healthy"],
   );
-  assert.equal(result.data.capabilities.length, 3);
+  assert.equal(result.data.capabilities.length, 4);
 });
 
 test("market data IPC handlers fetch quote snapshots through stock sdk primary without renderer credentials", async () => {
@@ -266,6 +268,46 @@ test("market data IPC handlers fetch realtime history through intraday bars", as
   assert.equal(result.meta.provider, "stock-sdk");
   assert.equal(result.data[0]?.timeframe, "1m");
   assert.deepEqual(calls, ["intraday"]);
+});
+
+test("market data IPC handlers use the emergency US intraday provider after Stock SDK fails", async () => {
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createEmptyCredentialStore(),
+    stockSdkOperations: {
+      fetchQuoteSnapshot: async () => [],
+      fetchHistoricalBars: async () => [],
+      fetchIntradayBars: async () => {
+        throw new Error("Stock SDK network unavailable");
+      },
+    },
+    yahooFinanceProvider: createYahooFinanceIntradayProvider({
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            chart: {
+              result: [
+                {
+                  timestamp: [1_783_000_000],
+                  indicators: { quote: [{ open: [315.5], high: [315.8], low: [315.4], close: [315.7], volume: [100] }] },
+                },
+              ],
+            },
+          }),
+          { status: 200 },
+        ),
+    }),
+  });
+
+  const result = await handlers.fetchIntradayBars({
+    context: { source: "chart" },
+    request: { symbol: "AAPL.US", market: "US", timeframe: "1m" },
+    providerPolicy: { stockSdkPrimaryEnabled: true },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.meta.provider, "yahoo-finance");
+  assert.deepEqual(result.meta.fallback.triedProviders, ["stock-sdk", "yahoo-finance"]);
+  assert.equal(result.data[0]?.symbol, "AAPL.US");
 });
 
 test("market data IPC handlers control quote stream through secure desktop credentials", async () => {

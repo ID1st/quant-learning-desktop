@@ -17,6 +17,7 @@ const providerLabels: Record<GatewayMarketDataProviderId, string> = {
   "alphafeed-rest": "AlphaFeed REST",
   "alphafeed-websocket": "AlphaFeed WebSocket",
   longbridge: "长桥",
+  "yahoo-finance": "Yahoo Finance 应急源",
 };
 
 const statusLabels: Record<MarketDataProviderHealthStatus, string> = {

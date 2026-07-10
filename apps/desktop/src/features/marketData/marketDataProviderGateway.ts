@@ -210,6 +210,7 @@ export function createMarketDataGateway(
     "alphafeed-rest",
     "alphafeed-websocket",
     "longbridge",
+    "yahoo-finance",
   ],
 ): MarketDataGateway {
   const orderProviders = (providers: readonly GatewayMarketDataProvider[]) =>

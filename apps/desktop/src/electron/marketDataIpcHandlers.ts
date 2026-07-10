@@ -28,6 +28,7 @@ import {
   createMarketDataProviderRegistry,
   type GatewayMarketDataProvider,
   type GatewayMarketDataProviderId,
+  type IntradayBarProvider,
   type MarketDataGatewayError,
   type MarketDataGatewayResult,
   type MarketDataProviderHealthView,
@@ -38,10 +39,12 @@ import {
   type StockSdkGatewayProviderOperations,
 } from "../features/marketData/stockSdkGatewayProvider.ts";
 import { createStockSdkGatewayProviderOperations } from "../features/marketData/stockSdkProviderOperations.ts";
+import { createYahooFinanceIntradayProvider } from "../features/marketData/yahooFinanceIntradayProvider.ts";
 
 export interface MarketDataIpcHandlerDependencies {
   readonly credentialStore?: SecureCredentialStore;
   readonly stockSdkOperations?: StockSdkGatewayProviderOperations;
+  readonly yahooFinanceProvider?: IntradayBarProvider;
   readonly streamSession?: AlphaFeedStreamSession;
 }
 
@@ -60,6 +63,7 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       const providers = createMarketDataProviders(true, {
         credentialStore,
         stockSdkOperations: dependencies.stockSdkOperations,
+        yahooFinanceProvider: dependencies.yahooFinanceProvider,
       });
       const health = await Promise.all(providers.map((provider) => provider.getHealth()));
 
@@ -77,6 +81,7 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
         credentialStore,
         stockSdkOperations: dependencies.stockSdkOperations,
+        yahooFinanceProvider: dependencies.yahooFinanceProvider,
       });
       const priority = createQuoteSnapshotPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true);
       const gateway = createMarketDataGateway(createMarketDataProviderRegistry(providers), priority);
@@ -88,6 +93,7 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
         credentialStore,
         stockSdkOperations: dependencies.stockSdkOperations,
+        yahooFinanceProvider: dependencies.yahooFinanceProvider,
       });
       const gateway = createMarketDataGateway(
         createMarketDataProviderRegistry(providers),
@@ -101,6 +107,7 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
         credentialStore,
         stockSdkOperations: dependencies.stockSdkOperations,
+        yahooFinanceProvider: dependencies.yahooFinanceProvider,
       });
       const gateway = createMarketDataGateway(
         createMarketDataProviderRegistry(providers),
@@ -150,6 +157,7 @@ function createMarketDataProviders(
   dependencies: {
     readonly credentialStore: SecureCredentialStore;
     readonly stockSdkOperations?: StockSdkGatewayProviderOperations;
+    readonly yahooFinanceProvider?: IntradayBarProvider;
   },
 ) {
   const providers: GatewayMarketDataProvider[] = [];
@@ -184,6 +192,8 @@ function createMarketDataProviders(
     );
   }
 
+  providers.push(dependencies.yahooFinanceProvider ?? createYahooFinanceIntradayProvider());
+
   return providers;
 }
 
@@ -196,7 +206,9 @@ function createHistoricalBarsPriority(stockSdkPrimaryEnabled: boolean): readonly
 }
 
 function createIntradayBarsPriority(stockSdkPrimaryEnabled: boolean): readonly GatewayMarketDataProviderId[] {
-  return stockSdkPrimaryEnabled ? ["stock-sdk", "alphafeed-rest", "longbridge"] : ["alphafeed-rest", "longbridge"];
+  return stockSdkPrimaryEnabled
+    ? ["stock-sdk", "alphafeed-rest", "longbridge", "yahoo-finance"]
+    : ["alphafeed-rest", "longbridge", "yahoo-finance"];
 }
 
 function toIpcGatewayResult<Data>(result: MarketDataGatewayResult<Data>) {

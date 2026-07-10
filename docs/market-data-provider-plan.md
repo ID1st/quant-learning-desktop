@@ -629,6 +629,7 @@ Acceptance:
 | Current chart directly references AlphaFeed/LongBridge | Medium | Introduce gateway in compatibility mode before switching |
 | Existing cache provider enum is narrow | Medium | Add backward-compatible provider ID migration |
 | Mixed historical and live data can overwrite newer points | High | Use provider-neutral merge rules based on timestamp and source role |
+| Stock SDK Eastmoney minute endpoint is unavailable from a user network | High | Keep configured AlphaFeed/LongBridge fallbacks and use Yahoo Finance only as the final US 1m emergency provider with explicit source metadata |
 
 ## Test Plan
 

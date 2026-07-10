@@ -64,10 +64,11 @@ Completed foundations:
 11. AlphaFeed REST polling fetches the deduplicated watchlist in batches and keeps the latest quote snapshot per symbol.
 12. On the `1d` chart, the active symbol quote is read from the snapshot cache and merged into the current trading-day candle.
 13. On the `realtime` chart, the active symbol loads 1m history through `intradayBars` and normalizes returned bars into the `realtime` cache. During market hours, live quote snapshots can append new points; after close, polling stops and only historical intraday data remains.
-14. If LongBridge realtime-page history is delayed, the cache merge keeps newer live bars and the chart status explains whether the gap has been bridged.
-15. Provider health is surfaced in the chart top bar with active provider, capability, fallback source, latency, latest check time, and degraded states.
-16. Settings exposes cache size, indexed entries, retention cleanup, and full cache clearing.
-17. Dashboard shows provider state, quote count, and K-line count.
+14. If Stock SDK and configured credential-backed intraday providers cannot return US 1m history, the gateway uses a final Yahoo Finance emergency fallback. The returned bars keep `provider: "yahoo-finance"` metadata and the chart status explicitly reports the downgrade.
+15. If LongBridge realtime-page history is delayed, the cache merge keeps newer live bars and the chart status explains whether the gap has been bridged.
+16. Provider health is surfaced in the chart top bar with active provider, capability, fallback source, latency, latest check time, and degraded states.
+17. Settings exposes cache size, indexed entries, retention cleanup, and full cache clearing.
+18. Dashboard shows provider state, quote count, and K-line count.
 
 ## Planned Market Data Direction
 

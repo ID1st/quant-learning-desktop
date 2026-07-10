@@ -14,6 +14,7 @@ import {
 } from "./marketDataCompatibilityProviders.ts";
 import { createStockSdkGatewayProvider, type StockSdkGatewayProviderOperations } from "./stockSdkGatewayProvider.ts";
 import { createStockSdkGatewayProviderOperations } from "./stockSdkProviderOperations.ts";
+import { createYahooFinanceIntradayProvider } from "./yahooFinanceIntradayProvider.ts";
 import type { MarketDataBar } from "./marketBarCacheService.ts";
 import type { MarketQuoteSnapshot, MarketWatchlistItem } from "./marketDataSyncService.ts";
 import {
@@ -211,13 +212,15 @@ export function createChartMarketDataGateways(config: ChartMarketDataGatewayConf
     );
   }
 
+  providers.push(createYahooFinanceIntradayProvider({ baseUrl: getYahooFinanceBrowserProxyUrl() }));
+
   const registry = createMarketDataProviderRegistry(providers);
   const historicalPriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
     ? ["stock-sdk", "longbridge", "alphafeed-rest"]
     : ["longbridge", "alphafeed-rest"];
   const intradayPriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
-    ? ["stock-sdk", "alphafeed-rest", "longbridge"]
-    : ["alphafeed-rest", "longbridge"];
+    ? ["stock-sdk", "alphafeed-rest", "longbridge", "yahoo-finance"]
+    : ["alphafeed-rest", "longbridge", "yahoo-finance"];
   const quotePriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
     ? ["stock-sdk", "alphafeed-rest", "longbridge"]
     : ["alphafeed-rest", "longbridge"];
@@ -252,6 +255,14 @@ export function createChartMarketDataGateways(config: ChartMarketDataGatewayConf
       await streamProvider?.disconnectStream();
     },
   };
+}
+
+function getYahooFinanceBrowserProxyUrl() {
+  if (typeof window !== "undefined" && window.location.protocol.startsWith("http")) {
+    return "/market-data-proxy/yahoo-finance";
+  }
+
+  return undefined;
 }
 
 function createProviderNeutralChartMarketDataAccess(

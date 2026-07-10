@@ -1,5 +1,5 @@
 export type LegacyMarketDataProviderId = "alphafeed" | "longport";
-export type GatewayMarketDataProviderId = "stock-sdk" | "alphafeed-rest" | "alphafeed-websocket" | "longbridge";
+export type GatewayMarketDataProviderId = "stock-sdk" | "alphafeed-rest" | "alphafeed-websocket" | "longbridge" | "yahoo-finance";
 export type MarketDataProviderId = LegacyMarketDataProviderId | GatewayMarketDataProviderId;
 
 export const marketDataProviderIds = [
@@ -9,6 +9,7 @@ export const marketDataProviderIds = [
   "alphafeed-rest",
   "alphafeed-websocket",
   "longbridge",
+  "yahoo-finance",
 ] as const satisfies readonly MarketDataProviderId[];
 
 export const liveMarketDataProviderIds: readonly MarketDataProviderId[] = [
@@ -16,6 +17,7 @@ export const liveMarketDataProviderIds: readonly MarketDataProviderId[] = [
   "stock-sdk",
   "alphafeed-rest",
   "alphafeed-websocket",
+  "yahoo-finance",
 ] as const;
 
 export const historicalMarketDataProviderIds: readonly MarketDataProviderId[] = ["longport", "longbridge"] as const;
