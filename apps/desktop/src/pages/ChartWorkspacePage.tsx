@@ -2020,7 +2020,7 @@ export function ChartWorkspacePage() {
                   </div>
                 ))}
                 {drawings.map((drawing) => (
-                  <div className={selectedDrawingId === drawing.id ? "layer-item active" : "layer-item"} key={drawing.id} onClick={() => setSelectedDrawingId(drawing.id)}>
+                  <div className={selectedDrawingId === drawing.id ? "layer-item active" : "layer-item"} key={drawing.id} onClick={() => setSelectedDrawingId((current) => current === drawing.id ? null : drawing.id)}>
                     <span><strong>{drawing.type === "trend-line" ? "趋势线" : drawing.type === "horizontal-line" ? "水平线" : "文字标注"}<em className="strategy-source-badge user">绘图</em></strong><small>{drawing.visible ? "显示中" : "已隐藏"}</small></span>
                     <div className="layer-actions"><button onClick={() => toggleDrawingVisibility(drawing.id)} type="button">{drawing.visible ? "隐藏" : "显示"}</button><button onClick={() => editDrawing(drawing.id)} type="button">编辑</button><button onClick={() => moveLayer(drawingLayer.id, -1)} title="上移图层" type="button">上移</button><button onClick={() => moveLayer(drawingLayer.id, 1)} title="下移图层" type="button">下移</button><button onClick={() => deleteDrawing(drawing.id)} type="button">删除</button></div>
                   </div>

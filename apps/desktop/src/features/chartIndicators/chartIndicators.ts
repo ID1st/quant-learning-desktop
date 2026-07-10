@@ -1,5 +1,37 @@
 import type { CandlePoint, ChartRenderLayer } from "@quant/chart";
 
+export interface ChartIndicatorParameter {
+  readonly key: string;
+  readonly label: string;
+  readonly type: "number" | "boolean";
+  readonly defaultValue: number | boolean;
+}
+
+export interface ChartIndicatorDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly parameters: readonly ChartIndicatorParameter[];
+  evaluate(candles: readonly CandlePoint[], parameters: Readonly<Record<string, unknown>>): ChartRenderLayer | null;
+}
+
+export interface ChartIndicatorRegistry {
+  register(definition: ChartIndicatorDefinition): void;
+  get(id: string): ChartIndicatorDefinition | undefined;
+  list(): readonly ChartIndicatorDefinition[];
+}
+
+export function createChartIndicatorRegistry(initialDefinitions: readonly ChartIndicatorDefinition[] = []): ChartIndicatorRegistry {
+  const definitions = new Map<string, ChartIndicatorDefinition>();
+  return {
+    register(definition) {
+      if (definitions.has(definition.id)) throw new Error(`重复指标注册：${definition.id}`);
+      definitions.set(definition.id, definition);
+    },
+    get: (id) => definitions.get(id),
+    list: () => Array.from(definitions.values()),
+  };
+}
+
 export interface ChartIndicatorSettings {
   readonly movingAverage: { readonly available: boolean; readonly enabled: boolean; readonly visible: boolean; readonly window: number };
   readonly bollingerBands: { readonly available: boolean; readonly enabled: boolean; readonly visible: boolean; readonly window: number; readonly multiplier: number };
