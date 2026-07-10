@@ -103,3 +103,17 @@ Verification:
 
 - Strategy Center and Import Pine dialog work at 1280x800, 1440x900, and 1920x1080 without page-level overflow.
 - The Super Chart remains reachable and renders after strategy navigation at the same three viewport sizes.
+
+## Slice 4 Status
+
+Completed:
+
+- The application now has a functional Ctrl/Cmd+K command palette for existing workspace navigation.
+- Command palette navigation and strategy enable/disable actions use a shared Toast feedback surface.
+- Focus states, keyboard close behavior, and notification placement follow the global visual token system.
+- No non-functional search, trading, or data-source commands were added.
+
+Verification:
+
+- Command palette opens, filters, executes with Enter, and closes with Escape.
+- Toast notifications render within the viewport at 1280x800, 1440x900, and 1920x1080.

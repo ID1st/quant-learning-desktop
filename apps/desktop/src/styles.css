@@ -134,7 +134,209 @@ textarea:focus-visible {
 }
 
 .logout-button {
+  margin-top: 8px;
+}
+
+.command-launcher {
   margin-top: auto;
+}
+
+.command-palette-backdrop {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: start center;
+  background: rgba(4, 8, 12, 0.64);
+  padding-top: min(18vh, 160px);
+}
+
+.command-palette {
+  display: grid;
+  width: min(560px, calc(100vw - 40px));
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-overlay);
+  background: var(--bg-surface);
+  box-shadow: 0 28px 84px rgba(0, 0, 0, 0.52);
+}
+
+.command-palette-input {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto 28px;
+  align-items: center;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  padding: 11px var(--space-3);
+}
+
+.command-palette-input input {
+  min-width: 0;
+  height: 28px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.command-palette kbd {
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: rgba(8, 13, 20, 0.5);
+  color: var(--text-muted);
+  font-family: var(--font-data);
+  font-size: 10px;
+  padding: 3px 5px;
+  white-space: nowrap;
+}
+
+.command-palette-input button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.command-palette-input button:hover {
+  border-color: var(--border-subtle);
+  background: var(--bg-raised);
+  color: var(--text-primary);
+}
+
+.command-palette-list {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+}
+
+.command-palette-list button {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 9px;
+  text-align: left;
+}
+
+.command-palette-list button:hover,
+.command-palette-list button:focus-visible {
+  border-color: rgba(77, 141, 255, 0.5);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.command-palette-list span {
+  color: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.command-palette-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 14px 9px;
+}
+
+.toast-viewport {
+  position: fixed;
+  z-index: 50;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  display: grid;
+  width: min(360px, calc(100vw - 40px));
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast-message {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 22px;
+  align-items: start;
+  gap: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-overlay);
+  background: var(--bg-raised);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.32);
+  color: var(--text-secondary);
+  padding: 10px;
+  pointer-events: auto;
+  animation: toast-enter 160ms ease-out;
+}
+
+.toast-message > span {
+  display: grid;
+  gap: 3px;
+}
+
+.toast-message strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.toast-message small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.toast-message button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.toast-message button:hover {
+  background: rgba(156, 170, 188, 0.1);
+  color: var(--text-primary);
+}
+
+.toast-message.success > svg {
+  color: var(--success);
+}
+
+.toast-message.warning > svg {
+  color: var(--warning);
+}
+
+.toast-message.error > svg {
+  color: var(--danger);
+}
+
+.toast-message.info > svg {
+  color: var(--accent);
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .auth-shell {
@@ -4487,6 +4689,10 @@ textarea:focus-visible {
   .logout-button {
     margin-top: 0;
     margin-left: auto;
+  }
+
+  .command-launcher {
+    margin-top: 0;
   }
 
   .app-content {

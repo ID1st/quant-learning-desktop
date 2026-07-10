@@ -11,6 +11,7 @@ import {
 } from "@quant/strategy-engine";
 import type { Timeframe } from "@quant/shared";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
+import { useToastStore } from "../features/feedback/toastStore";
 import { marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
 import { readMarketBarCache } from "../features/marketData/marketBarCacheService";
 import {
@@ -115,6 +116,7 @@ export function StrategyManagementPage() {
   const updateDraftParameter = useUserStrategyDraftStore((state) => state.updateDraftParameter);
   const deleteImportedDraft = useUserStrategyDraftStore((state) => state.deleteDraft);
   const setSelectedDraftId = useUserStrategyDraftStore((state) => state.setSelectedDraftId);
+  const pushToast = useToastStore((state) => state.push);
   const [strategyStatus, setStrategyStatus] = useState(() => createInitialStatus(strategies));
   const selectedStrategy = strategies.find((strategy) => strategy.key === selectedKey) ?? strategies[0];
   const enabledCount = Object.values(strategyStatus).filter((status) => status === "enabled").length;
@@ -214,10 +216,18 @@ export function StrategyManagementPage() {
     : null;
 
   const toggleStrategy = (strategyKey: string) => {
+    const nextStatus = strategyStatus[strategyKey] === "enabled" ? "disabled" : "enabled";
+    const strategyName = strategies.find((strategy) => strategy.key === strategyKey)?.name ?? "策略";
     setStrategyStatus((current) => ({
       ...current,
-      [strategyKey]: current[strategyKey] === "enabled" ? "disabled" : "enabled",
+      [strategyKey]: nextStatus,
     }));
+    pushToast({
+      tone: nextStatus === "enabled" ? "success" : "info",
+      title: `${strategyName}已${nextStatus === "enabled" ? "启用" : "停用"}`,
+      detail: nextStatus === "enabled" ? "策略会在超级图表中生成图层。" : "策略图层已停止输出。",
+      durationMs: 2800,
+    });
   };
 
   const handleCreateDraft = () => {
