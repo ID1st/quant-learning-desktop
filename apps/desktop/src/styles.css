@@ -2191,6 +2191,10 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
+.indicator-lifecycle-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.indicator-lifecycle-actions button { min-height: 24px; border: 1px solid rgba(73, 91, 112, 0.45); border-radius: 5px; background: rgba(12, 18, 26, 0.78); color: #b9c4d2; cursor: pointer; font-size: 11px; font-weight: 800; padding: 0 7px; }
+.indicator-lifecycle-actions button:hover { border-color: rgba(66, 223, 173, 0.5); color: #f5f8ff; }
+
 .chart-settings-reset {
   justify-self: start;
   margin-top: 2px;
@@ -2835,6 +2839,49 @@ textarea:focus-visible {
   border-bottom: 1px solid rgba(73, 91, 112, 0.34);
   padding: 6px 10px;
 }
+
+.bottom-status-strip button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  border: 1px solid rgba(73, 91, 112, 0.46);
+  border-radius: 6px;
+  background: transparent;
+  color: #b9c4d2;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 0 8px;
+}
+
+.chart-diagnostics-drawer {
+  position: fixed;
+  z-index: 70;
+  top: 64px;
+  right: 14px;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  width: min(360px, calc(100vw - 28px));
+  max-height: calc(100vh - 80px);
+  overflow: auto;
+  border: 1px solid rgba(73, 91, 112, 0.62);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.98);
+  box-shadow: -18px 20px 56px rgba(0, 0, 0, 0.42);
+  padding: 12px;
+}
+
+.chart-diagnostics-drawer section { display: grid; gap: 7px; }
+.chart-diagnostics-drawer p { margin: 0; color: #8f9caf; font-size: 11px; font-weight: 800; }
+.chart-diagnostics-drawer section > small { color: #9eabbc; font-size: 12px; line-height: 1.5; }
+.diagnostic-provider-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; border-top: 1px solid rgba(73, 91, 112, 0.24); padding-top: 7px; }
+.diagnostic-provider-row span { display: grid; gap: 3px; min-width: 0; }
+.diagnostic-provider-row strong { color: #e6edf6; font-size: 12px; }
+.diagnostic-provider-row small { overflow: hidden; color: #8f9caf; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.diagnostic-timeline-row { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 8px; border-top: 1px solid rgba(73, 91, 112, 0.24); color: #aeb9c8; font-size: 11px; padding-top: 6px; }
+.diagnostic-timeline-row time { color: #718096; font-family: var(--font-data); }
 
 .bottom-status-strip em,
 .bottom-status-strip small {

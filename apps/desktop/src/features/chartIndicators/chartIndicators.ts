@@ -1,26 +1,26 @@
 import type { CandlePoint, ChartRenderLayer } from "@quant/chart";
 
 export interface ChartIndicatorSettings {
-  readonly movingAverage: { readonly enabled: boolean; readonly window: number };
-  readonly bollingerBands: { readonly enabled: boolean; readonly window: number; readonly multiplier: number };
+  readonly movingAverage: { readonly available: boolean; readonly enabled: boolean; readonly visible: boolean; readonly window: number };
+  readonly bollingerBands: { readonly available: boolean; readonly enabled: boolean; readonly visible: boolean; readonly window: number; readonly multiplier: number };
 }
 
 export const defaultChartIndicatorSettings: ChartIndicatorSettings = {
-  movingAverage: { enabled: true, window: 9 },
-  bollingerBands: { enabled: false, window: 20, multiplier: 2 },
+  movingAverage: { available: true, enabled: true, visible: true, window: 9 },
+  bollingerBands: { available: true, enabled: false, visible: true, window: 20, multiplier: 2 },
 };
 
 export function createChartIndicatorLayers(candles: readonly CandlePoint[], settings: ChartIndicatorSettings): ChartRenderLayer[] {
   const points = candles.map((candle, index) => ({ timestamp: candle.timestamp ?? index, close: candle.close }));
   const layers: ChartRenderLayer[] = [];
 
-  if (settings.movingAverage.enabled) {
+  if (settings.movingAverage.available && settings.movingAverage.enabled) {
     layers.push({
       id: "indicator-moving-average",
       name: `均线 ${settings.movingAverage.window}`,
       source: "indicator",
       enabled: true,
-      visible: true,
+      visible: settings.movingAverage.visible,
       zIndex: 20,
       elements: [{
         id: "moving-average-line",
@@ -31,14 +31,14 @@ export function createChartIndicatorLayers(candles: readonly CandlePoint[], sett
     });
   }
 
-  if (settings.bollingerBands.enabled) {
+  if (settings.bollingerBands.available && settings.bollingerBands.enabled) {
     const bands = bollingerBands(points, settings.bollingerBands.window, settings.bollingerBands.multiplier);
     layers.push({
       id: "indicator-bollinger-bands",
       name: "布林带",
       source: "indicator",
       enabled: true,
-      visible: true,
+      visible: settings.bollingerBands.visible,
       zIndex: 18,
       elements: [
         { id: "boll-upper", kind: "trend-line", tone: "bearish", points: bands.map((point) => ({ timestamp: point.timestamp, price: point.upper })) },

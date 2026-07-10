@@ -78,6 +78,7 @@ import {
   SlidersHorizontal,
   Settings2,
   TerminalSquare,
+  Activity,
   LoaderCircle,
   Plus,
   Search,
@@ -311,11 +312,15 @@ function readWorkspacePreferences(): ChartWorkspacePreferences {
       }, {}),
       indicators: {
         movingAverage: {
+          available: typeof parsed.indicators?.movingAverage?.available === "boolean" ? parsed.indicators.movingAverage.available : true,
           enabled: typeof parsed.indicators?.movingAverage?.enabled === "boolean" ? parsed.indicators.movingAverage.enabled : parsed.showMovingAverage !== false,
+          visible: typeof parsed.indicators?.movingAverage?.visible === "boolean" ? parsed.indicators.movingAverage.visible : true,
           window: Number.isFinite(parsed.indicators?.movingAverage?.window) ? Math.max(2, Math.min(240, parsed.indicators.movingAverage.window)) : 9,
         },
         bollingerBands: {
+          available: typeof parsed.indicators?.bollingerBands?.available === "boolean" ? parsed.indicators.bollingerBands.available : true,
           enabled: typeof parsed.indicators?.bollingerBands?.enabled === "boolean" ? parsed.indicators.bollingerBands.enabled : false,
+          visible: typeof parsed.indicators?.bollingerBands?.visible === "boolean" ? parsed.indicators.bollingerBands.visible : true,
           window: Number.isFinite(parsed.indicators?.bollingerBands?.window) ? Math.max(2, Math.min(240, parsed.indicators.bollingerBands.window)) : 20,
           multiplier: Number.isFinite(parsed.indicators?.bollingerBands?.multiplier) ? Math.max(0.1, Math.min(6, parsed.indicators.bollingerBands.multiplier)) : 2,
         },
@@ -714,6 +719,10 @@ export function ChartWorkspacePage() {
   const [isChartSettingsOpen, setIsChartSettingsOpen] = useState(false);
   const [chartContextMenu, setChartContextMenu] = useState<ChartContextMenuState | null>(null);
   const [chartResetViewKey, setChartResetViewKey] = useState(0);
+  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
+  const [providerDiagnostics, setProviderDiagnostics] = useState<readonly MarketDataProviderHealthView[]>([]);
+  const [diagnosticTimeline, setDiagnosticTimeline] = useState<ReadonlyArray<{ checkedAt: string; status: RealtimeProviderHealthView["status"]; message: string }>>([]);
+  const [layerOrder, setLayerOrder] = useState<string[]>([]);
   const [drawings, setDrawings] = useState<ChartDrawing[]>(() => readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }));
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const displayedMarketBars = useMemo(
@@ -753,6 +762,10 @@ export function ChartWorkspacePage() {
       })),
     [strategyRuns],
   );
+  const availableLayerIds = useMemo(() => [...strategyLayers.map((layer) => layer.strategyId), ...indicatorLayers.map((layer) => layer.id), drawingLayer.id], [drawingLayer.id, indicatorLayers, strategyLayers]);
+  const effectiveLayerOrder = useMemo(() => [...layerOrder.filter((id) => availableLayerIds.includes(id)), ...availableLayerIds.filter((id) => !layerOrder.includes(id))], [availableLayerIds, layerOrder]);
+  const orderedStrategyLayers = useMemo(() => strategyLayers.map((layer) => ({ ...layer, zIndex: (effectiveLayerOrder.indexOf(layer.strategyId) + 1) * 10 })), [effectiveLayerOrder, strategyLayers]);
+  const orderedExtraLayers = useMemo(() => [drawingLayer, ...indicatorLayers].map((layer) => ({ ...layer, zIndex: (effectiveLayerOrder.indexOf(layer.id) + 1) * 10 })), [drawingLayer, effectiveLayerOrder, indicatorLayers]);
   const canShowStrategyLayers = showStrategyLayers;
   const strategyLayerElementCount = strategyLayers.reduce((total, layer) => total + (layer.enabled ? layer.elements.length : 0), 0);
   const enabledStrategyCount = strategyRuns.filter(({ settings }) => settings.enabled).length;
@@ -817,6 +830,15 @@ export function ChartWorkspacePage() {
     setDrawings(readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }));
     setSelectedDrawingId(null);
   }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
+
+  useEffect(() => {
+    const checkedAt = realtimeHealth.checkedAt ?? new Date().toISOString();
+    setDiagnosticTimeline((current) => {
+      const latest = current[0];
+      if (latest?.status === realtimeHealth.status && latest.message === realtimeHealth.message) return current;
+      return [{ checkedAt, status: realtimeHealth.status, message: realtimeHealth.message }, ...current].slice(0, 12);
+    });
+  }, [realtimeHealth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1381,6 +1403,48 @@ export function ChartWorkspacePage() {
     setSelectedDrawingId((current) => current === drawingId ? null : current);
   };
 
+  const editDrawing = (drawingId: string) => {
+    const drawing = drawings.find((item) => item.id === drawingId);
+    if (!drawing) return;
+    if (drawing.type === "text") {
+      const text = window.prompt("标注文字", drawing.text)?.trim();
+      if (text) updateDrawings(drawings.map((item) => item.id === drawingId ? { ...item, text } : item));
+      return;
+    }
+    if (drawing.type === "horizontal-line") {
+      const price = Number(window.prompt("参考线价格", String(drawing.price)));
+      if (Number.isFinite(price) && price > 0) updateDrawings(drawings.map((item) => item.id === drawingId ? { ...item, price } : item));
+      return;
+    }
+    const endpoint = Number(window.prompt("趋势线终点价格", String(drawing.points[1].price)));
+    if (Number.isFinite(endpoint) && endpoint > 0) updateDrawings(drawings.map((item) => {
+      if (item.id !== drawingId || item.type !== "trend-line") return item;
+      return { ...item, points: [item.points[0], { ...item.points[1], price: endpoint }] };
+    }));
+  };
+
+  const openDiagnostics = async () => {
+    setIsDiagnosticsOpen(true);
+    const bridge = window.quantDesktop?.marketData;
+    if (!bridge) {
+      setProviderDiagnostics([]);
+      return;
+    }
+    const result = await bridge.getProviderStatus({ source: "diagnostics" });
+    setProviderDiagnostics(result.ok ? result.data.providers : result.error.health);
+  };
+
+  const moveLayer = (layerId: string, direction: -1 | 1) => {
+    setLayerOrder((current) => {
+      const ordered = [...current.filter((id) => availableLayerIds.includes(id)), ...availableLayerIds.filter((id) => !current.includes(id))];
+      const index = ordered.indexOf(layerId);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= ordered.length) return ordered;
+      [ordered[index], ordered[target]] = [ordered[target]!, ordered[index]!];
+      return ordered;
+    });
+  };
+
   return (
     <section className={isBottomDockExpanded ? "chart-workspace-page bottom-dock-expanded" : "chart-workspace-page"}>
       <header className="chart-topbar">
@@ -1519,15 +1583,17 @@ export function ChartWorkspacePage() {
             showStrategyLayers={canShowStrategyLayers}
             showVolume={showVolume}
             resetViewKey={chartResetViewKey}
-            strategyLayers={strategyLayers}
-            layers={[drawingLayer, ...indicatorLayers]}
+            strategyLayers={orderedStrategyLayers}
+            layers={orderedExtraLayers}
           />
           {isIndicatorSettingsOpen && (
             <section className="chart-settings-popover indicator-settings-popover" aria-label="指标管理">
               <div className="chart-settings-heading"><strong>指标管理</strong><button onClick={() => setIsIndicatorSettingsOpen(false)} type="button">关闭</button></div>
               <label className="parameter-toggle"><span><strong>均线</strong><small>显示趋势均线</small></span><input checked={indicatorSettings.movingAverage.enabled} onChange={(event) => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, enabled: event.currentTarget.checked } }))} type="checkbox" /></label>
+              <div className="indicator-lifecycle-actions"><button onClick={() => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, visible: !current.movingAverage.visible } }))} type="button">{indicatorSettings.movingAverage.visible ? "隐藏" : "显示"}</button><button onClick={() => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, available: false, enabled: false } }))} type="button">移除</button>{!indicatorSettings.movingAverage.available && <button onClick={() => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, available: true, enabled: true, visible: true } }))} type="button">添加均线</button>}</div>
               <label><span>均线周期</span><input min="2" max="240" onChange={(event) => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, window: Number(event.currentTarget.value) || 9 } }))} type="number" value={indicatorSettings.movingAverage.window} /></label>
               <label className="parameter-toggle"><span><strong>布林带</strong><small>显示波动区间</small></span><input checked={indicatorSettings.bollingerBands.enabled} onChange={(event) => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, enabled: event.currentTarget.checked } }))} type="checkbox" /></label>
+              <div className="indicator-lifecycle-actions"><button onClick={() => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, visible: !current.bollingerBands.visible } }))} type="button">{indicatorSettings.bollingerBands.visible ? "隐藏" : "显示"}</button><button onClick={() => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, available: false, enabled: false } }))} type="button">移除</button>{!indicatorSettings.bollingerBands.available && <button onClick={() => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, available: true, enabled: true, visible: true } }))} type="button">添加布林带</button>}</div>
               <label><span>布林周期</span><input min="2" max="240" onChange={(event) => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, window: Number(event.currentTarget.value) || 20 } }))} type="number" value={indicatorSettings.bollingerBands.window} /></label>
               <label><span>标准差倍数</span><input min="0.1" max="6" step="0.1" onChange={(event) => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, multiplier: Number(event.currentTarget.value) || 2 } }))} type="number" value={indicatorSettings.bollingerBands.multiplier} /></label>
             </section>
@@ -1839,6 +1905,7 @@ export function ChartWorkspacePage() {
           <strong>{cachedCandles.length > 0 ? `${cachedCandles.length} 根K线` : "等待行情数据"}</strong>
           <em>{formatRealtimeHealthDetail(realtimeHealth)}</em>
           <small>更新 {formatStatusClock(realtimeHealth.checkedAt)}</small>
+          <button aria-label="打开数据诊断" onClick={() => void openDiagnostics()} title="数据诊断" type="button"><Activity size={14} />诊断</button>
         </div>
 
         <div className="bottom-tabbar" role="tablist" aria-label="图表底部面板">
@@ -1940,6 +2007,8 @@ export function ChartWorkspacePage() {
                           <SlidersHorizontal size={13} />
                           参数
                         </button>
+                        <button aria-label={`${strategy.name} 上移图层`} onClick={() => moveLayer(strategy.key, -1)} title="上移图层" type="button">上移</button>
+                        <button aria-label={`${strategy.name} 下移图层`} onClick={() => moveLayer(strategy.key, 1)} title="下移图层" type="button">下移</button>
                       </div>
                     </div>
                   );
@@ -1947,13 +2016,13 @@ export function ChartWorkspacePage() {
                 {indicatorLayers.map((layer) => (
                   <div className="layer-item active" key={layer.id}>
                     <span><strong>{layer.name}<em className="strategy-source-badge plugin">指标</em></strong><small>{layer.elements.length} 个渲染元素</small></span>
-                    <div className="layer-actions"><button onClick={() => setIsIndicatorSettingsOpen(true)} type="button"><SlidersHorizontal size={13} />参数</button></div>
+                    <div className="layer-actions"><button onClick={() => setIsIndicatorSettingsOpen(true)} type="button"><SlidersHorizontal size={13} />参数</button><button onClick={() => moveLayer(layer.id, -1)} title="上移图层" type="button">上移</button><button onClick={() => moveLayer(layer.id, 1)} title="下移图层" type="button">下移</button></div>
                   </div>
                 ))}
                 {drawings.map((drawing) => (
                   <div className={selectedDrawingId === drawing.id ? "layer-item active" : "layer-item"} key={drawing.id} onClick={() => setSelectedDrawingId(drawing.id)}>
                     <span><strong>{drawing.type === "trend-line" ? "趋势线" : drawing.type === "horizontal-line" ? "水平线" : "文字标注"}<em className="strategy-source-badge user">绘图</em></strong><small>{drawing.visible ? "显示中" : "已隐藏"}</small></span>
-                    <div className="layer-actions"><button onClick={() => toggleDrawingVisibility(drawing.id)} type="button">{drawing.visible ? "隐藏" : "显示"}</button><button onClick={() => deleteDrawing(drawing.id)} type="button">删除</button></div>
+                    <div className="layer-actions"><button onClick={() => toggleDrawingVisibility(drawing.id)} type="button">{drawing.visible ? "隐藏" : "显示"}</button><button onClick={() => editDrawing(drawing.id)} type="button">编辑</button><button onClick={() => moveLayer(drawingLayer.id, -1)} title="上移图层" type="button">上移</button><button onClick={() => moveLayer(drawingLayer.id, 1)} title="下移图层" type="button">下移</button><button onClick={() => deleteDrawing(drawing.id)} type="button">删除</button></div>
                   </div>
                 ))}
               </div>
@@ -2008,6 +2077,15 @@ export function ChartWorkspacePage() {
           )}
         </div>
       </footer>
+
+      {isDiagnosticsOpen && (
+        <aside className="chart-diagnostics-drawer" aria-label="数据诊断">
+          <div className="chart-settings-heading"><strong>数据诊断</strong><button onClick={() => setIsDiagnosticsOpen(false)} type="button">关闭</button></div>
+          <section><p>当前状态</p><strong className={getRealtimeHealthBadgeClass(realtimeHealth.status)}>{realtimeHealth.status}</strong><small>{formatRealtimeHealthDetail(realtimeHealth)}</small></section>
+          <section><p>供应商健康</p>{providerDiagnostics.length > 0 ? providerDiagnostics.map((health) => <div className="diagnostic-provider-row" key={health.provider}><span><strong>{health.provider}</strong><small>{health.message}</small></span><em className={getRealtimeHealthBadgeClass(health.status === "healthy" || health.status === "delayed" || health.status === "degraded" ? "ok" : health.status === "rateLimited" ? "rate_limited" : "network_error")}>{health.status}</em></div>) : <small>当前运行环境未暴露桌面诊断桥。图表仍会显示实时状态。</small>}</section>
+          <section><p>最近事件</p>{diagnosticTimeline.map((entry) => <div className="diagnostic-timeline-row" key={`${entry.checkedAt}-${entry.message}`}><time>{formatStatusClock(entry.checkedAt)}</time><span>{entry.message}</span></div>)}</section>
+        </aside>
+      )}
     </section>
   );
 }
