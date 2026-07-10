@@ -17,6 +17,7 @@ Completed major foundations:
 Current recommended next milestone:
 
 - Continue Milestone 7.5: Super Chart Capability Completion. UI/display optimization round 1 is complete; the next work should focus on provider diagnostics timeline, indicator controls, drawing-tool state, and deeper layer ordering controls.
+- Operational prerequisite: keep Stock SDK as the quote and CN/HK intraday primary path, route US chart bars to Yahoo Finance first, and reverify a credential-backed fallback before relying on CN/HK daily or weekly history in the current network.
 
 ## 2. Execution Rule
 

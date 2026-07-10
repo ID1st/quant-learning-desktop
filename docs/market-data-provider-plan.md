@@ -21,18 +21,14 @@ Source:
 - License reported by npm: ISC
 - Runtime dependency profile reported by npm package metadata: no runtime dependencies
 
-Smoke-test findings:
+Current connectivity findings:
 
-- CN quote works when using provider-compatible symbols such as `sh600519`.
-- HK quote works with symbols such as `00700`.
-- US quote works with symbols such as `AAPL`.
-- CN daily K-line works with `adjust: ""`; default or incorrect adjustment can produce unsuitable historical values for our chart.
-- HK daily K-line works with `adjust: ""`.
-- US daily K-line requires Eastmoney-style secid symbols such as `105.AAPL`; plain `AAPL` returned empty data in the smoke test.
-- CN 1-minute intraday data works, but early rows may contain `open: 0`, so normalization must repair or reject invalid open values.
-- HK 1-minute intraday data works.
-- US 1-minute intraday data works when using `105.AAPL`.
-- The controlled phase 7 probe passed 10/10 checks for `600519.SH`, `00700.HK`, and `AAPL.US` quote, daily, weekly, and 1m intraday data through the gateway adapter. See `docs/stock-sdk-data-test-report.md`.
+- CN quote works with `sh600519`, HK quote works with `00700`, and US quote works with `AAPL`.
+- Tencent can return US records with exchange suffixes such as `AAPL.OQ`; the adapter normalizes them to `AAPL.US`.
+- CN and HK current-session 1-minute timelines are reachable through `quotes.timeline`; the adapter converts cumulative volume and amount into per-bar values.
+- In the current network, daily, weekly, and US minute K-line requests through Stock SDK's Eastmoney route fail or time out. This is an upstream connectivity condition, not a chart or cache normalization defect.
+- Yahoo Finance is verified as the first US bar route for `1m`, `1d`, and `1w` while that condition persists.
+- CN/HK daily and weekly bars keep Stock SDK first, then use AlphaFeed REST or LongBridge only when those credentials have been explicitly verified and activated.
 - No native WebSocket or SSE client was found in the source search. Treat `stock-sdk` as REST-capable, not WebSocket-capable, until proven otherwise.
 
 Implications:
@@ -629,7 +625,7 @@ Acceptance:
 | Current chart directly references AlphaFeed/LongBridge | Medium | Introduce gateway in compatibility mode before switching |
 | Existing cache provider enum is narrow | Medium | Add backward-compatible provider ID migration |
 | Mixed historical and live data can overwrite newer points | High | Use provider-neutral merge rules based on timestamp and source role |
-| Stock SDK Eastmoney minute endpoint is unavailable from a user network | High | Keep configured AlphaFeed/LongBridge fallbacks and use Yahoo Finance only as the final US 1m emergency provider with explicit source metadata |
+| Stock SDK Eastmoney K-line endpoints are unavailable from a user network | High | Prefer Yahoo Finance for US chart bars, keep configured AlphaFeed/LongBridge fallbacks for CN/HK history, and surface the upstream health state instead of fabricating history |
 
 ## Test Plan
 
