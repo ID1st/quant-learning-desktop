@@ -7,6 +7,7 @@ import type {
   MarketDataProviderCapabilityKey,
   MarketDataProviderHealthView,
   MarketDataProviderRequestItem,
+  MarketInstrument,
 } from "../features/marketData/marketDataProviderGateway.ts";
 
 export type MarketDataIpcRequestSource = "chart" | "sync" | "strategy" | "diagnostics";
@@ -100,6 +101,15 @@ export interface MarketDataIpcStreamReadRequest {
   readonly items: readonly MarketDataProviderRequestItem[];
 }
 
+export interface MarketDataIpcInstrumentSearchRequest {
+  readonly context: MarketDataIpcRequestContext;
+  readonly query: string;
+  readonly markets?: readonly ("US" | "HK" | "CN")[];
+  readonly providerPolicy?: {
+    readonly stockSdkPrimaryEnabled?: boolean;
+  };
+}
+
 export interface MarketDataIpcStreamControlMeta extends MarketDataIpcSuccessMeta {
   readonly state: MarketDataIpcStreamState;
 }
@@ -115,6 +125,7 @@ export type MarketDataIpcProviderStatusResult =
     };
 export type MarketDataIpcQuoteSnapshotResult = MarketDataIpcResult<readonly GatewayMarketQuoteSnapshot[]>;
 export type MarketDataIpcBarsResult = MarketDataIpcResult<readonly GatewayMarketDataBar[]>;
+export type MarketDataIpcInstrumentSearchResult = MarketDataIpcResult<readonly MarketInstrument[]>;
 export type MarketDataIpcStreamConnectResult = MarketDataIpcResult<{ readonly state: MarketDataIpcStreamState }>;
 export type MarketDataIpcStreamSnapshotResult = MarketDataIpcResult<{
   readonly snapshots: readonly GatewayMarketQuoteSnapshot[];
@@ -127,6 +138,7 @@ export interface MarketDataIpcBridge {
   fetchQuoteSnapshot(request: MarketDataIpcQuoteSnapshotRequest): Promise<MarketDataIpcQuoteSnapshotResult>;
   fetchHistoricalBars(request: Omit<MarketDataIpcBarRequest, "capability">): Promise<MarketDataIpcBarsResult>;
   fetchIntradayBars(request: Omit<MarketDataIpcBarRequest, "capability">): Promise<MarketDataIpcBarsResult>;
+  searchInstruments(request: MarketDataIpcInstrumentSearchRequest): Promise<MarketDataIpcInstrumentSearchResult>;
   connectQuoteStream(request: MarketDataIpcStreamConnectRequest): Promise<MarketDataIpcStreamConnectResult>;
   readQuoteStreamSnapshot(request: MarketDataIpcStreamReadRequest): Promise<MarketDataIpcStreamSnapshotResult>;
   disconnectQuoteStream(context: MarketDataIpcRequestContext): Promise<MarketDataIpcStreamDisconnectResult>;
@@ -147,6 +159,7 @@ export const marketDataIpcChannels = {
   fetchQuoteSnapshot: "marketData:fetchQuoteSnapshot",
   fetchHistoricalBars: "marketData:fetchHistoricalBars",
   fetchIntradayBars: "marketData:fetchIntradayBars",
+  searchInstruments: "marketData:searchInstruments",
   connectQuoteStream: "marketData:connectQuoteStream",
   readQuoteStreamSnapshot: "marketData:readQuoteStreamSnapshot",
   disconnectQuoteStream: "marketData:disconnectQuoteStream",
@@ -173,6 +186,9 @@ export function createMarketDataIpcShellHandlers(): MarketDataIpcHandlers {
     },
     async fetchIntradayBars() {
       return createUnavailableResult("Provider-neutral market data intraday bars IPC is registered but not wired yet.");
+    },
+    async searchInstruments() {
+      return createUnavailableResult("Provider-neutral market data instrument search IPC is registered but not wired yet.");
     },
     async connectQuoteStream() {
       return createUnavailableResult("Provider-neutral market data stream IPC is registered but not wired yet.");

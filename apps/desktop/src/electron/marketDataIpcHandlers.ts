@@ -117,6 +117,15 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
 
       return toIpcGatewayResult(result);
     },
+    async searchInstruments(request) {
+      const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
+        credentialStore,
+        stockSdkOperations: dependencies.stockSdkOperations,
+        yahooFinanceProvider: dependencies.yahooFinanceProvider,
+      });
+      const gateway = createMarketDataGateway(createMarketDataProviderRegistry(providers), ["stock-sdk"]);
+      return toIpcGatewayResult(await gateway.searchInstruments(request.query, request.markets));
+    },
     async connectQuoteStream(request) {
       const credentials = credentialStore.readAlphaFeedStreamCredentials();
 
@@ -202,7 +211,9 @@ function createQuoteSnapshotPriority(stockSdkPrimaryEnabled: boolean): readonly 
 }
 
 function createHistoricalBarsPriority(stockSdkPrimaryEnabled: boolean): readonly GatewayMarketDataProviderId[] {
-  return stockSdkPrimaryEnabled ? ["stock-sdk", "longbridge", "alphafeed-rest"] : ["longbridge", "alphafeed-rest"];
+  return stockSdkPrimaryEnabled
+    ? ["stock-sdk", "longbridge", "alphafeed-rest", "yahoo-finance"]
+    : ["longbridge", "alphafeed-rest", "yahoo-finance"];
 }
 
 function createIntradayBarsPriority(stockSdkPrimaryEnabled: boolean): readonly GatewayMarketDataProviderId[] {

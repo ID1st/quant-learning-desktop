@@ -18,6 +18,7 @@ test("market data IPC channels are stable provider-neutral contracts", () => {
     fetchQuoteSnapshot: "marketData:fetchQuoteSnapshot",
     fetchHistoricalBars: "marketData:fetchHistoricalBars",
     fetchIntradayBars: "marketData:fetchIntradayBars",
+    searchInstruments: "marketData:searchInstruments",
     connectQuoteStream: "marketData:connectQuoteStream",
     readQuoteStreamSnapshot: "marketData:readQuoteStreamSnapshot",
     disconnectQuoteStream: "marketData:disconnectQuoteStream",
@@ -101,6 +102,27 @@ test("market data IPC shell returns structured unavailable errors for unwired re
   assert.equal(result.error.code, "PROVIDER_UNAVAILABLE");
   assert.deepEqual(result.error.fallback.triedProviders, []);
   assert.deepEqual(result.error.health, []);
+});
+
+test("market data IPC handlers search instruments through the primary provider", async () => {
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createEmptyCredentialStore(),
+    stockSdkOperations: {
+      fetchQuoteSnapshot: async () => [],
+      fetchHistoricalBars: async () => [],
+      fetchIntradayBars: async () => [],
+      searchInstruments: async () => [{ code: "usaapl.oq", name: "Apple", market: "us" }],
+    },
+  });
+
+  const result = await handlers.searchInstruments({
+    context: { source: "chart" },
+    query: "AAPL",
+    markets: ["US"],
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.data, [{ provider: "stock-sdk", market: "US", symbol: "AAPL.US", name: "Apple" }]);
 });
 
 test("market data IPC handlers expose provider status from secure main-side provider registry", async () => {

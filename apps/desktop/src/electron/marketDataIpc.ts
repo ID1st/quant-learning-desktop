@@ -4,6 +4,7 @@ import {
   marketDataIpcChannels,
   type MarketDataIpcHandlers,
   type MarketDataIpcQuoteSnapshotRequest,
+  type MarketDataIpcInstrumentSearchRequest,
   type MarketDataIpcRequestContext,
   type MarketDataIpcStreamConnectRequest,
   type MarketDataIpcStreamReadRequest,
@@ -24,6 +25,9 @@ export function registerMarketDataIpcHandlers(handlers: MarketDataIpcHandlers = 
   );
   ipcMain.handle(marketDataIpcChannels.fetchIntradayBars, (_event, request: Omit<MarketDataIpcBarRequest, "capability">) =>
     handlers.fetchIntradayBars(request),
+  );
+  ipcMain.handle(marketDataIpcChannels.searchInstruments, (_event, request: MarketDataIpcInstrumentSearchRequest) =>
+    handlers.searchInstruments(request),
   );
   ipcMain.handle(marketDataIpcChannels.connectQuoteStream, (_event, request: MarketDataIpcStreamConnectRequest) =>
     handlers.connectQuoteStream(request),

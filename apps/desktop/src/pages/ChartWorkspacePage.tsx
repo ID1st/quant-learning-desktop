@@ -19,7 +19,7 @@ import {
 } from "../features/strategies/chartStrategyRuntime";
 import { marketBarsToCandles, marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
 import { readMarketBarCache, writeMarketBarCache, type MarketDataBar } from "../features/marketData/marketBarCacheService";
-import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService";
+import { readMarketWatchlist, writeMarketWatchlist, type MarketQuoteSnapshot, type MarketWatchlistItem } from "../features/marketData/marketDataSyncService";
 import {
   createQuotePollingBatches,
   defaultRealtimePollIntervalMs,
@@ -76,6 +76,11 @@ import {
   SlidersHorizontal,
   Settings2,
   TerminalSquare,
+  LoaderCircle,
+  Plus,
+  Search,
+  Trash2,
+  X,
 } from "lucide-react";
 
 const symbols: Array<{ symbol: string; dataSymbol: string; name: string; market: Market; price: string; change: string }> = [
@@ -85,12 +90,24 @@ const symbols: Array<{ symbol: string; dataSymbol: string; name: string; market:
   { symbol: "TSLA", dataSymbol: "TSLA.US", name: "Tesla", market: "US", price: "188.14", change: "-0.82%" },
 ];
 
-const realtimeWatchlist: MarketWatchlistItem[] = symbols.map((item) => ({
-  symbol: item.dataSymbol,
-  name: item.name,
-  market: item.market,
-  source: "preset",
-}));
+type ChartWatchlistItem = (typeof symbols)[number];
+
+function toChartWatchlistItem(item: MarketWatchlistItem): ChartWatchlistItem {
+  const defaultItem = symbols.find((candidate) => candidate.dataSymbol === item.symbol && candidate.market === item.market);
+  return defaultItem ?? {
+    symbol: item.symbol.replace(/\.(US|HK|SH|SZ)$/u, ""),
+    dataSymbol: item.symbol,
+    name: item.name,
+    market: item.market,
+    price: "--",
+    change: "--",
+  };
+}
+
+function readChartWatchlist() {
+  const items = readMarketWatchlist();
+  return items.length > 0 ? items.map(toChartWatchlistItem) : symbols;
+}
 
 const timeframes: Timeframe[] = ["realtime", "1d", "1w"];
 const realtimeRateLimitBackoffMs = 120_000;
@@ -645,10 +662,11 @@ export function ChartWorkspacePage() {
     chartStrategies.forEach((strategy) => registry.register(strategy));
     return registry;
   }, [chartStrategies]);
-  const [activeSymbol, setActiveSymbol] = useState(symbols[0]);
+  const [watchlist, setWatchlist] = useState<ChartWatchlistItem[]>(readChartWatchlist);
+  const [activeSymbol, setActiveSymbol] = useState<ChartWatchlistItem>(() => readChartWatchlist()[0] ?? symbols[0]);
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [cachedMarketBars, setCachedMarketBars] = useState<MarketDataBar[]>(() =>
-    readMarketBarCache({ symbol: symbols[0].dataSymbol, market: symbols[0].market, timeframe: "1d" }),
+    readMarketBarCache({ symbol: readChartWatchlist()[0]?.dataSymbol ?? symbols[0].dataSymbol, market: readChartWatchlist()[0]?.market ?? symbols[0].market, timeframe: "1d" }),
   );
   const [realtimeStatus, setRealtimeStatus] = useState("REST 轮询待命");
   const [realtimeHealth, setRealtimeHealth] = useState<RealtimeProviderHealthView>(() =>
@@ -669,6 +687,11 @@ export function ChartWorkspacePage() {
   const [strategySettings, setStrategySettings] = useState(workspacePreferences.strategies);
   const [activeConfigStrategyKey, setActiveConfigStrategyKey] = useState<string | null>(null);
   const [isWatchlistCollapsed, setIsWatchlistCollapsed] = useState(false);
+  const [isInstrumentSearchOpen, setIsInstrumentSearchOpen] = useState(false);
+  const [instrumentSearchQuery, setInstrumentSearchQuery] = useState("");
+  const [instrumentSearchState, setInstrumentSearchState] = useState<"idle" | "loading" | "error" | "empty">("idle");
+  const [instrumentSearchMessage, setInstrumentSearchMessage] = useState("");
+  const [instrumentSearchResults, setInstrumentSearchResults] = useState<readonly { symbol: string; name: string; market: Market }[]>([]);
   const [bottomTab, setBottomTab] = useState<ChartBottomTab>("layers");
   const [isBottomDockExpanded, setIsBottomDockExpanded] = useState(false);
   const [isChartSettingsOpen, setIsChartSettingsOpen] = useState(false);
@@ -677,6 +700,10 @@ export function ChartWorkspacePage() {
   const displayedMarketBars = useMemo(
     () => (timeframe === "realtime" && intradayDisplayMode === "candlestick" ? aggregateRealtimePointBarsToMinuteCandles(cachedMarketBars) : cachedMarketBars),
     [cachedMarketBars, intradayDisplayMode, timeframe],
+  );
+  const currentRealtimeWatchlist = useMemo<MarketWatchlistItem[]>(
+    () => watchlist.map((item) => ({ symbol: item.dataSymbol, name: item.name, market: item.market, source: "user" })),
+    [watchlist],
   );
   const cachedCandles = useMemo(() => marketBarsToCandles(displayedMarketBars), [displayedMarketBars]);
   const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(displayedMarketBars), [displayedMarketBars]);
@@ -828,8 +855,10 @@ export function ChartWorkspacePage() {
 
         if (resultBars.length === 0) {
           const emptyHealth = createRealtimeHealthView(
-            "waiting",
-            isRealtimeHistory ? "主行情源与备用源暂无可用历史分时数据" : "主行情源与备用源暂无可用历史 K 线数据",
+            "error",
+            isRealtimeHistory
+              ? "已连接的数据源未返回可用历史分时数据。请检查数据源状态或切换标的后重试。"
+              : "已连接的数据源未返回可用历史 K 线。请检查数据源状态或切换标的后重试。",
           );
           setRealtimeHealth(emptyHealth);
           setRealtimeStatus(emptyHealth.message);
@@ -1043,7 +1072,7 @@ export function ChartWorkspacePage() {
 
         if (marketDataAccess.hasStreamSource) {
           const connectHealth = await connectQuoteStreamForChart({
-            items: realtimeWatchlist,
+            items: currentRealtimeWatchlist,
             marketDataAccess,
             alphaFeedStreamMode: streamMode,
           });
@@ -1053,7 +1082,7 @@ export function ChartWorkspacePage() {
           }
 
           const streamResult = await readQuoteStreamSnapshotForChart({
-            items: realtimeWatchlist,
+            items: currentRealtimeWatchlist,
             marketDataAccess,
           });
 
@@ -1105,7 +1134,7 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        const batches = createQuotePollingBatches(realtimeWatchlist);
+        const batches = createQuotePollingBatches(currentRealtimeWatchlist);
         const snapshots: MarketQuoteSnapshot[] = [];
         let latestHealth: MarketDataProviderHealthView | null = null;
         let latestTriedProviders: readonly GatewayMarketDataProviderId[] = [];
@@ -1206,6 +1235,7 @@ export function ChartWorkspacePage() {
     activeSymbol.dataSymbol,
     activeSymbol.market,
     activeSymbol.name,
+    currentRealtimeWatchlist,
     marketDataProviderSettings.stockSdkPrimaryEnabled,
     realtimePollIntervalMs,
     timeframe,
@@ -1241,6 +1271,62 @@ export function ChartWorkspacePage() {
     showVolume,
     strategySettings,
   ]);
+
+  const runInstrumentSearch = async () => {
+    const query = instrumentSearchQuery.trim();
+    if (!query) {
+      setInstrumentSearchResults([]);
+      setInstrumentSearchState("empty");
+      setInstrumentSearchMessage("请输入股票代码、名称或拼音。");
+      return;
+    }
+
+    setInstrumentSearchState("loading");
+    setInstrumentSearchMessage("");
+    try {
+      const marketDataAccess = await createChartMarketDataAccess({
+        bridge: window.quantDesktop,
+        enableStockSdkPrimary: marketDataProviderSettings.stockSdkPrimaryEnabled,
+      });
+      const result = await marketDataAccess.searchInstruments(query, ["US", "HK", "CN"]);
+      if (!result.ok) {
+        setInstrumentSearchResults([]);
+        setInstrumentSearchState("error");
+        setInstrumentSearchMessage(result.error.message);
+        return;
+      }
+      setInstrumentSearchResults(result.data);
+      setInstrumentSearchState(result.data.length > 0 ? "idle" : "empty");
+      setInstrumentSearchMessage(result.data.length > 0 ? "" : "未找到可加入观察列表的证券。");
+    } catch (error) {
+      setInstrumentSearchResults([]);
+      setInstrumentSearchState("error");
+      setInstrumentSearchMessage(getErrorMessage(error));
+    }
+  };
+
+  const addInstrumentToWatchlist = (item: { symbol: string; name: string; market: Market }) => {
+    const nextItem = toChartWatchlistItem({ ...item, source: "user" });
+    const nextWatchlist = watchlist.some((candidate) => candidate.market === nextItem.market && candidate.dataSymbol === nextItem.dataSymbol)
+      ? watchlist
+      : [...watchlist, nextItem];
+    writeMarketWatchlist(nextWatchlist.map((candidate) => ({ symbol: candidate.dataSymbol, name: candidate.name, market: candidate.market, source: "user" })));
+    setWatchlist(nextWatchlist);
+    setActiveSymbol(nextItem);
+    setIsInstrumentSearchOpen(false);
+  };
+
+  const removeWatchlistItem = (item: ChartWatchlistItem) => {
+    if (watchlist.length <= 1) {
+      return;
+    }
+    const nextWatchlist = watchlist.filter((candidate) => candidate.market !== item.market || candidate.dataSymbol !== item.dataSymbol);
+    writeMarketWatchlist(nextWatchlist.map((candidate) => ({ symbol: candidate.dataSymbol, name: candidate.name, market: candidate.market, source: "user" })));
+    setWatchlist(nextWatchlist);
+    if (activeSymbol.market === item.market && activeSymbol.dataSymbol === item.dataSymbol) {
+      setActiveSymbol(nextWatchlist[0]!);
+    }
+  };
 
   return (
     <section className={isBottomDockExpanded ? "chart-workspace-page bottom-dock-expanded" : "chart-workspace-page"}>
@@ -1497,6 +1583,18 @@ export function ChartWorkspacePage() {
               <h2>多市场</h2>
             </div>
             <button
+              aria-label="搜索并添加证券"
+              onClick={() => {
+                setIsInstrumentSearchOpen(true);
+                setInstrumentSearchState("idle");
+                setInstrumentSearchMessage("");
+              }}
+              type="button"
+              title="搜索并添加证券"
+            >
+              <Plus size={17} />
+            </button>
+            <button
               aria-label={isWatchlistCollapsed ? "show watchlist" : "hide watchlist"}
               onClick={() => setIsWatchlistCollapsed((value) => !value)}
               type="button"
@@ -1507,31 +1605,72 @@ export function ChartWorkspacePage() {
           </div>
 
           <div className="watchlist-items">
-            {symbols.map((item) => {
+            {watchlist.map((item) => {
               const snapshot = quoteSnapshotsByKey[`${item.market}:${item.dataSymbol}`];
               const change = formatQuoteChange(snapshot, item.change);
 
               return (
-                <button
+                <div
                   className={item.symbol === activeSymbol.symbol ? "active" : ""}
                   key={item.symbol}
-                  onClick={() => setActiveSymbol(item)}
-                  type="button"
                 >
-                  <span>
-                    <strong>{item.symbol}</strong>
-                    <small>{item.name}</small>
-                  </span>
-                  <span>
-                    <strong>{formatQuotePrice(snapshot, item.price)}</strong>
-                    <small className={change.startsWith("+") ? "positive" : "negative"}>{change}</small>
-                  </span>
-                </button>
+                  <button className="watchlist-item-select" onClick={() => setActiveSymbol(item)} type="button">
+                    <span>
+                      <strong>{item.symbol}</strong>
+                      <small>{item.name}</small>
+                    </span>
+                    <span>
+                      <strong>{formatQuotePrice(snapshot, item.price)}</strong>
+                      <small className={change.startsWith("+") ? "positive" : "negative"}>{change}</small>
+                    </span>
+                  </button>
+                  <button
+                    aria-label={`移除 ${item.symbol}`}
+                    className="watchlist-item-remove"
+                    disabled={watchlist.length <= 1}
+                    onClick={() => removeWatchlistItem(item)}
+                    title="移除观察"
+                    type="button"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               );
             })}
           </div>
         </aside>
       </div>
+
+      {isInstrumentSearchOpen && (
+        <div className="strategy-config-backdrop instrument-search-backdrop" role="presentation" onClick={() => setIsInstrumentSearchOpen(false)}>
+          <section aria-label="搜索证券" className="instrument-search-dialog" role="dialog" onClick={(event) => event.stopPropagation()}>
+            <div className="strategy-config-heading">
+              <div>
+                <p>证券搜索</p>
+                <strong>添加到观察列表</strong>
+              </div>
+              <button aria-label="关闭搜索" onClick={() => setIsInstrumentSearchOpen(false)} type="button"><X size={16} /></button>
+            </div>
+            <form className="instrument-search-form" onSubmit={(event) => { event.preventDefault(); void runInstrumentSearch(); }}>
+              <input autoFocus onChange={(event) => setInstrumentSearchQuery(event.currentTarget.value)} placeholder="代码、名称或拼音" value={instrumentSearchQuery} />
+              <button type="submit"><Search size={16} />搜索</button>
+            </form>
+            {instrumentSearchState === "loading" && <p className="instrument-search-state"><LoaderCircle className="spin" size={16} /> 正在查询主行情源</p>}
+            {instrumentSearchMessage && <p className={`instrument-search-state ${instrumentSearchState}`}>{instrumentSearchMessage}</p>}
+            <div className="instrument-search-results">
+              {instrumentSearchResults.map((item) => {
+                const added = watchlist.some((candidate) => candidate.market === item.market && candidate.dataSymbol === item.symbol);
+                return (
+                  <div key={`${item.market}:${item.symbol}`}>
+                    <span><strong>{item.symbol.replace(/\.(US|HK|SH|SZ)$/u, "")}</strong><small>{item.name} · {item.market}</small></span>
+                    <button disabled={added} onClick={() => addInstrumentToWatchlist(item)} type="button">{added ? "已添加" : "添加"}</button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      )}
 
       {activeConfigStrategyRun && (
         <div className="strategy-config-backdrop" role="presentation" onClick={() => setActiveConfigStrategyKey(null)}>

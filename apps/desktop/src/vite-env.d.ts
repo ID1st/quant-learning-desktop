@@ -184,6 +184,19 @@ interface QuantDesktopMarketDataBridge {
       readonly stockSdkPrimaryEnabled?: boolean;
     };
   }): Promise<QuantDesktopMarketDataResult<readonly QuantDesktopMarketDataBar[]>>;
+  searchInstruments(request: {
+    readonly context: QuantDesktopMarketDataRequestContext;
+    readonly query: string;
+    readonly markets?: readonly QuantDesktopMarket[];
+    readonly providerPolicy?: {
+      readonly stockSdkPrimaryEnabled?: boolean;
+    };
+  }): Promise<QuantDesktopMarketDataResult<readonly {
+    readonly provider: QuantDesktopGatewayProviderId;
+    readonly market: QuantDesktopMarket;
+    readonly symbol: string;
+    readonly name: string;
+  }[]>>;
   connectQuoteStream(request: {
     readonly context: QuantDesktopMarketDataRequestContext;
     readonly items: readonly QuantDesktopMarketDataRequestItem[];
@@ -282,7 +295,7 @@ interface QuantDesktopBridge {
         symbol: string;
         name: string;
         market: "US" | "HK" | "CN";
-        source: "preset";
+        source: "preset" | "user";
       }>,
     ): Promise<
       | {
@@ -402,7 +415,7 @@ interface QuantDesktopBridge {
         symbol: string;
         name: string;
         market: "US" | "HK" | "CN";
-        source: "preset";
+        source: "preset" | "user";
       }>;
     }): Promise<{
       ok: true;
@@ -472,7 +485,7 @@ interface QuantDesktopBridge {
         symbol: string;
         name: string;
         market: "US" | "HK" | "CN";
-        source: "preset";
+        source: "preset" | "user";
       }>,
     ): Promise<
       | {

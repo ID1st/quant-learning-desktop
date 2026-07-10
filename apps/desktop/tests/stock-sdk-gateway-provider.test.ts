@@ -60,6 +60,28 @@ describe("Stock SDK symbol normalization", () => {
 });
 
 describe("Stock SDK gateway provider", () => {
+  it("normalizes searchable US, HK and CN instruments for the application", async () => {
+    const provider = createStockSdkGatewayProvider(
+      {
+        fetchQuoteSnapshot: async () => [],
+        fetchHistoricalBars: async () => [],
+        fetchIntradayBars: async () => [],
+        searchInstruments: async () => [
+          { code: "usaapl.oq", name: "Apple", market: "us" },
+          { code: "hk00700", name: "Tencent", market: "hk" },
+          { code: "sz000700", name: "Test CN", market: "sz" },
+        ],
+      },
+      { enabled: true },
+    );
+
+    assert.deepEqual(await provider.searchInstruments("a"), [
+      { provider: "stock-sdk", market: "US", symbol: "AAPL.US", name: "Apple" },
+      { provider: "stock-sdk", market: "HK", symbol: "00700.HK", name: "Tencent" },
+      { provider: "stock-sdk", market: "CN", symbol: "000700.SZ", name: "Test CN" },
+    ]);
+  });
+
   it("is unconfigured by default so the gateway falls back without calling it", async () => {
     const stockSdkProvider = createStockSdkGatewayProvider(createThrowingOperations());
     const fallbackQuote: GatewayMarketQuoteSnapshot = {
@@ -256,6 +278,7 @@ describe("Stock SDK provider operations", () => {
   it("uses ndays instead of strict start and end time options for intraday bars", async () => {
     const capturedOptions: Record<string, unknown>[] = [];
     const operations = createStockSdkGatewayProviderOperations({
+      search: async () => [],
       quotes: {
         cn: async () => [],
         hk: async () => [],
@@ -300,6 +323,9 @@ function createThrowingOperations(): StockSdkGatewayProviderOperations {
       throw new Error("stock-sdk should not be called");
     },
     fetchIntradayBars: async () => {
+      throw new Error("stock-sdk should not be called");
+    },
+    searchInstruments: async () => {
       throw new Error("stock-sdk should not be called");
     },
   };

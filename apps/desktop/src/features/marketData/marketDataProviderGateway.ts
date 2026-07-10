@@ -26,6 +26,7 @@ export interface MarketDataProviderCapability {
   readonly intradayBars: boolean;
   readonly websocket: boolean;
   readonly batchQuote: boolean;
+  readonly instrumentSearch?: boolean;
   readonly markets: readonly Market[];
   readonly timeframes: readonly Timeframe[];
   readonly rateLimit?: MarketDataProviderRateLimit;
@@ -37,7 +38,8 @@ export type MarketDataProviderCapabilityKey =
   | "historicalBars"
   | "intradayBars"
   | "websocket"
-  | "batchQuote";
+  | "batchQuote"
+  | "instrumentSearch";
 
 export interface MarketDataProviderHealthView {
   readonly provider: GatewayMarketDataProviderId;
@@ -99,6 +101,13 @@ export interface GatewayMarketDataBar {
   readonly delayLevel?: MarketDataProviderDelayLevel;
 }
 
+export interface MarketInstrument {
+  readonly provider: GatewayMarketDataProviderId;
+  readonly market: Market;
+  readonly symbol: string;
+  readonly name: string;
+}
+
 export interface MarketDataProvider {
   readonly id: GatewayMarketDataProviderId;
   readonly displayName: string;
@@ -118,6 +127,10 @@ export interface IntradayBarProvider extends MarketDataProvider {
   fetchIntradayBars(request: MarketDataBarRequest): Promise<readonly GatewayMarketDataBar[]>;
 }
 
+export interface InstrumentSearchProvider extends MarketDataProvider {
+  searchInstruments(query: string, markets?: readonly Market[]): Promise<readonly MarketInstrument[]>;
+}
+
 export interface StreamingQuoteProvider extends MarketDataProvider {
   connectStream(items: readonly MarketDataProviderRequestItem[]): Promise<void>;
   readStreamSnapshot(): Promise<readonly GatewayMarketQuoteSnapshot[]>;
@@ -128,7 +141,8 @@ export type GatewayMarketDataProvider =
   | RealtimeQuoteProvider
   | HistoricalBarProvider
   | IntradayBarProvider
-  | StreamingQuoteProvider;
+  | StreamingQuoteProvider
+  | InstrumentSearchProvider;
 
 export interface MarketDataProviderRegistry {
   register(provider: GatewayMarketDataProvider): void;
@@ -165,6 +179,7 @@ export interface MarketDataGateway {
   ): Promise<MarketDataGatewayResult<readonly GatewayMarketQuoteSnapshot[]>>;
   fetchHistoricalBars(request: MarketDataBarRequest): Promise<MarketDataGatewayResult<readonly GatewayMarketDataBar[]>>;
   fetchIntradayBars(request: MarketDataBarRequest): Promise<MarketDataGatewayResult<readonly GatewayMarketDataBar[]>>;
+  searchInstruments(query: string, markets?: readonly Market[]): Promise<MarketDataGatewayResult<readonly MarketInstrument[]>>;
 }
 
 const usableHealthStatuses = new Set<MarketDataProviderHealthStatus>(["healthy", "degraded", "delayed"]);
@@ -311,6 +326,18 @@ export function createMarketDataGateway(
 
         return provider.fetchIntradayBars(request);
       }, hasBars),
+    searchInstruments: (query, markets) =>
+      runWithFallback<readonly MarketInstrument[]>(
+        "instrumentSearch",
+        (provider) => {
+          if (!hasInstrumentSearchProvider(provider)) {
+            throw new Error(`Provider ${provider.id} does not implement searchInstruments.`);
+          }
+
+          return provider.searchInstruments(query, markets);
+        },
+        (instruments) => instruments.length > 0,
+      ),
   };
 }
 
@@ -326,6 +353,10 @@ function getPriority(priority: readonly GatewayMarketDataProviderId[], providerI
 
 function hasRealtimeQuoteProvider(provider: GatewayMarketDataProvider): provider is RealtimeQuoteProvider {
   return typeof (provider as RealtimeQuoteProvider).fetchQuoteSnapshot === "function";
+}
+
+function hasInstrumentSearchProvider(provider: GatewayMarketDataProvider): provider is InstrumentSearchProvider {
+  return typeof (provider as InstrumentSearchProvider).searchInstruments === "function";
 }
 
 function hasHistoricalBarProvider(provider: GatewayMarketDataProvider): provider is HistoricalBarProvider {

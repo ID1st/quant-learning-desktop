@@ -27,6 +27,7 @@ import {
   type MarketDataGateway,
   type MarketDataProviderHealthView,
   type MarketDataProviderRequestItem,
+  type MarketInstrument,
   type StreamingQuoteProvider,
 } from "./marketDataProviderGateway.ts";
 
@@ -49,6 +50,7 @@ export interface ChartMarketDataGateways {
   readonly historicalBars: MarketDataGateway;
   readonly intradayBars: MarketDataGateway;
   readonly quoteSnapshots: MarketDataGateway;
+  readonly instrumentSearch: MarketDataGateway;
   connectQuoteStream(items: readonly MarketWatchlistItem[]): Promise<MarketDataProviderHealthView | null>;
   readQuoteStreamSnapshot(items: readonly MarketWatchlistItem[]): Promise<{
     readonly ok: true;
@@ -98,6 +100,10 @@ export interface ChartMarketDataAccess {
   readonly hasHistoricalSource: boolean;
   readonly hasIntradaySource: boolean;
   readonly hasStreamSource: boolean;
+  searchInstruments(query: string, markets?: readonly Market[]): Promise<
+    | { readonly ok: true; readonly data: readonly MarketInstrument[] }
+    | { readonly ok: false; readonly error: { readonly message: string } }
+  >;
   fetchQuoteSnapshotBatch(batch: readonly MarketWatchlistItem[]): Promise<ChartQuoteSnapshotBatchResult>;
   fetchBars(options: {
     readonly capability: "historicalBars" | "intradayBars";
@@ -216,8 +222,8 @@ export function createChartMarketDataGateways(config: ChartMarketDataGatewayConf
 
   const registry = createMarketDataProviderRegistry(providers);
   const historicalPriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
-    ? ["stock-sdk", "longbridge", "alphafeed-rest"]
-    : ["longbridge", "alphafeed-rest"];
+    ? ["stock-sdk", "longbridge", "alphafeed-rest", "yahoo-finance"]
+    : ["longbridge", "alphafeed-rest", "yahoo-finance"];
   const intradayPriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
     ? ["stock-sdk", "alphafeed-rest", "longbridge", "yahoo-finance"]
     : ["alphafeed-rest", "longbridge", "yahoo-finance"];
@@ -229,6 +235,7 @@ export function createChartMarketDataGateways(config: ChartMarketDataGatewayConf
     historicalBars: createMarketDataGateway(registry, historicalPriority),
     intradayBars: createMarketDataGateway(registry, intradayPriority),
     quoteSnapshots: createMarketDataGateway(registry, quotePriority),
+    instrumentSearch: createMarketDataGateway(registry, ["stock-sdk"]),
     async connectQuoteStream(items) {
       if (!streamProvider) {
         return null;
@@ -274,6 +281,15 @@ function createProviderNeutralChartMarketDataAccess(
     hasHistoricalSource: true,
     hasIntradaySource: true,
     hasStreamSource: true,
+    async searchInstruments(query, markets) {
+      const result = await bridge.searchInstruments({
+        context: { source: "chart" },
+        query,
+        markets,
+        providerPolicy: { stockSdkPrimaryEnabled },
+      });
+      return result.ok ? { ok: true, data: result.data } : { ok: false, error: { message: result.error.message } };
+    },
     async fetchQuoteSnapshotBatch(batch) {
       const result = await bridge.fetchQuoteSnapshot({
         context: { source: "chart" },
@@ -338,6 +354,10 @@ function createLegacyChartMarketDataAccess(
   availability: Pick<ChartMarketDataAccess, "hasQuoteSource" | "hasHistoricalSource" | "hasIntradaySource" | "hasStreamSource">,
 ): ChartMarketDataAccess {
   return {
+    async searchInstruments(query, markets) {
+      const result = await gateways.instrumentSearch.searchInstruments(query, markets);
+      return result.ok ? { ok: true, data: result.data } : { ok: false, error: { message: result.error.message } };
+    },
     ...availability,
     fetchQuoteSnapshotBatch: (batch) => gateways.quoteSnapshots.fetchQuoteSnapshot(batch),
     fetchBars: (options) =>

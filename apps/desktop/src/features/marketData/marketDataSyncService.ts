@@ -31,7 +31,7 @@ export interface MarketWatchlistItem {
   symbol: string;
   name: string;
   market: Market;
-  source: "preset";
+  source: "preset" | "user";
 }
 
 export interface MarketQuoteSnapshot {
@@ -249,12 +249,30 @@ function sanitizeWatchlist(value: unknown): MarketWatchlistItem[] | null {
         symbol: candidate.symbol,
         name: candidate.name,
         market,
-        source: "preset" as const,
+        source: candidate.source === "user" ? "user" as const : "preset" as const,
       },
     ];
   });
 
   return watchlist;
+}
+
+export function readMarketWatchlist(database: LocalDatabase = appLocalDatabase): MarketWatchlistItem[] {
+  return database.readDocument(WATCHLIST_COLLECTION_KEY, {
+    version: STORAGE_VERSION,
+    fallback: [...presetWatchlist],
+    sanitize: sanitizeWatchlist,
+  });
+}
+
+export function writeMarketWatchlist(watchlist: readonly MarketWatchlistItem[], database: LocalDatabase = appLocalDatabase) {
+  const sanitized = sanitizeWatchlist(watchlist) ?? [];
+  if (sanitized.length === 0) {
+    return readMarketWatchlist(database);
+  }
+  const unique = sanitized.filter((item, index, items) => items.findIndex((candidate) => candidate.market === item.market && candidate.symbol === item.symbol) === index);
+  writeWatchlist(database, unique);
+  return unique;
 }
 
 function sanitizeQuoteSnapshot(value: unknown): MarketQuoteSnapshot | null {

@@ -3,6 +3,8 @@ import type {
   GatewayMarketDataBar,
   GatewayMarketQuoteSnapshot,
   HistoricalBarProvider,
+  InstrumentSearchProvider,
+  MarketInstrument,
   IntradayBarProvider,
   MarketDataBarRequest,
   MarketDataProviderCapability,
@@ -36,6 +38,7 @@ export interface StockSdkGatewayProviderOperations {
   fetchQuoteSnapshot(requests: readonly StockSdkQuoteRequest[]): Promise<readonly StockSdkRawRecord[]>;
   fetchHistoricalBars(request: StockSdkBarRequest): Promise<readonly StockSdkRawRecord[]>;
   fetchIntradayBars(request: StockSdkBarRequest): Promise<readonly StockSdkRawRecord[]>;
+  searchInstruments?(query: string): Promise<readonly StockSdkRawRecord[]>;
 }
 
 export interface StockSdkGatewayProviderOptions {
@@ -49,6 +52,7 @@ const stockSdkCapability: MarketDataProviderCapability = {
   intradayBars: true,
   websocket: false,
   batchQuote: true,
+  instrumentSearch: true,
   markets: ["US", "HK", "CN"],
   timeframes: ["realtime", "1m", "5m", "15m", "30m", "1h", "1d", "1w"],
   rateLimit: {
@@ -70,7 +74,7 @@ const minutePeriodByTimeframe = new Map<Timeframe, StockSdkMinutePeriod>([
 export function createStockSdkGatewayProvider(
   operations: StockSdkGatewayProviderOperations,
   options: StockSdkGatewayProviderOptions = {},
-): RealtimeQuoteProvider & HistoricalBarProvider & IntradayBarProvider {
+): RealtimeQuoteProvider & HistoricalBarProvider & IntradayBarProvider & InstrumentSearchProvider {
   const delayLevel = options.delayLevel ?? "unknown";
   const capability = { ...stockSdkCapability, delayLevel };
   const health = createStockSdkHealthStore(capability, options.enabled === true ? "healthy" : "unconfigured");
@@ -119,7 +123,75 @@ export function createStockSdkGatewayProvider(
         throw error;
       }
     },
+    async searchInstruments(query, markets) {
+      assertProviderEnabled(options);
+      const keyword = query.trim();
+      if (!keyword) {
+        return [];
+      }
+
+      const startedAt = Date.now();
+      try {
+        if (!operations.searchInstruments) {
+          throw new Error("Stock SDK search is not available in this runtime.");
+        }
+        const records = await operations.searchInstruments(keyword);
+        const instruments = records
+          .map((record) => toMarketInstrument(record))
+          .filter((instrument): instrument is MarketInstrument => instrument !== null)
+          .filter((instrument) => !markets || markets.includes(instrument.market));
+        health.markHealthy(Date.now() - startedAt);
+        return instruments;
+      } catch (error) {
+        health.markFailed(toErrorMessage(error));
+        throw error;
+      }
+    },
   };
+}
+
+function toMarketInstrument(record: StockSdkRawRecord): MarketInstrument | null {
+  const rawCode = readOptionalString(record, ["code", "symbol", "securityCode"]);
+  const name = readOptionalString(record, ["name", "securityName", "displayName"]);
+  const rawMarket = readOptionalString(record, ["market", "exchange", "marketCode"]);
+  if (!rawCode || !name) {
+    return null;
+  }
+
+  const market = normalizeSearchMarket(rawMarket, rawCode);
+  if (!market) {
+    return null;
+  }
+
+  return { provider: "stock-sdk", market, symbol: normalizeSearchSymbol(rawCode, market), name };
+}
+
+function normalizeSearchMarket(rawMarket: string | undefined, code: string): Market | null {
+  const candidate = `${rawMarket ?? ""} ${code}`.toLowerCase();
+  if (candidate.includes("us") || /^\d+\.[a-z]/i.test(code)) {
+    return "US";
+  }
+  if (candidate.includes("hk")) {
+    return "HK";
+  }
+  return /^(sh|sz)?\d{6}$/i.test(code) ? "CN" : null;
+}
+
+function normalizeSearchSymbol(code: string, market: Market) {
+  const normalized = code.trim().toUpperCase();
+  if (market === "US") {
+    const ticker = normalized
+      .replace(/^105\./u, "")
+      .replace(/^US/u, "")
+      .replace(/\.(US|OQ|N|A|P)$/u, "");
+    return `${ticker}.US`;
+  }
+  if (market === "HK") {
+    return normalized.replace(/^HK/u, "").replace(/\.HK$/u, "").padStart(5, "0") + ".HK";
+  }
+  const digits = normalized.replace(/^(SH|SZ)/u, "").replace(/\.(SH|SZ)$/u, "");
+  const exchange = normalized.startsWith("SZ") || normalized.endsWith(".SZ") || digits.startsWith("0") || digits.startsWith("3") ? ".SZ" : ".SH";
+  return `${digits}${exchange}`;
 }
 
 export function toStockSdkQuoteRequest(item: MarketDataProviderRequestItem): StockSdkQuoteRequest {

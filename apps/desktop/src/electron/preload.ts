@@ -235,6 +235,7 @@ export const desktopBridge: DesktopBridge = {
     fetchQuoteSnapshot: (request) => invokeMarketData(marketDataIpcChannels.fetchQuoteSnapshot, request),
     fetchHistoricalBars: (request) => invokeMarketData(marketDataIpcChannels.fetchHistoricalBars, request),
     fetchIntradayBars: (request) => invokeMarketData(marketDataIpcChannels.fetchIntradayBars, request),
+    searchInstruments: (request) => invokeMarketData(marketDataIpcChannels.searchInstruments, request),
     connectQuoteStream: (request) => invokeMarketData(marketDataIpcChannels.connectQuoteStream, request),
     readQuoteStreamSnapshot: (request) => invokeMarketData(marketDataIpcChannels.readQuoteStreamSnapshot, request),
     disconnectQuoteStream: (context) => invokeMarketData(marketDataIpcChannels.disconnectQuoteStream, context),

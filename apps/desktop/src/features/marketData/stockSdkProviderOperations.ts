@@ -6,6 +6,7 @@ import type {
 } from "./stockSdkGatewayProvider.ts";
 
 interface StockSdkClient {
+  search(keyword: string): Promise<readonly unknown[]>;
   readonly quotes: {
     cn(codes: string[]): Promise<readonly unknown[]>;
     hk(codes: string[]): Promise<readonly unknown[]>;
@@ -42,10 +43,10 @@ export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkCli
         const providerSymbols = group.map((request) => request.providerSymbol);
         const result =
           market === "CN"
-            ? await sdk.quotes.cn(providerSymbols)
+            ? await withRequestTimeout(sdk.quotes.cn(providerSymbols), "Stock SDK CN quote")
             : market === "HK"
-              ? await sdk.quotes.hk(providerSymbols)
-              : await sdk.quotes.us(providerSymbols);
+              ? await withRequestTimeout(sdk.quotes.hk(providerSymbols), "Stock SDK HK quote")
+              : await withRequestTimeout(sdk.quotes.us(providerSymbols), "Stock SDK US quote");
 
         records.push(...toRawRecords(result).map((record, index) => attachProviderSymbol(record, group, index)));
       }
@@ -61,14 +62,14 @@ export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkCli
       };
 
       if (request.market === "CN") {
-        return toRawRecords(await sdk.kline.cn(request.providerSymbol, options));
+        return toRawRecords(await withRequestTimeout(sdk.kline.cn(request.providerSymbol, options), "Stock SDK CN history"));
       }
 
       if (request.market === "HK") {
-        return toRawRecords(await sdk.kline.hk(request.providerSymbol, options));
+        return toRawRecords(await withRequestTimeout(sdk.kline.hk(request.providerSymbol, options), "Stock SDK HK history"));
       }
 
-      return toRawRecords(await sdk.kline.us(request.providerSymbol, options));
+      return toRawRecords(await withRequestTimeout(sdk.kline.us(request.providerSymbol, options), "Stock SDK US history"));
     },
     async fetchIntradayBars(request) {
       const sdk = await getSdk();
@@ -79,16 +80,36 @@ export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkCli
       };
 
       if (request.market === "CN") {
-        return toRawRecords(await sdk.kline.cnMinute(request.providerSymbol, options));
+        return toRawRecords(await withRequestTimeout(sdk.kline.cnMinute(request.providerSymbol, options), "Stock SDK CN intraday"));
       }
 
       if (request.market === "HK") {
-        return toRawRecords(await sdk.kline.hkMinute(request.providerSymbol, options));
+        return toRawRecords(await withRequestTimeout(sdk.kline.hkMinute(request.providerSymbol, options), "Stock SDK HK intraday"));
       }
 
-      return toRawRecords(await sdk.kline.usMinute(request.providerSymbol, options));
+      return toRawRecords(await withRequestTimeout(sdk.kline.usMinute(request.providerSymbol, options), "Stock SDK US intraday"));
+    },
+    async searchInstruments(query) {
+      const sdk = await getSdk();
+      return toRawRecords(await sdk.search(query));
     },
   };
+}
+
+function withRequestTimeout<T>(request: Promise<T>, label: string, timeoutMs = 8_000): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms.`)), timeoutMs);
+  });
+
+  return Promise.race([
+    request,
+    timeout,
+  ]).finally(() => {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  });
 }
 
 function toRawRecords(records: readonly unknown[]): readonly StockSdkRawRecord[] {

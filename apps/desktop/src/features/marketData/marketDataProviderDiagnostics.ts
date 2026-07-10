@@ -36,6 +36,7 @@ const capabilityLabels: Record<MarketDataProviderCapabilityKey, string> = {
   intradayBars: "分时数据",
   websocket: "流式行情",
   batchQuote: "批量快照",
+  instrumentSearch: "证券搜索",
 };
 
 export function formatMarketDataProviderLabel(providerId: GatewayMarketDataProviderId) {
