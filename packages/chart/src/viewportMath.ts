@@ -30,6 +30,10 @@ export function getChartFuturePaddingBars(range: ChartVisibleRange) {
   return Math.max(12, Math.round(Math.max(1, range.end - range.start) * 0.5));
 }
 
+export function shouldInitializeChartViewAfterSparseLoad(previousTotal: number, nextTotal: number, minimumInteractiveCandles = 12) {
+  return previousTotal < minimumInteractiveCandles && nextTotal >= minimumInteractiveCandles;
+}
+
 export function zoomChartVisibleRange(
   range: ChartVisibleRange,
   total: number,

@@ -4,6 +4,7 @@ import {
   clampChartVisibleRange,
   getScaledPriceRange,
   panChartVisibleRange,
+  shouldInitializeChartViewAfterSparseLoad,
   syncChartVisibleRangeForDataUpdate,
   zoomChartVisibleRange,
 } from "../src/viewportMath.ts";
@@ -41,6 +42,11 @@ test("chart data updates preserve historical viewing window", () => {
 
 test("chart data updates preserve a user-selected right-side future area", () => {
   assert.deepEqual(syncChartVisibleRangeForDataUpdate({ start: 105, end: 125 }, 100, 101, 30), { start: 106, end: 126 });
+});
+
+test("chart initializes a full default viewport after sparse cache becomes usable", () => {
+  assert.equal(shouldInitializeChartViewAfterSparseLoad(1, 100), true);
+  assert.equal(shouldInitializeChartViewAfterSparseLoad(20, 100), false);
 });
 
 test("scaled price range keeps price center and changes vertical density", () => {

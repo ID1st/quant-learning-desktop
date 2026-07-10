@@ -1876,6 +1876,67 @@ textarea:focus-visible {
   color: #8f9caf;
 }
 
+.chart-loading-canvas {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chart-loading-grid {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.chart-loading-axis {
+  stroke: rgba(125, 142, 164, 0.3);
+  stroke-width: 1;
+}
+
+.chart-loading-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: min(280px, calc(100% - 32px));
+  justify-items: center;
+  gap: 8px;
+  transform: translate(-50%, -50%);
+  color: #aab8c9;
+  text-align: center;
+}
+
+.chart-loading-state strong {
+  color: #f5f8ff;
+  font-size: 14px;
+}
+
+.chart-loading-state span {
+  font-size: 12px;
+}
+
+.chart-loading-state small {
+  color: #65758a;
+  font-size: 11px;
+}
+
+.chart-loading-state.error strong {
+  color: #ffad9f;
+}
+
+.chart-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(66, 223, 173, 0.2);
+  border-top-color: #42dfad;
+  border-radius: 50%;
+  animation: chart-loading-spin 0.82s linear infinite;
+}
+
+@keyframes chart-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
 .chart-bg {
   fill: #080d12;
 }
@@ -2477,6 +2538,39 @@ textarea:focus-visible {
 .watchlist-items small {
   color: #8f9caf;
   font-size: 12px;
+}
+
+.watchlist-data-status {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 4px;
+  border: 1px solid rgba(115, 137, 164, 0.36);
+  border-radius: 999px;
+  color: #8f9caf;
+  font-size: 9px;
+  font-style: normal;
+  line-height: 16px;
+  padding: 0 5px;
+}
+
+.watchlist-data-status.ready {
+  border-color: rgba(66, 223, 173, 0.44);
+  color: #42dfad;
+}
+
+.watchlist-data-status.syncing,
+.watchlist-data-status.cache {
+  color: #9ab7ff;
+}
+
+.watchlist-data-status.degraded {
+  border-color: rgba(255, 188, 92, 0.5);
+  color: #ffcb78;
+}
+
+.watchlist-data-status.error {
+  border-color: rgba(255, 117, 106, 0.5);
+  color: #ff9d94;
 }
 
 .watchlist-items small.positive {

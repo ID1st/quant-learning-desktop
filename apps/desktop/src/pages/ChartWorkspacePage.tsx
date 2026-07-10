@@ -18,7 +18,7 @@ import {
   type ChartStrategyWorkspaceState,
 } from "../features/strategies/chartStrategyRuntime";
 import { marketBarsToCandles, marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
-import { readMarketBarCache, writeMarketBarCache, type MarketDataBar } from "../features/marketData/marketBarCacheService";
+import { readMarketBarCache, readMarketBarCacheSummary, writeMarketBarCache, type MarketDataBar } from "../features/marketData/marketBarCacheService";
 import { readMarketWatchlist, writeMarketWatchlist, type MarketQuoteSnapshot, type MarketWatchlistItem } from "../features/marketData/marketDataSyncService";
 import {
   createQuotePollingBatches,
@@ -39,6 +39,15 @@ import {
   isMarketSessionOpen,
 } from "../features/marketData/intradayHistoryService";
 import { sampleIntradayBarsForRendering } from "../features/marketData/intradayRenderSamplingService";
+import {
+  createChartLoadState,
+  hasRenderableChartData,
+  type ChartLoadState,
+} from "../features/marketData/chartDataReadinessService";
+import {
+  createChartWatchlistWarmupPlan,
+  isChartWarmupCacheFresh,
+} from "../features/marketData/chartWatchlistWarmupService";
 import {
   createChartMarketDataAccess,
   gatewayBarsToAlphaFeedMarketDataBars,
@@ -142,6 +151,26 @@ interface ChartWorkspacePreferences {
 }
 
 type ChartBottomTab = "layers" | "signals" | "logs";
+type WatchlistDataStatus = "ready" | "syncing" | "cache" | "degraded" | "error";
+
+function getWatchlistDataKey(item: Pick<ChartWatchlistItem, "market" | "dataSymbol">) {
+  return `${item.market}:${item.dataSymbol}`;
+}
+
+function getChartCacheTimeframe(timeframe: Timeframe): Timeframe {
+  return timeframe === "realtime" ? "realtime" : timeframe;
+}
+
+function formatWatchlistDataStatus(status: WatchlistDataStatus | undefined) {
+  const labels: Record<WatchlistDataStatus, string> = {
+    ready: "已就绪",
+    syncing: "同步中",
+    cache: "使用缓存",
+    degraded: "数据源降级",
+    error: "加载失败",
+  };
+  return labels[status ?? "syncing"];
+}
 
 interface ChartContextMenuState {
   x: number;
@@ -690,6 +719,12 @@ export function ChartWorkspacePage() {
   const [cachedMarketBars, setCachedMarketBars] = useState<MarketDataBar[]>(() =>
     readMarketBarCache({ symbol: readChartWatchlist()[0]?.dataSymbol ?? symbols[0].dataSymbol, market: readChartWatchlist()[0]?.market ?? symbols[0].market, timeframe: "1d" }),
   );
+  const [chartLoadState, setChartLoadState] = useState<ChartLoadState>(() => {
+    const item = readChartWatchlist()[0] ?? symbols[0];
+    const bars = readMarketBarCache({ symbol: item.dataSymbol, market: item.market, timeframe: "1d" });
+    return createChartLoadState(hasRenderableChartData("1d", bars.length) ? "ready" : "cache", item.symbol, "1d", bars.length);
+  });
+  const [watchlistDataStatusByKey, setWatchlistDataStatusByKey] = useState<Record<string, WatchlistDataStatus>>({});
   const [realtimeStatus, setRealtimeStatus] = useState("REST 轮询待命");
   const [realtimeHealth, setRealtimeHealth] = useState<RealtimeProviderHealthView>(() =>
     createRealtimeHealthView("idle", "REST 轮询待命"),
@@ -734,6 +769,14 @@ export function ChartWorkspacePage() {
     () => timeframe === "realtime" ? sampleIntradayBarsForRendering(displayedMarketBars) : displayedMarketBars,
     [displayedMarketBars, timeframe],
   );
+  const chartHasRenderableData = hasRenderableChartData(timeframe, chartRenderBars.length);
+  const chartViewportLoadingState = !chartHasRenderableData
+    ? {
+        stage: chartLoadState.stage,
+        message: chartLoadState.message,
+        isError: chartLoadState.stage === "error",
+      }
+    : undefined;
   const currentRealtimeWatchlist = useMemo<MarketWatchlistItem[]>(
     () => watchlist.map((item) => ({ symbol: item.dataSymbol, name: item.name, market: item.market, source: "user" })),
     [watchlist],
@@ -754,9 +797,9 @@ export function ChartWorkspacePage() {
         symbol: activeSymbol.dataSymbol,
         market: activeSymbol.market,
         timeframe,
-        bars: strategyInputBars,
+        bars: chartHasRenderableData ? strategyInputBars : [],
       }),
-    [activeSymbol.dataSymbol, activeSymbol.market, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySettings, timeframe],
+    [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySettings, timeframe],
   );
   const strategyLayers = useMemo<ChartLayer[]>(
     () =>
@@ -812,6 +855,19 @@ export function ChartWorkspacePage() {
     setChartResetViewKey((value) => value + 1);
     setChartContextMenu(null);
   };
+  const selectActiveSymbol = (item: ChartWatchlistItem) => {
+    const bars = readMarketBarCache({ symbol: item.dataSymbol, market: item.market, timeframe: getChartCacheTimeframe(timeframe) });
+    setCachedMarketBars(bars);
+    setChartLoadState(
+      createChartLoadState(
+        hasRenderableChartData(timeframe, bars.length) ? "ready" : "cache",
+        item.symbol,
+        timeframe,
+        bars.length,
+      ),
+    );
+    setActiveSymbol(item);
+  };
   const mergeActiveSnapshotBars = (currentBars: MarketDataBar[], snapshot: MarketQuoteSnapshot) => {
     if (timeframe === "realtime") {
       return mergeRealtimeSnapshotPointBars(
@@ -828,7 +884,21 @@ export function ChartWorkspacePage() {
   };
 
   useEffect(() => {
-    setCachedMarketBars(readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe }));
+    const cacheTimeframe = getChartCacheTimeframe(timeframe);
+    const bars = readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe });
+    setCachedMarketBars(bars);
+    setChartLoadState(
+      createChartLoadState(
+        hasRenderableChartData(timeframe, bars.length) ? "ready" : "cache",
+        activeSymbol.symbol,
+        timeframe,
+        bars.length,
+      ),
+    );
+    setWatchlistDataStatusByKey((current) => ({
+      ...current,
+      [getWatchlistDataKey(activeSymbol)]: hasRenderableChartData(timeframe, bars.length) ? "cache" : "syncing",
+    }));
   }, [activeSymbol.dataSymbol, activeSymbol.market, marketDataProviderSettings.stockSdkPrimaryEnabled, timeframe]);
 
   useEffect(() => {
@@ -851,6 +921,17 @@ export function ChartWorkspacePage() {
     const loadMarketDataHistory = async () => {
       const isRealtimeHistory = timeframe === "realtime";
       const windowRange = isRealtimeHistory ? getIntradayHistoryWindow(activeSymbol.market) : null;
+      const cacheTimeframe = getChartCacheTimeframe(timeframe);
+      const initialCachedBars = readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe });
+      setChartLoadState(
+        createChartLoadState(
+          "history",
+          activeSymbol.symbol,
+          timeframe,
+          initialCachedBars.length,
+        ),
+      );
+      setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "syncing" }));
 
       try {
         const marketDataAccess = await createChartMarketDataAccess({
@@ -869,6 +950,8 @@ export function ChartWorkspacePage() {
           );
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
+          setChartLoadState(createChartLoadState("error", activeSymbol.symbol, timeframe, initialCachedBars.length, waitingHealth.message));
+          setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "error" }));
           return;
         }
 
@@ -910,6 +993,9 @@ export function ChartWorkspacePage() {
               : createRealtimeHealthView("error", failureMessage);
           setRealtimeHealth(errorHealth);
           setRealtimeStatus(errorHealth.message);
+          const hasCache = hasRenderableChartData(timeframe, cachedBars.length);
+          setChartLoadState(createChartLoadState(hasCache ? "degraded" : "error", activeSymbol.symbol, timeframe, cachedBars.length, errorHealth.message));
+          setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: hasCache ? "degraded" : "error" }));
           return;
         }
 
@@ -924,6 +1010,8 @@ export function ChartWorkspacePage() {
           );
           setRealtimeHealth(emptyHealth);
           setRealtimeStatus(emptyHealth.message);
+          setChartLoadState(createChartLoadState("error", activeSymbol.symbol, timeframe, initialCachedBars.length, emptyHealth.message));
+          setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "error" }));
           return;
         }
 
@@ -939,6 +1027,8 @@ export function ChartWorkspacePage() {
           : resultBars;
         const written = writeMarketBarCache(cacheKey, mergedBars);
         setCachedMarketBars(written);
+        setChartLoadState(createChartLoadState("layers", activeSymbol.symbol, timeframe, written.length));
+        setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "ready" }));
         const gapStatus =
           isRealtimeHistory && windowRange?.isMarketOpen
             ? formatRealtimeGapStatus(written, {
@@ -961,10 +1051,19 @@ export function ChartWorkspacePage() {
         });
         setRealtimeHealth(healthView);
         setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+        window.requestAnimationFrame(() => {
+          if (!cancelled) {
+            setChartLoadState(createChartLoadState("ready", activeSymbol.symbol, timeframe, written.length));
+          }
+        });
       } catch (error) {
         const errorHealth = createRealtimeHealthView("error", getErrorMessage(error));
         setRealtimeHealth(errorHealth);
         setRealtimeStatus(errorHealth.message);
+        const cachedBars = readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe });
+        const hasCache = hasRenderableChartData(timeframe, cachedBars.length);
+        setChartLoadState(createChartLoadState(hasCache ? "degraded" : "error", activeSymbol.symbol, timeframe, cachedBars.length, errorHealth.message));
+        setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: hasCache ? "degraded" : "error" }));
       }
     };
 
@@ -974,6 +1073,89 @@ export function ChartWorkspacePage() {
       cancelled = true;
     };
   }, [activeSymbol.dataSymbol, activeSymbol.market, marketDataProviderSettings.stockSdkPrimaryEnabled, timeframe]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const warmWatchlistCaches = async () => {
+      const marketDataAccess = await createChartMarketDataAccess({
+        bridge: window.quantDesktop,
+        enableStockSdkPrimary: marketDataProviderSettings.stockSdkPrimaryEnabled,
+      });
+      const plan = createChartWatchlistWarmupPlan(
+        watchlist.map((item) => ({ market: item.market, symbol: item.dataSymbol })),
+        { market: activeSymbol.market, symbol: activeSymbol.dataSymbol },
+      ).filter((task) => task.priority === "background" || task.timeframe !== timeframe);
+
+      for (const task of plan) {
+        if (cancelled) return;
+
+        const cacheTimeframe = getChartCacheTimeframe(task.timeframe);
+        const cacheKey = { symbol: task.symbol, market: task.market, timeframe: cacheTimeframe };
+        const cachedBars = readMarketBarCache(cacheKey);
+        const metadata = readMarketBarCacheSummary().entries.find(
+          (entry) => entry.symbol === cacheKey.symbol && entry.market === cacheKey.market && entry.timeframe === cacheKey.timeframe,
+        );
+        const isFresh = isChartWarmupCacheFresh(cacheTimeframe, metadata?.updatedAt);
+
+        if (isFresh && hasRenderableChartData(task.timeframe, cachedBars.length)) {
+          setWatchlistDataStatusByKey((current) => ({ ...current, [`${task.market}:${task.symbol}`]: "cache" }));
+          continue;
+        }
+
+        setWatchlistDataStatusByKey((current) => ({ ...current, [`${task.market}:${task.symbol}`]: "syncing" }));
+        const isIntraday = task.timeframe === "realtime";
+        const historyWindow = isIntraday ? getIntradayHistoryWindow(task.market) : null;
+
+        if (isIntraday ? !marketDataAccess.hasIntradaySource : !marketDataAccess.hasHistoricalSource) {
+          setWatchlistDataStatusByKey((current) => ({
+            ...current,
+            [`${task.market}:${task.symbol}`]: hasRenderableChartData(task.timeframe, cachedBars.length) ? "degraded" : "error",
+          }));
+          continue;
+        }
+
+        const result = await fetchChartBars({
+          capability: isIntraday ? "intradayBars" : "historicalBars",
+          marketDataAccess,
+          request: {
+            symbol: task.symbol,
+            market: task.market,
+            timeframe: isIntraday ? "1m" : task.timeframe,
+            startTime: historyWindow?.startTime,
+            endTime: historyWindow?.endTime,
+            count: isIntraday ? realtimeHistoryBarCount : task.timeframe === "1w" ? 260 : 600,
+          },
+        });
+
+        if (cancelled) return;
+
+        if (!result.ok) {
+          setWatchlistDataStatusByKey((current) => ({
+            ...current,
+            [`${task.market}:${task.symbol}`]: hasRenderableChartData(task.timeframe, cachedBars.length) ? "degraded" : "error",
+          }));
+          continue;
+        }
+
+        const resultBars = gatewayBarsToMarketDataBars(result.data, isIntraday ? "realtime" : undefined);
+        const nextBars = isIntraday
+          ? mergeHistoricalRealtimeBarsWithLiveBars(resultBars, cachedBars, cacheKey)
+          : resultBars;
+        const written = writeMarketBarCache(cacheKey, nextBars);
+        setWatchlistDataStatusByKey((current) => ({
+          ...current,
+          [`${task.market}:${task.symbol}`]: hasRenderableChartData(task.timeframe, written.length) ? "ready" : "error",
+        }));
+      }
+    };
+
+    void warmWatchlistCaches().catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSymbol.dataSymbol, activeSymbol.market, marketDataProviderSettings.stockSdkPrimaryEnabled, watchlist]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1599,6 +1781,7 @@ export function ChartWorkspacePage() {
             resetViewKey={chartResetViewKey}
             strategyLayers={orderedStrategyLayers}
             layers={orderedExtraLayers}
+            loadingState={chartViewportLoadingState}
           />
           {isIndicatorSettingsOpen && (
             <section className="chart-settings-popover indicator-settings-popover" aria-label="指标管理">
@@ -1757,16 +1940,18 @@ export function ChartWorkspacePage() {
             {watchlist.map((item) => {
               const snapshot = quoteSnapshotsByKey[`${item.market}:${item.dataSymbol}`];
               const change = formatQuoteChange(snapshot, item.change);
+              const dataStatus = watchlistDataStatusByKey[getWatchlistDataKey(item)];
 
               return (
                 <div
                   className={item.symbol === activeSymbol.symbol ? "active" : ""}
                   key={item.symbol}
                 >
-                  <button className="watchlist-item-select" onClick={() => setActiveSymbol(item)} type="button">
+                  <button className="watchlist-item-select" onClick={() => selectActiveSymbol(item)} type="button">
                     <span>
                       <strong>{item.symbol}</strong>
                       <small>{item.name}</small>
+                      <em className={`watchlist-data-status ${dataStatus ?? "syncing"}`}>{formatWatchlistDataStatus(dataStatus)}</em>
                     </span>
                     <span>
                       <strong>{formatQuotePrice(snapshot, item.price)}</strong>

@@ -58,6 +58,14 @@ Completed foundations:
 - Realtime rendering now samples only the render input above 1,200 points while retaining full cache and strategy input. Identical in-flight chart bar requests are deduplicated.
 - Detailed source, capability limits, cache rules, and verification are recorded in `docs/market-data-stability-plan.md`.
 
+## Super Chart Loading Experience Update (2026-07-11)
+
+- Sparse cache data no longer renders as a one-bar or one-segment temporary chart. `realtime` requires 30 points, `1d` requires 20 bars, and `1w` requires 12 bars before the chart canvas renders price, volume, indicators, and strategy layers.
+- The chart retains its legend, toolbar, grid, price axis, and time axis while data is preparing. The canvas reports Chinese stages for cache reading, history synchronization, and strategy-layer preparation.
+- Sufficient local cache renders immediately and refreshes remotely in the background. A failed refresh keeps usable cache visible and uses a non-blocking degraded state; an unusable cache shows a clear in-canvas error state instead of a misleading single bar.
+- Opening the chart workspace warms the active symbol's remaining periods first, then warms every other watchlist symbol sequentially for `1d`, `1w`, and the recent intraday window. Cache freshness prevents unnecessary requests, identical requests remain deduplicated by the chart gateway, and effect cleanup stops subsequent background tasks on symbol/page changes.
+- The watchlist now reports `已就绪`、`同步中`、`使用缓存`、`数据源降级`、or `加载失败` without exposing provider credentials.
+
 ## Current Data Flow
 
 1. User binds AlphaFeed in the desktop app.

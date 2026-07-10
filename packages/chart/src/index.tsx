@@ -5,6 +5,7 @@ import {
   getChartFuturePaddingBars,
   getScaledPriceRange,
   panChartVisibleRange,
+  shouldInitializeChartViewAfterSparseLoad,
   syncChartVisibleRangeForDataUpdate,
   zoomChartVisibleRange,
   type ChartVisibleRange,
@@ -15,6 +16,7 @@ export {
   getChartFuturePaddingBars,
   getScaledPriceRange,
   panChartVisibleRange,
+  shouldInitializeChartViewAfterSparseLoad,
   syncChartVisibleRangeForDataUpdate,
   zoomChartVisibleRange,
   type ChartVisibleRange,
@@ -127,6 +129,11 @@ export interface ChartViewportProps {
   showCurrentPriceLine?: boolean;
   displayMode?: ChartDisplayMode;
   resetViewKey?: number;
+  loadingState?: {
+    readonly stage: string;
+    readonly message: string;
+    readonly isError?: boolean;
+  };
 }
 
 interface ChartScaleDomain {
@@ -270,6 +277,7 @@ export function ChartViewport({
   showCurrentPriceLine = true,
   displayMode = "candlestick",
   resetViewKey = 0,
+  loadingState,
 }: ChartViewportProps) {
   const generatedCandles = useMemo(() => generateCandles(context), [context.symbol, context.market, context.timeframe]);
   const candles = providedCandles ?? generatedCandles;
@@ -294,12 +302,19 @@ export function ChartViewport({
   const width = 980;
   const height = 520;
   const hasCandles = candles.length > 0;
+  const minimumInteractiveCandleCount = 12;
 
   useEffect(() => {
     const previous = previousChartStateRef.current;
     const shouldResetScale = previous.contextKey !== contextKey || previous.resetViewKey !== resetViewKey;
 
-    if (shouldResetScale || (previous.candleCount === 0 && candles.length > 0)) {
+    const shouldInitializeAfterSparseLoad = shouldInitializeChartViewAfterSparseLoad(
+      previous.candleCount,
+      candles.length,
+      minimumInteractiveCandleCount,
+    );
+
+    if (shouldResetScale || (previous.candleCount === 0 && candles.length > 0) || shouldInitializeAfterSparseLoad) {
       const nextRange = createDefaultVisibleRange(candles.length);
       setVisibleRange(nextRange);
       setScaleDomain(calculateScaleDomain(candles, nextRange));
@@ -326,7 +341,7 @@ export function ChartViewport({
     previousChartStateRef.current = { candleCount: candles.length, contextKey, resetViewKey };
   }, [candles, contextKey, resetViewKey]);
 
-  if (!hasCandles) {
+  if (loadingState || !hasCandles) {
     return (
       <section className="chart-viewport" aria-label={`${context.symbol} ${context.timeframe} K 线图`}>
         <div className="chart-legend">
@@ -334,7 +349,33 @@ export function ChartViewport({
           <span>{context.market}</span>
           <span>{context.timeframe}</span>
         </div>
-        <div className="chart-empty-state">暂无可用行情数据</div>
+        <div className="chart-interaction-toolbar" aria-label="图表缩放和移动">
+          <button disabled type="button">放大</button>
+          <button disabled type="button">缩小</button>
+          <button disabled type="button">左移</button>
+          <button disabled type="button">右移</button>
+          <button disabled type="button">重置</button>
+        </div>
+        <div className="chart-loading-canvas">
+          <svg aria-hidden="true" className="chart-loading-grid" viewBox="0 0 980 520">
+            <rect className="chart-bg" height="520" width="980" />
+            {Array.from({ length: 8 }, (_, index) => <line className="chart-grid-line" key={`h-${index}`} x1="54" x2="894" y1={34 + (452 / 7) * index} y2={34 + (452 / 7) * index} />)}
+            {Array.from({ length: 10 }, (_, index) => <line className="chart-grid-line" key={`v-${index}`} x1={54 + (840 / 9) * index} x2={54 + (840 / 9) * index} y1="34" y2="486" />)}
+            <line className="chart-loading-axis" x1="894" x2="894" y1="34" y2="486" />
+            <g className="price-axis-labels">
+              <text className="price-axis-title" x="904" y="48">价格</text>
+              {Array.from({ length: 6 }, (_, index) => <text key={`price-${index}`} x="904" y={112 + index * 66}>--</text>)}
+            </g>
+            <g className="time-axis-labels">
+              {Array.from({ length: 5 }, (_, index) => <text key={`time-${index}`} x={120 + index * 180} y="510">--:--</text>)}
+            </g>
+          </svg>
+          <div className={`chart-loading-state${loadingState?.isError ? " error" : ""}`} role="status">
+            {!loadingState?.isError && <span className="chart-loading-spinner" aria-hidden="true" />}
+            <strong>{loadingState?.isError ? "数据暂不可用" : "正在准备图表"}</strong>
+            <span>{loadingState?.message ?? "暂无可用行情数据"}</span>
+          </div>
+        </div>
       </section>
     );
   }
