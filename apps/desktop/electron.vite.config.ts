@@ -16,7 +16,10 @@ const packageAliases = {
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: Object.keys(packageAliases) })],
+    resolve: {
+      alias: packageAliases,
+    },
     build: {
       rollupOptions: {
         input: resolve(__dirname, "src/electron/main.ts"),
@@ -24,7 +27,10 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: Object.keys(packageAliases) })],
+    resolve: {
+      alias: packageAliases,
+    },
     build: {
       rollupOptions: {
         input: resolve(__dirname, "src/electron/preload.ts"),
