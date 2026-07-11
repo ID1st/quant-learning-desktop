@@ -1,0 +1,19 @@
+{
+  "id": "com.quant.strategy.sma-crossover",
+  "name": "均线交叉示例策略",
+  "version": "1.0.0",
+  "type": "strategy",
+  "main": "dist/index.js",
+  "engine": {
+    "app": ">=0.1.0",
+    "pluginApi": ">=0.1.0"
+  },
+  "permissions": [
+    "market-data:read",
+    "strategy:run",
+    "chart:overlay"
+  ],
+  "capabilities": [
+    "strategy"
+  ]
+}

@@ -252,3 +252,20 @@ Initial built-ins:
 - Trend Targets.
 
 This keeps future user and plugin strategies consistent with built-in strategies.
+
+## 14. MVP Implementation Status (2026-07-11)
+
+Implemented now:
+
+- Electron main-process installation copies a selected local directory into the managed application plugin directory.
+- `plugin.json` schema, package path, JavaScript entry path, supported permissions/capabilities, and app/plugin API versions are checked before install.
+- Only trusted, self-contained strategy and indicator modules are executable in the MVP. Data-source and export packages remain declared future capabilities and are rejected by the current runtime.
+- The preload bridge exposes only list, install, enable/disable, uninstall, runtime-failure report, and enabled-module read operations.
+- Plugins receive only `registerStrategy`, `registerIndicator`, and `log`. They cannot receive provider credentials, Node APIs, file APIs, or desktop IPC handles through the plugin context.
+- A broken plugin is isolated. Runtime failures are persisted as degraded state and the plugin is disabled after three failures.
+- `examples/plugins/sma-crossover` is an installable sample strategy plugin that produces declarative chart signal overlays.
+
+Deliberate MVP limits:
+
+- This is trusted-local extensibility, not a sandbox for arbitrary third-party code. Full worker/process isolation and signing are required before a marketplace or untrusted packages are supported.
+- No automatic hot update, remote download, data-source plugin host, export plugin host, or plugin-specific persistence API is provided yet.

@@ -19,6 +19,9 @@ export function registerPluginIpcHandlers(
       : { ok: false as const, error: { code: "PLUGIN_OPERATION_FAILED" as const, message: "已取消选择插件目录。" } };
   });
   ipcMain.handle(pluginIpcChannels.setEnabled, (_event, pluginId: string, enabled: boolean) => handlers.setEnabled(pluginId, enabled));
+  ipcMain.handle(pluginIpcChannels.reportRuntimeFailure, (_event, pluginId: string, message: string) =>
+    handlers.reportRuntimeFailure(pluginId, message),
+  );
   ipcMain.handle(pluginIpcChannels.uninstall, (_event, pluginId: string) => handlers.uninstall(pluginId));
   ipcMain.handle(pluginIpcChannels.readEnabledRuntimeModules, () => handlers.readEnabledRuntimeModules());
 }

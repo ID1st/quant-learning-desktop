@@ -27,6 +27,7 @@ test("plugin IPC channels expose a narrow plugin-management boundary", () => {
     list: "plugins:list",
     installLocal: "plugins:installLocal",
     setEnabled: "plugins:setEnabled",
+    reportRuntimeFailure: "plugins:reportRuntimeFailure",
     uninstall: "plugins:uninstall",
     readEnabledRuntimeModules: "plugins:readEnabledRuntimeModules",
   });
@@ -44,6 +45,10 @@ test("plugin IPC handlers only delegate to the main-process plugin manager", asy
       calls.push(`enabled:${id}:${enabled}`);
       return { ...record, status: enabled ? "enabled" : "disabled" };
     },
+    recordRuntimeFailure: async (id, message) => {
+      calls.push(`failure:${id}:${message}`);
+      return { ...record, status: "degraded", failureCount: 1, lastError: message };
+    },
     uninstall: async (id) => {
       calls.push(`uninstall:${id}`);
     },
@@ -57,11 +62,13 @@ test("plugin IPC handlers only delegate to the main-process plugin manager", asy
   assert.deepEqual(await handlers.list(), { ok: true, data: [record] });
   assert.deepEqual(await handlers.installFromDirectory("C:/plugins/sample"), { ok: true, data: record });
   assert.equal((await handlers.setEnabled(record.manifest.id, false)).ok, true);
+  assert.equal((await handlers.reportRuntimeFailure(record.manifest.id, "activation failed")).ok, true);
   assert.deepEqual(await handlers.uninstall(record.manifest.id), { ok: true, data: null });
   assert.equal((await handlers.readEnabledRuntimeModules()).ok, true);
   assert.deepEqual(calls, [
     "install:C:/plugins/sample",
     `enabled:${record.manifest.id}:false`,
+    `failure:${record.manifest.id}:activation failed`,
     `uninstall:${record.manifest.id}`,
     "runtime",
   ]);

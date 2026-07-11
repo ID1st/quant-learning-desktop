@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createEmptyStrategyRegistry,
   createPresetStrategyRegistry,
@@ -11,6 +11,7 @@ import {
 } from "@quant/strategy-engine";
 import type { Timeframe } from "@quant/shared";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
+import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 import { useToastStore } from "../features/feedback/toastStore";
 import { marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
 import { readMarketBarCache } from "../features/marketData/marketBarCacheService";
@@ -37,7 +38,7 @@ import {
 type StrategyStatus = "enabled" | "disabled";
 type StrategyFilter = "all" | StrategyStatus;
 
-const registry = createPresetStrategyRegistry();
+const presetRegistry = createPresetStrategyRegistry();
 const strategyPreviewSymbol = { symbol: "AAPL.US", displaySymbol: "AAPL", market: "US" as const };
 const strategyPreviewTimeframe: Timeframe = "realtime";
 
@@ -102,7 +103,17 @@ function coerceParameterValue(parameter: StrategyParameterDefinition, value: str
 }
 
 export function StrategyManagementPage() {
-  const strategies = useMemo(() => registry.list(), []);
+  const pluginStrategies = usePluginRuntimeStore((state) => state.strategies);
+  const refreshPluginRuntime = usePluginRuntimeStore((state) => state.refresh);
+  useEffect(() => {
+    void refreshPluginRuntime();
+  }, [refreshPluginRuntime]);
+  const strategies = useMemo(() => [...presetRegistry.list(), ...pluginStrategies], [pluginStrategies]);
+  const strategyRegistry = useMemo(() => {
+    const nextRegistry = createEmptyStrategyRegistry();
+    strategies.forEach((strategy) => nextRegistry.register(strategy));
+    return nextRegistry;
+  }, [strategies]);
   const [selectedKey, setSelectedKey] = useState(strategies[0]?.key ?? "");
   const [filter, setFilter] = useState<StrategyFilter>("all");
   const [keyword, setKeyword] = useState("");
@@ -136,7 +147,7 @@ export function StrategyManagementPage() {
   const strategyRuns = useMemo(
     () =>
       strategies.map((strategy) => {
-        const result = runRegisteredStrategy(registry, {
+        const result = runRegisteredStrategy(strategyRegistry, {
           strategyKey: strategy.key,
           symbol: strategyPreviewSymbol.symbol,
           market: strategyPreviewSymbol.market,
@@ -152,7 +163,7 @@ export function StrategyManagementPage() {
           result,
         };
       }),
-    [strategies, strategyPreviewBars, strategyStatus],
+    [strategies, strategyPreviewBars, strategyRegistry, strategyStatus],
   );
   const totalSignalCount = strategyRuns.reduce((total, item) => total + item.result.output.signals.length, 0);
   const totalLayerElementCount = strategyRuns.reduce((total, item) => total + item.result.output.render.elements.length, 0);
@@ -204,7 +215,7 @@ export function StrategyManagementPage() {
     return matchesFilter && matchesKeyword;
   });
   const runResult = selectedStrategy
-    ? runRegisteredStrategy(registry, {
+    ? runRegisteredStrategy(strategyRegistry, {
         strategyKey: selectedStrategy.key,
         symbol: strategyPreviewSymbol.symbol,
         market: strategyPreviewSymbol.market,

@@ -11,6 +11,7 @@ import {
   type StrategyVisualElement,
 } from "@quant/strategy-engine";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
+import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 import {
   buildChartStrategyLogItems,
   buildChartStrategySignalRows,
@@ -62,7 +63,7 @@ import {
   type ChartQuoteSnapshotBatchResult,
 } from "../features/marketData/chartMarketDataGateway";
 import { readMarketDataProviderSettings } from "../features/marketData/marketDataProviderSettings";
-import { createChartIndicatorLayers, defaultChartIndicatorSettings, type ChartIndicatorSettings } from "../features/chartIndicators/chartIndicators";
+import { createChartIndicatorLayers, createPluginIndicatorLayers, defaultChartIndicatorSettings, type ChartIndicatorSettings } from "../features/chartIndicators/chartIndicators";
 import { drawingsToLayer, readChartDrawings, writeChartDrawings, type ChartDrawing } from "../features/chartDrawings/chartDrawingStore";
 import {
   summarizeMarketDataProviderHealth,
@@ -703,6 +704,12 @@ export function ChartWorkspacePage() {
   const workspacePreferences = useMemo(() => readWorkspacePreferences(), []);
   const marketDataProviderSettings = useMemo(() => readMarketDataProviderSettings(), []);
   const importedDrafts = useUserStrategyDraftStore((state) => state.drafts);
+  const pluginStrategies = usePluginRuntimeStore((state) => state.strategies);
+  const pluginIndicators = usePluginRuntimeStore((state) => state.indicators);
+  const refreshPluginRuntime = usePluginRuntimeStore((state) => state.refresh);
+  useEffect(() => {
+    void refreshPluginRuntime();
+  }, [refreshPluginRuntime]);
   const runnableUserStrategies = useMemo(
     () =>
       importedDrafts.flatMap((draft) => {
@@ -711,7 +718,10 @@ export function ChartWorkspacePage() {
       }),
     [importedDrafts],
   );
-  const chartStrategies = useMemo(() => [...presetStrategies, ...runnableUserStrategies], [runnableUserStrategies]);
+  const chartStrategies = useMemo(
+    () => [...presetStrategies, ...runnableUserStrategies, ...pluginStrategies],
+    [pluginStrategies, runnableUserStrategies],
+  );
   const chartStrategyRegistry = useMemo(() => {
     const registry = createEmptyStrategyRegistry();
     chartStrategies.forEach((strategy) => registry.register(strategy));
@@ -798,7 +808,10 @@ export function ChartWorkspacePage() {
     [watchlist],
   );
   const cachedCandles = useMemo(() => marketBarsToCandles(chartRenderBars), [chartRenderBars]);
-  const indicatorLayers = useMemo(() => createChartIndicatorLayers(cachedCandles, indicatorSettings), [cachedCandles, indicatorSettings]);
+  const indicatorLayers = useMemo(
+    () => [...createChartIndicatorLayers(cachedCandles, indicatorSettings), ...createPluginIndicatorLayers(cachedCandles, pluginIndicators)],
+    [cachedCandles, indicatorSettings, pluginIndicators],
+  );
   const drawingLayer = useMemo(() => drawingsToLayer(drawings), [drawings]);
   const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(displayedMarketBars), [displayedMarketBars]);
   const renderedCandles = cachedCandles;

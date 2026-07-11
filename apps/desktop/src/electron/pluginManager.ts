@@ -24,6 +24,7 @@ export interface PluginManager {
   list(): readonly InstalledPluginRecord[];
   installFromDirectory(sourceDirectory: string): Promise<InstalledPluginRecord>;
   setEnabled(pluginId: string, enabled: boolean): Promise<InstalledPluginRecord>;
+  recordRuntimeFailure(pluginId: string, message: string): Promise<InstalledPluginRecord>;
   uninstall(pluginId: string): Promise<void>;
   readEnabledRuntimeModules(): Promise<readonly PluginRuntimeModule[]>;
 }
@@ -36,16 +37,41 @@ const registryFileName = "registry.json";
 const maxPackageBytes = 10 * 1024 * 1024;
 const maxRuntimeModuleBytes = 256 * 1024;
 const pluginIdPattern = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$/;
+const appVersion = "0.1.0";
+const pluginApiVersion = "0.1.0";
 
 export function createPluginManager(options: PluginManagerOptions): PluginManager {
   const pluginsDirectory = resolve(options.pluginsDirectory);
   let records = readRegistry(pluginsDirectory);
+
+  const recordRuntimeFailure = async (pluginId: string, message: string): Promise<InstalledPluginRecord> => {
+    const current = records.find((record) => record.manifest.id === pluginId);
+    if (!current) {
+      throw new Error(`Plugin not installed: ${pluginId}`);
+    }
+
+    const failureCount = current.failureCount + 1;
+    const next: InstalledPluginRecord = {
+      ...current,
+      status: failureCount >= 3 ? "disabled" : "degraded",
+      failureCount,
+      lastError: sanitizeRuntimeError(message),
+      updatedAt: new Date().toISOString(),
+    };
+    records = records.map((record) => (record.manifest.id === pluginId ? next : record));
+    await writeRegistry(pluginsDirectory, records);
+    return next;
+  };
 
   return {
     list: () => [...records],
     async installFromDirectory(sourceDirectory) {
       const sourceRoot = await readSourceDirectory(sourceDirectory);
       const manifest = await readManifest(sourceRoot);
+      assertCompatibleManifest(manifest);
+      if (!canRunInRenderer(manifest)) {
+        throw new Error("This plugin uses a capability or permission that is not supported by the current desktop runtime.");
+      }
       await resolvePluginEntry(sourceRoot, manifest.main);
       const destination = getPluginDirectory(pluginsDirectory, manifest.id);
       const stagingDirectory = getManagedPath(pluginsDirectory, `.staging-${manifest.id}-${randomUUID()}`);
@@ -103,6 +129,7 @@ export function createPluginManager(options: PluginManagerOptions): PluginManage
       await writeRegistry(pluginsDirectory, records);
       return next;
     },
+    recordRuntimeFailure,
     async uninstall(pluginId) {
       const current = records.find((record) => record.manifest.id === pluginId);
       if (!current) {
@@ -118,13 +145,19 @@ export function createPluginManager(options: PluginManagerOptions): PluginManage
       const modules: PluginRuntimeModule[] = [];
 
       for (const plugin of enabled) {
-        const entry = await resolvePluginEntry(getPluginDirectory(pluginsDirectory, plugin.manifest.id), plugin.manifest.main);
-        const entryStats = await stat(entry);
-        if (entryStats.size > maxRuntimeModuleBytes) {
-          throw new Error(`Plugin runtime entry exceeds ${maxRuntimeModuleBytes} bytes: ${plugin.manifest.id}`);
-        }
+        try {
+          const entry = await resolvePluginEntry(getPluginDirectory(pluginsDirectory, plugin.manifest.id), plugin.manifest.main);
+          const entryStats = await stat(entry);
+          if (entryStats.size > maxRuntimeModuleBytes) {
+            throw new Error(`Plugin runtime entry exceeds ${maxRuntimeModuleBytes} bytes: ${plugin.manifest.id}`);
+          }
 
-        modules.push({ plugin, source: await readFile(entry, "utf8") });
+          const source = await readFile(entry, "utf8");
+          assertSelfContainedRuntimeSource(source);
+          modules.push({ plugin, source });
+        } catch (error) {
+          await recordRuntimeFailure(plugin.manifest.id, getErrorMessage(error));
+        }
       }
 
       return modules;
@@ -309,6 +342,57 @@ function canRunInRenderer(manifest: PluginManifest) {
     manifest.permissions.every((permission) => supportedPermissions.has(permission));
 }
 
+function assertCompatibleManifest(manifest: PluginManifest) {
+  parseVersion(manifest.version);
+  if (!isCompatibleVersionRange(manifest.engine.app, appVersion)) {
+    throw new Error(`Plugin requires app version ${manifest.engine.app}; current version is ${appVersion}.`);
+  }
+  if (!isCompatibleVersionRange(manifest.engine.pluginApi, pluginApiVersion)) {
+    throw new Error(`Plugin requires plugin API version ${manifest.engine.pluginApi}; current version is ${pluginApiVersion}.`);
+  }
+}
+
+function isCompatibleVersionRange(range: string | undefined, currentVersion: string) {
+  if (!range) return true;
+  const current = parseVersion(currentVersion);
+  const minimumMatch = /^>=\s*(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(range);
+  if (minimumMatch) {
+    return compareVersions(current, parseVersion(minimumMatch[1])) >= 0;
+  }
+  return range === currentVersion;
+}
+
+function parseVersion(value: string) {
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/.exec(value);
+  if (!match) {
+    throw new Error(`Plugin version range is invalid: ${value}`);
+  }
+  return { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]), prerelease: match[4] };
+}
+
+function compareVersions(left: ReturnType<typeof parseVersion>, right: ReturnType<typeof parseVersion>) {
+  if (left.major !== right.major) return left.major - right.major;
+  if (left.minor !== right.minor) return left.minor - right.minor;
+  if (left.patch !== right.patch) return left.patch - right.patch;
+  if (left.prerelease === right.prerelease) return 0;
+  return left.prerelease ? -1 : 1;
+}
+
+function assertSelfContainedRuntimeSource(source: string) {
+  if (/\bimport\s*(?:\(|[\s{"'])/u.test(source)) {
+    throw new Error("Plugin runtime modules must be self-contained and cannot import additional modules.");
+  }
+}
+
 function compareRecords(left: InstalledPluginRecord, right: InstalledPluginRecord) {
   return left.manifest.name.localeCompare(right.manifest.name) || left.manifest.id.localeCompare(right.manifest.id);
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error && error.message.trim() ? error.message : "Plugin runtime failed.";
+}
+
+function sanitizeRuntimeError(message: string) {
+  const normalized = message.trim().replace(/\s+/gu, " ");
+  return (normalized || "插件运行失败。").slice(0, 800);
 }

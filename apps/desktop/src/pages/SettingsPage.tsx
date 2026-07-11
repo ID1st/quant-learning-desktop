@@ -1,13 +1,14 @@
-import { AlertTriangle, Boxes, CheckCircle2, DatabaseZap, FileInput, PackageCheck, PlugZap, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import { AlertTriangle, Boxes, CheckCircle2, DatabaseZap, FileInput, PackageCheck, PlugZap, Power, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createLocalPluginInstallBridge, type PluginManifestPreflightResult } from "@quant/api-client";
-import { PluginLoader, validatePluginManifest, type PluginCapability, type PluginManifest, type PluginPermission } from "@quant/plugin-loader";
+import { type PluginCapability, type PluginPermission } from "@quant/plugin-loader";
 import {
   clearAllMarketBarCache,
   pruneMarketBarCache,
   readMarketBarCacheSummary,
   type MarketBarCacheSummary,
 } from "../features/marketData/marketBarCacheService";
+import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 
 const capabilityLabels: Record<PluginCapability, string> = {
   strategy: "策略",
@@ -28,53 +29,11 @@ const permissionLabels: Record<PluginPermission, string> = {
   "settings:read": "读取设置",
 };
 
-const loader = new PluginLoader();
-
-const builtinPlugins = [
-  validatePluginManifest({
-    id: "quant.internal.strategy-presets",
-    name: "预制策略适配器",
-    version: "0.1.0",
-    type: "strategy",
-    main: "internal://strategy-presets",
-    engine: {
-      app: ">=0.1.0",
-      pluginApi: ">=0.1.0",
-    },
-    permissions: ["market-data:read", "strategy:run", "chart:overlay"],
-    capabilities: ["strategy"],
-  }),
-  validatePluginManifest({
-    id: "quant.internal.export-preview",
-    name: "本地导出适配器",
-    version: "0.1.0",
-    type: "export",
-    main: "internal://export-preview",
-    engine: {
-      app: ">=0.1.0",
-      pluginApi: ">=0.1.0",
-    },
-    permissions: ["file:write"],
-    capabilities: ["export"],
-  }),
-];
-
-builtinPlugins.forEach((manifest) => {
-  if (!loader.get(manifest.id)) {
-    loader.register(manifest);
-  }
-});
-
-const capabilitySummary = (["strategy", "indicator", "data-source", "export"] as PluginCapability[]).map((capability) => ({
-  capability,
-  count: loader.listByCapability(capability).length,
-}));
-
 const installSteps = [
   "选择本地插件包或策略包",
   "读取 plugin.json 并校验版本",
   "展示权限变更并等待确认",
-  "注册能力到策略、指标或数据源模块",
+  "注册能力到策略或指标模块",
 ];
 
 const sampleManifest = JSON.stringify(
@@ -123,11 +82,16 @@ function formatCacheTime(value?: string) {
 }
 
 export function SettingsPage() {
-  const registeredPlugins = loader.list();
+  const registeredPlugins = usePluginRuntimeStore((state) => state.plugins);
+  const pluginRuntimeStatus = usePluginRuntimeStore((state) => state.status);
+  const pluginRuntimeMessage = usePluginRuntimeStore((state) => state.message);
+  const refreshPluginRuntime = usePluginRuntimeStore((state) => state.refresh);
+  const installLocalPlugin = usePluginRuntimeStore((state) => state.installLocalPlugin);
+  const setPluginEnabled = usePluginRuntimeStore((state) => state.setEnabled);
+  const uninstallPlugin = usePluginRuntimeStore((state) => state.uninstall);
   const [cacheSummary, setCacheSummary] = useState<MarketBarCacheSummary>(() => readMarketBarCacheSummary());
   const [cacheMessage, setCacheMessage] = useState("");
   const [manifestDraft, setManifestDraft] = useState(sampleManifest);
-  const [pendingInstalls, setPendingInstalls] = useState<PluginManifest[]>([]);
   const [manifestPreview, setManifestPreview] = useState<PluginManifestPreflightResult>({
     ok: false,
     error: {
@@ -150,8 +114,15 @@ export function SettingsPage() {
     };
   }, [manifestDraft]);
 
+  useEffect(() => {
+    void refreshPluginRuntime();
+  }, [refreshPluginRuntime]);
+
   const previewManifest = manifestPreview.ok ? manifestPreview.manifest : null;
-  const alreadyPending = previewManifest ? pendingInstalls.some((plugin) => plugin.id === previewManifest.id) : false;
+  const capabilitySummary = (["strategy", "indicator", "data-source", "export"] as PluginCapability[]).map((capability) => ({
+    capability,
+    count: registeredPlugins.filter((plugin) => plugin.manifest.capabilities.includes(capability)).length,
+  }));
   const largestCacheEntries = [...cacheSummary.entries].sort((left, right) => right.estimatedBytes - left.estimatedBytes).slice(0, 4);
 
   const refreshCacheSummary = () => {
@@ -170,12 +141,12 @@ export function SettingsPage() {
     setCacheMessage(`已清空 ${removedEntries} 个行情缓存条目。`);
   };
 
-  const handleConfirmInstall = () => {
-    if (!previewManifest || alreadyPending) {
-      return;
-    }
+  const handleInstallPlugin = () => void installLocalPlugin();
 
-    setPendingInstalls((plugins) => [...plugins, previewManifest]);
+  const handleUninstallPlugin = (pluginId: string, pluginName: string) => {
+    if (window.confirm(`确定卸载插件“${pluginName}”吗？已保存的策略数据不会被删除。`)) {
+      void uninstallPlugin(pluginId);
+    }
   };
 
   return (
@@ -183,7 +154,7 @@ export function SettingsPage() {
       <header className="module-header">
         <p>系统设置</p>
         <h1>插件与本地扩展</h1>
-        <span>统一管理策略插件、指标插件、数据源插件和导出插件。当前阶段只开放清单校验和能力注册入口，真实安装与热更新会在后续模块接入桌面本地服务。</span>
+        <span>统一管理策略插件、指标插件、数据源插件和导出插件。当前桌面版支持受信任本地策略与指标插件的安装、启停、卸载和受控加载；热更新与其他插件类型将在后续阶段开放。</span>
       </header>
 
       <section className="settings-summary-grid" aria-label="插件能力概览">
@@ -269,9 +240,9 @@ export function SettingsPage() {
           <div className="plugin-drop-zone">
             <PlugZap size={24} />
             <strong>选择插件包</strong>
-            <span>支持包含 plugin.json 的本地目录或压缩包。当前为界面入口，尚未执行文件读取。</span>
-            <button onClick={() => setManifestDraft(sampleManifest)} type="button">
-              载入示例清单
+            <span>选择包含 plugin.json 的本地目录。桌面主进程会校验清单、入口和权限后复制到受控插件目录。</span>
+            <button disabled={pluginRuntimeStatus === "loading" || pluginRuntimeStatus === "unavailable"} onClick={handleInstallPlugin} type="button">
+              {pluginRuntimeStatus === "loading" ? "正在处理…" : "选择本地插件目录"}
             </button>
           </div>
 
@@ -290,7 +261,7 @@ export function SettingsPage() {
             <ShieldCheck size={20} />
             <div>
               <h2>权限策略</h2>
-              <p>插件权限默认收敛，未知权限会被阻断，敏感权限后续需要用户二次确认。</p>
+              <p>未知权限会被阻断；当前运行时只授予策略和指标所需的只读行情、策略运行、图表图层和设置读取权限。</p>
             </div>
           </div>
 
@@ -302,7 +273,7 @@ export function SettingsPage() {
 
           <div className="settings-note warning">
             <AlertTriangle size={16} />
-            <span>真实插件执行前还需要接入隔离运行环境，避免插件直接访问交易凭证、Node 全局对象和本地文件。</span>
+            <span>仅安装来源可信的本地插件。当前模块以受控 API 加载，不向插件提供交易凭证、Node 全局对象或本地文件接口；完整进程隔离属于后续强化项。</span>
           </div>
         </div>
       </section>
@@ -312,7 +283,7 @@ export function SettingsPage() {
           <FileInput size={20} />
           <div>
             <h2>插件清单预检</h2>
-            <p>先验证 plugin.json 的结构、权限和能力声明。后续接入桌面文件选择器后，会复用同一套校验逻辑。</p>
+              <p>先验证 plugin.json 的结构、权限、能力与版本要求。桌面安装时会对实际选择目录再次执行同一套校验。</p>
           </div>
         </div>
 
@@ -351,10 +322,10 @@ export function SettingsPage() {
                   ))}
                 </div>
                 <div className="plugin-confirm-actions">
-                  <button disabled={alreadyPending} onClick={handleConfirmInstall} type="button">
-                    {alreadyPending ? "已加入待安装" : "确认模拟安装"}
+                  <button disabled={pluginRuntimeStatus === "loading" || pluginRuntimeStatus === "unavailable"} onClick={handleInstallPlugin} type="button">
+                    安装本地插件目录
                   </button>
-                  <small>{manifestPreview.summary.requiresPermissionApproval ? "该插件声明了权限，真实安装时需要再次确认。" : "该插件未声明额外权限。"}</small>
+                  <small>{manifestPreview.summary.requiresPermissionApproval ? "安装时会复核目录中的清单与权限。" : "该插件未声明额外权限。"}</small>
                 </div>
               </>
             ) : (
@@ -372,48 +343,27 @@ export function SettingsPage() {
         <div className="module-card-header">
           <PackageCheck size={20} />
           <div>
-            <h2>待安装队列</h2>
-            <p>当前只记录模拟安装结果，不写入本地插件目录，也不会加载或执行插件入口。</p>
+            <h2>插件运行时状态</h2>
+            <p>本地插件只在受控桌面桥可用时加载；运行失败会被隔离，连续三次失败将自动停用。</p>
           </div>
         </div>
-
-        {pendingInstalls.length > 0 ? (
-          <div className="plugin-pending-list">
-            {pendingInstalls.map((plugin) => (
-              <div className="plugin-pending-row" key={plugin.id}>
-                <CheckCircle2 size={17} />
-                <span>
-                  <strong>{plugin.name}</strong>
-                  <small>{plugin.id}</small>
-                </span>
-                <em>{plugin.version}</em>
-                <div>
-                  {plugin.capabilities.map((capability) => (
-                    <b key={capability}>{capabilityLabels[capability]}</b>
-                  ))}
-                </div>
-                <small>模拟安装</small>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="plugin-empty-state">
-            <span>暂无待安装插件。清单预检通过后，可先加入模拟安装队列。</span>
-          </div>
-        )}
+        <div className={`settings-note ${pluginRuntimeStatus === "error" || pluginRuntimeStatus === "degraded" ? "warning" : ""}`}>
+          {pluginRuntimeStatus === "error" || pluginRuntimeStatus === "degraded" ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+          <span>{pluginRuntimeMessage}</span>
+        </div>
       </section>
 
       <section className="module-card plugin-registry-panel">
         <div className="module-card-header">
           <PackageCheck size={20} />
           <div>
-            <h2>已注册能力</h2>
-            <p>内置策略先按插件能力模型登记，后续 Pine 转译策略和用户插件可以复用同一入口。</p>
+            <h2>已安装插件</h2>
+            <p>已启用的策略和指标会通过统一能力入口进入策略引擎与图表，不直接访问桌面内部服务。</p>
           </div>
         </div>
 
         <div className="plugin-registry-list">
-          {registeredPlugins.map((plugin) => (
+          {registeredPlugins.length > 0 ? registeredPlugins.map((plugin) => (
             <div className="plugin-registry-row" key={plugin.manifest.id}>
               <CheckCircle2 size={17} />
               <span>
@@ -426,9 +376,19 @@ export function SettingsPage() {
                   <b key={capability}>{capabilityLabels[capability]}</b>
                 ))}
               </div>
-              <small>{plugin.status === "registered" ? "已注册" : plugin.status}</small>
+              <small>{plugin.status === "enabled" ? "已启用" : plugin.status === "disabled" ? "已停用" : "运行异常"}</small>
+              <button onClick={() => void setPluginEnabled(plugin.manifest.id, plugin.status !== "enabled")} type="button">
+                <Power size={14} />
+                {plugin.status === "enabled" ? "停用" : "启用"}
+              </button>
+              <button className="danger" onClick={() => handleUninstallPlugin(plugin.manifest.id, plugin.manifest.name)} type="button">
+                <Trash2 size={14} />
+                卸载
+              </button>
             </div>
-          ))}
+          )) : (
+            <div className="plugin-empty-state">暂无已安装插件。请选择一个受信任的本地插件目录。</div>
+          )}
         </div>
       </section>
     </article>

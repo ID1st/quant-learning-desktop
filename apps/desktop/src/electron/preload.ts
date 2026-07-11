@@ -251,6 +251,7 @@ export const desktopBridge: DesktopBridge = {
     list: () => invokePlugin(pluginIpcChannels.list),
     installLocalPlugin: () => invokePlugin(pluginIpcChannels.installLocal),
     setEnabled: (pluginId, enabled) => invokePlugin(pluginIpcChannels.setEnabled, pluginId, enabled),
+    reportRuntimeFailure: (pluginId, message) => invokePlugin(pluginIpcChannels.reportRuntimeFailure, pluginId, message),
     uninstall: (pluginId) => invokePlugin(pluginIpcChannels.uninstall, pluginId),
     readEnabledRuntimeModules: () => invokePlugin(pluginIpcChannels.readEnabledRuntimeModules),
   },

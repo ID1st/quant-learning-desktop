@@ -222,6 +222,56 @@ interface QuantDesktopMarketDataBridge {
   ): Promise<QuantDesktopMarketDataResult<{ readonly state: QuantDesktopMarketDataStreamState }>>;
 }
 
+interface QuantDesktopPluginManifest {
+  readonly id: string;
+  readonly name: string;
+  readonly version: string;
+  readonly type: "strategy" | "indicator" | "data-source" | "export";
+  readonly kind: "strategy" | "indicator" | "data-source" | "export";
+  readonly main: string;
+  readonly entry: string;
+  readonly engine: { readonly app?: string; readonly pluginApi?: string };
+  readonly permissions: (
+    | "market-data:read"
+    | "market-data:subscribe"
+    | "strategy:run"
+    | "strategy:backtest"
+    | "chart:overlay"
+    | "file:read"
+    | "file:write"
+    | "network:request"
+    | "settings:read"
+  )[];
+  readonly capabilities: ("strategy" | "indicator" | "data-source" | "export")[];
+}
+
+interface QuantDesktopInstalledPlugin {
+  readonly manifest: QuantDesktopPluginManifest;
+  readonly status: "enabled" | "disabled" | "degraded";
+  readonly installedAt: string;
+  readonly updatedAt: string;
+  readonly failureCount: number;
+  readonly lastError?: string;
+}
+
+interface QuantDesktopPluginRuntimeModule {
+  readonly plugin: QuantDesktopInstalledPlugin;
+  readonly source: string;
+}
+
+type QuantDesktopPluginResult<T> =
+  | { readonly ok: true; readonly data: T }
+  | { readonly ok: false; readonly error: { readonly code: "PLUGIN_OPERATION_FAILED"; readonly message: string } };
+
+interface QuantDesktopPluginBridge {
+  list(): Promise<QuantDesktopPluginResult<readonly QuantDesktopInstalledPlugin[]>>;
+  installLocalPlugin(): Promise<QuantDesktopPluginResult<QuantDesktopInstalledPlugin>>;
+  setEnabled(pluginId: string, enabled: boolean): Promise<QuantDesktopPluginResult<QuantDesktopInstalledPlugin>>;
+  reportRuntimeFailure(pluginId: string, message: string): Promise<QuantDesktopPluginResult<QuantDesktopInstalledPlugin>>;
+  uninstall(pluginId: string): Promise<QuantDesktopPluginResult<null>>;
+  readEnabledRuntimeModules(): Promise<QuantDesktopPluginResult<readonly QuantDesktopPluginRuntimeModule[]>>;
+}
+
 interface QuantDesktopBridge {
   readonly platform: "desktop";
   readonly version: string;
@@ -266,6 +316,7 @@ interface QuantDesktopBridge {
     clearLongPort(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
   };
   readonly marketData?: QuantDesktopMarketDataBridge;
+  readonly plugins?: QuantDesktopPluginBridge;
   readonly alphaFeed?: {
     verifyCredentials(credentials: {
       apiUrl: string;

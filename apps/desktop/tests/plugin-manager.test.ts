@@ -65,3 +65,61 @@ test("plugin manager rejects entries that escape the selected package directory"
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("plugin manager rejects unsupported engine ranges and isolates imported runtime modules", async () => {
+  const root = await mkdtemp(join(tmpdir(), "quant-plugin-manager-"));
+
+  try {
+    const manager = createPluginManager({ pluginsDirectory: join(root, "installed") });
+    const incompatible = await createPluginDirectory(root, {
+      ...manifest,
+      id: "com.quant.strategy.future",
+      engine: { app: ">=9.0.0", pluginApi: ">=0.1.0" },
+    });
+    await assert.rejects(() => manager.installFromDirectory(incompatible), /requires app version/i);
+
+    const compatible = await createPluginDirectory(
+      root,
+      { ...manifest, id: "com.quant.strategy.imported" },
+      'import value from "other"; export function activate() {}',
+    );
+    await manager.installFromDirectory(compatible);
+    assert.deepEqual(await manager.readEnabledRuntimeModules(), []);
+    assert.equal(manager.list()[0]?.status, "degraded");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("plugin manager rejects an invalid plugin version", async () => {
+  const root = await mkdtemp(join(tmpdir(), "quant-plugin-manager-"));
+
+  try {
+    const source = await createPluginDirectory(root, { ...manifest, id: "com.quant.strategy.invalid-version", version: "latest" });
+    const manager = createPluginManager({ pluginsDirectory: join(root, "installed") });
+
+    await assert.rejects(() => manager.installFromDirectory(source), /version range is invalid/i);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("plugin manager degrades a failing runtime and disables it after repeated failures", async () => {
+  const root = await mkdtemp(join(tmpdir(), "quant-plugin-manager-"));
+
+  try {
+    const source = await createPluginDirectory(root, manifest);
+    const manager = createPluginManager({ pluginsDirectory: join(root, "installed") });
+    await manager.installFromDirectory(source);
+
+    assert.equal((await manager.recordRuntimeFailure(manifest.id, "activation failed")).status, "degraded");
+    assert.equal((await manager.recordRuntimeFailure(manifest.id, "activation failed")).status, "degraded");
+    const disabled = await manager.recordRuntimeFailure(manifest.id, "activation failed");
+
+    assert.equal(disabled.status, "disabled");
+    assert.equal(disabled.failureCount, 3);
+    assert.equal((await manager.readEnabledRuntimeModules()).length, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

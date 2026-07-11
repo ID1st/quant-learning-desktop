@@ -10,6 +10,7 @@ export interface PluginIpcHandlers {
   list(): Promise<PluginIpcResult<readonly InstalledPluginRecord[]>>;
   installFromDirectory(directory: string): Promise<PluginIpcResult<InstalledPluginRecord>>;
   setEnabled(pluginId: string, enabled: boolean): Promise<PluginIpcResult<InstalledPluginRecord>>;
+  reportRuntimeFailure(pluginId: string, message: string): Promise<PluginIpcResult<InstalledPluginRecord>>;
   uninstall(pluginId: string): Promise<PluginIpcResult<null>>;
   readEnabledRuntimeModules(): Promise<PluginIpcResult<readonly PluginRuntimeModule[]>>;
 }
@@ -18,6 +19,7 @@ export interface PluginIpcBridge {
   list(): Promise<PluginIpcResult<readonly InstalledPluginRecord[]>>;
   installLocalPlugin(): Promise<PluginIpcResult<InstalledPluginRecord>>;
   setEnabled(pluginId: string, enabled: boolean): Promise<PluginIpcResult<InstalledPluginRecord>>;
+  reportRuntimeFailure(pluginId: string, message: string): Promise<PluginIpcResult<InstalledPluginRecord>>;
   uninstall(pluginId: string): Promise<PluginIpcResult<null>>;
   readEnabledRuntimeModules(): Promise<PluginIpcResult<readonly PluginRuntimeModule[]>>;
 }
@@ -26,6 +28,7 @@ export const pluginIpcChannels = {
   list: "plugins:list",
   installLocal: "plugins:installLocal",
   setEnabled: "plugins:setEnabled",
+  reportRuntimeFailure: "plugins:reportRuntimeFailure",
   uninstall: "plugins:uninstall",
   readEnabledRuntimeModules: "plugins:readEnabledRuntimeModules",
 } as const;
@@ -37,6 +40,7 @@ export function createPluginIpcHandlers(manager: PluginManager): PluginIpcHandle
     },
     installFromDirectory: (directory) => invoke(() => manager.installFromDirectory(directory)),
     setEnabled: (pluginId, enabled) => invoke(() => manager.setEnabled(pluginId, enabled)),
+    reportRuntimeFailure: (pluginId, message) => invoke(() => manager.recordRuntimeFailure(pluginId, message)),
     uninstall: (pluginId) => invoke(async () => {
       await manager.uninstall(pluginId);
       return null;

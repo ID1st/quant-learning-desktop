@@ -409,12 +409,12 @@ Acceptance:
 
 Status:
 
-- Not started beyond package boundary and design documentation.
-- This should start after the chart layer/render-command model is stable enough for plugin-provided indicators and strategies.
+- MVP complete: trusted local strategy/indicator plugins can be installed, validated, enabled, disabled, uninstalled, and loaded through Electron IPC.
+- The runtime is intentionally limited to self-contained modules and a narrow strategy/indicator capability context. Data-source/export hosts, signatures, hot update, and process isolation remain follow-up hardening work.
 
 Goal:
 
-- Enable strategy, indicator, data source, and export plugins.
+- Enable the first trusted-local strategy and indicator plugins without coupling chart or strategy code to a specific plugin package.
 
 Deliverables:
 
@@ -423,14 +423,14 @@ Deliverables:
 - Installation flow.
 - Version checks.
 - Permission declarations.
-- Lifecycle hooks.
+- Runtime failure isolation and automatic disable after three failures.
 - Disable/uninstall.
 
 Acceptance:
 
-- A sample plugin can register a capability.
-- Plugin failure does not crash the app.
-- Permissions are visible to the user.
+- A sample plugin registers a strategy and chart signal overlays.
+- Plugin failure does not crash the app or prevent other plugins from activating.
+- Permissions, enable state, error state, and uninstall controls are visible to the user.
 
 ## 14. Milestone 11: Learning System
 

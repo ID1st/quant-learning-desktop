@@ -83,6 +83,21 @@ export function createChartIndicatorLayers(candles: readonly CandlePoint[], sett
   return layers;
 }
 
+export function createPluginIndicatorLayers(
+  candles: readonly CandlePoint[],
+  definitions: readonly ChartIndicatorDefinition[],
+): ChartRenderLayer[] {
+  return definitions.flatMap((definition) => {
+    try {
+      const parameters = Object.fromEntries(definition.parameters.map((parameter) => [parameter.key, parameter.defaultValue]));
+      const layer = definition.evaluate(candles, parameters);
+      return layer ? [layer] : [];
+    } catch {
+      return [];
+    }
+  });
+}
+
 function movingAverage(points: readonly { timestamp: number; close: number }[], window: number) {
   const size = Math.max(2, Math.min(240, Math.round(window)));
   return points.map((point, index) => {
