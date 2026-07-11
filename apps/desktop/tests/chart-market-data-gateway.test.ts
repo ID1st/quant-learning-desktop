@@ -214,7 +214,7 @@ describe("chart market data gateways", () => {
     ]);
   });
 
-  it("keeps the chart history path on LongBridge before AlphaFeed fallback", async () => {
+  it("keeps the chart history path on AlphaFeed REST before LongBridge and Yahoo fallback", async () => {
     const calls: string[] = [];
     const gateways = createChartMarketDataGateways({
       bridge: {
@@ -253,8 +253,8 @@ describe("chart market data gateways", () => {
     const result = await gateways.historicalBars.fetchHistoricalBars({ market: "US", symbol: "AAPL.US", timeframe: "1d" });
 
     assert.equal(result.ok, true);
-    assert.equal(result.provider, "yahoo-finance");
-    assert.deepEqual(calls, ["yahoo.history"]);
+    assert.equal(result.provider, "alphafeed-rest");
+    assert.deepEqual(calls, ["alphafeed.history"]);
   });
 
   it("keeps realtime quote polling on AlphaFeed REST before LongBridge fallback", async () => {
@@ -466,16 +466,16 @@ describe("chart market data gateways", () => {
     assert.equal(quoteResult.ok, true);
     assert.equal(quoteResult.provider, "alphafeed-rest");
     assert.equal(historyResult.ok, true);
-    assert.equal(historyResult.provider, "yahoo-finance");
+    assert.equal(historyResult.provider, "alphafeed-rest");
     assert.equal(intradayResult.ok, true);
-    assert.equal(intradayResult.provider, "yahoo-finance");
+    assert.equal(intradayResult.provider, "alphafeed-rest");
     assert.deepEqual(calls, [
       "stock.quote",
       "alphafeed.quote",
       "stock.history",
-      "yahoo.history",
+      "alphafeed.history",
       "stock.intraday",
-      "yahoo.intraday",
+      "alphafeed.intraday",
     ]);
   });
 

@@ -227,11 +227,11 @@ export function createChartMarketDataGateways(config: ChartMarketDataGatewayConf
 
   const registry = createMarketDataProviderRegistry(providers);
   const historicalPriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
-    ? ["stock-sdk", "yahoo-finance", "alphafeed-rest", "longbridge"]
-    : ["yahoo-finance", "alphafeed-rest", "longbridge"];
+    ? ["stock-sdk", "alphafeed-rest", "longbridge", "yahoo-finance"]
+    : ["alphafeed-rest", "longbridge", "yahoo-finance"];
   const intradayPriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
-    ? ["stock-sdk", "yahoo-finance", "alphafeed-rest", "longbridge"]
-    : ["yahoo-finance", "alphafeed-rest", "longbridge"];
+    ? ["stock-sdk", "alphafeed-rest", "longbridge", "yahoo-finance"]
+    : ["alphafeed-rest", "longbridge", "yahoo-finance"];
   const quotePriority: readonly GatewayMarketDataProviderId[] = config.enableStockSdkPrimary
     ? ["stock-sdk", "alphafeed-rest", "longbridge"]
     : ["alphafeed-rest", "longbridge"];
@@ -478,6 +478,7 @@ export function gatewayBarsToMarketDataBars(
     volume: bar.volume,
     amount: bar.amount,
     provider: bar.provider,
+    upstream: bar.upstream,
   }));
 }
 

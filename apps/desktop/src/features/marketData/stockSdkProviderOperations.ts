@@ -4,6 +4,16 @@ import type {
   StockSdkQuoteRequest,
   StockSdkRawRecord,
 } from "./stockSdkGatewayProvider.ts";
+import { getSdkErrorCode } from "stock-sdk/errors";
+
+export interface StockSdkTencentBarsOperations {
+  fetchHistoricalBars(request: StockSdkBarRequest): Promise<readonly StockSdkRawRecord[]>;
+  fetchIntradayBars(request: StockSdkBarRequest): Promise<readonly StockSdkRawRecord[]>;
+}
+
+export interface StockSdkGatewayProviderOperationsOptions {
+  readonly tencentBars?: StockSdkTencentBarsOperations;
+}
 
 interface StockSdkClient {
   search(keyword: string): Promise<readonly unknown[]>;
@@ -23,10 +33,14 @@ interface StockSdkClient {
   };
 }
 
-export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkClient): StockSdkGatewayProviderOperations {
+export function createStockSdkGatewayProviderOperations(
+  initialSdk?: StockSdkClient,
+  options: StockSdkGatewayProviderOperationsOptions = {},
+): StockSdkGatewayProviderOperations {
   let sdkPromise: Promise<StockSdkClient> | null = initialSdk ? Promise.resolve(initialSdk) : null;
   let klineUnavailableUntil = 0;
   let klineFailureMessage = "";
+  const tencentBars = options.tencentBars;
   const getSdk = () => {
     sdkPromise ??= createStockSdkClient();
     return sdkPromise;
@@ -75,10 +89,14 @@ export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkCli
       return records;
     },
     async fetchHistoricalBars(request) {
+      if (tencentBars) {
+        return tencentBars.fetchHistoricalBars(request);
+      }
+
       const sdk = await getSdk();
       const options = {
         period: request.period as "daily" | "weekly",
-        adjust: "" as const,
+        adjust: toSdkAdjustment(request.adjust),
         ...toHistoryRangeOptions(request),
       };
 
@@ -93,6 +111,10 @@ export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkCli
       return toRawRecords(await runKlineRequest("Stock SDK US history", () => sdk.kline.us(request.providerSymbol, options)));
     },
     async fetchIntradayBars(request) {
+      if (tencentBars) {
+        return tencentBars.fetchIntradayBars(request);
+      }
+
       const sdk = await getSdk();
       const options = {
         period: request.period as "1" | "5" | "15" | "30" | "60",
@@ -158,10 +180,18 @@ function toRawRecords(records: readonly unknown[]): readonly StockSdkRawRecord[]
 async function createStockSdkClient(): Promise<StockSdkClient> {
   const { StockSDK } = await import("stock-sdk");
   return new StockSDK({
-    retry: { maxRetries: 1, baseDelay: 500 },
+    retry: { maxRetries: 1, baseDelay: 400 },
     providerPolicies: {
-      eastmoney: { timeout: 12_000, rateLimit: { requestsPerSecond: 2, maxBurst: 2 } },
-      tencent: { timeout: 12_000, rateLimit: { requestsPerSecond: 2, maxBurst: 2 } },
+      eastmoney: {
+        timeout: 8_000,
+        rateLimit: { requestsPerSecond: 2, maxBurst: 2 },
+        circuitBreaker: { failureThreshold: 3, resetTimeout: 60_000 },
+      },
+      tencent: {
+        timeout: 8_000,
+        rateLimit: { requestsPerSecond: 2, maxBurst: 2 },
+        circuitBreaker: { failureThreshold: 3, resetTimeout: 60_000 },
+      },
     },
   }) as StockSdkClient;
 }
@@ -214,6 +244,11 @@ async function fetchTencentTimelineBars(
 }
 
 function isNetworkFailure(error: unknown) {
+  const code = getSdkErrorCode(error);
+  if (code === "NETWORK_ERROR" || code === "TIMEOUT" || code === "ABORTED") {
+    return true;
+  }
+
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return (
     message.includes("fetch failed") ||
@@ -222,6 +257,18 @@ function isNetworkFailure(error: unknown) {
     message.includes("timeout") ||
     message.includes("timed out")
   );
+}
+
+function toSdkAdjustment(adjust: StockSdkBarRequest["adjust"]) {
+  if (adjust === "forward") {
+    return "qfq" as const;
+  }
+
+  if (adjust === "backward") {
+    return "hfq" as const;
+  }
+
+  return "" as const;
 }
 
 function toTencentTimelineSymbol(request: StockSdkBarRequest) {

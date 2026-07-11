@@ -12,6 +12,7 @@ import type {
   MarketDataProviderHealthStatus,
   MarketDataProviderHealthView,
   MarketDataProviderRequestItem,
+  MarketDataUpstream,
   RealtimeQuoteProvider,
 } from "./marketDataProviderGateway.ts";
 
@@ -30,6 +31,7 @@ export interface StockSdkBarRequest extends StockSdkQuoteRequest {
   readonly count?: number;
   readonly startTime?: number;
   readonly endTime?: number;
+  readonly adjust?: "none" | "forward" | "backward";
 }
 
 export type StockSdkRawRecord = Readonly<Record<string, unknown>>;
@@ -90,7 +92,7 @@ export function createStockSdkGatewayProvider(
       const startedAt = Date.now();
       try {
         const records = await operations.fetchQuoteSnapshot(requests);
-        health.markHealthy(Date.now() - startedAt);
+        health.markHealthy(Date.now() - startedAt, readMarketDataUpstream(records[0]?.upstream ?? records[0]?.source));
         return mapStockSdkQuoteSnapshots(records, requests, delayLevel);
       } catch (error) {
         health.markFailed(toErrorMessage(error));
@@ -103,7 +105,7 @@ export function createStockSdkGatewayProvider(
       const startedAt = Date.now();
       try {
         const records = await operations.fetchHistoricalBars(stockSdkRequest);
-        health.markHealthy(Date.now() - startedAt);
+        health.markHealthy(Date.now() - startedAt, readMarketDataUpstream(records[0]?.upstream));
         return mapStockSdkBars(records, stockSdkRequest, delayLevel);
       } catch (error) {
         health.markFailed(toErrorMessage(error));
@@ -116,7 +118,7 @@ export function createStockSdkGatewayProvider(
       const startedAt = Date.now();
       try {
         const records = await operations.fetchIntradayBars(stockSdkRequest);
-        health.markHealthy(Date.now() - startedAt);
+        health.markHealthy(Date.now() - startedAt, readMarketDataUpstream(records[0]?.upstream));
         return mapStockSdkBars(records, stockSdkRequest, delayLevel);
       } catch (error) {
         health.markFailed(toErrorMessage(error));
@@ -215,6 +217,7 @@ export function toStockSdkBarRequest(
     count: request.count,
     startTime: request.startTime,
     endTime: request.endTime,
+    ...(request.adjust === undefined ? {} : { adjust: request.adjust }),
   };
 }
 
@@ -261,13 +264,14 @@ function createStockSdkHealthStore(
 
   return {
     read: async () => current,
-    markHealthy: (latencyMs: number) => {
+    markHealthy: (latencyMs: number, upstream?: MarketDataUpstream) => {
       current = {
         provider: "stock-sdk",
         status: capability.delayLevel === "delayed" ? "delayed" : "healthy",
-        message: "Stock SDK 请求成功。",
+        message: upstream === "tencent" ? "Stock SDK · 腾讯财经请求成功。" : "Stock SDK 请求成功。",
         checkedAt: new Date().toISOString(),
         latencyMs,
+        upstream,
         capability,
       };
     },
@@ -345,6 +349,7 @@ function mapStockSdkQuoteSnapshot(
     amount: readOptionalFiniteNumber(record, ["amount", "turnover"]),
     receivedAt: new Date().toISOString(),
     delayLevel,
+    upstream: readMarketDataUpstream(record.upstream ?? record.source),
   };
 }
 
@@ -374,12 +379,19 @@ function mapStockSdkBars(
       volume: readOptionalFiniteNumber(record, ["volume", "vol"]) ?? 0,
       amount: readOptionalFiniteNumber(record, ["amount", "turnover"]),
       delayLevel,
+      upstream: readMarketDataUpstream(record.upstream),
     };
 
     validateBar(bar);
     previousClose = bar.close;
     return bar;
   });
+}
+
+function readMarketDataUpstream(value: unknown): MarketDataUpstream | undefined {
+  return value === "tencent" || value === "eastmoney" || value === "alphafeed" || value === "longbridge" || value === "yahoo-finance"
+    ? value
+    : undefined;
 }
 
 function repairOpenPrice(open: number, close: number, previousClose: number | undefined, high: number, low: number) {

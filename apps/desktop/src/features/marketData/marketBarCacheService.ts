@@ -1,6 +1,7 @@
 import type { Market, Timeframe } from "@quant/shared";
 import { appLocalDatabase, type LocalDatabase } from "../persistence/localDatabase.ts";
 import { sanitizeMarketDataProviderId, type MarketDataProviderId } from "./marketDataProviderIds.ts";
+import type { MarketDataUpstream } from "./marketDataProviderGateway.ts";
 
 export interface MarketDataBar {
   symbol: string;
@@ -14,12 +15,14 @@ export interface MarketDataBar {
   volume: number;
   amount?: number;
   provider: MarketDataProviderId;
+  upstream?: MarketDataUpstream;
 }
 
 export interface MarketBarCacheKey {
   symbol: string;
   market: Market;
   timeframe: Timeframe;
+  adjust?: "none" | "forward" | "backward";
 }
 
 export interface MarketBarCacheMetadata extends MarketBarCacheKey {
@@ -30,6 +33,8 @@ export interface MarketBarCacheMetadata extends MarketBarCacheKey {
   estimatedBytes: number;
   retentionDays: number;
   updatedAt: string;
+  upstream?: MarketDataUpstream;
+  legacy?: boolean;
 }
 
 export interface MarketBarCacheSummary {
@@ -57,8 +62,30 @@ const COLLECTION_PREFIX = "market-bars";
 const INDEX_COLLECTION_KEY = `${COLLECTION_PREFIX}:index`;
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
 
-function createCollectionKey(key: MarketBarCacheKey) {
-  return `${COLLECTION_PREFIX}:${key.market}:${key.symbol}:${key.timeframe}`;
+function isHistoricalTimeframe(timeframe: Timeframe) {
+  return timeframe === "1d" || timeframe === "1w";
+}
+
+function getAdjustment(key: MarketBarCacheKey) {
+  return isHistoricalTimeframe(key.timeframe) ? key.adjust ?? "none" : undefined;
+}
+
+function isLegacyHistoricalKey(key: MarketBarCacheKey | MarketBarCacheMetadata) {
+  return "legacy" in key && key.legacy === true && isHistoricalTimeframe(key.timeframe);
+}
+
+function createCollectionKey(key: MarketBarCacheKey | MarketBarCacheMetadata) {
+  const base = `${COLLECTION_PREFIX}:${key.market}:${key.symbol}:${key.timeframe}`;
+  if (!isHistoricalTimeframe(key.timeframe) || isLegacyHistoricalKey(key)) {
+    return base;
+  }
+
+  return `${base}:adjust:${getAdjustment(key)}`;
+}
+
+function normalizeCacheKey(key: MarketBarCacheKey): MarketBarCacheKey {
+  const adjust = getAdjustment(key);
+  return adjust ? { ...key, adjust } : { ...key };
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -84,6 +111,16 @@ function sanitizeTimeframe(value: unknown): Timeframe | null {
 
 function sanitizeProvider(value: unknown): MarketDataProviderId | null {
   return sanitizeMarketDataProviderId(value);
+}
+
+function sanitizeUpstream(value: unknown): MarketDataUpstream | undefined {
+  return value === "tencent" || value === "eastmoney" || value === "alphafeed" || value === "longbridge" || value === "yahoo-finance"
+    ? value
+    : undefined;
+}
+
+function sanitizeAdjustment(value: unknown): MarketBarCacheKey["adjust"] | undefined {
+  return value === "none" || value === "forward" || value === "backward" ? value : undefined;
 }
 
 function sanitizeRetentionDays(timeframe: Timeframe, value: unknown) {
@@ -128,6 +165,7 @@ function sanitizeBar(value: unknown): MarketDataBar | null {
     volume: candidate.volume,
     amount: isFiniteNumber(candidate.amount) ? candidate.amount : undefined,
     provider,
+    upstream: sanitizeUpstream(candidate.upstream),
   };
 }
 
@@ -149,6 +187,8 @@ function sanitizeMetadata(value: unknown): MarketBarCacheMetadata | null {
   const market = sanitizeMarket(candidate.market);
   const timeframe = sanitizeTimeframe(candidate.timeframe);
   const provider = sanitizeProvider(candidate.provider);
+  const adjustment = sanitizeAdjustment(candidate.adjust);
+  const legacy = isHistoricalTimeframe(timeframe ?? "1d") && adjustment === undefined;
 
   if (
     !market ||
@@ -169,12 +209,15 @@ function sanitizeMetadata(value: unknown): MarketBarCacheMetadata | null {
     market,
     timeframe,
     provider,
+    ...(adjustment ? { adjust: adjustment } : {}),
     firstTimestamp: candidate.firstTimestamp,
     lastTimestamp: candidate.lastTimestamp,
     barCount: Math.max(0, Math.floor(candidate.barCount)),
     estimatedBytes: Math.max(0, Math.floor(candidate.estimatedBytes)),
     retentionDays: sanitizeRetentionDays(timeframe, candidate.retentionDays),
     updatedAt: candidate.updatedAt,
+    upstream: sanitizeUpstream(candidate.upstream),
+    ...(legacy ? { legacy: true } : {}),
   };
 }
 
@@ -234,6 +277,31 @@ function writeMetadataIndex(database: LocalDatabase, entries: MarketBarCacheMeta
   );
 }
 
+function discardLegacyHistoricalCache(database: LocalDatabase, key: MarketBarCacheKey) {
+  if (!isHistoricalTimeframe(key.timeframe)) {
+    return;
+  }
+
+  const legacyEntries = readMetadataIndex(database).filter(
+    (entry) =>
+      entry.legacy === true &&
+      entry.symbol === key.symbol &&
+      entry.market === key.market &&
+      entry.timeframe === key.timeframe,
+  );
+
+  if (legacyEntries.length === 0) {
+    return;
+  }
+
+  const legacyKeys = new Set(legacyEntries.map((entry) => createCollectionKey(entry)));
+  legacyEntries.forEach((entry) => database.removeDocument(createCollectionKey(entry)));
+  writeMetadataIndex(
+    database,
+    readMetadataIndex(database).filter((entry) => !legacyKeys.has(createCollectionKey(entry))),
+  );
+}
+
 function removeMetadata(database: LocalDatabase, key: MarketBarCacheKey) {
   writeMetadataIndex(
     database,
@@ -251,6 +319,7 @@ function upsertMetadata(database: LocalDatabase, key: MarketBarCacheKey, bars: M
     symbol: key.symbol,
     market: key.market,
     timeframe: key.timeframe,
+    ...(getAdjustment(key) ? { adjust: getAdjustment(key) } : {}),
     provider: bars[0]?.provider ?? "alphafeed",
     firstTimestamp: bars[0]?.timestamp ?? 0,
     lastTimestamp: bars[bars.length - 1]?.timestamp ?? 0,
@@ -258,6 +327,7 @@ function upsertMetadata(database: LocalDatabase, key: MarketBarCacheKey, bars: M
     estimatedBytes: new TextEncoder().encode(JSON.stringify(bars)).byteLength,
     retentionDays: getDefaultMarketBarRetentionDays(key.timeframe),
     updatedAt: new Date().toISOString(),
+    upstream: bars[0]?.upstream,
   };
 
   writeMetadataIndex(database, [...readMetadataIndex(database).filter((entry) => createCollectionKey(entry) !== createCollectionKey(key)), metadata]);
@@ -265,18 +335,22 @@ function upsertMetadata(database: LocalDatabase, key: MarketBarCacheKey, bars: M
 
 export function writeMarketBarCache(key: MarketBarCacheKey, bars: MarketDataBar[], options: WriteMarketBarCacheOptions = {}) {
   const database = options.database ?? appLocalDatabase;
+  const normalizedKey = normalizeCacheKey(key);
+  discardLegacyHistoricalCache(database, normalizedKey);
   const normalizedBars = normalizeBars(
-    bars.filter((bar) => bar.symbol === key.symbol && bar.market === key.market && bar.timeframe === key.timeframe),
+    bars.filter((bar) => bar.symbol === normalizedKey.symbol && bar.market === normalizedKey.market && bar.timeframe === normalizedKey.timeframe),
   );
 
-  database.writeDocument(createCollectionKey(key), STORAGE_VERSION, normalizedBars);
-  upsertMetadata(database, key, normalizedBars);
+  database.writeDocument(createCollectionKey(normalizedKey), STORAGE_VERSION, normalizedBars);
+  upsertMetadata(database, normalizedKey, normalizedBars);
   return normalizedBars;
 }
 
 export function readMarketBarCache(key: MarketBarCacheKey, options: ReadMarketBarCacheOptions = {}) {
   const database = options.database ?? appLocalDatabase;
-  return database.readDocument(createCollectionKey(key), {
+  const normalizedKey = normalizeCacheKey(key);
+  discardLegacyHistoricalCache(database, normalizedKey);
+  return database.readDocument(createCollectionKey(normalizedKey), {
     version: STORAGE_VERSION,
     fallback: [],
     sanitize: sanitizeBars,
@@ -284,8 +358,10 @@ export function readMarketBarCache(key: MarketBarCacheKey, options: ReadMarketBa
 }
 
 export function clearMarketBarCache(key: MarketBarCacheKey, database: LocalDatabase = appLocalDatabase) {
-  database.removeDocument(createCollectionKey(key));
-  removeMetadata(database, key);
+  const normalizedKey = normalizeCacheKey(key);
+  discardLegacyHistoricalCache(database, normalizedKey);
+  database.removeDocument(createCollectionKey(normalizedKey));
+  removeMetadata(database, normalizedKey);
 }
 
 export function readMarketBarCacheSummary(database: LocalDatabase = appLocalDatabase): MarketBarCacheSummary {

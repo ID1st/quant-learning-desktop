@@ -314,3 +314,45 @@ test("clearAllMarketBarCache removes every indexed cache entry", () => {
   assert.deepEqual(readMarketBarCache(cacheKey, { database }), []);
   assert.equal(readMarketBarCacheSummary(database).entries.length, 0);
 });
+
+test("historical cache isolates adjustment modes and drops legacy unadjusted entries on first read", () => {
+  const database = createTestDatabase();
+  const legacyBar: MarketDataBar = {
+    symbol: "AAPL.US",
+    market: "US",
+    timeframe: "1d",
+    timestamp: 1782777600000,
+    open: 280,
+    high: 286,
+    low: 279,
+    close: 285,
+    volume: 1000,
+    provider: "stock-sdk",
+  };
+  database.writeDocument("market-bars:US:AAPL.US:1d", 1, [legacyBar]);
+  database.writeDocument("market-bars:index", 1, [{
+    symbol: "AAPL.US",
+    market: "US",
+    timeframe: "1d",
+    provider: "stock-sdk",
+    firstTimestamp: legacyBar.timestamp,
+    lastTimestamp: legacyBar.timestamp,
+    barCount: 1,
+    estimatedBytes: 100,
+    retentionDays: 1825,
+    updatedAt: "2026-07-11T00:00:00.000Z",
+  }]);
+
+  const rawKey = { symbol: "AAPL.US", market: "US" as const, timeframe: "1d" as const, adjust: "none" as const };
+  const forwardKey = { ...rawKey, adjust: "forward" as const };
+
+  assert.deepEqual(readMarketBarCache(rawKey, { database }), []);
+  assert.equal(readMarketBarCacheSummary(database).entries.length, 0);
+
+  writeMarketBarCache(rawKey, [{ ...legacyBar, close: 285, upstream: "tencent" }], { database });
+  writeMarketBarCache(forwardKey, [{ ...legacyBar, close: 250, upstream: "tencent" }], { database });
+
+  assert.equal(readMarketBarCache(rawKey, { database })[0]?.close, 285);
+  assert.equal(readMarketBarCache(forwardKey, { database })[0]?.close, 250);
+  assert.equal(readMarketBarCache(forwardKey, { database })[0]?.upstream, "tencent");
+});

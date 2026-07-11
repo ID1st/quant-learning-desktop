@@ -19,6 +19,7 @@ type QuantDesktopMarketDataHealthStatus =
   | "rateLimited"
   | "delayed";
 type QuantDesktopMarketDataDelayLevel = "realtime" | "delayed" | "unknown";
+type QuantDesktopMarketDataUpstream = "tencent" | "eastmoney" | "alphafeed" | "longbridge" | "yahoo-finance";
 type QuantDesktopMarketDataStreamState = "idle" | "connecting" | "connected" | "fallback" | "disconnected" | "error";
 type QuantDesktopMarketDataErrorCode =
   | "NO_CAPABLE_PROVIDER"
@@ -76,6 +77,7 @@ interface QuantDesktopMarketDataHealthView {
   readonly checkedAt: string;
   readonly latencyMs?: number;
   readonly nextRetryAt?: string;
+  readonly upstream?: QuantDesktopMarketDataUpstream;
   readonly capability: QuantDesktopMarketDataCapability;
 }
 
@@ -96,6 +98,7 @@ interface QuantDesktopMarketQuoteSnapshot {
   readonly amount?: number;
   readonly receivedAt?: string;
   readonly delayLevel?: QuantDesktopMarketDataDelayLevel;
+  readonly upstream?: QuantDesktopMarketDataUpstream;
 }
 
 interface QuantDesktopMarketDataBar {
@@ -111,6 +114,7 @@ interface QuantDesktopMarketDataBar {
   readonly volume: number;
   readonly amount?: number;
   readonly delayLevel?: QuantDesktopMarketDataDelayLevel;
+  readonly upstream?: QuantDesktopMarketDataUpstream;
 }
 
 interface QuantDesktopMarketDataProviderFallback {

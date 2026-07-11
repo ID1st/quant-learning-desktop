@@ -323,6 +323,28 @@ Acceptance:
 - Stock SDK primary is default-on for new or malformed provider settings, while explicit user opt-out is preserved.
 - Desktop tests and typecheck pass.
 
+### 2.14. Stock SDK Tencent Historical Reinforcement
+
+Status: completed.
+
+Goal: keep `stock-sdk` as the product-level primary provider while avoiding its Eastmoney K-line route for normal desktop chart history.
+
+Completion notes:
+
+- Added the Electron-main-only Tencent Finance adapter at `apps/desktop/src/electron/tencentFinanceBars.ts`; renderer code never calls Tencent endpoints directly.
+- Daily and weekly bars use Tencent `fqkline/get` for CN/HK/US. Default semantics are unadjusted; `forward` maps to `qfq` and `backward` maps to `hfq`.
+- US history and intraday requests try `.OQ`, then `.NY` when the first result is empty; a successful exchange suffix is retained in process memory.
+- Current-session minute data uses Tencent `minute/query`. CN 5m/15m/30m/1h uses `mkline`; HK/US higher periods aggregate valid 1-minute data.
+- Closed-market US single-point minute replies are rejected, so they cannot overwrite a complete cached intraday series.
+- Historical cache keys now include the adjustment mode. Existing unadjusted historical cache metadata is treated as legacy, deleted on first matching read, and then re-synced.
+- Gateway bars, caches, and provider health can carry optional `upstream` metadata. Tencent-backed bars remain `provider: "stock-sdk"` and diagnostics report `Stock SDK · 腾讯财经`.
+- Historical/intraday fallback order is Stock SDK, AlphaFeed REST, LongBridge, then Yahoo Finance for US-only emergency coverage.
+
+Verification:
+
+- Unit tests cover CN/HK/US history symbols, adjustment routing, US `.OQ/.NY` fallback, minute volume conversion, closed US sessions, Electron IPC wiring, upstream provenance, and cache adjustment isolation.
+- Manual Tencent probes confirmed `1d` and `1w` for AAPL, 00700.HK, and 600519.SH; HK/CN `1m` and CN `5m` also returned data on the current network.
+
 ### 3. Super Chart Capability Completion
 
 Status: next recommended slice.

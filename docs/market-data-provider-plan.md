@@ -595,6 +595,28 @@ Stage 10 final review notes:
 - Final source audit confirmed legacy `window.quantDesktop.alphaFeed.*` and `window.quantDesktop.longPort.*` compatibility bridges remain exposed.
 - Final git rollback point records the completed Provider-neutral Desktop IPC migration.
 
+## Tencent Finance Historical Reinforcement
+
+Status: implemented.
+
+The product-level provider remains `stock-sdk`. Its desktop main-process bar operations are reinforced with a narrow Tencent Finance adapter because Stock SDK v2 K-line calls remain Eastmoney-backed and can fail in the target network.
+
+- Scope is limited to historical and intraday bars. Stock SDK quote snapshots and instrument search continue to use the official SDK.
+- Tencent endpoints are fixed HTTPS allowlisted URLs with a fixed finance.qq.com referer and controlled user agent. Users cannot configure an arbitrary endpoint.
+- CN/HK/US daily and weekly bars use `fqkline/get`; unadjusted is the default. Forward and backward adjustments map only to Tencent `qfq` and `hfq` respectively.
+- CN `1m` uses `minute/query`; CN 5m/15m/30m/1h uses `mkline`. HK/US use valid 1-minute data and aggregate it locally for higher intraday periods.
+- For US tickers, `.OQ` is tried first and `.NY` is used after an empty result. The selected suffix is cached only in the desktop process.
+- The adapter deduplicates identical requests, limits concurrent upstream requests to two, applies one retry for network/5xx failures, and enforces an eight-second timeout.
+- A closed US minute response containing only a latest close is not accepted as intraday history. Existing complete cache remains visible; normal gateway fallback continues.
+- `GatewayMarketDataBar`, cache records, and provider health support optional `upstream` provenance. Tencent-backed records are displayed as `Stock SDK · 腾讯财经`, never as a new user-configurable provider.
+- `1d` and `1w` cache collections are separated by `adjust:none|forward|backward`. Legacy historical metadata without an adjustment mode is removed when that history is first read to prevent price-basis mixing.
+- Electron IPC and browser compatibility use the same fallback ordering for bars: Stock SDK, AlphaFeed REST, LongBridge, Yahoo Finance. The browser compatibility layer does not access Tencent directly.
+
+Operational risk:
+
+- Tencent endpoints are public upstreams without an SLA and may change, throttle, or return closed-market partial data. AlphaFeed REST, AlphaFeed WebSocket, LongBridge, and Yahoo Finance remain separate fallback paths.
+- Strategy code remains provider-agnostic and continues to consume only normalized `MarketDataBar` values.
+
 Acceptance:
 
 - Renderer chart code can request quotes/bars through provider-neutral IPC.
@@ -625,7 +647,7 @@ Acceptance:
 | Current chart directly references AlphaFeed/LongBridge | Medium | Introduce gateway in compatibility mode before switching |
 | Existing cache provider enum is narrow | Medium | Add backward-compatible provider ID migration |
 | Mixed historical and live data can overwrite newer points | High | Use provider-neutral merge rules based on timestamp and source role |
-| Stock SDK Eastmoney K-line endpoints are unavailable from a user network | High | Prefer Yahoo Finance for US chart bars, keep configured AlphaFeed/LongBridge fallbacks for CN/HK history, and surface the upstream health state instead of fabricating history |
+| Stock SDK Eastmoney K-line endpoints are unavailable from a user network | High | Route desktop historical and intraday bars through the internal Tencent reinforcement, preserve AlphaFeed/LongBridge/Yahoo fallbacks, and surface the upstream provenance |
 
 ## Test Plan
 

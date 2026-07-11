@@ -484,3 +484,23 @@ Focus areas:
 - Plugin risk: restrict plugin API and permissions.
 - Market complexity: normalize sessions, timezone, price tick, adjustment mode.
 - Scope creep: require confirmation after every milestone.
+
+## 17. Stock SDK Historical Data Stabilization
+
+Status: completed.
+
+Deliverables:
+
+- Electron-main Tencent Finance bar adapter for CN/HK/US history and intraday data.
+- Provider-neutral Stock SDK operation injection; chart, cache, and strategy layers remain vendor-independent.
+- US exchange suffix fallback, public-upstream request governance, and closed-session protection.
+- Adjustment-aware historical cache migration and optional upstream provenance metadata.
+- Fallback order alignment: Stock SDK, AlphaFeed REST, LongBridge, Yahoo Finance for US emergency coverage.
+
+Acceptance:
+
+- AAPL, 00700.HK, and 600519.SH can load Tencent-backed `1d` and `1w` data without an AlphaFeed or LongBridge credential.
+- HK/CN minute history and CN 5-minute K lines are normalized before reaching chart or strategy code.
+- A closed-market US one-point result never replaces a valid cached intraday series.
+- Existing historical cache data cannot mix unadjusted and adjusted price bases.
+- Desktop tests, typecheck, and production build pass before the rollback commit.

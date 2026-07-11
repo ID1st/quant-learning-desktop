@@ -38,12 +38,17 @@ import {
   createStockSdkGatewayProvider,
   type StockSdkGatewayProviderOperations,
 } from "../features/marketData/stockSdkGatewayProvider.ts";
-import { createStockSdkGatewayProviderOperations } from "../features/marketData/stockSdkProviderOperations.ts";
+import {
+  createStockSdkGatewayProviderOperations,
+  type StockSdkTencentBarsOperations,
+} from "../features/marketData/stockSdkProviderOperations.ts";
 import { createYahooFinanceIntradayProvider } from "../features/marketData/yahooFinanceIntradayProvider.ts";
+import { createTencentFinanceBarsOperations } from "./tencentFinanceBars.ts";
 
 export interface MarketDataIpcHandlerDependencies {
   readonly credentialStore?: SecureCredentialStore;
   readonly stockSdkOperations?: StockSdkGatewayProviderOperations;
+  readonly tencentFinanceBars?: StockSdkTencentBarsOperations;
   readonly yahooFinanceProvider?: IntradayBarProvider;
   readonly streamSession?: AlphaFeedStreamSession;
 }
@@ -52,7 +57,9 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
   const shell = createMarketDataIpcShellHandlers();
   const credentialStore = dependencies.credentialStore;
   const streamSession = dependencies.streamSession ?? createAlphaFeedStreamSession();
-  const stockSdkOperations = dependencies.stockSdkOperations ?? createStockSdkGatewayProviderOperations();
+  const stockSdkOperations = dependencies.stockSdkOperations ?? createStockSdkGatewayProviderOperations(undefined, {
+    tencentBars: dependencies.tencentFinanceBars ?? createTencentFinanceBarsOperations(),
+  });
 
   if (!credentialStore) {
     return shell;

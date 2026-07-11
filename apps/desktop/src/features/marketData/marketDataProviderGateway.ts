@@ -14,6 +14,8 @@ export type MarketDataProviderHealthStatus =
 
 export type MarketDataProviderDelayLevel = "realtime" | "delayed" | "unknown";
 
+export type MarketDataUpstream = "tencent" | "eastmoney" | "alphafeed" | "longbridge" | "yahoo-finance";
+
 export interface MarketDataProviderRateLimit {
   readonly requests: number;
   readonly intervalMs: number;
@@ -48,6 +50,7 @@ export interface MarketDataProviderHealthView {
   readonly checkedAt: string;
   readonly latencyMs?: number;
   readonly nextRetryAt?: string;
+  readonly upstream?: MarketDataUpstream;
   readonly capability: MarketDataProviderCapability;
 }
 
@@ -84,6 +87,7 @@ export interface GatewayMarketQuoteSnapshot {
   readonly amount?: number;
   readonly receivedAt?: string;
   readonly delayLevel?: MarketDataProviderDelayLevel;
+  readonly upstream?: MarketDataUpstream;
 }
 
 export interface GatewayMarketDataBar {
@@ -99,6 +103,7 @@ export interface GatewayMarketDataBar {
   readonly volume: number;
   readonly amount?: number;
   readonly delayLevel?: MarketDataProviderDelayLevel;
+  readonly upstream?: MarketDataUpstream;
 }
 
 export interface MarketInstrument {
