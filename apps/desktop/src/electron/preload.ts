@@ -17,6 +17,8 @@ import { createDesktopBridgeFromPersistenceStore, createMemoryPersistenceStore }
 import { marketDataIpcChannels } from "./marketDataIpcContract";
 import type { MarketDataIpcBridge } from "./marketDataIpcContract";
 import { providerDataIpcChannels } from "./providerDataIpcContract";
+import { pluginIpcChannels } from "./pluginIpcContract";
+import type { PluginIpcBridge } from "./pluginIpcContract";
 import type { AlphaFeedStreamCredentials } from "./secureCredentialStore";
 
 export interface DesktopBridge {
@@ -39,6 +41,7 @@ export interface DesktopBridge {
     clearLongPort(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
   };
   readonly marketData: MarketDataIpcBridge;
+  readonly plugins: PluginIpcBridge;
   readonly longPort: {
     verifyCredentials(credentials: LongPortApiCredentials): Promise<
       | {
@@ -167,6 +170,10 @@ async function invokeMarketData<T>(channel: string, payload?: unknown): Promise<
   return ipcRenderer.invoke(channel, payload) as Promise<T>;
 }
 
+async function invokePlugin<T>(channel: string, ...payload: unknown[]): Promise<T> {
+  return ipcRenderer.invoke(channel, ...payload) as Promise<T>;
+}
+
 export const desktopBridge: DesktopBridge = {
   platform: "desktop",
   version: "0.1.0",
@@ -239,6 +246,13 @@ export const desktopBridge: DesktopBridge = {
     connectQuoteStream: (request) => invokeMarketData(marketDataIpcChannels.connectQuoteStream, request),
     readQuoteStreamSnapshot: (request) => invokeMarketData(marketDataIpcChannels.readQuoteStreamSnapshot, request),
     disconnectQuoteStream: (context) => invokeMarketData(marketDataIpcChannels.disconnectQuoteStream, context),
+  },
+  plugins: {
+    list: () => invokePlugin(pluginIpcChannels.list),
+    installLocalPlugin: () => invokePlugin(pluginIpcChannels.installLocal),
+    setEnabled: (pluginId, enabled) => invokePlugin(pluginIpcChannels.setEnabled, pluginId, enabled),
+    uninstall: (pluginId) => invokePlugin(pluginIpcChannels.uninstall, pluginId),
+    readEnabledRuntimeModules: () => invokePlugin(pluginIpcChannels.readEnabledRuntimeModules),
   },
   longPort: {
     verifyCredentials: (credentials) => invokeProviderData(providerDataIpcChannels.verifyLongPortCredentials, credentials),

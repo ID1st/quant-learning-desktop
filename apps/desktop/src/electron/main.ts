@@ -2,6 +2,8 @@ import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
 import { createMarketDataIpcHandlers, registerMarketDataIpcHandlers } from "./marketDataIpc";
 import { registerProviderDataIpcHandlers } from "./providerDataIpc";
+import { registerPluginIpcHandlers } from "./pluginIpc";
+import { createPluginManager } from "./pluginManager";
 import { createMainSecureCredentialStore, registerSecureCredentialIpcHandlers } from "./secureCredentialIpc";
 
 export interface DesktopWindowOptions {
@@ -55,6 +57,7 @@ void app.whenReady().then(() => {
   registerMarketDataIpcHandlers(createMarketDataIpcHandlers({ credentialStore }));
   registerProviderDataIpcHandlers();
   registerSecureCredentialIpcHandlers(credentialStore);
+  registerPluginIpcHandlers(createPluginManager({ pluginsDirectory: join(app.getPath("userData"), "plugins") }));
   createMainWindow();
 
   app.on("activate", () => {
