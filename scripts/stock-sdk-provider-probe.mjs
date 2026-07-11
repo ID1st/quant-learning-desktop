@@ -4,6 +4,12 @@ import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { createStockSdkGatewayProvider } from "../apps/desktop/src/features/marketData/stockSdkGatewayProvider.ts";
 import { createStockSdkGatewayProviderOperations } from "../apps/desktop/src/features/marketData/stockSdkProviderOperations.ts";
+import {
+  createMarketDataGateway,
+  createMarketDataProviderRegistry,
+} from "../apps/desktop/src/features/marketData/marketDataProviderGateway.ts";
+import { createYahooFinanceIntradayProvider } from "../apps/desktop/src/features/marketData/yahooFinanceIntradayProvider.ts";
+import { createTencentFinanceBarsOperations } from "../apps/desktop/src/electron/tencentFinanceBars.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -16,9 +22,15 @@ const symbols = [
 ];
 
 // Exercise the same production adapter that Electron registers behind the IPC gateway.
-const operations = createStockSdkGatewayProviderOperations();
+const operations = createStockSdkGatewayProviderOperations(undefined, {
+  tencentBars: createTencentFinanceBarsOperations(),
+});
 
 const provider = createStockSdkGatewayProvider(operations, { enabled: true, delayLevel: "unknown" });
+const gateway = createMarketDataGateway(
+  createMarketDataProviderRegistry([provider, createYahooFinanceIntradayProvider()]),
+  ["stock-sdk", "yahoo-finance"],
+);
 
 const report = {
   generatedAt: new Date().toISOString(),
@@ -27,6 +39,7 @@ const report = {
     version: "2.3.0",
   },
   productionImpact: "production-adapter",
+  historicalRoute: "electron-main/tencent-finance",
   symbols,
   checks: [],
   summary: {
@@ -37,9 +50,13 @@ const report = {
 };
 
 await runCheck("quote.cn-hk-us", async () => {
-  const quotes = await provider.fetchQuoteSnapshot(symbols);
+  const result = await gateway.fetchQuoteSnapshot(symbols);
+  if (!result.ok) throw new Error(result.error.message);
+  const quotes = result.data;
   assertMinimumRows(quotes, symbols.length, "quote snapshots");
   return {
+    provider: result.provider,
+    upstream: result.health.upstream ?? null,
     rows: quotes.length,
     samples: quotes.map((quote) => ({
       market: quote.market,
@@ -76,9 +93,15 @@ if (report.summary.failed > 0) {
 async function runBarCheck(name, item, timeframe, kind) {
   await runCheck(name, async () => {
     const request = { market: item.market, symbol: item.symbol, timeframe, count: 120 };
-    const bars = kind === "historical" ? await provider.fetchHistoricalBars(request) : await provider.fetchIntradayBars(request);
+    const result = kind === "historical"
+      ? await gateway.fetchHistoricalBars(request)
+      : await gateway.fetchIntradayBars(request);
+    if (!result.ok) throw new Error(result.error.message);
+    const bars = result.data;
     assertMinimumRows(bars, 1, `${name} bars`);
     return {
+      provider: result.provider,
+      upstream: result.health.upstream ?? null,
       rows: bars.length,
       first: summarizeBar(bars[0]),
       last: summarizeBar(bars.at(-1)),

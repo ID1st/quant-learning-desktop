@@ -371,14 +371,14 @@ Acceptance:
 
 ### Step 7: Controlled stock-sdk Data Test
 
-Status: completed. `stock-sdk@2.3.0` is pinned as a root development-only dependency, and `npm run probe:stock-sdk` runs a manual real-data probe through the disabled gateway adapter. The latest run passed all 10 checks and wrote `docs/generated/stock-sdk-provider-probe-latest.json`. A human-readable summary is kept in `docs/stock-sdk-data-test-report.md`.
+Status: completed. `stock-sdk@2.3.0` is the desktop primary-provider dependency, and `npm run probe:stock-sdk` runs a manual real-data probe through the same Electron gateway route: Tencent Finance for history/intraday and Yahoo Finance fallback for supported US intraday data. The latest run passed all 10 checks and wrote `docs/generated/stock-sdk-provider-probe-latest.json`. A human-readable summary is kept in `docs/stock-sdk-data-test-report.md`.
 
 Scope:
 
 - Install or dynamically load the real `stock-sdk` package in a controlled adapter test path.
 - Test CN/HK/US quotes, daily bars, weekly bars, and intraday bars against known symbols.
 - Record latency, empty responses, invalid OHLC rows, provider delay behavior, and rate-limit behavior.
-- Keep production chart priority unchanged while tests run.
+- Keep the primary/fallback priority explicit while tests run, and verify the same order used in production.
 
 Acceptance:
 

@@ -469,7 +469,7 @@ export function ApiConfigPage() {
         <p>行情数据源</p>
         <h1>主行情源优先，备用源兜底</h1>
         <span>
-          Stock SDK 将作为新的主行情源接入；当前阶段先保留占位和能力展示，AlphaFeed REST、AlphaFeed WebSocket 与长桥降级为备用数据源。
+          Stock SDK 已作为主行情源启用；实时快照与证券搜索由官方 SDK 提供，历史 K 线与分时由桌面主进程的腾讯财经路由补强。AlphaFeed 与长桥保留为备用数据源。
         </span>
       </header>
 
@@ -514,18 +514,18 @@ export function ApiConfigPage() {
                 <ServerCog size={20} />
                 <div>
                   <h2>Stock SDK 主行情源</h2>
-                  <p>阶段 6 才会接入真实适配器；当前仅展示未来主行情源能力，不读取任何真实凭据。</p>
+                  <p>桌面版已接入主行情源适配器；该源不需要用户填写凭据，所有请求都由行情网关统一调度。</p>
                 </div>
               </div>
             </summary>
 
             <div className="api-provider-content provider-placeholder-panel">
               <div className="provider-status-row">
-                <span className="provider-status-pill placeholder">待接入</span>
-                <strong>主行情源占位</strong>
+                <span className="provider-status-pill enabled">已启用</span>
+                <strong>Stock SDK · 腾讯财经历史路由</strong>
               </div>
               <p>
-                后续该源会负责 A股、港股、美股的实时行情、历史 K 线与分时数据。当前不会替换 AlphaFeed/长桥生产流量。
+                已负责 A股、港股、美股的实时快照、历史 K 线与分时数据。历史数据使用腾讯财经补强；遇到网络、限频或无数据时会自动降级到备用数据源。
               </p>
               <div className="provider-badge-row">
                 {apiProviderPriorityItems[0]?.capabilityBadges.map((badge) => (
@@ -539,8 +539,8 @@ export function ApiConfigPage() {
                   type="checkbox"
                 />
                 <span>
-                  <strong>启用 Stock SDK 灰度主源</strong>
-                  <small>开启后图表优先尝试 Stock SDK；不可用、限频或权限不足时自动降级到备用数据源。</small>
+                  <strong>启用 Stock SDK 主行情源</strong>
+                  <small>开启后图表优先尝试 Stock SDK；不可用、限频或无数据时自动降级到备用数据源。</small>
                 </span>
               </label>
             </div>
@@ -753,7 +753,7 @@ export function ApiConfigPage() {
             </div>
           </details>
 
-          {!hasDesktopBridge && <div className="auth-message error">真实数据源验证需要桌面安全桥，请在桌面应用中运行。</div>}
+          {!hasDesktopBridge && <div className="auth-message error">备用数据源的凭据验证和初始同步需要桌面安全桥，请在桌面应用中运行。</div>}
           {error && <div className="auth-message error">{error}</div>}
           {status && <div className="auth-message success">{status}</div>}
 

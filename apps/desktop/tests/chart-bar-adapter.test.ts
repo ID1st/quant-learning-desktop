@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { marketBarsToCandles, marketBarsToStrategyBars } from "../src/features/marketData/chartBarAdapter.ts";
+import {
+  filterMarketBarsForChartContext,
+  marketBarsToCandles,
+  marketBarsToStrategyBars,
+} from "../src/features/marketData/chartBarAdapter.ts";
 import type { MarketDataBar } from "../src/features/marketData/marketBarCacheService.ts";
 
 const baseBar: MarketDataBar = {
@@ -74,4 +78,24 @@ test("marketBarsToCandles keeps the newest bar for duplicate timestamps", () => 
     candles.map((candle) => candle.close),
     [1204.98, 1198],
   );
+});
+
+test("filterMarketBarsForChartContext excludes stale symbol and timeframe bars during chart switches", () => {
+  const realtimeBar = {
+    ...baseBar,
+    timeframe: "realtime" as const,
+    timestamp: Date.UTC(2026, 6, 10, 13, 30),
+    close: 315.2,
+  };
+
+  const filtered = filterMarketBarsForChartContext(
+    [
+      { ...baseBar, timestamp: Date.UTC(2026, 6, 9), low: 157, high: 329 },
+      realtimeBar,
+      { ...realtimeBar, symbol: "TSLA.US", timestamp: Date.UTC(2026, 6, 10, 13, 31), close: 410 },
+    ],
+    { symbol: "AAPL.US", market: "US", timeframe: "realtime" },
+  );
+
+  assert.deepEqual(filtered, [realtimeBar]);
 });

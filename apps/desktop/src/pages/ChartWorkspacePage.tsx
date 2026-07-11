@@ -17,7 +17,11 @@ import {
   runChartStrategies,
   type ChartStrategyWorkspaceState,
 } from "../features/strategies/chartStrategyRuntime";
-import { marketBarsToCandles, marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
+import {
+  filterMarketBarsForChartContext,
+  marketBarsToCandles,
+  marketBarsToStrategyBars,
+} from "../features/marketData/chartBarAdapter";
 import { readMarketBarCache, readMarketBarCacheSummary, writeMarketBarCache, type MarketDataBar } from "../features/marketData/marketBarCacheService";
 import { readMarketWatchlist, writeMarketWatchlist, type MarketQuoteSnapshot, type MarketWatchlistItem } from "../features/marketData/marketDataSyncService";
 import {
@@ -761,9 +765,21 @@ export function ChartWorkspacePage() {
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
   const [drawings, setDrawings] = useState<ChartDrawing[]>(() => readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }));
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
+  const activeContextMarketBars = useMemo(
+    () =>
+      filterMarketBarsForChartContext(cachedMarketBars, {
+        symbol: activeSymbol.dataSymbol,
+        market: activeSymbol.market,
+        timeframe: getChartCacheTimeframe(timeframe),
+      }),
+    [activeSymbol.dataSymbol, activeSymbol.market, cachedMarketBars, timeframe],
+  );
   const displayedMarketBars = useMemo(
-    () => (timeframe === "realtime" && intradayDisplayMode === "candlestick" ? aggregateRealtimePointBarsToMinuteCandles(cachedMarketBars) : cachedMarketBars),
-    [cachedMarketBars, intradayDisplayMode, timeframe],
+    () =>
+      timeframe === "realtime" && intradayDisplayMode === "candlestick"
+        ? aggregateRealtimePointBarsToMinuteCandles(activeContextMarketBars)
+        : activeContextMarketBars,
+    [activeContextMarketBars, intradayDisplayMode, timeframe],
   );
   const chartRenderBars = useMemo(
     () => timeframe === "realtime" ? sampleIntradayBarsForRendering(displayedMarketBars) : displayedMarketBars,

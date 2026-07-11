@@ -24,14 +24,14 @@ Completed foundations:
 - Super chart first capability batch is in place: zoom, pan, right price-axis drag scaling, Beijing-time x-axis labels, price y-axis labels, real visible-range reset, OHLCV hover legend, explicit crosshair/grid/volume/price-label/current-price-line toggles, current price line and label, chart settings popover, context menu scaffold, and clearer strategy layer states.
 - Built-in strategy runtime foundation and strategy render-layer contract.
 - Minimal UTORB and Trend Targets strategy implementations.
-  - `chengzuopeng/stock-sdk` is the primary source for CN/HK/US quote snapshots and CN/HK current-session timelines. Current-network testing confirms that its Eastmoney-backed daily, weekly, and US minute K-line routes can be unreachable. K-line requests now fail over in the order Stock SDK, AlphaFeed REST, LongBridge, then optional Yahoo Finance for supported US bars; the main process applies a 60-second network-failure circuit breaker to Stock SDK K-line requests.
+  - `chengzuopeng/stock-sdk` is the primary source for CN/HK/US quote snapshots. The Electron main process reinforces its historical and intraday bar path with the Tencent Finance route, so daily, weekly, and CN/HK current-session minute bars do not depend on Eastmoney. The gateway falls back in the order Stock SDK, AlphaFeed REST, LongBridge, then optional Yahoo Finance for supported US bars; it rejects a closed-session US Tencent single point instead of overwriting complete intraday history.
 - Market Data Provider Gateway phase 1 is in place: provider IDs, capability declarations, health states, provider registry, and gateway fallback shell.
 - Market Data Provider Gateway phase 2 is in place: AlphaFeed REST, AlphaFeed WebSocket, and LongBridge have compatibility providers that map existing bridge results into the provider-neutral gateway shape.
 - Market Data Provider Gateway phase 3 is in place: cache and sync provider IDs now support legacy `alphafeed`/`longport` plus gateway IDs `stock-sdk`/`alphafeed-rest`/`alphafeed-websocket`/`longbridge`. Realtime intraday merge rules also preserve newer live bars from gateway live-capable providers.
 - Market Data Provider Gateway phase 4 is in place: the chart workspace now reads historical bars, intraday bars, REST quote snapshots, and WebSocket quote snapshots through a chart-facing gateway adapter while preserving the existing visible AlphaFeed/LongBridge behavior.
-- Market Data Provider Gateway phase 5 is in place: the API configuration page is provider-priority oriented, with `stock-sdk` shown as the default-expanded primary placeholder and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge shown as collapsed fallback provider sections.
-- Market Data Provider Gateway phase 6 is in place: the `stock-sdk` gateway adapter exists behind an injectable operations boundary, defaults to `unconfigured`, is not used by the production chart flow, and has tests for symbol normalization, quote/bar normalization, deterministic `open: 0` repair, invalid OHLC rejection, and fallback behavior.
-  - Market Data Provider Gateway phase 7 is in place: `npm run probe:stock-sdk` runs real connectivity checks through the production `stock-sdk@2.3.0` adapter. The current report distinguishes reachable quote/Tencent timeline paths from unavailable Eastmoney K-line paths and is documented in `docs/stock-sdk-data-test-report.md`.
+- Market Data Provider Gateway phase 5 is in place: the API configuration page is provider-priority oriented, with `stock-sdk` default-expanded and shown as the enabled primary source; AlphaFeed REST, AlphaFeed WebSocket, and LongBridge remain collapsed fallback sections.
+- Market Data Provider Gateway phase 6 is in place: the `stock-sdk` gateway adapter has an injectable operations boundary and tests for symbol normalization, quote/bar normalization, deterministic `open: 0` repair, invalid OHLC rejection, and fallback behavior.
+  - Market Data Provider Gateway phase 7 is in place: `npm run probe:stock-sdk` runs real connectivity checks through the same Electron primary gateway route: Tencent Finance for Stock SDK historical/intraday bars plus Yahoo Finance fallback when US closed-session intraday history is unavailable. The current 10/10 report is documented in `docs/stock-sdk-data-test-report.md`.
 - Market Data Provider Gateway phase 8 is in place: the chart gateway can register the real `stock-sdk` operations as the primary provider when `stockSdkPrimaryEnabled` is enabled in provider settings. The default setting is now on, users can still turn it off, and AlphaFeed REST, AlphaFeed WebSocket, and LongBridge fallback paths remain active and covered by tests.
 - Market Data Provider Gateway phase 9 is in place: the API configuration page exposes the guarded `stockSdkPrimaryEnabled` switch, provider priority status can show `stock-sdk` as enabled, and the chart status badge uses provider diagnostics to show active provider, health state, capability, and fallback source.
 - API configuration now supports safe credential lifecycle actions for AlphaFeed REST, AlphaFeed WebSocket, and LongBridge: users can inspect only masked connection metadata, replace credentials through the existing verification flow, or delete the encrypted credential and its local binding record together.
@@ -258,15 +258,15 @@ Acceptance:
 
 Status: completed.
 
-Goal: test the real `stock-sdk` package through the disabled gateway adapter before any production source switch.
+Goal: continuously verify the real `stock-sdk` primary route and its Electron fallback behavior against live market endpoints.
 
 Acceptance:
 
-- `stock-sdk@2.3.0` is pinned as a development-only dependency for controlled probing.
+- `stock-sdk@2.3.0` is pinned for the desktop primary provider and controlled probing.
 - `npm run probe:stock-sdk` checks CN/HK/US quote snapshots, daily bars, weekly bars, and 1m intraday bars.
 - Probe output is written to `docs/generated/stock-sdk-provider-probe-latest.json`.
 - Human-readable findings are recorded in `docs/stock-sdk-data-test-report.md`.
-- The production chart path remains unchanged and does not register `stock-sdk`.
+- The probe uses the same Tencent historical route and Yahoo Finance fallback ordering as the production Electron gateway.
 
 ### 2.10. Guarded stock-sdk Primary Switch
 

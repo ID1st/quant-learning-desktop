@@ -52,6 +52,19 @@ function isRenderableBar(bar: MarketDataBar) {
   );
 }
 
+/** Keeps transient state from a prior chart selection out of the next chart render. */
+export function filterMarketBarsForChartContext(
+  bars: readonly MarketDataBar[],
+  context: Pick<MarketDataBar, "symbol" | "market" | "timeframe">,
+) {
+  return bars.filter(
+    (bar) =>
+      bar.symbol === context.symbol &&
+      bar.market === context.market &&
+      bar.timeframe === context.timeframe,
+  );
+}
+
 export function marketBarsToStrategyBars(bars: MarketDataBar[]): Bar[] {
   return bars
     .filter(isRenderableBar)
