@@ -7,10 +7,10 @@ Completed on 2026-07-11. This slice stabilizes the provider-neutral chart data p
 ## Provider Priority
 
 1. `stock-sdk`: primary source for CN/HK/US quote snapshots and for CN/HK current-session 1-minute timelines.
-2. `yahoo-finance`: preferred US bar provider for `1m`, `1d`, and `1w`, because the current network can reach Yahoo while the Stock SDK Eastmoney K-line upstream cannot. It does not provide websocket or quote-snapshot capability.
-3. `alphafeed-rest`: configured credential-backed REST fallback.
-4. `alphafeed-websocket`: configured member streaming fallback for quote snapshots.
-5. `longbridge`: configured fallback and broker integration path.
+2. `alphafeed-rest`: configured credential-backed REST fallback.
+3. `longbridge`: configured fallback and broker integration path.
+4. `yahoo-finance`: US-only, last-resort bar fallback. It does not provide websocket or quote-snapshot capability and must not be required for mainland-network operation.
+5. `alphafeed-websocket`: configured member streaming fallback for quote snapshots.
 
 The selected provider is capability- and market-specific. Yahoo is intentionally skipped for quote snapshots because it declares no `realtimeQuote` capability. CN/HK daily and weekly bars still try Stock SDK first, then credential-backed fallback providers when configured.
 
@@ -18,14 +18,14 @@ The selected provider is capability- and market-specific. Yahoo is intentionally
 
 - The production Stock SDK adapter successfully returned one batch of CN/HK/US quotes. Tencent's US code `AAPL.OQ` is normalized to the application symbol `AAPL.US`.
 - The adapter successfully returned 267 CN and 332 HK current-session 1-minute bars through `quotes.timeline`, without waiting for the unavailable minute K-line route.
-- Yahoo Finance successfully returned 1,255 AAPL daily bars and 1,951 AAPL 1-minute bars through the same provider-neutral IPC path.
-- Stock SDK daily, weekly, and US minute K-lines currently reach Eastmoney hosts that are reset or timed out by this network. This is an upstream connectivity condition, not a malformed response or chart-cache defect.
+- Yahoo Finance successfully returned 1,255 AAPL daily bars and 1,951 AAPL 1-minute bars through the same provider-neutral IPC path, but is retained only as an optional US emergency route because it can be blocked in mainland networks.
+- Stock SDK daily, weekly, and US minute K-lines currently reach Eastmoney `push2his` hosts that are reset or timed out by this network. This is an upstream connectivity condition, not a malformed response or chart-cache defect. Tencent timeline data is current-session intraday data only and cannot replace multi-day history.
 - AlphaFeed REST and LongBridge remain credential-backed fallbacks. Legacy credentials without the explicit activation marker remain inactive until reverified in the API configuration page.
 
 ## Failure and Cache Rules
 
 - Provider errors are passed through the neutral gateway with the latest sanitized provider-health message.
-- Stock SDK network failures are classified as a transient network failure and tell the UI that fallback sources were attempted.
+- Stock SDK K-line network failures are classified as transient and trip a 60-second main-process circuit breaker, so chart switching immediately uses a configured fallback rather than repeatedly waiting on the unavailable Eastmoney route.
 - Yahoo retries one transient network or HTTP 5xx request with bounded linear backoff. Authentication and rate-limit responses are not retried by this provider.
 - If an intraday or historical refresh fails, the current local cache remains the displayed data. The chart status explicitly reports the retained cache count.
 - Historical realtime bars are merged with newer live points; historical data cannot overwrite newer live points.

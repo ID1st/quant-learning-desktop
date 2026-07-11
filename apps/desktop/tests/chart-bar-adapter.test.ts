@@ -60,3 +60,18 @@ test("marketBarsToCandles formats labels in Beijing time for chart rendering", (
   assert.equal(candles[2]?.time, "2026-06-30");
   assert.equal(candles[3]?.time, "2026-06-30 22:45:10");
 });
+
+test("marketBarsToCandles keeps the newest bar for duplicate timestamps", () => {
+  const timestamp = Date.UTC(2026, 6, 10);
+  const candles = marketBarsToCandles([
+    { ...baseBar, timestamp, close: 1200, volume: 10 },
+    { ...baseBar, timestamp, close: 1204.98, volume: 30 },
+    { ...baseBar, timestamp: timestamp - 24 * 60 * 60 * 1_000, close: 1198, volume: 20 },
+  ]);
+
+  assert.equal(candles.length, 2);
+  assert.deepEqual(
+    candles.map((candle) => candle.close),
+    [1204.98, 1198],
+  );
+});

@@ -1030,6 +1030,65 @@ textarea:focus-visible {
   font-size: 22px;
 }
 
+.credential-management-card {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(73, 91, 112, 0.42);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.56);
+  padding: 12px;
+}
+
+.credential-management-card > div:first-child {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.credential-management-card span,
+.credential-management-card small {
+  color: #8f9caf;
+  font-size: 12px;
+}
+
+.credential-management-card strong {
+  color: #f5f8ff;
+  font-size: 14px;
+}
+
+.credential-management-card small {
+  overflow-wrap: anywhere;
+}
+
+.credential-management-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.credential-delete-action {
+  min-height: 36px;
+  border: 1px solid rgba(239, 75, 69, 0.46);
+  border-radius: 8px;
+  background: rgba(239, 75, 69, 0.08);
+  color: #ffaaa6;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0 12px;
+}
+
+.credential-delete-action:hover {
+  border-color: rgba(239, 75, 69, 0.76);
+  background: rgba(239, 75, 69, 0.16);
+}
+
+.credential-delete-action:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .sync-step-list {
   display: grid;
   gap: 10px;

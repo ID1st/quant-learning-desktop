@@ -782,7 +782,7 @@ export function ChartViewport({
           const volumeY = volumeToY(candle.volume);
 
           return (
-            <g key={candle.time}>
+            <g key={`${candle.timestamp}-${index}`}>
               {displayMode === "candlestick" && (
                 <>
                   <line className={isUp ? "candle-wick up" : "candle-wick down"} x1={x} x2={x} y1={highY} y2={lowY} />

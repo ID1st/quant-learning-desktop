@@ -31,7 +31,6 @@ import {
   type IntradayBarProvider,
   type MarketDataGatewayError,
   type MarketDataGatewayResult,
-  type MarketDataBarRequest,
   type MarketDataProviderHealthView,
   type MarketDataProviderRequestItem,
 } from "../features/marketData/marketDataProviderGateway.ts";
@@ -53,6 +52,7 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
   const shell = createMarketDataIpcShellHandlers();
   const credentialStore = dependencies.credentialStore;
   const streamSession = dependencies.streamSession ?? createAlphaFeedStreamSession();
+  const stockSdkOperations = dependencies.stockSdkOperations ?? createStockSdkGatewayProviderOperations();
 
   if (!credentialStore) {
     return shell;
@@ -63,7 +63,7 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
     async getProviderStatus() {
       const providers = createMarketDataProviders(true, {
         credentialStore,
-        stockSdkOperations: dependencies.stockSdkOperations,
+        stockSdkOperations,
         yahooFinanceProvider: dependencies.yahooFinanceProvider,
       });
       const health = await Promise.all(providers.map((provider) => provider.getHealth()));
@@ -81,7 +81,7 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
     async fetchQuoteSnapshot(request) {
       const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
         credentialStore,
-        stockSdkOperations: dependencies.stockSdkOperations,
+        stockSdkOperations,
         yahooFinanceProvider: dependencies.yahooFinanceProvider,
       });
       const priority = createQuoteSnapshotPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true);
@@ -93,12 +93,12 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
     async fetchHistoricalBars(request) {
       const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
         credentialStore,
-        stockSdkOperations: dependencies.stockSdkOperations,
+        stockSdkOperations,
         yahooFinanceProvider: dependencies.yahooFinanceProvider,
       });
       const gateway = createMarketDataGateway(
         createMarketDataProviderRegistry(providers),
-        createHistoricalBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, request.request.market),
+        createHistoricalBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true),
       );
       const result = await gateway.fetchHistoricalBars(request.request);
 
@@ -107,12 +107,12 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
     async fetchIntradayBars(request) {
       const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
         credentialStore,
-        stockSdkOperations: dependencies.stockSdkOperations,
+        stockSdkOperations,
         yahooFinanceProvider: dependencies.yahooFinanceProvider,
       });
       const gateway = createMarketDataGateway(
         createMarketDataProviderRegistry(providers),
-        createIntradayBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, request.request.market),
+        createIntradayBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true),
       );
       const result = await gateway.fetchIntradayBars(request.request);
 
@@ -121,7 +121,7 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
     async searchInstruments(request) {
       const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
         credentialStore,
-        stockSdkOperations: dependencies.stockSdkOperations,
+        stockSdkOperations,
         yahooFinanceProvider: dependencies.yahooFinanceProvider,
       });
       const gateway = createMarketDataGateway(createMarketDataProviderRegistry(providers), ["stock-sdk"]);
@@ -213,28 +213,18 @@ function createQuoteSnapshotPriority(stockSdkPrimaryEnabled: boolean): readonly 
 
 function createHistoricalBarsPriority(
   stockSdkPrimaryEnabled: boolean,
-  market: MarketDataBarRequest["market"],
 ): readonly GatewayMarketDataProviderId[] {
-  if (market === "US") {
-    return ["yahoo-finance", "stock-sdk", "alphafeed-rest", "longbridge"];
-  }
-
   return stockSdkPrimaryEnabled
-    ? ["stock-sdk", "yahoo-finance", "alphafeed-rest", "longbridge"]
-    : ["yahoo-finance", "alphafeed-rest", "longbridge"];
+    ? ["stock-sdk", "alphafeed-rest", "longbridge", "yahoo-finance"]
+    : ["alphafeed-rest", "longbridge", "yahoo-finance"];
 }
 
 function createIntradayBarsPriority(
   stockSdkPrimaryEnabled: boolean,
-  market: MarketDataBarRequest["market"],
 ): readonly GatewayMarketDataProviderId[] {
-  if (market === "US") {
-    return ["yahoo-finance", "stock-sdk", "alphafeed-rest", "longbridge"];
-  }
-
   return stockSdkPrimaryEnabled
-    ? ["stock-sdk", "yahoo-finance", "alphafeed-rest", "longbridge"]
-    : ["yahoo-finance", "alphafeed-rest", "longbridge"];
+    ? ["stock-sdk", "alphafeed-rest", "longbridge", "yahoo-finance"]
+    : ["alphafeed-rest", "longbridge", "yahoo-finance"];
 }
 
 function toIpcGatewayResult<Data>(result: MarketDataGatewayResult<Data>) {

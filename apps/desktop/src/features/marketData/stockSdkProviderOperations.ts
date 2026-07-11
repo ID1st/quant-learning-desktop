@@ -25,9 +25,29 @@ interface StockSdkClient {
 
 export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkClient): StockSdkGatewayProviderOperations {
   let sdkPromise: Promise<StockSdkClient> | null = initialSdk ? Promise.resolve(initialSdk) : null;
+  let klineUnavailableUntil = 0;
+  let klineFailureMessage = "";
   const getSdk = () => {
     sdkPromise ??= createStockSdkClient();
     return sdkPromise;
+  };
+  const runKlineRequest = async <T>(label: string, request: () => Promise<T>) => {
+    const remainingMs = klineUnavailableUntil - Date.now();
+    if (remainingMs > 0) {
+      throw new Error(
+        `Stock SDK K-line source is temporarily unavailable; retry in ${Math.ceil(remainingMs / 1_000)}s. ${klineFailureMessage}`,
+      );
+    }
+
+    try {
+      return await withRequestTimeout(request(), label, 3_500);
+    } catch (error) {
+      if (isNetworkFailure(error)) {
+        klineUnavailableUntil = Date.now() + 60_000;
+        klineFailureMessage = error instanceof Error ? error.message : String(error);
+      }
+      throw error;
+    }
   };
 
   return {
@@ -63,14 +83,14 @@ export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkCli
       };
 
       if (request.market === "CN") {
-        return toRawRecords(await withRequestTimeout(sdk.kline.cn(request.providerSymbol, options), "Stock SDK CN history"));
+        return toRawRecords(await runKlineRequest("Stock SDK CN history", () => sdk.kline.cn(request.providerSymbol, options)));
       }
 
       if (request.market === "HK") {
-        return toRawRecords(await withRequestTimeout(sdk.kline.hk(request.providerSymbol, options), "Stock SDK HK history"));
+        return toRawRecords(await runKlineRequest("Stock SDK HK history", () => sdk.kline.hk(request.providerSymbol, options)));
       }
 
-      return toRawRecords(await withRequestTimeout(sdk.kline.us(request.providerSymbol, options), "Stock SDK US history"));
+      return toRawRecords(await runKlineRequest("Stock SDK US history", () => sdk.kline.us(request.providerSymbol, options)));
     },
     async fetchIntradayBars(request) {
       const sdk = await getSdk();
@@ -92,14 +112,14 @@ export function createStockSdkGatewayProviderOperations(initialSdk?: StockSdkCli
 
       try {
         if (request.market === "CN") {
-          return toRawRecords(await withRequestTimeout(sdk.kline.cnMinute(request.providerSymbol, options), "Stock SDK CN intraday"));
+          return toRawRecords(await runKlineRequest("Stock SDK CN intraday", () => sdk.kline.cnMinute(request.providerSymbol, options)));
         }
 
         if (request.market === "HK") {
-          return toRawRecords(await withRequestTimeout(sdk.kline.hkMinute(request.providerSymbol, options), "Stock SDK HK intraday"));
+          return toRawRecords(await runKlineRequest("Stock SDK HK intraday", () => sdk.kline.hkMinute(request.providerSymbol, options)));
         }
 
-        return toRawRecords(await withRequestTimeout(sdk.kline.usMinute(request.providerSymbol, options), "Stock SDK US intraday"));
+        return toRawRecords(await runKlineRequest("Stock SDK US intraday", () => sdk.kline.usMinute(request.providerSymbol, options)));
       } catch (error) {
         if (!canUseTimeline || !isNetworkFailure(error)) {
           throw error;

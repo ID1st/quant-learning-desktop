@@ -66,7 +66,14 @@ export function marketBarsToStrategyBars(bars: MarketDataBar[]): Bar[] {
 }
 
 export function marketBarsToCandles(bars: MarketDataBar[]): CandlePoint[] {
-  return bars.filter(isRenderableBar).map((bar) => ({
+  const uniqueBars = new Map<string, MarketDataBar>();
+  for (const bar of bars) {
+    if (isRenderableBar(bar)) {
+      uniqueBars.set(`${bar.timeframe}:${bar.timestamp}`, bar);
+    }
+  }
+
+  return [...uniqueBars.values()].map((bar) => ({
     timestamp: bar.timestamp,
     open: bar.open,
     high: bar.high,

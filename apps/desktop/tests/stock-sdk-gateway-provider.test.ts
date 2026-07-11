@@ -491,6 +491,30 @@ describe("Stock SDK provider operations", () => {
     assert.equal(capturedOptions[0]?.period, "daily");
     assert.equal(capturedOptions[1]?.period, "weekly");
   });
+
+  it("temporarily short-circuits K-line requests after an upstream network failure", async () => {
+    let klineCalls = 0;
+    const operations = createStockSdkGatewayProviderOperations({
+      search: async () => [],
+      quotes: { cn: async () => [], hk: async () => [], us: async () => [] },
+      kline: {
+        cn: async () => {
+          klineCalls += 1;
+          throw new Error("fetch failed: connection reset");
+        },
+        cnMinute: async () => [],
+        hk: async () => [],
+        hkMinute: async () => [],
+        us: async () => [],
+        usMinute: async () => [],
+      },
+    });
+    const request = { market: "CN" as const, symbol: "600519.SH", providerSymbol: "600519", timeframe: "1d" as const, period: "daily" as const };
+
+    await assert.rejects(() => operations.fetchHistoricalBars(request), /connection reset/);
+    await assert.rejects(() => operations.fetchHistoricalBars(request), /temporarily unavailable/);
+    assert.equal(klineCalls, 1);
+  });
 });
 
 function createThrowingOperations(): StockSdkGatewayProviderOperations {

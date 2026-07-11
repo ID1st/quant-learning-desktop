@@ -292,7 +292,7 @@ test("market data IPC handlers fetch CN realtime history through Stock SDK intra
   assert.deepEqual(calls, ["intraday"]);
 });
 
-test("market data IPC handlers prefer the verified US bar provider without waiting for Stock SDK K-lines", async () => {
+test("market data IPC handlers fall back to optional Yahoo Finance after Stock SDK K-lines fail", async () => {
   let stockSdkHistoricalCalls = 0;
   let stockSdkIntradayCalls = 0;
   const handlers = createMarketDataIpcHandlers({
@@ -339,13 +339,13 @@ test("market data IPC handlers prefer the verified US bar provider without waiti
 
   assert.equal(result.ok, true);
   assert.equal(result.meta.provider, "yahoo-finance");
-  assert.deepEqual(result.meta.fallback.triedProviders, ["yahoo-finance"]);
+  assert.deepEqual(result.meta.fallback.triedProviders, ["stock-sdk", "yahoo-finance"]);
   assert.equal(result.data[0]?.symbol, "AAPL.US");
   assert.equal(historical.ok, true);
   assert.equal(historical.meta.provider, "yahoo-finance");
-  assert.deepEqual(historical.meta.fallback.triedProviders, ["yahoo-finance"]);
-  assert.equal(stockSdkIntradayCalls, 0);
-  assert.equal(stockSdkHistoricalCalls, 0);
+  assert.deepEqual(historical.meta.fallback.triedProviders, ["stock-sdk", "yahoo-finance"]);
+  assert.equal(stockSdkIntradayCalls, 1);
+  assert.equal(stockSdkHistoricalCalls, 1);
 });
 
 test("market data IPC handlers control quote stream through secure desktop credentials", async () => {

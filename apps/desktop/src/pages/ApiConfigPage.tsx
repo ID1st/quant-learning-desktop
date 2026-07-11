@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   CheckCircle2,
   CircleDot,
@@ -15,6 +15,9 @@ import {
   ALPHAFEED_DEFAULT_STREAM_URL,
   ALPHAFEED_DEFAULT_API_URL,
   LONGPORT_DEFAULT_HTTP_URL,
+  clearAlphaFeedApiBinding,
+  clearAlphaFeedStreamBinding,
+  clearLongPortApiBinding,
   readAlphaFeedApiBinding,
   readAlphaFeedStreamBinding,
   readLongPortApiBinding,
@@ -99,10 +102,45 @@ function getProviderIcon(providerId: ApiProviderPriorityItem["id"]) {
   return <DatabaseZap size={20} />;
 }
 
+function CredentialManagement({
+  detail,
+  isDeleting,
+  onDelete,
+  onReplace,
+  title,
+  verifiedAt,
+}: {
+  detail: string;
+  isDeleting: boolean;
+  onDelete: () => void;
+  onReplace: () => void;
+  title: string;
+  verifiedAt: string;
+}) {
+  return (
+    <div className="credential-management-card">
+      <div>
+        <span>当前凭据</span>
+        <strong>{title}</strong>
+        <small>{detail}</small>
+        <small>最近验证：{new Date(verifiedAt).toLocaleString("zh-CN", { hour12: false })}</small>
+      </div>
+      <div className="credential-management-actions">
+        <button className="secondary-auth-action" onClick={onReplace} type="button">
+          修改 / 替换
+        </button>
+        <button className="credential-delete-action" disabled={isDeleting} onClick={onDelete} type="button">
+          {isDeleting ? "删除中..." : "删除凭据"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ApiConfigPage() {
-  const storedAlphaFeedBinding = useMemo(() => readAlphaFeedApiBinding(), []);
-  const storedAlphaFeedStreamBinding = useMemo(() => readAlphaFeedStreamBinding(), []);
-  const storedLongPortBinding = useMemo(() => readLongPortApiBinding(), []);
+  const [storedAlphaFeedBinding, setStoredAlphaFeedBinding] = useState(() => readAlphaFeedApiBinding());
+  const [storedAlphaFeedStreamBinding, setStoredAlphaFeedStreamBinding] = useState(() => readAlphaFeedStreamBinding());
+  const [storedLongPortBinding, setStoredLongPortBinding] = useState(() => readLongPortApiBinding());
   const [marketDataProviderSettings, setMarketDataProviderSettings] = useState(() => readMarketDataProviderSettings());
   const [selectedProviderId, setSelectedProviderId] = useState<ApiProviderPriorityItem["id"]>("stock-sdk");
   const [alphaFeedForm, setAlphaFeedForm] = useState<AlphaFeedApiForm>({
@@ -134,6 +172,7 @@ export function ApiConfigPage() {
   const [streamError, setStreamError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingStream, setIsSavingStream] = useState(false);
+  const [deletingProvider, setDeletingProvider] = useState<ApiProviderPriorityItem["id"] | null>(null);
   const setApiBound = useAuthStore((state) => state.setApiBound);
   const navigate = useAppStore((state) => state.navigate);
   const hasDesktopBridge = Boolean(window.quantDesktop?.alphaFeed);
@@ -329,6 +368,8 @@ export function ApiConfigPage() {
       );
 
       setApiBound(true);
+      setStoredAlphaFeedBinding(alphaFeedBinding);
+      setStoredLongPortBinding(longPortBinding ?? null);
       setStatus(
         marketDataSyncWarning ||
           (canUseLongPortFallback ? "备用数据源已绑定：AlphaFeed REST 与长桥均可用。" : "备用数据源已绑定：AlphaFeed REST 可用。"),
@@ -350,6 +391,7 @@ export function ApiConfigPage() {
 
     try {
       const binding = await saveAlphaFeedStreamConfig(alphaFeedStreamForm);
+      setStoredAlphaFeedStreamBinding(binding);
       setStreamStatus(
         binding.mode === "all-symbols"
           ? "AlphaFeed WebSocket 全标的会员通道已预留。后续行情网关会在可用时优先使用该通道。"
@@ -359,6 +401,65 @@ export function ApiConfigPage() {
       setStreamError(nextError instanceof Error ? nextError.message : "AlphaFeed WebSocket 通道保存失败。");
     } finally {
       setIsSavingStream(false);
+    }
+  };
+
+  const handleReplaceProvider = (providerId: ApiProviderPriorityItem["id"]) => {
+    setSelectedProviderId(providerId);
+    setError("");
+    setStreamError("");
+
+    if (providerId === "alphafeed-rest") {
+      setAlphaFeedForm({ apiUrl: storedAlphaFeedBinding?.apiUrl ?? defaultAlphaFeedForm.apiUrl, apiKey: "" });
+      setStatus("请输入新的 AlphaFeed API Key 后验证保存；现有密钥不会显示。");
+    } else if (providerId === "alphafeed-websocket") {
+      setAlphaFeedStreamForm({
+        wsUrl: storedAlphaFeedStreamBinding?.wsUrl ?? defaultAlphaFeedStreamForm.wsUrl,
+        apiKey: "",
+        mode: storedAlphaFeedStreamBinding?.mode ?? defaultAlphaFeedStreamForm.mode,
+      });
+      setStreamStatus("请输入新的 WebSocket API Key 后保存；现有密钥不会显示。");
+    } else if (providerId === "longbridge") {
+      setLongPortForm({ apiUrl: storedLongPortBinding?.apiUrl ?? defaultLongPortForm.apiUrl, appKey: "", appSecret: "", accessToken: "" });
+      setStatus("请输入新的长桥凭据后验证保存；现有凭据不会显示。");
+    }
+  };
+
+  const handleDeleteProvider = async (providerId: "alphafeed-rest" | "alphafeed-websocket" | "longbridge") => {
+    const providerName = providerId === "alphafeed-rest" ? "AlphaFeed REST" : providerId === "alphafeed-websocket" ? "AlphaFeed WebSocket" : "长桥";
+    if (!window.confirm(`确定删除 ${providerName} 的已保存凭据吗？删除后需要重新填写并验证。`)) {
+      return;
+    }
+
+    setDeletingProvider(providerId);
+    setError("");
+    setStreamError("");
+    try {
+      if (providerId === "alphafeed-rest") {
+        await clearAlphaFeedApiBinding();
+        setStoredAlphaFeedBinding(null);
+        setAlphaFeedForm(defaultAlphaFeedForm);
+        setStatus("AlphaFeed REST 凭据已删除。");
+      } else if (providerId === "alphafeed-websocket") {
+        await clearAlphaFeedStreamBinding();
+        setStoredAlphaFeedStreamBinding(null);
+        setAlphaFeedStreamForm(defaultAlphaFeedStreamForm);
+        setStreamStatus("AlphaFeed WebSocket 凭据已删除。");
+      } else {
+        await clearLongPortApiBinding();
+        setStoredLongPortBinding(null);
+        setLongPortForm(defaultLongPortForm);
+        setStatus("长桥凭据已删除。");
+      }
+    } catch (nextError) {
+      const message = nextError instanceof Error ? nextError.message : `${providerName} 凭据删除失败。`;
+      if (providerId === "alphafeed-websocket") {
+        setStreamError(message);
+      } else {
+        setError(message);
+      }
+    } finally {
+      setDeletingProvider(null);
     }
   };
 
@@ -484,6 +585,17 @@ export function ApiConfigPage() {
                   />
                 </div>
               </label>
+
+              {storedAlphaFeedBinding && (
+                <CredentialManagement
+                  detail={`API URL：${storedAlphaFeedBinding.apiUrl} · API Key：${storedAlphaFeedBinding.apiKeyPreview}`}
+                  isDeleting={deletingProvider === "alphafeed-rest"}
+                  onDelete={() => void handleDeleteProvider("alphafeed-rest")}
+                  onReplace={() => handleReplaceProvider("alphafeed-rest")}
+                  title="已保存的 AlphaFeed REST 凭据"
+                  verifiedAt={storedAlphaFeedBinding.verifiedAt}
+                />
+              )}
             </div>
           </details>
 
@@ -546,11 +658,14 @@ export function ApiConfigPage() {
               </label>
 
               {storedAlphaFeedStreamBinding && (
-                <div className="binding-summary compact">
-                  <span>已预留</span>
-                  <strong>{storedAlphaFeedStreamBinding.mode === "all-symbols" ? "全标的流" : "关注列表流"}</strong>
-                  <small>API Key：{storedAlphaFeedStreamBinding.apiKeyPreview}</small>
-                </div>
+                <CredentialManagement
+                  detail={`${storedAlphaFeedStreamBinding.mode === "all-symbols" ? "全标的流" : "关注列表流"} · WebSocket URL：${storedAlphaFeedStreamBinding.wsUrl} · API Key：${storedAlphaFeedStreamBinding.apiKeyPreview}`}
+                  isDeleting={deletingProvider === "alphafeed-websocket"}
+                  onDelete={() => void handleDeleteProvider("alphafeed-websocket")}
+                  onReplace={() => handleReplaceProvider("alphafeed-websocket")}
+                  title="已保存的 AlphaFeed WebSocket 凭据"
+                  verifiedAt={storedAlphaFeedStreamBinding.preparedAt}
+                />
               )}
               {streamError && <div className="auth-message error">{streamError}</div>}
               {streamStatus && <div className="auth-message success">{streamStatus}</div>}
@@ -624,6 +739,17 @@ export function ApiConfigPage() {
                   />
                 </div>
               </label>
+
+              {storedLongPortBinding && (
+                <CredentialManagement
+                  detail={`API URL：${storedLongPortBinding.apiUrl} · App Key：${storedLongPortBinding.appKeyPreview} · Access Token：${storedLongPortBinding.accessTokenPreview}`}
+                  isDeleting={deletingProvider === "longbridge"}
+                  onDelete={() => void handleDeleteProvider("longbridge")}
+                  onReplace={() => handleReplaceProvider("longbridge")}
+                  title="已保存的长桥凭据"
+                  verifiedAt={storedLongPortBinding.verifiedAt}
+                />
+              )}
             </div>
           </details>
 
@@ -632,11 +758,15 @@ export function ApiConfigPage() {
           {status && <div className="auth-message success">{status}</div>}
 
           <button
-            className={selectedProviderId === "alphafeed-rest" ? "primary-auth-action" : "primary-auth-action provider-submit-hidden"}
+            className={
+              selectedProviderId === "alphafeed-rest" || selectedProviderId === "longbridge"
+                ? "primary-auth-action"
+                : "primary-auth-action provider-submit-hidden"
+            }
             disabled={isSubmitting || !hasDesktopBridge}
             type="submit"
           >
-            {isSubmitting ? "验证中..." : "验证并保存备用数据源"}
+            {isSubmitting ? "验证中..." : selectedProviderId === "longbridge" ? "验证并保存长桥备用源" : "验证并保存备用数据源"}
           </button>
         </form>
 

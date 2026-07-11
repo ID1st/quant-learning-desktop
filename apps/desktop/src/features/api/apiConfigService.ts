@@ -92,9 +92,9 @@ export function readLongPortApiBinding(): LongPortApiBinding | null {
   });
 }
 
-export function clearLongPortApiBinding() {
+export async function clearLongPortApiBinding() {
+  await clearSecureCredentials(window.quantDesktop?.secureCredentials?.clearLongPort(), "长桥");
   appLocalDatabase.removeDocument(LONGPORT_COLLECTION_KEY);
-  void window.quantDesktop?.secureCredentials?.clearLongPort();
 }
 
 function sanitizeAlphaFeedBinding(value: unknown): AlphaFeedApiBinding | null {
@@ -125,9 +125,9 @@ export function readAlphaFeedApiBinding(): AlphaFeedApiBinding | null {
   });
 }
 
-export function clearAlphaFeedApiBinding() {
+export async function clearAlphaFeedApiBinding() {
+  await clearSecureCredentials(window.quantDesktop?.secureCredentials?.clearAlphaFeed(), "AlphaFeed REST");
   appLocalDatabase.removeDocument(ALPHAFEED_COLLECTION_KEY);
-  void window.quantDesktop?.secureCredentials?.clearAlphaFeed();
 }
 
 function sanitizeAlphaFeedStreamMode(value: unknown): AlphaFeedStreamMode {
@@ -161,9 +161,23 @@ export function readAlphaFeedStreamBinding(): AlphaFeedStreamBinding | null {
   });
 }
 
-export function clearAlphaFeedStreamBinding() {
+export async function clearAlphaFeedStreamBinding() {
+  await clearSecureCredentials(window.quantDesktop?.secureCredentials?.clearAlphaFeedStream(), "AlphaFeed WebSocket");
   appLocalDatabase.removeDocument(ALPHAFEED_STREAM_COLLECTION_KEY);
-  void window.quantDesktop?.secureCredentials?.clearAlphaFeedStream();
+}
+
+async function clearSecureCredentials(
+  operation: Promise<{ ok: true } | { ok: false; error: { message: string } }> | undefined,
+  provider: string,
+) {
+  if (!operation) {
+    throw new Error(`${provider} 凭据删除需要桌面安全桥，请在桌面应用中运行。`);
+  }
+
+  const result = await operation;
+  if (!result.ok) {
+    throw new Error(result.error.message);
+  }
 }
 
 async function saveAlphaFeedCredentials(form: AlphaFeedApiForm) {

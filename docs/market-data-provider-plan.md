@@ -27,8 +27,8 @@ Current connectivity findings:
 - Tencent can return US records with exchange suffixes such as `AAPL.OQ`; the adapter normalizes them to `AAPL.US`.
 - CN and HK current-session 1-minute timelines are reachable through `quotes.timeline`; the adapter converts cumulative volume and amount into per-bar values.
 - In the current network, daily, weekly, and US minute K-line requests through Stock SDK's Eastmoney route fail or time out. This is an upstream connectivity condition, not a chart or cache normalization defect.
-- Yahoo Finance is verified as the first US bar route for `1m`, `1d`, and `1w` while that condition persists.
-- CN/HK daily and weekly bars keep Stock SDK first, then use AlphaFeed REST or LongBridge only when those credentials have been explicitly verified and activated.
+- Yahoo Finance is verified as a US-only emergency bar route for `1m`, `1d`, and `1w`, but is deliberately last because mainland networks may not reach it.
+- Daily and weekly bars keep Stock SDK first, then use AlphaFeed REST or LongBridge only when those credentials have been explicitly verified and activated; Yahoo is tried last only for supported US requests.
 - No native WebSocket or SSE client was found in the source search. Treat `stock-sdk` as REST-capable, not WebSocket-capable, until proven otherwise.
 
 Implications:
@@ -339,7 +339,7 @@ Acceptance:
 
 ### Step 5: API Configuration Redesign
 
-Status: completed. The API configuration page now shows `stock-sdk` as the default-expanded primary placeholder, keeps AlphaFeed REST, AlphaFeed WebSocket member channel, and LongBridge as collapsed fallback sections, and displays the fixed provider priority plus current stored-binding status.
+Status: completed. The API configuration page now shows `stock-sdk` as the default-expanded primary placeholder, keeps AlphaFeed REST, AlphaFeed WebSocket member channel, and LongBridge as collapsed fallback sections, and displays the fixed provider priority plus current stored-binding status. Configured fallback sources expose masked connection metadata plus explicit replace and delete actions. Replacement never reads a secret back into the renderer. Deletion first clears the encrypted desktop credential, then removes the local binding summary, so a secure-store failure leaves the summary available for retry instead of creating a misleading empty state.
 
 Scope:
 
