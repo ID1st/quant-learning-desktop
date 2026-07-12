@@ -781,6 +781,7 @@ export function ChartWorkspacePage() {
   const [instrumentSearchMessage, setInstrumentSearchMessage] = useState("");
   const [instrumentSearchResults, setInstrumentSearchResults] = useState<readonly { symbol: string; name: string; market: Market }[]>([]);
   const [bottomTab, setBottomTab] = useState<ChartBottomTab>("layers");
+  const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [isBottomDockExpanded, setIsBottomDockExpanded] = useState(false);
   const [isChartSettingsOpen, setIsChartSettingsOpen] = useState(false);
   const [chartContextMenu, setChartContextMenu] = useState<ChartContextMenuState | null>(null);
@@ -870,6 +871,8 @@ export function ChartWorkspacePage() {
   const strategyLogTime = formatLogTime(Date.now());
   const strategyLogItems = buildChartStrategyLogItems(strategyRuns, { symbol: activeSymbol.symbol, timeframe });
   const signalRows = buildChartStrategySignalRows(strategyRuns);
+  const selectedSignal = signalRows.find((signal) => signal.id === selectedSignalId) ?? null;
+  const selectedSignalRun = selectedSignal ? strategyRuns.find(({ strategy }) => strategy.key === selectedSignal.strategyKey) ?? null : null;
   const updateStrategyState = (strategyKey: string, updater: (state: StrategyWorkspaceState) => StrategyWorkspaceState) => {
     updateStudyStrategy(strategyKey, updater);
   };
@@ -2303,17 +2306,26 @@ export function ChartWorkspacePage() {
               {signalRows.length > 0 ? (
                 <div className="signal-detail-list" aria-label="策略信号明细">
                   {signalRows.map((signal) => (
-                    <div className={`signal-detail-row ${signal.tone}`} key={signal.id}>
+                    <button aria-pressed={selectedSignal?.id === signal.id} className={`signal-detail-row ${signal.tone}${selectedSignal?.id === signal.id ? " active" : ""}`} key={signal.id} onClick={() => setSelectedSignalId(signal.id)} type="button">
                       <ShieldCheck size={14} />
                       <span>{signal.time}</span>
                       <strong>{signal.direction}</strong>
                       <small>{signal.price}</small>
                       <em>{signal.strategyName} / {signal.label}</em>
-                    </div>
+                    </button>
                   ))}
                 </div>
               ) : (
                 <span>当前参数下没有触发买卖信号。</span>
+              )}
+              {selectedSignal && selectedSignalRun && (
+                <aside className="signal-research-inspector" aria-label="策略信号研究详情">
+                  <div><strong>{selectedSignal.strategyName}</strong><button onClick={() => setSelectedSignalId(null)} type="button">关闭</button></div>
+                  <span>{selectedSignal.direction} · {selectedSignal.price} · {selectedSignal.time}</span>
+                  <small>{selectedSignal.label}</small>
+                  <dl><dt>参数</dt><dd>{Object.entries(selectedSignalRun.settings.parameters).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") || "默认参数"}</dd><dt>日志</dt><dd>{selectedSignalRun.result.output.logs.at(-1) ?? "当前运行未产生额外日志"}</dd></dl>
+                  <button onClick={() => { setActiveConfigStrategyKey(selectedSignal.strategyKey); setBottomTab("layers"); }} type="button">查看策略配置</button>
+                </aside>
               )}
             </div>
           )}

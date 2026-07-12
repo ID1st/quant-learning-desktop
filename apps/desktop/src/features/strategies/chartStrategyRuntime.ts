@@ -21,6 +21,8 @@ export interface ChartStrategyRunItem {
 
 export interface ChartStrategySignalRow {
   id: string;
+  strategyKey: string;
+  timestamp: number;
   strategyName: string;
   time: string;
   direction: "买入" | "卖出" | "提醒";
@@ -103,6 +105,8 @@ export function buildChartStrategySignalRows(runs: readonly ChartStrategyRunItem
   return runs.flatMap(({ result }) =>
     result.output.signals.map((signal, index) => ({
       id: `${result.strategy.key}-${signal.type}-${signal.timestamp}-${index}`,
+      strategyKey: result.strategy.key,
+      timestamp: signal.timestamp,
       strategyName: result.strategy.name,
       time: formatSignalTime(signal.timestamp),
       direction: signal.type === "buy" ? "买入" : signal.type === "sell" ? "卖出" : "提醒",
