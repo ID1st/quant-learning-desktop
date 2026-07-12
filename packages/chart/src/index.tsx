@@ -133,6 +133,9 @@ export interface ChartViewportProps {
   lockPriceScale?: boolean;
   drawingTool?: "trend-line" | "horizontal-line" | "text" | null;
   onDrawingPoint?: (point: { readonly timestamp: number; readonly price: number }) => void;
+  onDrawingElementSelect?: (drawingId: string) => void;
+  onDrawingElementMove?: (drawingId: string, pointIndex: number | null, point: { readonly timestamp: number; readonly price: number }) => void;
+  onDrawingElementDragEnd?: () => void;
   loadingState?: {
     readonly stage: string;
     readonly message: string;
@@ -285,6 +288,9 @@ export function ChartViewport({
   lockPriceScale = false,
   drawingTool = null,
   onDrawingPoint,
+  onDrawingElementSelect,
+  onDrawingElementMove,
+  onDrawingElementDragEnd,
   loadingState,
 }: ChartViewportProps) {
   const generatedCandles = useMemo(() => generateCandles(context), [context.symbol, context.market, context.timeframe]);
@@ -302,6 +308,7 @@ export function ChartViewport({
   const dragStateRef = useRef<
     | { mode: "pan"; pointerId: number; startX: number; startRange: ChartVisibleRange }
     | { mode: "price-scale"; pointerId: number; startY: number; startScaleFactor: number }
+    | { mode: "drawing"; pointerId: number; drawingId: string; pointIndex: number | null }
     | null
   >(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -513,6 +520,15 @@ export function ChartViewport({
       return;
     }
 
+    if (dragState.mode === "drawing") {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const x = (event.clientX - rect.left) * (width / rect.width);
+      const y = (event.clientY - rect.top) * (height / rect.height);
+      const index = Math.min(candles.length - 1, Math.max(safeVisibleRange.start, safeVisibleRange.start + Math.round((x - paddingX - candleGap / 2) / candleGap)));
+      onDrawingElementMove?.(dragState.drawingId, dragState.pointIndex, { timestamp: candles[index]?.timestamp ?? 0, price: maxPrice - ((y - chartTop) / priceHeight) * priceRange });
+      return;
+    }
+
     if (dragState.mode === "price-scale") {
       const deltaY = event.clientY - dragState.startY;
       const nextScaleFactor = Math.max(0.25, Math.min(4, dragState.startScaleFactor * Math.exp(deltaY / 220)));
@@ -534,6 +550,7 @@ export function ChartViewport({
   };
   const handlePointerUp = (event: PointerEvent<SVGSVGElement>) => {
     if (dragStateRef.current?.pointerId === event.pointerId) {
+      if (dragStateRef.current.mode === "drawing") onDrawingElementDragEnd?.();
       dragStateRef.current = null;
       setIsPanning(false);
       setIsScalingPriceAxis(false);
@@ -545,6 +562,12 @@ export function ChartViewport({
     setScaleDomain(calculateScaleDomain(candles, nextRange));
     setHoverIndex(candles.length - 1);
     setPriceScaleFactor(1);
+  };
+  const beginDrawingDrag = (event: PointerEvent<SVGElement>, drawingId: string, pointIndex: number | null) => {
+    event.stopPropagation();
+    event.currentTarget.ownerSVGElement?.setPointerCapture(event.pointerId);
+    onDrawingElementSelect?.(drawingId);
+    dragStateRef.current = { mode: "drawing", pointerId: event.pointerId, drawingId, pointIndex };
   };
 
   if (!isFiniteNumber(maxPrice) || !isFiniteNumber(minPrice)) {
@@ -724,6 +747,7 @@ export function ChartViewport({
                     <g
                       className={`strategy-price-line ${element.tone}${isProjected ? " projected" : ""}`}
                       key={`${layer.id}-${element.id}`}
+                      onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
                     >
                       <line x1={lineStartX} x2={plotRight} y1={y} y2={y} />
                       {isProjected && <rect height={30} rx={4} width={labelWidth} x={labelX} y={labelY} />}
@@ -745,11 +769,10 @@ export function ChartViewport({
                   }
 
                   return (
-                    <path
-                      className={`strategy-trend-line ${element.tone}`}
-                      d={createSmoothPath(visibleTrendPoints)}
-                      key={`${layer.id}-${element.id}`}
-                    />
+                    <g key={`${layer.id}-${element.id}`}>
+                      <path className={`strategy-trend-line ${element.tone}`} d={createSmoothPath(visibleTrendPoints)} />
+                      {layer.source === "drawing" && visibleTrendPoints.map((point, pointIndex) => <circle className="drawing-handle" cx={point.x} cy={point.y} key={`${element.id}-${pointIndex}`} onPointerDown={(event) => beginDrawingDrag(event, element.id, pointIndex)} r="6" />)}
+                    </g>
                   );
                 }
 
@@ -758,7 +781,7 @@ export function ChartViewport({
                   if (x === null || !isFiniteNumber(element.price)) {
                     return null;
                   }
-                  return <text className="chart-text-annotation" key={`${layer.id}-${element.id}`} x={x + 6} y={priceToY(element.price) - 8}>{element.text}</text>;
+                  return <text className="chart-text-annotation" key={`${layer.id}-${element.id}`} onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined} x={x + 6} y={priceToY(element.price) - 8}>{element.text}</text>;
                 }
 
                 if (!isFiniteNumber(element.timestamp) || !isFiniteNumber(element.price)) {

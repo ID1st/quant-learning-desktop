@@ -3195,6 +3195,13 @@ textarea:focus-visible {
   background: rgba(26, 73, 126, 0.26);
 }
 
+.drawing-handle {
+  fill: #0b1724;
+  stroke: #58d5ff;
+  stroke-width: 2;
+  cursor: move;
+}
+
 .signal-detail-row svg {
   color: #8f9caf;
 }

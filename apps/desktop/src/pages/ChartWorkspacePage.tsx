@@ -1675,6 +1675,18 @@ export function ChartWorkspacePage() {
     setSelectedDrawingId(drawing.id);
     setActiveDrawingTool(null);
   };
+  const moveDrawing = (drawingId: string, pointIndex: number | null, point: { timestamp: number; price: number }) => {
+    const drawing = drawings.find((item) => item.id === drawingId);
+    if (!drawing) return;
+    if (drawing.type === "trend-line" && pointIndex !== null) {
+      const points = [...drawing.points] as [{ timestamp: number; price: number }, { timestamp: number; price: number }];
+      points[pointIndex] = point;
+      updateDrawings(drawings.map((item) => item.id === drawingId ? { ...drawing, points } : item));
+      return;
+    }
+    if (drawing.type === "horizontal-line") updateDrawings(drawings.map((item) => item.id === drawingId ? { ...drawing, price: point.price } : item));
+    if (drawing.type === "text") updateDrawings(drawings.map((item) => item.id === drawingId ? { ...drawing, timestamp: point.timestamp, price: point.price } : item));
+  };
 
   const toggleDrawingVisibility = (drawingId: string) => {
     const drawing = drawings.find((item) => item.id === drawingId);
@@ -1872,6 +1884,8 @@ export function ChartWorkspacePage() {
             lockPriceScale={isPriceScaleLocked}
             drawingTool={activeDrawingTool}
             onDrawingPoint={placeDrawingPoint}
+            onDrawingElementSelect={setSelectedDrawingId}
+            onDrawingElementMove={moveDrawing}
             strategyLayers={orderedStrategyLayers}
             layers={orderedExtraLayers}
             loadingState={chartViewportLoadingState}
