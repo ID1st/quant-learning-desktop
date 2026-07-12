@@ -1,6 +1,8 @@
 import { crossover, crossunder, sma } from "@quant/pine-runtime";
 import type { Market, Timeframe } from "@quant/shared";
 
+export * from "./backtest.ts";
+
 export interface Bar {
   timestamp: number;
   open: number;
