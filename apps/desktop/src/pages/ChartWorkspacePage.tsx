@@ -1638,6 +1638,31 @@ export function ChartWorkspacePage() {
     updateDrawings([...next.drawings]);
     setDrawingCommandState(next);
   };
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveDrawingTool(null);
+        setPendingTrendPoint(null);
+        return;
+      }
+      if ((event.key === "Delete" || event.key === "Backspace") && selectedDrawingId && document.activeElement?.tagName !== "INPUT") {
+        event.preventDefault();
+        deleteDrawing(selectedDrawingId);
+        return;
+      }
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (event.shiftKey) redoDrawingCommand(); else undoDrawingCommand();
+      }
+      if (event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        redoDrawingCommand();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [drawingCommandState, selectedDrawingId]);
 
   const createDrawing = (type: ChartDrawing["type"]) => {
     const last = cachedCandles[cachedCandles.length - 1];
