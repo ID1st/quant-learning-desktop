@@ -193,7 +193,7 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
 
     if (pendingSignal) {
       const direction = getSignalDirection(pendingSignal, settings.allowShort);
-      if (pendingSignal.type === "exit") {
+      if (pendingSignal.type === "exit" || (pendingSignal.type === "sell" && !settings.allowShort)) {
         closePosition(bar, pendingSignal.timestamp);
       } else if (direction && state.position?.direction !== direction) {
         closePosition(bar, pendingSignal.timestamp);
@@ -209,7 +209,7 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
     if (directionalSignal) {
       if (index === bars.length - 1) {
         warnings.push("最后一根 K 线产生的信号没有下一根开盘价，已忽略。" );
-      } else if (directionalSignal.type !== "sell" || settings.allowShort) {
+      } else {
         pendingSignal = directionalSignal;
       }
     }

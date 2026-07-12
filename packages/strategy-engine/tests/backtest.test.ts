@@ -41,6 +41,8 @@ test("backtest applies fees and slippage, and can disable short entries", () => 
   assert.equal(result.trades[0]?.entryPrice, 101);
   assert.equal(result.trades[0]?.exitPrice, 108.9);
   assert.equal(result.trades[0]?.direction, "long");
+  assert.equal(result.trades[0]?.exitSignalTimestamp, 2);
+  assert.equal(result.warnings.some((warning) => warning.includes("强制平仓")), false);
   assert.equal(result.summary.finalCapital < 1078, true);
 });
 

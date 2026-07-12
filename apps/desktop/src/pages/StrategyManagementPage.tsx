@@ -5,18 +5,21 @@ import {
   createRunnableUserStrategyDefinition,
   createUserStrategyDraftDefinition,
   preflightPineStrategySource,
+  runStrategyBacktest,
   runRegisteredStrategy,
+  type BacktestSettings,
   type StrategyDefinition,
   type StrategyParameterDefinition,
 } from "@quant/strategy-engine";
-import type { Timeframe } from "@quant/shared";
+import type { Market, Timeframe } from "@quant/shared";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
 import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 import { useChartStudySettingsStore } from "../features/chartWorkspace/chartStudySettingsStore";
 import { builtInChartIndicatorDefinitions, getIndicatorInstance, updateIndicatorInstance } from "../features/chartIndicators/chartIndicators";
 import { useToastStore } from "../features/feedback/toastStore";
 import { marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
-import { readMarketBarCache } from "../features/marketData/marketBarCacheService";
+import { readMarketBarCache, readMarketBarCacheSummary } from "../features/marketData/marketBarCacheService";
+import { deleteStrategyBacktestRun, readStrategyBacktestRuns, saveStrategyBacktestRun, type StrategyBacktestRun } from "../features/strategies/backtestRunStore";
 import {
   Activity,
   AlertTriangle,
@@ -43,6 +46,21 @@ type StrategyFilter = "all" | "enabled" | "disabled";
 const presetRegistry = createPresetStrategyRegistry();
 const strategyPreviewSymbol = { symbol: "AAPL.US", displaySymbol: "AAPL", market: "US" as const };
 const strategyPreviewTimeframe: Timeframe = "realtime";
+
+interface BacktestContext {
+  id: string;
+  symbol: string;
+  market: Market;
+  timeframe: Timeframe;
+  barCount: number;
+}
+
+const defaultBacktestSettings: BacktestSettings = {
+  initialCapital: 100_000,
+  feeRate: 0.0005,
+  slippageRate: 0.0005,
+  allowShort: true,
+};
 
 const samplePineSource = `//@version=5
 indicator("用户策略示例", overlay=true)
@@ -97,6 +115,26 @@ function coerceParameterValue(parameter: StrategyParameterDefinition, value: str
   return String(value);
 }
 
+function createBacktestContextId(context: Pick<BacktestContext, "symbol" | "market" | "timeframe">) {
+  return `${context.market}:${context.symbol}:${context.timeframe}`;
+}
+
+function formatBacktestTimeframe(timeframe: Timeframe) {
+  return timeframe === "realtime" ? "分时" : timeframe;
+}
+
+function formatBacktestNumber(value: number) {
+  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value);
+}
+
+function formatBacktestPercent(value: number) {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatBacktestDate(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "short", timeStyle: "short", hour12: false }).format(new Date(value));
+}
+
 export function StrategyManagementPage() {
   const pluginStrategies = usePluginRuntimeStore((state) => state.strategies);
   const refreshPluginRuntime = usePluginRuntimeStore((state) => state.refresh);
@@ -134,10 +172,44 @@ export function StrategyManagementPage() {
   const deleteImportedDraft = useUserStrategyDraftStore((state) => state.deleteDraft);
   const setSelectedDraftId = useUserStrategyDraftStore((state) => state.setSelectedDraftId);
   const pushToast = useToastStore((state) => state.push);
+  const [isBacktestDialogOpen, setIsBacktestDialogOpen] = useState(false);
+  const [backtestContextRevision, setBacktestContextRevision] = useState(0);
+  const [selectedBacktestContextId, setSelectedBacktestContextId] = useState("");
+  const [backtestSettings, setBacktestSettings] = useState<BacktestSettings>(defaultBacktestSettings);
+  const [backtestRuns, setBacktestRuns] = useState<StrategyBacktestRun[]>(() => readStrategyBacktestRuns());
+  const [selectedBacktestRunId, setSelectedBacktestRunId] = useState<string | null>(() => readStrategyBacktestRuns()[0]?.id ?? null);
   const selectedStrategy = strategies.find((strategy) => strategy.key === selectedKey) ?? strategies[0];
   const enabledCount = strategies.filter((strategy) => studyStrategySettings[strategy.key]?.enabled).length;
   const userDraftReadyCount = importedDrafts.filter((draft) => draft.definition.translation.status === "ready").length;
   const userDraftReviewCount = importedDrafts.filter((draft) => draft.definition.translation.status === "manual-review").length;
+  const availableBacktestContexts = useMemo<BacktestContext[]>(() => {
+    if (!selectedStrategy) {
+      return [];
+    }
+
+    return readMarketBarCacheSummary().entries
+      .filter(
+        (entry) =>
+          entry.barCount >= 2 &&
+          selectedStrategy.supportedMarkets.includes(entry.market) &&
+          selectedStrategy.supportedTimeframes.includes(entry.timeframe),
+      )
+      .map((entry) => ({
+        id: createBacktestContextId(entry),
+        symbol: entry.symbol,
+        market: entry.market,
+        timeframe: entry.timeframe,
+        barCount: entry.barCount,
+      }))
+      .sort((left, right) => right.barCount - left.barCount);
+  }, [backtestContextRevision, selectedStrategy]);
+  const selectedBacktestContext = availableBacktestContexts.find((item) => item.id === selectedBacktestContextId) ?? availableBacktestContexts[0];
+  const selectedBacktestRun = backtestRuns.find((run) => run.id === selectedBacktestRunId) ?? backtestRuns[0] ?? null;
+  useEffect(() => {
+    setSelectedBacktestContextId((current) =>
+      availableBacktestContexts.some((context) => context.id === current) ? current : availableBacktestContexts[0]?.id ?? "",
+    );
+  }, [availableBacktestContexts]);
   const strategyPreviewBars = useMemo(
     () =>
       marketBarsToStrategyBars(
@@ -256,6 +328,84 @@ export function StrategyManagementPage() {
     }));
   };
 
+  const openBacktestDialog = () => {
+    setBacktestContextRevision((value) => value + 1);
+    setIsBacktestDialogOpen(true);
+  };
+
+  const runSelectedStrategyBacktest = () => {
+    if (!selectedStrategy || !selectedBacktestContext) {
+      pushToast({
+        tone: "warning",
+        title: "没有可用于回测的行情缓存",
+        detail: "请先在超级图表加载该策略支持的标的和周期。",
+        durationMs: 3200,
+      });
+      return;
+    }
+
+    const bars = marketBarsToStrategyBars(
+      readMarketBarCache({
+        symbol: selectedBacktestContext.symbol,
+        market: selectedBacktestContext.market,
+        timeframe: selectedBacktestContext.timeframe,
+      }),
+    );
+    if (bars.length < 2) {
+      pushToast({
+        tone: "warning",
+        title: "行情数据不足",
+        detail: "精简回测至少需要两根有效 K 线。",
+        durationMs: 2800,
+      });
+      return;
+    }
+
+    const strategyRun = runRegisteredStrategy(strategyRegistry, {
+      strategyKey: selectedStrategy.key,
+      symbol: selectedBacktestContext.symbol,
+      market: selectedBacktestContext.market,
+      timeframe: selectedBacktestContext.timeframe,
+      bars,
+      runMode: "backtest",
+      enabled: true,
+      parameters: studyStrategySettings[selectedStrategy.key]?.parameters,
+    });
+    const result = runStrategyBacktest({
+      bars,
+      signals: strategyRun.output.signals,
+      settings: backtestSettings,
+    });
+    const run: StrategyBacktestRun = {
+      id: globalThis.crypto?.randomUUID?.() ?? `backtest-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      createdAt: new Date().toISOString(),
+      strategyKey: selectedStrategy.key,
+      strategyName: selectedStrategy.name,
+      strategyVersion: selectedStrategy.version,
+      symbol: selectedBacktestContext.symbol,
+      market: selectedBacktestContext.market,
+      timeframe: selectedBacktestContext.timeframe,
+      parameters: strategyRun.input.parameters,
+      result,
+    };
+    const nextRuns = saveStrategyBacktestRun(run);
+    setBacktestRuns(nextRuns);
+    setSelectedBacktestRunId(run.id);
+    setIsBacktestDialogOpen(false);
+    pushToast({
+      tone: "success",
+      title: `${selectedStrategy.name} 回测完成`,
+      detail: `${run.symbol} ${formatBacktestTimeframe(run.timeframe)}，生成 ${result.summary.tradeCount} 笔双向成交记录。`,
+      durationMs: 3200,
+    });
+  };
+
+  const removeBacktestRun = (runId: string) => {
+    const nextRuns = deleteStrategyBacktestRun(runId);
+    setBacktestRuns(nextRuns);
+    setSelectedBacktestRunId(nextRuns[0]?.id ?? null);
+  };
+
   const handleCreateDraft = () => {
     if (!pinePreflight.ok || !userStrategyDraft.ok || !pinePreflight.summary.canCreateDraft) {
       return;
@@ -285,11 +435,74 @@ export function StrategyManagementPage() {
           <span>启用 {enabledCount}</span>
           <span>草稿 {importedDrafts.length}</span>
         </div>
-        <button className="strategy-import-trigger" onClick={() => setIsImportDialogOpen(true)} type="button">
+        <div className="strategy-header-actions">
+          <button className="strategy-backtest-trigger" onClick={openBacktestDialog} type="button">
+            <LineChart size={16} />
+            精简回测
+          </button>
+          <button className="strategy-import-trigger" onClick={() => setIsImportDialogOpen(true)} type="button">
           <FilePlus2 size={16} />
           导入 Pine
-        </button>
+          </button>
+        </div>
       </header>
+
+      {isBacktestDialogOpen && (
+        <div className="strategy-import-backdrop" role="presentation" onClick={() => setIsBacktestDialogOpen(false)}>
+          <section aria-label="精简回测配置" className="module-card strategy-import-dialog backtest-dialog" onClick={(event) => event.stopPropagation()} role="dialog">
+            <button aria-label="关闭精简回测" className="strategy-import-close" onClick={() => setIsBacktestDialogOpen(false)} type="button">
+              <X size={16} />
+            </button>
+            <div className="module-card-header">
+              <LineChart size={20} />
+              <div>
+                <h2>精简回测</h2>
+                <p>策略信号在下一根 K 线开盘成交；买入做多、卖出做空，结束时按最后收盘价结算。</p>
+              </div>
+            </div>
+            <div className="backtest-form-grid">
+              <label>
+                <span>行情缓存</span>
+                <select onChange={(event) => setSelectedBacktestContextId(event.currentTarget.value)} value={selectedBacktestContext?.id ?? ""}>
+                  {availableBacktestContexts.map((context) => (
+                    <option key={context.id} value={context.id}>
+                      {context.market} · {context.symbol} · {formatBacktestTimeframe(context.timeframe)} · {context.barCount} 根
+                    </option>
+                  ))}
+                </select>
+                <small>{availableBacktestContexts.length > 0 ? "仅使用本地已缓存的标准化行情，不触发新的数据请求。" : "当前策略没有可用缓存，请先在超级图表加载支持的标的和周期。"}</small>
+              </label>
+              <label>
+                <span>初始资金</span>
+                <input min="1" onChange={(event) => setBacktestSettings((current) => ({ ...current, initialCapital: Number(event.currentTarget.value) }))} type="number" value={backtestSettings.initialCapital} />
+                <small>默认 100,000</small>
+              </label>
+              <label>
+                <span>单边费率</span>
+                <input min="0" onChange={(event) => setBacktestSettings((current) => ({ ...current, feeRate: Number(event.currentTarget.value) / 100 }))} step="0.001" type="number" value={(backtestSettings.feeRate ?? 0) * 100} />
+                <small>百分比，例如 0.05</small>
+              </label>
+              <label>
+                <span>单边滑点</span>
+                <input min="0" onChange={(event) => setBacktestSettings((current) => ({ ...current, slippageRate: Number(event.currentTarget.value) / 100 }))} step="0.001" type="number" value={(backtestSettings.slippageRate ?? 0) * 100} />
+                <small>百分比，例如 0.05</small>
+              </label>
+              <label className="backtest-switch">
+                <span>允许做空</span>
+                <input checked={backtestSettings.allowShort ?? true} onChange={(event) => setBacktestSettings((current) => ({ ...current, allowShort: event.currentTarget.checked }))} type="checkbox" />
+                <small>关闭后，卖出信号仅用于平多。</small>
+              </label>
+            </div>
+            <div className="backtest-dialog-footer">
+              <button className="secondary-action" onClick={() => setIsBacktestDialogOpen(false)} type="button">取消</button>
+              <button className="primary-auth-action" disabled={!selectedBacktestContext} onClick={runSelectedStrategyBacktest} type="button">
+                <Play size={16} />
+                运行回测
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       <div className="strategy-summary-grid">
         <div className="module-card strategy-stat-card">
@@ -723,6 +936,11 @@ export function StrategyManagementPage() {
               <h2>{selectedStrategy.name}</h2>
               <span>{selectedStrategy.description}</span>
             </div>
+            <div className="strategy-detail-actions">
+              <button className="strategy-backtest-trigger" onClick={openBacktestDialog} type="button">
+                <LineChart size={16} />
+                精简回测
+              </button>
             <button
               className={studyStrategySettings[selectedStrategy.key]?.enabled ? "danger-action" : "primary-auth-action"}
               onClick={() => toggleStrategy(selectedStrategy.key)}
@@ -730,6 +948,7 @@ export function StrategyManagementPage() {
             >
               {studyStrategySettings[selectedStrategy.key]?.enabled ? "停用策略" : "启用策略"}
             </button>
+            </div>
           </div>
 
           <div className="strategy-meta-grid">
@@ -740,6 +959,48 @@ export function StrategyManagementPage() {
             <span>来源：{selectedStrategy.sourceFile}</span>
             <span>类型：{selectedStrategy.sourceType}</span>
           </div>
+
+          {selectedBacktestRun && (
+            <section className="strategy-section backtest-result-panel">
+              <div className="section-title">
+                <LineChart size={18} />
+                <div>
+                  <h3>最近回测结果</h3>
+                  <span>{selectedBacktestRun.strategyName} · {selectedBacktestRun.market} · {selectedBacktestRun.symbol} · {formatBacktestTimeframe(selectedBacktestRun.timeframe)} · {formatBacktestDate(selectedBacktestRun.createdAt)}</span>
+                </div>
+                <button aria-label="删除当前回测结果" className="icon-button" onClick={() => removeBacktestRun(selectedBacktestRun.id)} type="button">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+              <div className="backtest-summary-grid">
+                <div><span>最终资金</span><strong>{formatBacktestNumber(selectedBacktestRun.result.summary.finalCapital)}</strong></div>
+                <div><span>总收益</span><strong className={selectedBacktestRun.result.summary.totalReturnPct >= 0 ? "positive" : "negative"}>{formatBacktestPercent(selectedBacktestRun.result.summary.totalReturnPct)}</strong></div>
+                <div><span>最大回撤</span><strong className="negative">-{selectedBacktestRun.result.summary.maxDrawdownPct.toFixed(2)}%</strong></div>
+                <div><span>胜率 / 交易</span><strong>{selectedBacktestRun.result.summary.winRate.toFixed(1)}% / {selectedBacktestRun.result.summary.tradeCount}</strong></div>
+              </div>
+              {selectedBacktestRun.result.warnings.length > 0 && (
+                <div className="backtest-warning-list">
+                  {selectedBacktestRun.result.warnings.map((warning) => <span key={warning}>{warning}</span>)}
+                </div>
+              )}
+              <div className="backtest-trade-table-wrap">
+                <table className="backtest-trade-table">
+                  <thead><tr><th>方向</th><th>开仓</th><th>平仓</th><th>净收益</th></tr></thead>
+                  <tbody>
+                    {selectedBacktestRun.result.trades.slice(0, 8).map((trade) => (
+                      <tr key={`${trade.entryTimestamp}-${trade.exitTimestamp}-${trade.direction}`}>
+                        <td>{trade.direction === "long" ? "做多" : "做空"}</td>
+                        <td>{trade.entryPrice.toFixed(2)}</td>
+                        <td>{trade.exitPrice.toFixed(2)}</td>
+                        <td className={trade.netPnl >= 0 ? "positive" : "negative"}>{formatBacktestNumber(trade.netPnl)}</td>
+                      </tr>
+                    ))}
+                    {selectedBacktestRun.result.trades.length === 0 && <tr><td colSpan={4}>当前信号在所选数据中未形成可结算成交。</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
           <section className="strategy-section">
             <div className="section-title">
@@ -886,6 +1147,20 @@ export function StrategyManagementPage() {
           <div className="runtime-status">
             <strong>{studyStrategySettings[selectedStrategy.key]?.enabled ? "已加入运行队列" : "未启用"}</strong>
             <span>{studyStrategySettings[selectedStrategy.key]?.enabled ? "策略会在超级图表中按 strategyId 输出图层。" : "启用后才会参与样例运行。"}</span>
+          </div>
+
+          <div className="backtest-history-list">
+            <div className="strategy-list-group-label">回测记录</div>
+            {backtestRuns.length > 0 ? (
+              backtestRuns.slice(0, 5).map((run) => (
+                <button className={run.id === selectedBacktestRun?.id ? "active" : ""} key={run.id} onClick={() => setSelectedBacktestRunId(run.id)} type="button">
+                  <span><strong>{run.strategyName}</strong><small>{run.symbol} · {formatBacktestTimeframe(run.timeframe)}</small></span>
+                  <em className={run.result.summary.totalReturnPct >= 0 ? "positive" : "negative"}>{formatBacktestPercent(run.result.summary.totalReturnPct)}</em>
+                </button>
+              ))
+            ) : (
+              <span className="backtest-history-empty">运行后会在本机保留最近 20 次结果。</span>
+            )}
           </div>
 
           {runResult && (

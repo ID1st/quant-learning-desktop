@@ -3633,6 +3633,103 @@ textarea:focus-visible {
   background: #5b97ff;
 }
 
+.strategy-header-actions,
+.strategy-detail-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.strategy-header-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.strategy-backtest-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  border: 1px solid rgba(66, 223, 173, 0.48);
+  border-radius: var(--radius-control);
+  background: rgba(66, 223, 173, 0.1);
+  color: #dffcef;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.strategy-backtest-trigger:hover {
+  background: rgba(66, 223, 173, 0.18);
+}
+
+.backtest-dialog {
+  width: min(640px, calc(100vw - 48px));
+}
+
+.backtest-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.backtest-form-grid label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: #b9c4d2;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.backtest-form-grid label:first-child {
+  grid-column: 1 / -1;
+}
+
+.backtest-form-grid input:not([type="checkbox"]),
+.backtest-form-grid select {
+  width: 100%;
+  height: 34px;
+  border: 1px solid rgba(73, 91, 112, 0.46);
+  border-radius: 6px;
+  background: rgba(12, 18, 26, 0.88);
+  color: #f5f8ff;
+  padding: 0 9px;
+}
+
+.backtest-form-grid small {
+  color: #738095;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.backtest-form-grid .backtest-switch {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border: 1px solid rgba(73, 91, 112, 0.34);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.36);
+  padding: 10px;
+}
+
+.backtest-switch small {
+  grid-column: 1 / -1;
+}
+
+.backtest-switch input {
+  accent-color: #42dfad;
+}
+
+.backtest-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
 .strategy-summary-grid {
   display: none;
 }
@@ -4442,8 +4539,8 @@ textarea:focus-visible {
 
 .strategy-detail-header {
   display: grid;
-  grid-template-columns: 1fr 112px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
   align-items: start;
 }
 
@@ -4457,11 +4554,22 @@ textarea:focus-visible {
 .strategy-detail-header h2 {
   margin: 0 0 8px;
   color: #f5f8ff;
+  font-size: 19px;
 }
 
 .strategy-detail-header span {
   color: #8f9caf;
+  font-size: 12px;
   line-height: 1.7;
+}
+
+.strategy-detail-actions {
+  align-self: start;
+}
+
+.strategy-detail-actions .danger-action,
+.strategy-detail-actions .primary-auth-action {
+  min-width: 88px;
 }
 
 .danger-action {
@@ -4489,7 +4597,8 @@ textarea:focus-visible {
   border-radius: 8px;
   background: rgba(8, 13, 20, 0.45);
   color: #9ca8b8;
-  padding: 10px;
+  font-size: 11px;
+  padding: 8px;
 }
 
 .strategy-section {
@@ -4510,7 +4619,107 @@ textarea:focus-visible {
 .section-title h3 {
   margin: 0;
   color: #f5f8ff;
-  font-size: 16px;
+  font-size: 14px;
+}
+
+.section-title > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.section-title > div > span {
+  color: #8f9caf;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backtest-result-panel {
+  border-top: 1px solid rgba(66, 223, 173, 0.2);
+  padding-top: 12px;
+}
+
+.backtest-result-panel .section-title .icon-button {
+  margin-left: auto;
+}
+
+.backtest-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.backtest-summary-grid > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border-left: 2px solid rgba(66, 223, 173, 0.42);
+  background: rgba(8, 13, 20, 0.28);
+  padding: 8px 10px;
+}
+
+.backtest-summary-grid span {
+  color: #8f9caf;
+  font-size: 11px;
+}
+
+.backtest-summary-grid strong {
+  color: #f5f8ff;
+  font-family: var(--font-data);
+  font-size: 14px;
+}
+
+.positive {
+  color: #7ee4bf !important;
+}
+
+.negative {
+  color: #ffaaa6 !important;
+}
+
+.backtest-warning-list {
+  display: grid;
+  gap: 6px;
+}
+
+.backtest-warning-list span {
+  border-left: 2px solid rgba(245, 178, 66, 0.72);
+  background: rgba(245, 178, 66, 0.08);
+  color: #ffe0a6;
+  font-size: 11px;
+  padding: 7px 9px;
+}
+
+.backtest-trade-table-wrap {
+  max-height: 196px;
+  overflow: auto;
+}
+
+.backtest-trade-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #cbd5e1;
+  font-family: var(--font-data);
+  font-size: 11px;
+}
+
+.backtest-trade-table th,
+.backtest-trade-table td {
+  border-bottom: 1px solid rgba(73, 91, 112, 0.2);
+  padding: 7px 8px;
+  text-align: right;
+}
+
+.backtest-trade-table th:first-child,
+.backtest-trade-table td:first-child {
+  text-align: left;
+}
+
+.backtest-trade-table th {
+  color: #8f9caf;
+  font-weight: 800;
 }
 
 .parameter-grid {
@@ -4578,6 +4787,59 @@ textarea:focus-visible {
   border-radius: 8px;
   background: rgba(8, 13, 20, 0.45);
   padding: 14px;
+}
+
+.backtest-history-list {
+  display: grid;
+  gap: 7px;
+}
+
+.backtest-history-list .strategy-list-group-label {
+  margin: 2px 0 0;
+}
+
+.backtest-history-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(73, 91, 112, 0.3);
+  border-radius: 7px;
+  background: rgba(8, 13, 20, 0.3);
+  color: inherit;
+  cursor: pointer;
+  padding: 8px;
+  text-align: left;
+}
+
+.backtest-history-list button.active,
+.backtest-history-list button:hover {
+  border-color: rgba(66, 223, 173, 0.46);
+  background: rgba(66, 223, 173, 0.08);
+}
+
+.backtest-history-list button span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.backtest-history-list strong {
+  color: #e8eff8;
+  font-size: 12px;
+}
+
+.backtest-history-list small,
+.backtest-history-empty {
+  color: #8f9caf;
+  font-size: 11px;
+}
+
+.backtest-history-list em {
+  font-family: var(--font-data);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
 }
 
 .runtime-status strong {
@@ -5393,6 +5655,8 @@ textarea:focus-visible {
   .strategy-summary-grid,
   .strategy-workspace-grid,
   .strategy-import-grid,
+  .backtest-form-grid,
+  .backtest-summary-grid,
   .strategy-detail-header,
   .strategy-meta-grid,
   .parameter-grid,
@@ -5409,6 +5673,11 @@ textarea:focus-visible {
   .plugin-pending-row,
   .plugin-registry-row {
     grid-template-columns: 1fr;
+  }
+
+  .strategy-header-actions {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .today-workspace-header,

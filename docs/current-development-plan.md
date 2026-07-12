@@ -2,7 +2,7 @@
 
 ## Status
 
-The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 10 are complete, Provider-neutral Desktop IPC stages 1 through 10 are complete, the built-in strategies now run from normalized cached market bars, Super Chart UI/display optimization round 1 is complete, and the trusted-local Plugin System MVP is complete. The next product slice should be the Learning System MVP unless chart round 2 is explicitly prioritized.
+The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 10 are complete, Provider-neutral Desktop IPC stages 1 through 10 are complete, the built-in strategies now run from normalized cached market bars, Super Chart UI/display optimization rounds 1 and 2 are complete, the trusted-local Plugin System MVP is complete, and the read-only Strategy Learning page plus Simplified Backtest MVP are complete.
 
 Completed foundations:
 
@@ -50,6 +50,7 @@ Completed foundations:
 - Super Chart UI/display optimization round 1 is complete: the chart workspace now uses a tighter chart-first layout, a collapsible right watchlist, a compact bottom status/tab dock, on-demand strategy configuration, first-pass layer controls, and candle-first price scaling so strategy overlays do not flatten the price view.
 - Browser verification covered 1366x768, 1440x900, and 1920x1080. The chart workspace had no page-level vertical scroll, no button overflow, no blank chart state, and watchlist collapse reduced the right panel from 210px to 44px while expanding the chart area.
 - Plugin System MVP is complete: Electron main-process installation into a managed local directory, manifest and version validation, allow-listed strategy/indicator permissions, enable/disable/uninstall controls, typed preload IPC, self-contained runtime modules, failure isolation with auto-disable after three failures, strategy/indicator registration, and a local SMA crossover sample plugin. Plugins run through a narrow capability context and never receive credentials, Node globals, or file APIs.
+- Simplified Backtest MVP is complete: Strategy Management now provides a compact backtest dialog that uses only normalized local bar cache, configures initial capital, one-way fee, one-way slippage, and optional short selling, then records deterministic next-bar-open entries, long/short reversals, terminal settlement, summaries, warnings, and a bounded local history of the latest 20 result snapshots. It does not make market-data requests, duplicate cached bars, or introduce live order execution.
 
 ## Latest Stability Update (2026-07-11)
 
@@ -155,7 +156,7 @@ Acceptance:
 3. Indicator and drawing-tool foundations.
 4. AlphaFeed WebSocket Runtime Hardening after exact member-channel protocol details are confirmed.
 5. Learning System MVP: strategy explanation pages, learning records, practice/review notes.
-6. Backtest MVP if the user decides it is still required: date range, deterministic run, summary metrics, result persistence.
+6. Backtest follow-up: date-range selection, equity-curve analysis, configurable position sizing, and optional declarative chart result layers. The core deterministic run, summary metrics, and result persistence are complete.
 7. Desktop packaging and hardening: Electron build target, secure storage review, update path, error reporting, cache/data migration checks.
 8. Plugin System hardening: worker/process isolation, signature verification, permission consent history, hot update, and data-source/export plugin runtime hosts.
 
