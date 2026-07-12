@@ -64,6 +64,13 @@ import {
 } from "../features/marketData/chartMarketDataGateway";
 import { readMarketDataProviderSettings } from "../features/marketData/marketDataProviderSettings";
 import {
+  appendMarketDataRuntimeEvent,
+  evaluateMarketCacheFreshness,
+  formatMarketDataRuntimeEventKind,
+  getMarketRuntimeSessionStatus,
+  type MarketDataRuntimeEvent,
+} from "../features/marketData/marketDataRuntimeStatus";
+import {
   builtInChartIndicatorDefinitions,
   createChartIndicatorLayers,
   createPluginIndicatorLayers,
@@ -790,13 +797,16 @@ export function ChartWorkspacePage() {
   const [isPriceScaleLocked, setIsPriceScaleLocked] = useState(false);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const [providerDiagnostics, setProviderDiagnostics] = useState<readonly MarketDataProviderHealthView[]>([]);
-  const [diagnosticTimeline, setDiagnosticTimeline] = useState<ReadonlyArray<{ checkedAt: string; status: RealtimeProviderHealthView["status"]; message: string }>>([]);
+  const [diagnosticTimeline, setDiagnosticTimeline] = useState<readonly MarketDataRuntimeEvent[]>([]);
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
   const [drawings, setDrawings] = useState<ChartDrawing[]>(() => readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }));
   const [drawingCommandState, setDrawingCommandState] = useState(() => createChartDrawingCommandState(readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe })));
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const [activeDrawingTool, setActiveDrawingTool] = useState<ChartDrawing["type"] | null>(null);
   const [pendingTrendPoint, setPendingTrendPoint] = useState<{ timestamp: number; price: number } | null>(null);
+  const recordMarketEvent = (kind: MarketDataRuntimeEvent["kind"], message: string, detail?: string) => {
+    setDiagnosticTimeline((current) => appendMarketDataRuntimeEvent(current, { kind, timestamp: new Date().toISOString(), message, detail }));
+  };
   const activeContextMarketBars = useMemo(
     () =>
       filterMarketBarsForChartContext(cachedMarketBars, {
@@ -950,12 +960,16 @@ export function ChartWorkspacePage() {
   }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
 
   useEffect(() => {
-    const checkedAt = realtimeHealth.checkedAt ?? new Date().toISOString();
-    setDiagnosticTimeline((current) => {
-      const latest = current[0];
-      if (latest?.status === realtimeHealth.status && latest.message === realtimeHealth.message) return current;
-      return [{ checkedAt, status: realtimeHealth.status, message: realtimeHealth.message }, ...current].slice(0, 12);
-    });
+    const kind = realtimeHealth.status === "rate_limited"
+      ? "rate-limited"
+      : realtimeHealth.status === "ok" || realtimeHealth.status === "idle" || realtimeHealth.status === "paused"
+        ? "sync-completed"
+        : "error";
+    setDiagnosticTimeline((current) => appendMarketDataRuntimeEvent(current, {
+      kind,
+      timestamp: realtimeHealth.checkedAt ?? new Date().toISOString(),
+      message: formatRealtimeHealthDetail(realtimeHealth),
+    }));
   }, [realtimeHealth]);
 
   useEffect(() => {
@@ -966,6 +980,15 @@ export function ChartWorkspacePage() {
       const windowRange = isRealtimeHistory ? getIntradayHistoryWindow(activeSymbol.market) : null;
       const cacheTimeframe = getChartCacheTimeframe(timeframe);
       const initialCachedBars = readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe });
+      const cacheMetadata = readMarketBarCacheSummary().entries.find((entry) =>
+        entry.symbol === activeSymbol.dataSymbol && entry.market === activeSymbol.market && entry.timeframe === cacheTimeframe,
+      );
+      const cacheFreshness = evaluateMarketCacheFreshness(cacheTimeframe, cacheMetadata?.updatedAt);
+      const sessionStatus = getMarketRuntimeSessionStatus(activeSymbol.market);
+      recordMarketEvent(
+        initialCachedBars.length > 0 && cacheFreshness.state === "fresh" ? "cache-hit" : cacheFreshness.state === "stale" ? "cache-stale" : "sync-started",
+        initialCachedBars.length > 0 ? `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 缓存 ${cacheFreshness.state === "fresh" ? "命中" : "已过期"}，共 ${initialCachedBars.length} 根` : `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 开始同步`,
+      );
       setChartLoadState(
         createChartLoadState(
           "history",
@@ -975,6 +998,13 @@ export function ChartWorkspacePage() {
         ),
       );
       setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "syncing" }));
+
+      if (!isRealtimeHistory && !sessionStatus.isOpen && cacheFreshness.state === "fresh" && hasRenderableChartData(timeframe, initialCachedBars.length)) {
+        setChartLoadState(createChartLoadState("ready", activeSymbol.symbol, timeframe, initialCachedBars.length, `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 市场已收盘，使用有效本地缓存。`));
+        setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "cache" }));
+        recordMarketEvent("market-closed", `${activeSymbol.symbol} 市场已收盘，历史缓存仍有效，跳过远端刷新`);
+        return;
+      }
 
       try {
         const marketDataAccess = await createChartMarketDataAccess({
@@ -1036,6 +1066,7 @@ export function ChartWorkspacePage() {
               : createRealtimeHealthView("error", failureMessage);
           setRealtimeHealth(errorHealth);
           setRealtimeStatus(errorHealth.message);
+          recordMarketEvent(result.health[0]?.status === "rateLimited" ? "rate-limited" : hasRenderableChartData(timeframe, cachedBars.length) ? "cache-retained" : "error", failureMessage);
           const hasCache = hasRenderableChartData(timeframe, cachedBars.length);
           setChartLoadState(createChartLoadState(hasCache ? "degraded" : "error", activeSymbol.symbol, timeframe, cachedBars.length, errorHealth.message));
           setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: hasCache ? "degraded" : "error" }));
@@ -1053,6 +1084,7 @@ export function ChartWorkspacePage() {
           );
           setRealtimeHealth(emptyHealth);
           setRealtimeStatus(emptyHealth.message);
+          recordMarketEvent("error", emptyHealth.message);
           setChartLoadState(createChartLoadState("error", activeSymbol.symbol, timeframe, initialCachedBars.length, emptyHealth.message));
           setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "error" }));
           return;
@@ -1080,6 +1112,8 @@ export function ChartWorkspacePage() {
                 timeframe: "realtime",
               })
             : null;
+        recordMarketEvent("sync-completed", `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 同步完成，共 ${written.length} 根`);
+        if (gapStatus) recordMarketEvent("delayed-gap", gapStatus);
 
         const historicalMessage = gapStatus
           ? gapStatus
@@ -1103,6 +1137,7 @@ export function ChartWorkspacePage() {
         const errorHealth = createRealtimeHealthView("error", getErrorMessage(error));
         setRealtimeHealth(errorHealth);
         setRealtimeStatus(errorHealth.message);
+        recordMarketEvent("error", errorHealth.message);
         const cachedBars = readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe });
         const hasCache = hasRenderableChartData(timeframe, cachedBars.length);
         setChartLoadState(createChartLoadState(hasCache ? "degraded" : "error", activeSymbol.symbol, timeframe, cachedBars.length, errorHealth.message));
@@ -2434,7 +2469,7 @@ export function ChartWorkspacePage() {
           <div className="chart-settings-heading"><strong>数据诊断</strong><button onClick={() => setIsDiagnosticsOpen(false)} type="button">关闭</button></div>
           <section><p>当前状态</p><strong className={getRealtimeHealthBadgeClass(realtimeHealth.status)}>{realtimeHealth.status}</strong><small>{formatRealtimeHealthDetail(realtimeHealth)}</small></section>
           <section><p>供应商健康</p>{providerDiagnostics.length > 0 ? providerDiagnostics.map((health) => <div className="diagnostic-provider-row" key={health.provider}><span><strong>{health.provider}</strong><small>{health.message}</small></span><em className={getRealtimeHealthBadgeClass(health.status === "healthy" || health.status === "delayed" || health.status === "degraded" ? "ok" : health.status === "rateLimited" ? "rate_limited" : "network_error")}>{health.status}</em></div>) : <small>当前运行环境未暴露桌面诊断桥。图表仍会显示实时状态。</small>}</section>
-          <section><p>最近事件</p>{diagnosticTimeline.map((entry) => <div className="diagnostic-timeline-row" key={`${entry.checkedAt}-${entry.message}`}><time>{formatStatusClock(entry.checkedAt)}</time><span>{entry.message}</span></div>)}</section>
+          <section><p>最近事件</p>{diagnosticTimeline.map((entry) => <div className={`diagnostic-timeline-row ${entry.kind}`} key={`${entry.timestamp}-${entry.kind}-${entry.message}`}><time>{formatStatusClock(entry.timestamp)}</time><span><strong>{formatMarketDataRuntimeEventKind(entry.kind)}</strong>{entry.message}{entry.detail ? ` · ${entry.detail}` : ""}</span></div>)}</section>
         </aside>
       )}
     </section>

@@ -4,6 +4,16 @@
 
 Completed on 2026-07-11. This slice stabilizes the provider-neutral chart data path without changing the chart, strategy, or cache contracts.
 
+## Runtime Status And Cache Governance Update (2026-07-13)
+
+This follow-up completes the selected stability scope without changing provider priority or the AlphaFeed WebSocket protocol:
+
+- A shared runtime-status module classifies cache freshness, market session state, and chart events. The event timeline has bounded deduplication for cache hit/stale, synchronization, fallback, rate limit, delayed gap, closed-market, retained-cache, and error states.
+- The chart diagnostic drawer now presents those events with Chinese labels. Provider credentials and raw request data remain outside the renderer diagnostics.
+- For closed markets, a fresh daily or weekly cache renders directly and skips an unnecessary remote refresh. Intraday polling still follows the existing market-session window and stops after close.
+- Refresh failure preserves usable cache and records a retained-cache event. Existing real-time merge rules continue to prevent historical bars from overwriting newer live points.
+- AlphaFeed WebSocket protocol hardening and automated provider probes are intentionally excluded from this slice.
+
 ## Provider Priority
 
 1. `stock-sdk`: primary source for CN/HK/US quote snapshots and for CN/HK current-session 1-minute timelines.
