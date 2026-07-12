@@ -76,6 +76,13 @@ import {
 import { useChartStudySettingsStore } from "../features/chartWorkspace/chartStudySettingsStore";
 import { drawingsToLayer, readChartDrawings, writeChartDrawings, type ChartDrawing } from "../features/chartDrawings/chartDrawingStore";
 import {
+  createChartDrawingCommandState,
+  executeChartDrawingCommand,
+  redoChartDrawingCommand,
+  undoChartDrawingCommand,
+  type ChartDrawingCommand,
+} from "../features/chartDrawings/chartDrawingCommands";
+import {
   summarizeMarketDataProviderHealth,
   type MarketDataProviderDiagnosticSummary,
 } from "../features/marketData/marketDataProviderDiagnostics";
@@ -110,6 +117,8 @@ import {
   Trash2,
   X,
   Type,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 
 const symbols: Array<{ symbol: string; dataSymbol: string; name: string; market: Market; price: string; change: string }> = [
@@ -781,6 +790,7 @@ export function ChartWorkspacePage() {
   const [diagnosticTimeline, setDiagnosticTimeline] = useState<ReadonlyArray<{ checkedAt: string; status: RealtimeProviderHealthView["status"]; message: string }>>([]);
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
   const [drawings, setDrawings] = useState<ChartDrawing[]>(() => readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }));
+  const [drawingCommandState, setDrawingCommandState] = useState(() => createChartDrawingCommandState(readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe })));
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const activeContextMarketBars = useMemo(
     () =>
@@ -926,7 +936,9 @@ export function ChartWorkspacePage() {
   }, [activeSymbol.dataSymbol, activeSymbol.market, marketDataProviderSettings.stockSdkPrimaryEnabled, timeframe]);
 
   useEffect(() => {
-    setDrawings(readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }));
+    const nextDrawings = readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe });
+    setDrawings(nextDrawings);
+    setDrawingCommandState(createChartDrawingCommandState(nextDrawings));
     setSelectedDrawingId(null);
   }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
 
@@ -1601,6 +1613,24 @@ export function ChartWorkspacePage() {
     writeChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }, nextDrawings);
     setDrawings(nextDrawings);
   };
+  const executeDrawingCommand = (command: ChartDrawingCommand) => {
+    const next = executeChartDrawingCommand(drawingCommandState, command);
+    if (next === drawingCommandState) return;
+    updateDrawings([...next.drawings]);
+    setDrawingCommandState(next);
+  };
+  const undoDrawingCommand = () => {
+    const next = undoChartDrawingCommand(drawingCommandState);
+    if (next === drawingCommandState) return;
+    updateDrawings([...next.drawings]);
+    setDrawingCommandState(next);
+  };
+  const redoDrawingCommand = () => {
+    const next = redoChartDrawingCommand(drawingCommandState);
+    if (next === drawingCommandState) return;
+    updateDrawings([...next.drawings]);
+    setDrawingCommandState(next);
+  };
 
   const createDrawing = (type: ChartDrawing["type"]) => {
     const last = cachedCandles[cachedCandles.length - 1];
@@ -1613,13 +1643,16 @@ export function ChartWorkspacePage() {
       : type === "horizontal-line"
         ? { id, type, visible: true, createdAt, price: last.close, label: "参考线" }
         : { id, type, visible: true, createdAt, timestamp: last.timestamp ?? 0, price: last.close, text: "标注" };
-    updateDrawings([...drawings, drawing]);
+    executeDrawingCommand({ type: "add", drawing });
     setSelectedDrawingId(id);
   };
 
-  const toggleDrawingVisibility = (drawingId: string) => updateDrawings(drawings.map((drawing) => drawing.id === drawingId ? { ...drawing, visible: !drawing.visible } : drawing));
+  const toggleDrawingVisibility = (drawingId: string) => {
+    const drawing = drawings.find((item) => item.id === drawingId);
+    if (drawing) executeDrawingCommand({ type: "update", drawingId, drawing: { ...drawing, visible: !drawing.visible } });
+  };
   const deleteDrawing = (drawingId: string) => {
-    updateDrawings(drawings.filter((drawing) => drawing.id !== drawingId));
+    executeDrawingCommand({ type: "delete", drawingId });
     setSelectedDrawingId((current) => current === drawingId ? null : current);
   };
 
@@ -1628,19 +1661,16 @@ export function ChartWorkspacePage() {
     if (!drawing) return;
     if (drawing.type === "text") {
       const text = window.prompt("标注文字", drawing.text)?.trim();
-      if (text) updateDrawings(drawings.map((item) => item.id === drawingId ? { ...item, text } : item));
+      if (text) executeDrawingCommand({ type: "update", drawingId, drawing: { ...drawing, text } });
       return;
     }
     if (drawing.type === "horizontal-line") {
       const price = Number(window.prompt("参考线价格", String(drawing.price)));
-      if (Number.isFinite(price) && price > 0) updateDrawings(drawings.map((item) => item.id === drawingId ? { ...item, price } : item));
+      if (Number.isFinite(price) && price > 0) executeDrawingCommand({ type: "update", drawingId, drawing: { ...drawing, price } });
       return;
     }
     const endpoint = Number(window.prompt("趋势线终点价格", String(drawing.points[1].price)));
-    if (Number.isFinite(endpoint) && endpoint > 0) updateDrawings(drawings.map((item) => {
-      if (item.id !== drawingId || item.type !== "trend-line") return item;
-      return { ...item, points: [item.points[0], { ...item.points[1], price: endpoint }] };
-    }));
+    if (Number.isFinite(endpoint) && endpoint > 0) executeDrawingCommand({ type: "update", drawingId, drawing: { ...drawing, points: [drawing.points[0], { ...drawing.points[1], price: endpoint }] } });
   };
 
   const openDiagnostics = async () => {
@@ -1769,6 +1799,9 @@ export function ChartWorkspacePage() {
             <Ruler size={18} />
           </button>
           <button onClick={() => createDrawing("text")} type="button" title="添加文字标注"><Type size={18} /></button>
+          <button disabled={drawingCommandState.undoStack.length === 0} onClick={undoDrawingCommand} type="button" title="撤销绘图"><Undo2 size={18} /></button>
+          <button disabled={drawingCommandState.redoStack.length === 0} onClick={redoDrawingCommand} type="button" title="重做绘图"><Redo2 size={18} /></button>
+          <button disabled={drawings.length === 0} onClick={() => { executeDrawingCommand({ type: "clear" }); setSelectedDrawingId(null); }} type="button" title="清空当前标的和周期的绘图"><Trash2 size={18} /></button>
           <button
             className={isChartSettingsOpen ? "active" : ""}
             onClick={() => setIsChartSettingsOpen((value) => !value)}
