@@ -60,6 +60,13 @@ Completed foundations:
 - Realtime rendering now samples only the render input above 1,200 points while retaining full cache and strategy input. Identical in-flight chart bar requests are deduplicated.
 - Detailed source, capability limits, cache rules, and verification are recorded in `docs/market-data-stability-plan.md`.
 
+## Runtime Governance Update (2026-07-13)
+
+- Completed: market-data runtime event timeline, cache freshness evaluation, closed-market historical-cache reuse, retained-cache/error events, rate-limit/fallback/gap event categories, and Chinese diagnostics labels in the chart drawer.
+- Completed: daily and weekly charts with a valid short historical series render from two bars onward; intraday retains its 30-point sparse-data protection.
+- Confirmed: live refresh, strategy execution, chart viewport state, provider-neutral gateway contracts, and cache keys remain unchanged.
+- Explicitly skipped for this milestone: AlphaFeed WebSocket real-protocol hardening and automated provider probe expansion.
+
 ## Super Chart Loading Experience Update (2026-07-11)
 
 - Sparse cache data no longer renders as a one-bar or one-segment temporary chart. `realtime` requires 30 points, `1d` requires 20 bars, and `1w` requires 12 bars before the chart canvas renders price, volume, indicators, and strategy layers.
