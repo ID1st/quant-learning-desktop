@@ -1,4 +1,4 @@
-import { Activity, BarChart3, Command, KeyRound, LayoutDashboard, LogOut, Search, Settings, X } from "lucide-react";
+import { Activity, BarChart3, BookOpen, Command, KeyRound, LayoutDashboard, LogOut, Search, Settings, X } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent, type PropsWithChildren } from "react";
 import type { AppRoute } from "@quant/shared";
 import { useAuthStore } from "../features/auth/authStore";
@@ -10,6 +10,7 @@ const navItems: Array<{ route: AppRoute; label: string; icon: typeof LayoutDashb
   { route: "dashboard", label: "仪表盘", icon: LayoutDashboard },
   { route: "chart", label: "超级图表", icon: BarChart3 },
   { route: "strategies", label: "策略管理", icon: Activity },
+  { route: "learning", label: "策略学习", icon: BookOpen },
   { route: "apiConfig", label: "接口配置", icon: KeyRound },
   { route: "settings", label: "设置", icon: Settings },
 ];

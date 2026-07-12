@@ -1,4 +1,4 @@
-export type AppRoute = "login" | "dashboard" | "chart" | "strategies" | "apiConfig" | "settings";
+export type AppRoute = "login" | "dashboard" | "chart" | "strategies" | "learning" | "apiConfig" | "settings";
 
 export type ThemeMode = "dark" | "light" | "system";
 

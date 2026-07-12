@@ -6,6 +6,7 @@ import { DashboardPage } from "../pages/DashboardPage";
 import { LoginPage } from "../pages/LoginPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { StrategyManagementPage } from "../pages/StrategyManagementPage";
+import { StrategyLearningPage } from "../pages/StrategyLearningPage";
 import { useAppStore } from "../state/appStore";
 
 const routeMap: Record<AppRoute, ComponentType> = {
@@ -13,6 +14,7 @@ const routeMap: Record<AppRoute, ComponentType> = {
   dashboard: DashboardPage,
   chart: ChartWorkspacePage,
   strategies: StrategyManagementPage,
+  learning: StrategyLearningPage,
   apiConfig: ApiConfigPage,
   settings: SettingsPage,
 };

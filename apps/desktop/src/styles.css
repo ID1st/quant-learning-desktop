@@ -3202,6 +3202,240 @@ textarea:focus-visible {
   cursor: move;
 }
 
+.strategy-learning-page {
+  display: grid;
+  gap: 18px;
+  min-height: 100%;
+  padding: 28px 36px;
+}
+
+.strategy-learning-header {
+  margin: 0;
+}
+
+.strategy-learning-layout {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 252px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.strategy-learning-directory,
+.strategy-learning-content {
+  border: 1px solid rgba(76, 96, 122, 0.45);
+  border-radius: 8px;
+  background: rgba(12, 18, 27, 0.76);
+}
+
+.strategy-learning-directory {
+  align-content: start;
+  display: grid;
+  gap: 18px;
+  padding: 14px;
+}
+
+.strategy-learning-directory section {
+  display: grid;
+  gap: 6px;
+}
+
+.strategy-learning-directory section > p {
+  color: #6f8298;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+
+.strategy-learning-directory button {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #d9e4f1;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  text-align: left;
+}
+
+.strategy-learning-directory button:hover,
+.strategy-learning-directory button.active {
+  border-color: rgba(51, 127, 215, 0.7);
+  background: rgba(22, 66, 111, 0.34);
+}
+
+.strategy-learning-directory button strong {
+  font-size: 14px;
+}
+
+.strategy-learning-directory button small {
+  color: #7f91a8;
+  font-size: 12px;
+}
+
+.strategy-learning-content {
+  display: grid;
+  gap: 18px;
+  overflow: auto;
+  padding: 24px;
+}
+
+.strategy-learning-title {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+}
+
+.strategy-learning-title > span {
+  align-items: center;
+  border: 1px solid rgba(55, 184, 164, 0.58);
+  border-radius: 6px;
+  color: #42dfbd;
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.strategy-learning-title em {
+  color: #42dfbd;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.strategy-learning-title h2,
+.strategy-learning-title p,
+.strategy-learning-block h3 {
+  margin: 0;
+}
+
+.strategy-learning-title h2 {
+  color: #f2f6fc;
+  font-size: 24px;
+  margin-top: 3px;
+}
+
+.strategy-learning-title p {
+  color: #9aacc2;
+  line-height: 1.6;
+  margin-top: 7px;
+}
+
+.strategy-learning-meta,
+.strategy-learning-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.strategy-learning-meta span,
+.strategy-learning-chip-list span {
+  border: 1px solid rgba(77, 100, 129, 0.48);
+  border-radius: 999px;
+  color: #b6c5d8;
+  font-size: 12px;
+  padding: 5px 9px;
+}
+
+.strategy-learning-section-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.strategy-learning-section-grid article,
+.strategy-learning-parameter-list article {
+  border: 1px solid rgba(65, 86, 111, 0.44);
+  border-radius: 6px;
+  background: rgba(8, 13, 20, 0.45);
+  padding: 14px;
+}
+
+.strategy-learning-section-grid h3,
+.strategy-learning-parameter-list strong {
+  color: #e5edf7;
+  font-size: 14px;
+}
+
+.strategy-learning-section-grid p,
+.strategy-learning-parameter-list p {
+  color: #97a9be;
+  font-size: 13px;
+  line-height: 1.65;
+  margin: 8px 0 0;
+}
+
+.strategy-learning-block,
+.strategy-learning-risk {
+  border-top: 1px solid rgba(69, 89, 113, 0.45);
+  padding-top: 16px;
+}
+
+.strategy-learning-block-heading {
+  align-items: center;
+  color: #dce7f4;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.strategy-learning-block-heading svg {
+  color: #5ad7ff;
+}
+
+.strategy-learning-parameter-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.strategy-learning-parameter-list article {
+  display: grid;
+  gap: 5px;
+}
+
+.strategy-learning-parameter-list em {
+  color: #48dcb6;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.strategy-learning-risk {
+  border-color: rgba(209, 142, 81, 0.4);
+}
+
+.strategy-learning-risk .strategy-learning-block-heading svg {
+  color: #f5af68;
+}
+
+.strategy-learning-risk ul {
+  color: #b8c4d2;
+  display: grid;
+  gap: 8px;
+  line-height: 1.55;
+  margin: 0;
+  padding-left: 20px;
+}
+
+@media (max-width: 980px) {
+  .strategy-learning-page {
+    padding: 20px;
+  }
+
+  .strategy-learning-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .strategy-learning-directory {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .strategy-learning-section-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .signal-detail-row svg {
   color: #8f9caf;
 }

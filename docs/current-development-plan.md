@@ -67,6 +67,12 @@ Completed foundations:
 - Confirmed: live refresh, strategy execution, chart viewport state, provider-neutral gateway contracts, and cache keys remain unchanged.
 - Explicitly skipped for this milestone: AlphaFeed WebSocket real-protocol hardening and automated provider probe expansion.
 
+## Strategy Learning Page Update (2026-07-13)
+
+- Completed: a read-only `策略学习` navigation page explaining the current UTORB and Trend Targets strategies plus SMA, EMA, and BOLL indicators.
+- Each entry covers core logic, markets/timeframes, parameter defaults, chart outputs, usage boundaries, and risk prompts.
+- Intentionally excluded: cross-page navigation, learning records, review notes, progress tracking, AI explanation, and new market-data or strategy execution paths.
+
 ## Super Chart Loading Experience Update (2026-07-11)
 
 - Sparse cache data no longer renders as a one-bar or one-segment temporary chart. `realtime` requires 30 points, `1d` requires 20 bars, and `1w` requires 12 bars before the chart canvas renders price, volume, indicators, and strategy layers.
