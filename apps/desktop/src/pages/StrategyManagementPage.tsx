@@ -12,6 +12,7 @@ import {
 import type { Timeframe } from "@quant/shared";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
 import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
+import { useChartStudySettingsStore } from "../features/chartWorkspace/chartStudySettingsStore";
 import { useToastStore } from "../features/feedback/toastStore";
 import { marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
 import { readMarketBarCache } from "../features/marketData/marketBarCacheService";
@@ -24,6 +25,7 @@ import {
   FileCode2,
   FilePlus2,
   Layers3,
+  LineChart,
   ListChecks,
   Play,
   Power,
@@ -35,8 +37,7 @@ import {
   X,
 } from "lucide-react";
 
-type StrategyStatus = "enabled" | "disabled";
-type StrategyFilter = "all" | StrategyStatus;
+type StrategyFilter = "all" | "enabled" | "disabled";
 
 const presetRegistry = createPresetStrategyRegistry();
 const strategyPreviewSymbol = { symbol: "AAPL.US", displaySymbol: "AAPL", market: "US" as const };
@@ -49,13 +50,6 @@ basis = ta.sma(close, length)
 plot(basis)
 alertcondition(close > basis, "上穿均线")
 `;
-
-function createInitialStatus(strategies: StrategyDefinition[]) {
-  return strategies.reduce<Record<string, StrategyStatus>>((current, strategy, index) => {
-    current[strategy.key] = index === 0 ? "enabled" : "disabled";
-    return current;
-  }, {});
-}
 
 function formatTranslationStatus(status: string) {
   if (status === "ready") {
@@ -114,6 +108,14 @@ export function StrategyManagementPage() {
     strategies.forEach((strategy) => nextRegistry.register(strategy));
     return nextRegistry;
   }, [strategies]);
+  const studyStrategySettings = useChartStudySettingsStore((state) => state.strategies);
+  const studyIndicatorSettings = useChartStudySettingsStore((state) => state.indicators);
+  const initializeStudyStrategies = useChartStudySettingsStore((state) => state.initializeStrategies);
+  const updateStudyStrategy = useChartStudySettingsStore((state) => state.updateStrategy);
+  const updateStudyIndicators = useChartStudySettingsStore((state) => state.updateIndicators);
+  useEffect(() => {
+    initializeStudyStrategies(strategies);
+  }, [initializeStudyStrategies, strategies]);
   const [selectedKey, setSelectedKey] = useState(strategies[0]?.key ?? "");
   const [filter, setFilter] = useState<StrategyFilter>("all");
   const [keyword, setKeyword] = useState("");
@@ -128,9 +130,8 @@ export function StrategyManagementPage() {
   const deleteImportedDraft = useUserStrategyDraftStore((state) => state.deleteDraft);
   const setSelectedDraftId = useUserStrategyDraftStore((state) => state.setSelectedDraftId);
   const pushToast = useToastStore((state) => state.push);
-  const [strategyStatus, setStrategyStatus] = useState(() => createInitialStatus(strategies));
   const selectedStrategy = strategies.find((strategy) => strategy.key === selectedKey) ?? strategies[0];
-  const enabledCount = Object.values(strategyStatus).filter((status) => status === "enabled").length;
+  const enabledCount = strategies.filter((strategy) => studyStrategySettings[strategy.key]?.enabled).length;
   const userDraftReadyCount = importedDrafts.filter((draft) => draft.definition.translation.status === "ready").length;
   const userDraftReviewCount = importedDrafts.filter((draft) => draft.definition.translation.status === "manual-review").length;
   const strategyPreviewBars = useMemo(
@@ -154,16 +155,17 @@ export function StrategyManagementPage() {
           timeframe: strategyPreviewTimeframe,
           bars: strategyPreviewBars,
           runMode: "backtest",
-          enabled: strategyStatus[strategy.key] === "enabled",
+          enabled: studyStrategySettings[strategy.key]?.enabled ?? false,
+          parameters: studyStrategySettings[strategy.key]?.parameters,
         });
 
         return {
           strategy,
-          status: strategyStatus[strategy.key],
+          status: studyStrategySettings[strategy.key]?.enabled ? "enabled" : "disabled",
           result,
         };
       }),
-    [strategies, strategyPreviewBars, strategyRegistry, strategyStatus],
+    [strategies, strategyPreviewBars, strategyRegistry, studyStrategySettings],
   );
   const totalSignalCount = strategyRuns.reduce((total, item) => total + item.result.output.signals.length, 0);
   const totalLayerElementCount = strategyRuns.reduce((total, item) => total + item.result.output.render.elements.length, 0);
@@ -203,7 +205,7 @@ export function StrategyManagementPage() {
     };
   }, [selectedDraft, strategyPreviewBars]);
   const filteredStrategies = strategies.filter((strategy) => {
-    const status = strategyStatus[strategy.key];
+    const status = studyStrategySettings[strategy.key]?.enabled ? "enabled" : "disabled";
     const normalizedKeyword = keyword.trim().toLowerCase();
     const matchesFilter = filter === "all" || status === filter;
     const matchesKeyword =
@@ -222,23 +224,32 @@ export function StrategyManagementPage() {
         timeframe: strategyPreviewTimeframe,
         bars: strategyPreviewBars,
         runMode: "backtest",
-        enabled: strategyStatus[selectedStrategy.key] === "enabled",
+        enabled: studyStrategySettings[selectedStrategy.key]?.enabled ?? false,
+        parameters: studyStrategySettings[selectedStrategy.key]?.parameters,
       })
     : null;
 
   const toggleStrategy = (strategyKey: string) => {
-    const nextStatus = strategyStatus[strategyKey] === "enabled" ? "disabled" : "enabled";
+    const nextStatus = studyStrategySettings[strategyKey]?.enabled ? "disabled" : "enabled";
     const strategyName = strategies.find((strategy) => strategy.key === strategyKey)?.name ?? "策略";
-    setStrategyStatus((current) => ({
-      ...current,
-      [strategyKey]: nextStatus,
-    }));
+    updateStudyStrategy(strategyKey, (current) => ({ ...current, enabled: nextStatus === "enabled" }));
     pushToast({
       tone: nextStatus === "enabled" ? "success" : "info",
       title: `${strategyName}已${nextStatus === "enabled" ? "启用" : "停用"}`,
       detail: nextStatus === "enabled" ? "策略会在超级图表中生成图层。" : "策略图层已停止输出。",
       durationMs: 2800,
     });
+  };
+
+  const updateStrategyParameter = (parameter: StrategyParameterDefinition, value: string | boolean) => {
+    if (!selectedStrategy) return;
+    updateStudyStrategy(selectedStrategy.key, (current) => ({
+      ...current,
+      parameters: {
+        ...current.parameters,
+        [parameter.key]: coerceParameterValue(parameter, value),
+      },
+    }));
   };
 
   const handleCreateDraft = () => {
@@ -666,7 +677,7 @@ export function StrategyManagementPage() {
           <div className="strategy-list">
             {filteredStrategies.map((strategy) => {
               const isSelected = strategy.key === selectedStrategy.key;
-              const isEnabled = strategyStatus[strategy.key] === "enabled";
+              const isEnabled = studyStrategySettings[strategy.key]?.enabled ?? false;
 
               return (
                 <button className={isSelected ? "active" : ""} key={strategy.key} onClick={() => setSelectedKey(strategy.key)} type="button">
@@ -709,11 +720,11 @@ export function StrategyManagementPage() {
               <span>{selectedStrategy.description}</span>
             </div>
             <button
-              className={strategyStatus[selectedStrategy.key] === "enabled" ? "danger-action" : "primary-auth-action"}
+              className={studyStrategySettings[selectedStrategy.key]?.enabled ? "danger-action" : "primary-auth-action"}
               onClick={() => toggleStrategy(selectedStrategy.key)}
               type="button"
             >
-              {strategyStatus[selectedStrategy.key] === "enabled" ? "停用策略" : "启用策略"}
+              {studyStrategySettings[selectedStrategy.key]?.enabled ? "停用策略" : "启用策略"}
             </button>
           </div>
 
@@ -732,13 +743,100 @@ export function StrategyManagementPage() {
               <h3>参数配置</h3>
             </div>
             <div className="parameter-grid">
-              {selectedStrategy.parameterSchema.map((parameter) => (
-                <label key={parameter.key}>
-                  <span>{parameter.label}</span>
-                  <input readOnly value={String(parameter.defaultValue)} />
-                  <small>{parameter.description ?? `${parameter.type} / ${parameter.key}`}</small>
-                </label>
-              ))}
+              {selectedStrategy.parameterSchema.map((parameter) => {
+                const value = studyStrategySettings[selectedStrategy.key]?.parameters[parameter.key] ?? parameter.defaultValue;
+                return (
+                  <label key={parameter.key}>
+                    <span>{parameter.label}</span>
+                    {parameter.type === "boolean" ? (
+                      <input checked={Boolean(value)} onChange={(event) => updateStrategyParameter(parameter, event.currentTarget.checked)} type="checkbox" />
+                    ) : parameter.type === "select" ? (
+                      <select onChange={(event) => updateStrategyParameter(parameter, event.currentTarget.value)} value={String(value)}>
+                        {(parameter.options ?? []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    ) : (
+                      <input onChange={(event) => updateStrategyParameter(parameter, event.currentTarget.value)} type="number" value={String(value)} />
+                    )}
+                    <small>{parameter.description ?? `${parameter.type} / ${parameter.key}`}</small>
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="strategy-section">
+            <div className="section-title">
+              <LineChart size={18} />
+              <h3>图表指标</h3>
+            </div>
+            <div className="parameter-grid">
+              <label>
+                <span>均线</span>
+                <input
+                  checked={studyIndicatorSettings.movingAverage.enabled}
+                  onChange={(event) => updateStudyIndicators((current) => ({
+                    ...current,
+                    movingAverage: { ...current.movingAverage, enabled: event.currentTarget.checked },
+                  }))}
+                  type="checkbox"
+                />
+                <small>与超级图表同步</small>
+              </label>
+              <label>
+                <span>均线周期</span>
+                <input
+                  max="240"
+                  min="2"
+                  onChange={(event) => updateStudyIndicators((current) => ({
+                    ...current,
+                    movingAverage: { ...current.movingAverage, window: Number(event.currentTarget.value) || 9 },
+                  }))}
+                  type="number"
+                  value={studyIndicatorSettings.movingAverage.window}
+                />
+                <small>SMA 参数</small>
+              </label>
+              <label>
+                <span>布林带</span>
+                <input
+                  checked={studyIndicatorSettings.bollingerBands.enabled}
+                  onChange={(event) => updateStudyIndicators((current) => ({
+                    ...current,
+                    bollingerBands: { ...current.bollingerBands, enabled: event.currentTarget.checked },
+                  }))}
+                  type="checkbox"
+                />
+                <small>与超级图表同步</small>
+              </label>
+              <label>
+                <span>布林周期</span>
+                <input
+                  max="240"
+                  min="2"
+                  onChange={(event) => updateStudyIndicators((current) => ({
+                    ...current,
+                    bollingerBands: { ...current.bollingerBands, window: Number(event.currentTarget.value) || 20 },
+                  }))}
+                  type="number"
+                  value={studyIndicatorSettings.bollingerBands.window}
+                />
+                <small>布林带窗口</small>
+              </label>
+              <label>
+                <span>布林倍数</span>
+                <input
+                  max="6"
+                  min="0.1"
+                  onChange={(event) => updateStudyIndicators((current) => ({
+                    ...current,
+                    bollingerBands: { ...current.bollingerBands, multiplier: Number(event.currentTarget.value) || 2 },
+                  }))}
+                  step="0.1"
+                  type="number"
+                  value={studyIndicatorSettings.bollingerBands.multiplier}
+                />
+                <small>标准差系数</small>
+              </label>
             </div>
           </section>
 
@@ -782,8 +880,8 @@ export function StrategyManagementPage() {
           </div>
 
           <div className="runtime-status">
-            <strong>{strategyStatus[selectedStrategy.key] === "enabled" ? "已加入运行队列" : "未启用"}</strong>
-            <span>{strategyStatus[selectedStrategy.key] === "enabled" ? "策略会在超级图表中按 strategyId 输出图层。" : "启用后才会参与样例运行。"}</span>
+            <strong>{studyStrategySettings[selectedStrategy.key]?.enabled ? "已加入运行队列" : "未启用"}</strong>
+            <span>{studyStrategySettings[selectedStrategy.key]?.enabled ? "策略会在超级图表中按 strategyId 输出图层。" : "启用后才会参与样例运行。"}</span>
           </div>
 
           {runResult && (

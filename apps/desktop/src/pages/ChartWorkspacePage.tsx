@@ -64,6 +64,7 @@ import {
 } from "../features/marketData/chartMarketDataGateway";
 import { readMarketDataProviderSettings } from "../features/marketData/marketDataProviderSettings";
 import { createChartIndicatorLayers, createPluginIndicatorLayers, defaultChartIndicatorSettings, type ChartIndicatorSettings } from "../features/chartIndicators/chartIndicators";
+import { useChartStudySettingsStore } from "../features/chartWorkspace/chartStudySettingsStore";
 import { drawingsToLayer, readChartDrawings, writeChartDrawings, type ChartDrawing } from "../features/chartDrawings/chartDrawingStore";
 import {
   summarizeMarketDataProviderHealth,
@@ -707,6 +708,11 @@ export function ChartWorkspacePage() {
   const pluginStrategies = usePluginRuntimeStore((state) => state.strategies);
   const pluginIndicators = usePluginRuntimeStore((state) => state.indicators);
   const refreshPluginRuntime = usePluginRuntimeStore((state) => state.refresh);
+  const strategySettings = useChartStudySettingsStore((state) => state.strategies);
+  const indicatorSettings = useChartStudySettingsStore((state) => state.indicators);
+  const initializeStudyStrategies = useChartStudySettingsStore((state) => state.initializeStrategies);
+  const updateStudyStrategy = useChartStudySettingsStore((state) => state.updateStrategy);
+  const updateIndicatorSettings = useChartStudySettingsStore((state) => state.updateIndicators);
   useEffect(() => {
     void refreshPluginRuntime();
   }, [refreshPluginRuntime]);
@@ -727,6 +733,9 @@ export function ChartWorkspacePage() {
     chartStrategies.forEach((strategy) => registry.register(strategy));
     return registry;
   }, [chartStrategies]);
+  useEffect(() => {
+    initializeStudyStrategies(chartStrategies);
+  }, [chartStrategies, initializeStudyStrategies]);
   const [watchlist, setWatchlist] = useState<ChartWatchlistItem[]>(readChartWatchlist);
   const [activeSymbol, setActiveSymbol] = useState<ChartWatchlistItem>(() => readChartWatchlist()[0] ?? symbols[0]);
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
@@ -747,7 +756,6 @@ export function ChartWorkspacePage() {
   const quoteSnapshotsByKeyRef = useRef<Record<string, MarketQuoteSnapshot>>({});
   const [showSignals, setShowSignals] = useState(workspacePreferences.showSignals);
   const [showStrategyLayers, setShowStrategyLayers] = useState(workspacePreferences.showStrategyLayers);
-  const [indicatorSettings, setIndicatorSettings] = useState<ChartIndicatorSettings>(workspacePreferences.indicators);
   const [isIndicatorSettingsOpen, setIsIndicatorSettingsOpen] = useState(false);
   const [showCrosshair, setShowCrosshair] = useState(workspacePreferences.showCrosshair);
   const [showGrid, setShowGrid] = useState(workspacePreferences.showGrid);
@@ -756,7 +764,6 @@ export function ChartWorkspacePage() {
   const [showCurrentPriceLine, setShowCurrentPriceLine] = useState(workspacePreferences.showCurrentPriceLine);
   const [intradayDisplayMode, setIntradayDisplayMode] = useState<ChartDisplayMode>(workspacePreferences.intradayDisplayMode);
   const [realtimePollIntervalMs, setRealtimePollIntervalMs] = useState(workspacePreferences.realtimePollIntervalMs);
-  const [strategySettings, setStrategySettings] = useState(workspacePreferences.strategies);
   const [activeConfigStrategyKey, setActiveConfigStrategyKey] = useState<string | null>(null);
   const [isWatchlistCollapsed, setIsWatchlistCollapsed] = useState(false);
   const [isInstrumentSearchOpen, setIsInstrumentSearchOpen] = useState(false);
@@ -852,19 +859,7 @@ export function ChartWorkspacePage() {
   const strategyLogItems = buildChartStrategyLogItems(strategyRuns, { symbol: activeSymbol.symbol, timeframe });
   const signalRows = buildChartStrategySignalRows(strategyRuns);
   const updateStrategyState = (strategyKey: string, updater: (state: StrategyWorkspaceState) => StrategyWorkspaceState) => {
-    setStrategySettings((current) => {
-      const strategyIndex = chartStrategies.findIndex((strategy) => strategy.key === strategyKey);
-      const strategy = chartStrategies[strategyIndex];
-
-      if (!strategy) {
-        return current;
-      }
-
-      return {
-        ...current,
-        [strategyKey]: updater(current[strategyKey] ?? getDefaultStrategyState(strategy, strategyIndex)),
-      };
-    });
+    updateStudyStrategy(strategyKey, updater);
   };
   const updateStrategyParameter = (strategy: StrategyDefinition, parameter: StrategyParameterDefinition, value: unknown) => {
     updateStrategyState(strategy.key, (state) => ({
@@ -1696,7 +1691,7 @@ export function ChartWorkspacePage() {
         </div>
 
         <div className="chart-toggle-group">
-          <button className={indicatorSettings.movingAverage.enabled ? "active" : ""} onClick={() => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, enabled: !current.movingAverage.enabled } }))} type="button">
+          <button className={indicatorSettings.movingAverage.enabled ? "active" : ""} onClick={() => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, enabled: !current.movingAverage.enabled } }))} type="button">
             <LineChart size={16} />
             <span>均线</span>
           </button>
@@ -1815,13 +1810,13 @@ export function ChartWorkspacePage() {
           {isIndicatorSettingsOpen && (
             <section className="chart-settings-popover indicator-settings-popover" aria-label="指标管理">
               <div className="chart-settings-heading"><strong>指标管理</strong><button onClick={() => setIsIndicatorSettingsOpen(false)} type="button">关闭</button></div>
-              <label className="parameter-toggle"><span><strong>均线</strong><small>显示趋势均线</small></span><input checked={indicatorSettings.movingAverage.enabled} onChange={(event) => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, enabled: event.currentTarget.checked } }))} type="checkbox" /></label>
-              <div className="indicator-lifecycle-actions"><button onClick={() => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, visible: !current.movingAverage.visible } }))} type="button">{indicatorSettings.movingAverage.visible ? "隐藏" : "显示"}</button><button onClick={() => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, available: false, enabled: false } }))} type="button">移除</button>{!indicatorSettings.movingAverage.available && <button onClick={() => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, available: true, enabled: true, visible: true } }))} type="button">添加均线</button>}</div>
-              <label><span>均线周期</span><input min="2" max="240" onChange={(event) => setIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, window: Number(event.currentTarget.value) || 9 } }))} type="number" value={indicatorSettings.movingAverage.window} /></label>
-              <label className="parameter-toggle"><span><strong>布林带</strong><small>显示波动区间</small></span><input checked={indicatorSettings.bollingerBands.enabled} onChange={(event) => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, enabled: event.currentTarget.checked } }))} type="checkbox" /></label>
-              <div className="indicator-lifecycle-actions"><button onClick={() => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, visible: !current.bollingerBands.visible } }))} type="button">{indicatorSettings.bollingerBands.visible ? "隐藏" : "显示"}</button><button onClick={() => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, available: false, enabled: false } }))} type="button">移除</button>{!indicatorSettings.bollingerBands.available && <button onClick={() => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, available: true, enabled: true, visible: true } }))} type="button">添加布林带</button>}</div>
-              <label><span>布林周期</span><input min="2" max="240" onChange={(event) => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, window: Number(event.currentTarget.value) || 20 } }))} type="number" value={indicatorSettings.bollingerBands.window} /></label>
-              <label><span>标准差倍数</span><input min="0.1" max="6" step="0.1" onChange={(event) => setIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, multiplier: Number(event.currentTarget.value) || 2 } }))} type="number" value={indicatorSettings.bollingerBands.multiplier} /></label>
+              <label className="parameter-toggle"><span><strong>均线</strong><small>显示趋势均线</small></span><input checked={indicatorSettings.movingAverage.enabled} onChange={(event) => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, enabled: event.currentTarget.checked } }))} type="checkbox" /></label>
+              <div className="indicator-lifecycle-actions"><button onClick={() => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, visible: !current.movingAverage.visible } }))} type="button">{indicatorSettings.movingAverage.visible ? "隐藏" : "显示"}</button><button onClick={() => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, available: false, enabled: false } }))} type="button">移除</button>{!indicatorSettings.movingAverage.available && <button onClick={() => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, available: true, enabled: true, visible: true } }))} type="button">添加均线</button>}</div>
+              <label><span>均线周期</span><input min="2" max="240" onChange={(event) => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, window: Number(event.currentTarget.value) || 9 } }))} type="number" value={indicatorSettings.movingAverage.window} /></label>
+              <label className="parameter-toggle"><span><strong>布林带</strong><small>显示波动区间</small></span><input checked={indicatorSettings.bollingerBands.enabled} onChange={(event) => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, enabled: event.currentTarget.checked } }))} type="checkbox" /></label>
+              <div className="indicator-lifecycle-actions"><button onClick={() => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, visible: !current.bollingerBands.visible } }))} type="button">{indicatorSettings.bollingerBands.visible ? "隐藏" : "显示"}</button><button onClick={() => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, available: false, enabled: false } }))} type="button">移除</button>{!indicatorSettings.bollingerBands.available && <button onClick={() => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, available: true, enabled: true, visible: true } }))} type="button">添加布林带</button>}</div>
+              <label><span>布林周期</span><input min="2" max="240" onChange={(event) => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, window: Number(event.currentTarget.value) || 20 } }))} type="number" value={indicatorSettings.bollingerBands.window} /></label>
+              <label><span>标准差倍数</span><input min="0.1" max="6" step="0.1" onChange={(event) => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, multiplier: Number(event.currentTarget.value) || 2 } }))} type="number" value={indicatorSettings.bollingerBands.multiplier} /></label>
             </section>
           )}
           {isChartSettingsOpen && (
