@@ -795,6 +795,8 @@ export function ChartWorkspacePage() {
   const [drawings, setDrawings] = useState<ChartDrawing[]>(() => readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }));
   const [drawingCommandState, setDrawingCommandState] = useState(() => createChartDrawingCommandState(readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe })));
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
+  const [activeDrawingTool, setActiveDrawingTool] = useState<ChartDrawing["type"] | null>(null);
+  const [pendingTrendPoint, setPendingTrendPoint] = useState<{ timestamp: number; price: number } | null>(null);
   const activeContextMarketBars = useMemo(
     () =>
       filterMarketBarsForChartContext(cachedMarketBars, {
@@ -1651,6 +1653,28 @@ export function ChartWorkspacePage() {
     executeDrawingCommand({ type: "add", drawing });
     setSelectedDrawingId(id);
   };
+  const placeDrawingPoint = (point: { timestamp: number; price: number }) => {
+    if (!activeDrawingTool) return;
+    const createdAt = new Date().toISOString();
+    if (activeDrawingTool === "trend-line") {
+      if (!pendingTrendPoint) {
+        setPendingTrendPoint(point);
+        return;
+      }
+      const drawing: ChartDrawing = { id: `drawing-${Date.now()}`, type: "trend-line", visible: true, createdAt, points: [pendingTrendPoint, point] };
+      executeDrawingCommand({ type: "add", drawing });
+      setSelectedDrawingId(drawing.id);
+      setPendingTrendPoint(null);
+      setActiveDrawingTool(null);
+      return;
+    }
+    const drawing: ChartDrawing = activeDrawingTool === "horizontal-line"
+      ? { id: `drawing-${Date.now()}`, type: "horizontal-line", visible: true, createdAt, price: point.price, label: "参考线" }
+      : { id: `drawing-${Date.now()}`, type: "text", visible: true, createdAt, timestamp: point.timestamp, price: point.price, text: "标注" };
+    executeDrawingCommand({ type: "add", drawing });
+    setSelectedDrawingId(drawing.id);
+    setActiveDrawingTool(null);
+  };
 
   const toggleDrawingVisibility = (drawingId: string) => {
     const drawing = drawings.find((item) => item.id === drawingId);
@@ -1797,13 +1821,14 @@ export function ChartWorkspacePage() {
           <button type="button" title="十字光标">
             <Crosshair size={18} />
           </button>
-          <button onClick={() => createDrawing("trend-line")} type="button" title="添加趋势线">
+          <button className={activeDrawingTool === "trend-line" ? "active" : ""} onClick={() => { setActiveDrawingTool("trend-line"); setPendingTrendPoint(null); }} type="button" title="绘制趋势线">
             <PencilLine size={18} />
           </button>
-          <button onClick={() => createDrawing("horizontal-line")} type="button" title="添加水平线">
+          <button className={activeDrawingTool === "horizontal-line" ? "active" : ""} onClick={() => { setActiveDrawingTool("horizontal-line"); setPendingTrendPoint(null); }} type="button" title="绘制水平线">
             <Ruler size={18} />
           </button>
-          <button onClick={() => createDrawing("text")} type="button" title="添加文字标注"><Type size={18} /></button>
+          <button className={activeDrawingTool === "text" ? "active" : ""} onClick={() => { setActiveDrawingTool("text"); setPendingTrendPoint(null); }} type="button" title="添加文字标注"><Type size={18} /></button>
+          <button disabled={!activeDrawingTool} onClick={() => { setActiveDrawingTool(null); setPendingTrendPoint(null); }} type="button" title="取消当前绘图工具"><X size={18} /></button>
           <button onClick={() => setChartFocusLatestKey((value) => value + 1)} type="button" title="回到最新数据"><RotateCcw size={18} /></button>
           <button className={isPriceScaleLocked ? "active" : ""} onClick={() => setIsPriceScaleLocked((value) => !value)} type="button" title={isPriceScaleLocked ? "解锁价格比例" : "锁定价格比例"}><Ruler size={18} /></button>
           <button disabled={drawingCommandState.undoStack.length === 0} onClick={undoDrawingCommand} type="button" title="撤销绘图"><Undo2 size={18} /></button>
@@ -1845,6 +1870,8 @@ export function ChartWorkspacePage() {
             resetViewKey={chartResetViewKey}
             focusLatestKey={chartFocusLatestKey}
             lockPriceScale={isPriceScaleLocked}
+            drawingTool={activeDrawingTool}
+            onDrawingPoint={placeDrawingPoint}
             strategyLayers={orderedStrategyLayers}
             layers={orderedExtraLayers}
             loadingState={chartViewportLoadingState}

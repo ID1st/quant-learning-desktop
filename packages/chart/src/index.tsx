@@ -131,6 +131,8 @@ export interface ChartViewportProps {
   resetViewKey?: number;
   focusLatestKey?: number;
   lockPriceScale?: boolean;
+  drawingTool?: "trend-line" | "horizontal-line" | "text" | null;
+  onDrawingPoint?: (point: { readonly timestamp: number; readonly price: number }) => void;
   loadingState?: {
     readonly stage: string;
     readonly message: string;
@@ -281,6 +283,8 @@ export function ChartViewport({
   resetViewKey = 0,
   focusLatestKey = 0,
   lockPriceScale = false,
+  drawingTool = null,
+  onDrawingPoint,
   loadingState,
 }: ChartViewportProps) {
   const generatedCandles = useMemo(() => generateCandles(context), [context.symbol, context.market, context.timeframe]);
@@ -484,6 +488,14 @@ export function ChartViewport({
     const rect = event.currentTarget.getBoundingClientRect();
     const ratio = width / rect.width;
     const x = (event.clientX - rect.left) * ratio;
+
+    if (drawingTool && x < plotRight && onDrawingPoint) {
+      const index = Math.min(candles.length - 1, Math.max(safeVisibleRange.start, safeVisibleRange.start + Math.round((x - paddingX - candleGap / 2) / candleGap)));
+      const candle = candles[index];
+      const y = (event.clientY - rect.top) * (height / rect.height);
+      onDrawingPoint({ timestamp: candle?.timestamp ?? 0, price: maxPrice - ((y - chartTop) / priceHeight) * priceRange });
+      return;
+    }
 
     event.currentTarget.setPointerCapture(event.pointerId);
     if (x >= plotRight && !lockPriceScale) {
