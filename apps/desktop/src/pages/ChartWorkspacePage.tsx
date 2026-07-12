@@ -2239,6 +2239,14 @@ export function ChartWorkspacePage() {
                 </button>
               </div>
               <div className="bottom-layer-list">
+                <div className="layer-item active">
+                  <span><strong>K 线 / 价格<em className="strategy-source-badge system">基础图层</em></strong><small>主图价格序列</small></span>
+                  <div className="layer-actions"><button className="active" disabled type="button">显示</button></div>
+                </div>
+                <div className={showVolume ? "layer-item active" : "layer-item"}>
+                  <span><strong>成交量<em className="strategy-source-badge system">基础图层</em></strong><small>{showVolume ? "已显示" : "已隐藏"}</small></span>
+                  <div className="layer-actions"><button aria-pressed={showVolume} className={showVolume ? "active" : ""} onClick={() => setShowVolume((value) => !value)} type="button">{showVolume ? "隐藏" : "显示"}</button></div>
+                </div>
                 {strategyRuns.map(({ strategy, settings, result }) => {
                   const layerStatus = getStrategyLayerStatus(strategy, settings, result, timeframe, strategyInputBars.length);
                   const isLayerVisible = settings.enabled && canShowStrategyLayers && settings.showLayer && layerStatus.className === "active";
