@@ -10,8 +10,9 @@ export interface ChartLoadState {
 
 export function getMinimumRenderableBarCount(timeframe: Timeframe) {
   if (timeframe === "realtime" || timeframe === "1m") return 30;
-  if (timeframe === "1w") return 12;
-  return 20;
+  // Historical providers can legitimately return a short, valid series for newly listed or newly added symbols.
+  // Keep the sparse-data guard for intraday lines, but never leave daily/weekly charts loading after two valid bars.
+  return 2;
 }
 
 export function hasRenderableChartData(timeframe: Timeframe, barCount: number) {

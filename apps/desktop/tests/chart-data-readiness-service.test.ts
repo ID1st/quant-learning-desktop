@@ -7,12 +7,14 @@ import {
   hasRenderableChartData,
 } from "../src/features/marketData/chartDataReadinessService.ts";
 
-test("chart readiness withholds sparse bars from the chart canvas", () => {
+test("chart readiness keeps intraday protection without hiding valid short historical series", () => {
   assert.equal(getMinimumRenderableBarCount("realtime"), 30);
-  assert.equal(getMinimumRenderableBarCount("1d"), 20);
-  assert.equal(getMinimumRenderableBarCount("1w"), 12);
+  assert.equal(getMinimumRenderableBarCount("1d"), 2);
+  assert.equal(getMinimumRenderableBarCount("1w"), 2);
   assert.equal(hasRenderableChartData("1d", 1), false);
-  assert.equal(hasRenderableChartData("1d", 20), true);
+  assert.equal(hasRenderableChartData("1d", 2), true);
+  assert.equal(hasRenderableChartData("1w", 19), true);
+  assert.equal(hasRenderableChartData("realtime", 19), false);
 });
 
 test("chart readiness creates a Chinese loading message for the current stage", () => {
