@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createMemoryStorageDriver, LocalDatabase } from "../src/features/persistence/localDatabase.ts";
+import { builtInChartIndicatorDefinitions, getIndicatorInstance, updateIndicatorInstance } from "../src/features/chartIndicators/chartIndicators.ts";
 import {
   createChartStudySettingsStore,
   type ChartStudyStrategyDefinition,
@@ -43,9 +44,9 @@ test("chart study settings migrate legacy workspace strategy and indicator prefe
     showLayer: false,
     parameters: { openingRangeMinutes: 45, showTargets: false },
   });
-  assert.equal(store.getState().indicators.movingAverage.window, 21);
-  assert.equal(store.getState().indicators.bollingerBands.enabled, true);
-  assert.equal(store.getState().indicators.bollingerBands.visible, false);
+  assert.equal(getIndicatorInstance(store.getState().indicators, "sma", builtInChartIndicatorDefinitions[0]).parameters.window, 21);
+  assert.equal(getIndicatorInstance(store.getState().indicators, "boll", builtInChartIndicatorDefinitions[2]).enabled, true);
+  assert.equal(getIndicatorInstance(store.getState().indicators, "boll", builtInChartIndicatorDefinitions[2]).visible, false);
 });
 
 test("chart study settings persist strategy and indicator updates for both workspaces", () => {
@@ -59,16 +60,17 @@ test("chart study settings persist strategy and indicator updates for both works
     enabled: false,
     parameters: { ...current.parameters, openingRangeMinutes: 20 },
   }));
-  store.getState().updateIndicators((current) => ({
-    ...current,
-    movingAverage: { ...current.movingAverage, enabled: false, window: 50 },
-  }));
+  store.getState().updateIndicators((current) => updateIndicatorInstance(current, "sma", (item) => ({
+    ...item,
+    enabled: false,
+    parameters: { ...item.parameters, window: 50 },
+  }), builtInChartIndicatorDefinitions[0]));
 
   const reloaded = createChartStudySettingsStore({ database, legacyStorage: driver });
   reloaded.getState().initializeStrategies(strategies);
 
   assert.equal(reloaded.getState().strategies.utorb?.enabled, false);
   assert.equal(reloaded.getState().strategies.utorb?.parameters.openingRangeMinutes, 20);
-  assert.equal(reloaded.getState().indicators.movingAverage.enabled, false);
-  assert.equal(reloaded.getState().indicators.movingAverage.window, 50);
+  assert.equal(getIndicatorInstance(reloaded.getState().indicators, "sma", builtInChartIndicatorDefinitions[0]).enabled, false);
+  assert.equal(getIndicatorInstance(reloaded.getState().indicators, "sma", builtInChartIndicatorDefinitions[0]).parameters.window, 50);
 });

@@ -1,10 +1,10 @@
 import { create } from "zustand";
-import { defaultChartIndicatorSettings, type ChartIndicatorSettings } from "../chartIndicators/chartIndicators.ts";
+import { defaultChartIndicatorSettings, sanitizeChartIndicatorSettings, type ChartIndicatorSettings } from "../chartIndicators/chartIndicators.ts";
 import { appLocalDatabase, type LocalDatabase, type LocalDatabaseDriver } from "../persistence/localDatabase.ts";
 import type { ChartStrategyWorkspaceState } from "../strategies/chartStrategyRuntime.ts";
 
 const collection = "chart-study-settings";
-const storageVersion = 1;
+const storageVersion = 2;
 const legacyWorkspacePreferencesKey = "quant-learning.chart-workspace-preferences";
 
 export interface ChartStudyStrategyDefinition {
@@ -179,26 +179,7 @@ function isSameStrategyState(left: ChartStrategyWorkspaceState, right: ChartStra
 }
 
 function sanitizeIndicators(value: unknown): ChartIndicatorSettings {
-  const parsed = value && typeof value === "object" ? value as Partial<ChartIndicatorSettings> : {};
-  return {
-    movingAverage: {
-      available: typeof parsed.movingAverage?.available === "boolean" ? parsed.movingAverage.available : true,
-      enabled: typeof parsed.movingAverage?.enabled === "boolean" ? parsed.movingAverage.enabled : defaultChartIndicatorSettings.movingAverage.enabled,
-      visible: typeof parsed.movingAverage?.visible === "boolean" ? parsed.movingAverage.visible : true,
-      window: clampNumber(parsed.movingAverage?.window, 2, 240, defaultChartIndicatorSettings.movingAverage.window),
-    },
-    bollingerBands: {
-      available: typeof parsed.bollingerBands?.available === "boolean" ? parsed.bollingerBands.available : true,
-      enabled: typeof parsed.bollingerBands?.enabled === "boolean" ? parsed.bollingerBands.enabled : defaultChartIndicatorSettings.bollingerBands.enabled,
-      visible: typeof parsed.bollingerBands?.visible === "boolean" ? parsed.bollingerBands.visible : true,
-      window: clampNumber(parsed.bollingerBands?.window, 2, 240, defaultChartIndicatorSettings.bollingerBands.window),
-      multiplier: clampNumber(parsed.bollingerBands?.multiplier, 0.1, 6, defaultChartIndicatorSettings.bollingerBands.multiplier),
-    },
-  };
-}
-
-function clampNumber(value: unknown, minimum: number, maximum: number, fallback: number) {
-  return typeof value === "number" && Number.isFinite(value) ? Math.min(maximum, Math.max(minimum, value)) : fallback;
+  return sanitizeChartIndicatorSettings(value);
 }
 
 export const useChartStudySettingsStore = createChartStudySettingsStore();

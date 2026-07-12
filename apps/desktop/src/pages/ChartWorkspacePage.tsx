@@ -63,7 +63,16 @@ import {
   type ChartQuoteSnapshotBatchResult,
 } from "../features/marketData/chartMarketDataGateway";
 import { readMarketDataProviderSettings } from "../features/marketData/marketDataProviderSettings";
-import { createChartIndicatorLayers, createPluginIndicatorLayers, defaultChartIndicatorSettings, type ChartIndicatorSettings } from "../features/chartIndicators/chartIndicators";
+import {
+  builtInChartIndicatorDefinitions,
+  createChartIndicatorLayers,
+  createPluginIndicatorLayers,
+  defaultChartIndicatorSettings,
+  getIndicatorInstance,
+  sanitizeChartIndicatorSettings,
+  updateIndicatorInstance,
+  type ChartIndicatorSettings,
+} from "../features/chartIndicators/chartIndicators";
 import { useChartStudySettingsStore } from "../features/chartWorkspace/chartStudySettingsStore";
 import { drawingsToLayer, readChartDrawings, writeChartDrawings, type ChartDrawing } from "../features/chartDrawings/chartDrawingStore";
 import {
@@ -346,21 +355,9 @@ function readWorkspacePreferences(): ChartWorkspacePreferences {
         settings[strategy.key] = normalizeStrategyState(strategy, index, parsed.strategies?.[strategy.key]);
         return settings;
       }, {}),
-      indicators: {
-        movingAverage: {
-          available: typeof parsed.indicators?.movingAverage?.available === "boolean" ? parsed.indicators.movingAverage.available : true,
-          enabled: typeof parsed.indicators?.movingAverage?.enabled === "boolean" ? parsed.indicators.movingAverage.enabled : parsed.showMovingAverage !== false,
-          visible: typeof parsed.indicators?.movingAverage?.visible === "boolean" ? parsed.indicators.movingAverage.visible : true,
-          window: Number.isFinite(parsed.indicators?.movingAverage?.window) ? Math.max(2, Math.min(240, parsed.indicators.movingAverage.window)) : 9,
-        },
-        bollingerBands: {
-          available: typeof parsed.indicators?.bollingerBands?.available === "boolean" ? parsed.indicators.bollingerBands.available : true,
-          enabled: typeof parsed.indicators?.bollingerBands?.enabled === "boolean" ? parsed.indicators.bollingerBands.enabled : false,
-          visible: typeof parsed.indicators?.bollingerBands?.visible === "boolean" ? parsed.indicators.bollingerBands.visible : true,
-          window: Number.isFinite(parsed.indicators?.bollingerBands?.window) ? Math.max(2, Math.min(240, parsed.indicators.bollingerBands.window)) : 20,
-          multiplier: Number.isFinite(parsed.indicators?.bollingerBands?.multiplier) ? Math.max(0.1, Math.min(6, parsed.indicators.bollingerBands.multiplier)) : 2,
-        },
-      },
+      indicators: parsed.showMovingAverage === false
+        ? updateIndicatorInstance(sanitizeChartIndicatorSettings(parsed.indicators), "sma", (current) => ({ ...current, enabled: false }), builtInChartIndicatorDefinitions[0])
+        : sanitizeChartIndicatorSettings(parsed.indicators),
     };
   } catch {
     return defaultPreferences;
@@ -713,6 +710,9 @@ export function ChartWorkspacePage() {
   const initializeStudyStrategies = useChartStudySettingsStore((state) => state.initializeStrategies);
   const updateStudyStrategy = useChartStudySettingsStore((state) => state.updateStrategy);
   const updateIndicatorSettings = useChartStudySettingsStore((state) => state.updateIndicators);
+  const smaIndicator = getIndicatorInstance(indicatorSettings, "sma", builtInChartIndicatorDefinitions[0]);
+  const emaIndicator = getIndicatorInstance(indicatorSettings, "ema", builtInChartIndicatorDefinitions[1]);
+  const bollIndicator = getIndicatorInstance(indicatorSettings, "boll", builtInChartIndicatorDefinitions[2]);
   useEffect(() => {
     void refreshPluginRuntime();
   }, [refreshPluginRuntime]);
@@ -816,7 +816,7 @@ export function ChartWorkspacePage() {
   );
   const cachedCandles = useMemo(() => marketBarsToCandles(chartRenderBars), [chartRenderBars]);
   const indicatorLayers = useMemo(
-    () => [...createChartIndicatorLayers(cachedCandles, indicatorSettings), ...createPluginIndicatorLayers(cachedCandles, pluginIndicators)],
+    () => [...createChartIndicatorLayers(cachedCandles, indicatorSettings), ...createPluginIndicatorLayers(cachedCandles, pluginIndicators, indicatorSettings)],
     [cachedCandles, indicatorSettings, pluginIndicators],
   );
   const drawingLayer = useMemo(() => drawingsToLayer(drawings), [drawings]);
@@ -1514,7 +1514,7 @@ export function ChartWorkspacePage() {
       version: 5,
       showSignals,
       showStrategyLayers,
-      showMovingAverage: indicatorSettings.movingAverage.enabled,
+      showMovingAverage: smaIndicator.enabled,
       showCrosshair,
       showGrid,
       showVolume,
@@ -1691,7 +1691,7 @@ export function ChartWorkspacePage() {
         </div>
 
         <div className="chart-toggle-group">
-          <button className={indicatorSettings.movingAverage.enabled ? "active" : ""} onClick={() => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, enabled: !current.movingAverage.enabled } }))} type="button">
+          <button className={smaIndicator.enabled ? "active" : ""} onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, enabled: !item.enabled }), builtInChartIndicatorDefinitions[0]))} type="button">
             <LineChart size={16} />
             <span>均线</span>
           </button>
@@ -1810,13 +1810,16 @@ export function ChartWorkspacePage() {
           {isIndicatorSettingsOpen && (
             <section className="chart-settings-popover indicator-settings-popover" aria-label="指标管理">
               <div className="chart-settings-heading"><strong>指标管理</strong><button onClick={() => setIsIndicatorSettingsOpen(false)} type="button">关闭</button></div>
-              <label className="parameter-toggle"><span><strong>均线</strong><small>显示趋势均线</small></span><input checked={indicatorSettings.movingAverage.enabled} onChange={(event) => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, enabled: event.currentTarget.checked } }))} type="checkbox" /></label>
-              <div className="indicator-lifecycle-actions"><button onClick={() => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, visible: !current.movingAverage.visible } }))} type="button">{indicatorSettings.movingAverage.visible ? "隐藏" : "显示"}</button><button onClick={() => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, available: false, enabled: false } }))} type="button">移除</button>{!indicatorSettings.movingAverage.available && <button onClick={() => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, available: true, enabled: true, visible: true } }))} type="button">添加均线</button>}</div>
-              <label><span>均线周期</span><input min="2" max="240" onChange={(event) => updateIndicatorSettings((current) => ({ ...current, movingAverage: { ...current.movingAverage, window: Number(event.currentTarget.value) || 9 } }))} type="number" value={indicatorSettings.movingAverage.window} /></label>
-              <label className="parameter-toggle"><span><strong>布林带</strong><small>显示波动区间</small></span><input checked={indicatorSettings.bollingerBands.enabled} onChange={(event) => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, enabled: event.currentTarget.checked } }))} type="checkbox" /></label>
-              <div className="indicator-lifecycle-actions"><button onClick={() => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, visible: !current.bollingerBands.visible } }))} type="button">{indicatorSettings.bollingerBands.visible ? "隐藏" : "显示"}</button><button onClick={() => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, available: false, enabled: false } }))} type="button">移除</button>{!indicatorSettings.bollingerBands.available && <button onClick={() => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, available: true, enabled: true, visible: true } }))} type="button">添加布林带</button>}</div>
-              <label><span>布林周期</span><input min="2" max="240" onChange={(event) => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, window: Number(event.currentTarget.value) || 20 } }))} type="number" value={indicatorSettings.bollingerBands.window} /></label>
-              <label><span>标准差倍数</span><input min="0.1" max="6" step="0.1" onChange={(event) => updateIndicatorSettings((current) => ({ ...current, bollingerBands: { ...current.bollingerBands, multiplier: Number(event.currentTarget.value) || 2 } }))} type="number" value={indicatorSettings.bollingerBands.multiplier} /></label>
+              <label className="parameter-toggle"><span><strong>均线</strong><small>显示趋势均线</small></span><input checked={smaIndicator.enabled} onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, enabled: event.currentTarget.checked }), builtInChartIndicatorDefinitions[0]))} type="checkbox" /></label>
+              <div className="indicator-lifecycle-actions"><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, visible: !item.visible }), builtInChartIndicatorDefinitions[0]))} type="button">{smaIndicator.visible ? "隐藏" : "显示"}</button><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, available: false, enabled: false }), builtInChartIndicatorDefinitions[0]))} type="button">移除</button>{!smaIndicator.available && <button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, available: true, enabled: true, visible: true }), builtInChartIndicatorDefinitions[0]))} type="button">添加均线</button>}</div>
+              <label><span>均线周期</span><input min="2" max="240" onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, parameters: { ...item.parameters, window: Number(event.currentTarget.value) || 9 } }), builtInChartIndicatorDefinitions[0]))} type="number" value={Number(smaIndicator.parameters.window)} /></label>
+              <label className="parameter-toggle"><span><strong>指数均线</strong><small>显示 EMA 趋势线</small></span><input checked={emaIndicator.enabled} onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "ema", (item) => ({ ...item, enabled: event.currentTarget.checked }), builtInChartIndicatorDefinitions[1]))} type="checkbox" /></label>
+              <div className="indicator-lifecycle-actions"><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "ema", (item) => ({ ...item, visible: !item.visible }), builtInChartIndicatorDefinitions[1]))} type="button">{emaIndicator.visible ? "隐藏" : "显示"}</button><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "ema", (item) => ({ ...item, available: false, enabled: false }), builtInChartIndicatorDefinitions[1]))} type="button">移除</button>{!emaIndicator.available && <button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "ema", (item) => ({ ...item, available: true, enabled: true, visible: true }), builtInChartIndicatorDefinitions[1]))} type="button">添加 EMA</button>}</div>
+              <label><span>EMA 周期</span><input min="2" max="240" onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "ema", (item) => ({ ...item, parameters: { ...item.parameters, window: Number(event.currentTarget.value) || 20 } }), builtInChartIndicatorDefinitions[1]))} type="number" value={Number(emaIndicator.parameters.window)} /></label>
+              <label className="parameter-toggle"><span><strong>布林带</strong><small>显示波动区间</small></span><input checked={bollIndicator.enabled} onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, enabled: event.currentTarget.checked }), builtInChartIndicatorDefinitions[2]))} type="checkbox" /></label>
+              <div className="indicator-lifecycle-actions"><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, visible: !item.visible }), builtInChartIndicatorDefinitions[2]))} type="button">{bollIndicator.visible ? "隐藏" : "显示"}</button><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, available: false, enabled: false }), builtInChartIndicatorDefinitions[2]))} type="button">移除</button>{!bollIndicator.available && <button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, available: true, enabled: true, visible: true }), builtInChartIndicatorDefinitions[2]))} type="button">添加布林带</button>}</div>
+              <label><span>布林周期</span><input min="2" max="240" onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, parameters: { ...item.parameters, window: Number(event.currentTarget.value) || 20 } }), builtInChartIndicatorDefinitions[2]))} type="number" value={Number(bollIndicator.parameters.window)} /></label>
+              <label><span>标准差倍数</span><input min="0.1" max="6" step="0.1" onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, parameters: { ...item.parameters, multiplier: Number(event.currentTarget.value) || 2 } }), builtInChartIndicatorDefinitions[2]))} type="number" value={Number(bollIndicator.parameters.multiplier)} /></label>
             </section>
           )}
           {isChartSettingsOpen && (

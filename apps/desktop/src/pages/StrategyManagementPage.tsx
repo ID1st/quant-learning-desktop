@@ -13,6 +13,7 @@ import type { Timeframe } from "@quant/shared";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
 import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 import { useChartStudySettingsStore } from "../features/chartWorkspace/chartStudySettingsStore";
+import { builtInChartIndicatorDefinitions, getIndicatorInstance, updateIndicatorInstance } from "../features/chartIndicators/chartIndicators";
 import { useToastStore } from "../features/feedback/toastStore";
 import { marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
 import { readMarketBarCache } from "../features/marketData/marketBarCacheService";
@@ -113,6 +114,9 @@ export function StrategyManagementPage() {
   const initializeStudyStrategies = useChartStudySettingsStore((state) => state.initializeStrategies);
   const updateStudyStrategy = useChartStudySettingsStore((state) => state.updateStrategy);
   const updateStudyIndicators = useChartStudySettingsStore((state) => state.updateIndicators);
+  const smaIndicator = getIndicatorInstance(studyIndicatorSettings, "sma", builtInChartIndicatorDefinitions[0]);
+  const emaIndicator = getIndicatorInstance(studyIndicatorSettings, "ema", builtInChartIndicatorDefinitions[1]);
+  const bollIndicator = getIndicatorInstance(studyIndicatorSettings, "boll", builtInChartIndicatorDefinitions[2]);
   useEffect(() => {
     initializeStudyStrategies(strategies);
   }, [initializeStudyStrategies, strategies]);
@@ -773,10 +777,10 @@ export function StrategyManagementPage() {
               <label>
                 <span>均线</span>
                 <input
-                  checked={studyIndicatorSettings.movingAverage.enabled}
+                  checked={smaIndicator.enabled}
                   onChange={(event) => updateStudyIndicators((current) => ({
                     ...current,
-                    movingAverage: { ...current.movingAverage, enabled: event.currentTarget.checked },
+                    ...updateIndicatorInstance(current, "sma", (item) => ({ ...item, enabled: event.currentTarget.checked }), builtInChartIndicatorDefinitions[0]),
                   }))}
                   type="checkbox"
                 />
@@ -789,20 +793,20 @@ export function StrategyManagementPage() {
                   min="2"
                   onChange={(event) => updateStudyIndicators((current) => ({
                     ...current,
-                    movingAverage: { ...current.movingAverage, window: Number(event.currentTarget.value) || 9 },
+                    ...updateIndicatorInstance(current, "sma", (item) => ({ ...item, parameters: { ...item.parameters, window: Number(event.currentTarget.value) || 9 } }), builtInChartIndicatorDefinitions[0]),
                   }))}
                   type="number"
-                  value={studyIndicatorSettings.movingAverage.window}
+                  value={Number(smaIndicator.parameters.window)}
                 />
                 <small>SMA 参数</small>
               </label>
               <label>
                 <span>布林带</span>
                 <input
-                  checked={studyIndicatorSettings.bollingerBands.enabled}
+                  checked={bollIndicator.enabled}
                   onChange={(event) => updateStudyIndicators((current) => ({
                     ...current,
-                    bollingerBands: { ...current.bollingerBands, enabled: event.currentTarget.checked },
+                    ...updateIndicatorInstance(current, "boll", (item) => ({ ...item, enabled: event.currentTarget.checked }), builtInChartIndicatorDefinitions[2]),
                   }))}
                   type="checkbox"
                 />
@@ -815,10 +819,10 @@ export function StrategyManagementPage() {
                   min="2"
                   onChange={(event) => updateStudyIndicators((current) => ({
                     ...current,
-                    bollingerBands: { ...current.bollingerBands, window: Number(event.currentTarget.value) || 20 },
+                    ...updateIndicatorInstance(current, "boll", (item) => ({ ...item, parameters: { ...item.parameters, window: Number(event.currentTarget.value) || 20 } }), builtInChartIndicatorDefinitions[2]),
                   }))}
                   type="number"
-                  value={studyIndicatorSettings.bollingerBands.window}
+                  value={Number(bollIndicator.parameters.window)}
                 />
                 <small>布林带窗口</small>
               </label>
@@ -829,11 +833,11 @@ export function StrategyManagementPage() {
                   min="0.1"
                   onChange={(event) => updateStudyIndicators((current) => ({
                     ...current,
-                    bollingerBands: { ...current.bollingerBands, multiplier: Number(event.currentTarget.value) || 2 },
+                    ...updateIndicatorInstance(current, "boll", (item) => ({ ...item, parameters: { ...item.parameters, multiplier: Number(event.currentTarget.value) || 2 } }), builtInChartIndicatorDefinitions[2]),
                   }))}
                   step="0.1"
                   type="number"
-                  value={studyIndicatorSettings.bollingerBands.multiplier}
+                  value={Number(bollIndicator.parameters.multiplier)}
                 />
                 <small>标准差系数</small>
               </label>
