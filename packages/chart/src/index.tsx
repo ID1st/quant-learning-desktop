@@ -129,6 +129,8 @@ export interface ChartViewportProps {
   showCurrentPriceLine?: boolean;
   displayMode?: ChartDisplayMode;
   resetViewKey?: number;
+  focusLatestKey?: number;
+  lockPriceScale?: boolean;
   loadingState?: {
     readonly stage: string;
     readonly message: string;
@@ -277,6 +279,8 @@ export function ChartViewport({
   showCurrentPriceLine = true,
   displayMode = "candlestick",
   resetViewKey = 0,
+  focusLatestKey = 0,
+  lockPriceScale = false,
   loadingState,
 }: ChartViewportProps) {
   const generatedCandles = useMemo(() => generateCandles(context), [context.symbol, context.market, context.timeframe]);
@@ -289,6 +293,7 @@ export function ChartViewport({
     candleCount: candles.length,
     contextKey,
     resetViewKey,
+    focusLatestKey,
   });
   const dragStateRef = useRef<
     | { mode: "pan"; pointerId: number; startX: number; startRange: ChartVisibleRange }
@@ -307,6 +312,7 @@ export function ChartViewport({
   useEffect(() => {
     const previous = previousChartStateRef.current;
     const shouldResetScale = previous.contextKey !== contextKey || previous.resetViewKey !== resetViewKey;
+    const shouldFocusLatest = previous.focusLatestKey !== focusLatestKey;
 
     const shouldInitializeAfterSparseLoad = shouldInitializeChartViewAfterSparseLoad(
       previous.candleCount,
@@ -314,13 +320,13 @@ export function ChartViewport({
       minimumInteractiveCandleCount,
     );
 
-    if (shouldResetScale || (previous.candleCount === 0 && candles.length > 0) || shouldInitializeAfterSparseLoad) {
+    if (shouldResetScale || shouldFocusLatest || (previous.candleCount === 0 && candles.length > 0) || shouldInitializeAfterSparseLoad) {
       const nextRange = createDefaultVisibleRange(candles.length);
       setVisibleRange(nextRange);
       setScaleDomain(calculateScaleDomain(candles, nextRange));
       setHoverIndex(candles.length > 0 ? candles.length - 1 : null);
       setPriceScaleFactor(1);
-      previousChartStateRef.current = { candleCount: candles.length, contextKey, resetViewKey };
+      previousChartStateRef.current = { candleCount: candles.length, contextKey, resetViewKey, focusLatestKey };
       return;
     }
 
@@ -338,8 +344,8 @@ export function ChartViewport({
 
       return current >= previous.candleCount - 1 ? candles.length - 1 : Math.min(current, candles.length - 1);
     });
-    previousChartStateRef.current = { candleCount: candles.length, contextKey, resetViewKey };
-  }, [candles, contextKey, resetViewKey]);
+    previousChartStateRef.current = { candleCount: candles.length, contextKey, resetViewKey, focusLatestKey };
+  }, [candles, contextKey, focusLatestKey, resetViewKey]);
 
   if (loadingState || !hasCandles) {
     return (
@@ -480,7 +486,7 @@ export function ChartViewport({
     const x = (event.clientX - rect.left) * ratio;
 
     event.currentTarget.setPointerCapture(event.pointerId);
-    if (x >= plotRight) {
+    if (x >= plotRight && !lockPriceScale) {
       dragStateRef.current = { mode: "price-scale", pointerId: event.pointerId, startY: event.clientY, startScaleFactor: priceScaleFactor };
       setIsScalingPriceAxis(true);
       return;

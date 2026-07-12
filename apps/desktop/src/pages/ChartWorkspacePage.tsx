@@ -785,6 +785,8 @@ export function ChartWorkspacePage() {
   const [isChartSettingsOpen, setIsChartSettingsOpen] = useState(false);
   const [chartContextMenu, setChartContextMenu] = useState<ChartContextMenuState | null>(null);
   const [chartResetViewKey, setChartResetViewKey] = useState(0);
+  const [chartFocusLatestKey, setChartFocusLatestKey] = useState(0);
+  const [isPriceScaleLocked, setIsPriceScaleLocked] = useState(false);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const [providerDiagnostics, setProviderDiagnostics] = useState<readonly MarketDataProviderHealthView[]>([]);
   const [diagnosticTimeline, setDiagnosticTimeline] = useState<ReadonlyArray<{ checkedAt: string; status: RealtimeProviderHealthView["status"]; message: string }>>([]);
@@ -1799,6 +1801,8 @@ export function ChartWorkspacePage() {
             <Ruler size={18} />
           </button>
           <button onClick={() => createDrawing("text")} type="button" title="添加文字标注"><Type size={18} /></button>
+          <button onClick={() => setChartFocusLatestKey((value) => value + 1)} type="button" title="回到最新数据"><RotateCcw size={18} /></button>
+          <button className={isPriceScaleLocked ? "active" : ""} onClick={() => setIsPriceScaleLocked((value) => !value)} type="button" title={isPriceScaleLocked ? "解锁价格比例" : "锁定价格比例"}><Ruler size={18} /></button>
           <button disabled={drawingCommandState.undoStack.length === 0} onClick={undoDrawingCommand} type="button" title="撤销绘图"><Undo2 size={18} /></button>
           <button disabled={drawingCommandState.redoStack.length === 0} onClick={redoDrawingCommand} type="button" title="重做绘图"><Redo2 size={18} /></button>
           <button disabled={drawings.length === 0} onClick={() => { executeDrawingCommand({ type: "clear" }); setSelectedDrawingId(null); }} type="button" title="清空当前标的和周期的绘图"><Trash2 size={18} /></button>
@@ -1836,6 +1840,8 @@ export function ChartWorkspacePage() {
             showStrategyLayers={canShowStrategyLayers}
             showVolume={showVolume}
             resetViewKey={chartResetViewKey}
+            focusLatestKey={chartFocusLatestKey}
+            lockPriceScale={isPriceScaleLocked}
             strategyLayers={orderedStrategyLayers}
             layers={orderedExtraLayers}
             loadingState={chartViewportLoadingState}
