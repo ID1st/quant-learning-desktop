@@ -242,6 +242,29 @@ test("readMarketBarCache falls back to an empty array for malformed cache data",
   assert.deepEqual(readMarketBarCache(cacheKey, { database }), []);
 });
 
+test("readMarketBarCache discards a historical cache with a multi-month data discontinuity", () => {
+  const database = createTestDatabase();
+  const key = { symbol: "SPCX.US", market: "US" as const, timeframe: "1d" as const };
+  const createBar = (timestamp: number, close: number): MarketDataBar => ({
+    ...key,
+    timestamp,
+    open: close,
+    high: close,
+    low: close,
+    close,
+    volume: 1_000,
+    provider: "stock-sdk",
+  });
+
+  writeMarketBarCache(key, [
+    createBar(Date.UTC(2021, 8, 23), 28.89),
+    createBar(Date.UTC(2026, 6, 10), 145.3),
+  ], { database });
+
+  assert.deepEqual(readMarketBarCache(key, { database }), []);
+  assert.equal(readMarketBarCacheSummary(database).entries.length, 0);
+});
+
 test("pruneMarketBarCache removes bars outside the retention window", () => {
   const database = createTestDatabase();
   const now = Date.UTC(2026, 6, 1);

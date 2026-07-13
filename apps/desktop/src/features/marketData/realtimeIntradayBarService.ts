@@ -72,12 +72,16 @@ export function mergeHistoricalRealtimeBarsWithLiveBars(
   key: MarketBarCacheKey,
 ): MarketDataBar[] {
   const matchingHistory = historicalBars.filter((bar) => isMatchingRealtimeBar(bar, key));
+  const earliestHistoricalTimestamp = matchingHistory.reduce((earliest, bar) => Math.min(earliest, bar.timestamp), Number.POSITIVE_INFINITY);
   const latestHistoricalTimestamp = matchingHistory.reduce((latest, bar) => Math.max(latest, bar.timestamp), Number.NEGATIVE_INFINITY);
+  const retainedPreviousSessionBars = currentBars.filter(
+    (bar) => isMatchingRealtimeBar(bar, key) && bar.timestamp < earliestHistoricalTimestamp,
+  );
   const retainedLiveBars = currentBars.filter(
     (bar) => isMatchingRealtimeBar(bar, key) && isLiveMarketDataProviderId(bar.provider) && bar.timestamp > latestHistoricalTimestamp,
   );
 
-  return retainRecentRealtimeSessions([...matchingHistory, ...retainedLiveBars], key.market);
+  return retainRecentRealtimeSessions([...retainedPreviousSessionBars, ...matchingHistory, ...retainedLiveBars], key.market);
 }
 
 export function analyzeRealtimeHistoryGap(

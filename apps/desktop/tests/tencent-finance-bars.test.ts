@@ -73,7 +73,7 @@ test("Tencent Finance history retries a US ticker with the NYSE suffix after an 
   assert.match(urls[1] ?? "", /usJPM.N/u);
 });
 
-test("Tencent Finance history prefers a complete AMEX series over a partial NASDAQ result", async () => {
+test("Tencent Finance history prefers a complete continuous AMEX series over a partial NASDAQ result", async () => {
   const urls: string[] = [];
   const rows = (count: number) => Array.from({ length: count }, (_, index) => {
     const date = new Date(Date.UTC(2025, 0, 1 + index)).toISOString().slice(0, 10);
@@ -109,6 +109,35 @@ test("Tencent Finance history prefers a complete AMEX series over a partial NASD
   assert.match(urls[0] ?? "", /usSPCX.OQ/u);
   assert.match(urls[1] ?? "", /usSPCX.N/u);
   assert.match(urls[2] ?? "", /usSPCX.AM/u);
+});
+
+test("Tencent Finance rejects a stale discontinuous AMEX history in favor of a shorter coherent series", async () => {
+  const rows = (start: string, count: number) => Array.from({ length: count }, (_, index) => {
+    const date = new Date(Date.parse(`${start}T12:00:00.000Z`) + index * 24 * 60 * 60 * 1_000).toISOString().slice(0, 10);
+    return [date, "100", "101", "102", "99", "1000"];
+  });
+  const coherentNasdaqRows = rows("2026-06-12", 19);
+  const discontinuousAmexRows = [...rows("2021-01-01", 260), ...rows("2026-07-10", 1)];
+  const operations = createTencentFinanceBarsOperations({
+    fetchImpl: async (input) => {
+      const symbol = new URL(String(input)).searchParams.get("param")?.split(",")[0] ?? "";
+      const day = symbol.endsWith(".OQ") ? coherentNasdaqRows : symbol.endsWith(".AM") ? discontinuousAmexRows : [];
+      return jsonResponse({ code: 0, data: { [symbol]: { day } } });
+    },
+  });
+
+  const bars = await operations.fetchHistoricalBars({
+    market: "US",
+    symbol: "SPCX.US",
+    providerSymbol: "105.SPCX",
+    timeframe: "1d",
+    period: "daily",
+    count: 600,
+  });
+
+  assert.equal(bars.length, 19);
+  assert.equal(new Date(bars[0]?.timestamp ?? 0).toISOString().slice(0, 10), "2026-06-12");
+  assert.equal(new Date(bars.at(-1)?.timestamp ?? 0).toISOString().slice(0, 10), "2026-06-30");
 });
 
 test("Tencent Finance deduplicates an in-flight history request and retries one transient upstream failure", async () => {
@@ -171,7 +200,22 @@ test("Tencent Finance caps concurrent upstream history requests at two", async (
 test("Tencent Finance intraday maps A-share lots to shares and keeps Hong Kong volume in shares", async () => {
   const operations = createTencentFinanceBarsOperations({
     fetchImpl: async (input) => {
-      const code = new URL(String(input)).searchParams.get("code") ?? "";
+      const url = new URL(String(input));
+      const code = url.searchParams.get("code") ?? "";
+      const symbol = url.searchParams.get("param")?.split(",")[0] ?? "";
+      if (symbol.startsWith("sh")) {
+        return jsonResponse({
+          code: 0,
+          data: {
+            [symbol]: {
+              m1: [
+                ["202607091459", "100", "100", "100", "100", "2"],
+                ["202607100930", "101", "101", "101", "101", "3"],
+              ],
+            },
+          },
+        });
+      }
       return jsonResponse({
         code: 0,
         data: {

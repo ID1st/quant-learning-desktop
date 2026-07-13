@@ -76,12 +76,12 @@ export function createTencentFinanceBarsOperations(options: TencentFinanceBarsOp
             throw new TencentFinanceNoDataError(`Tencent Finance returned no usable historical data for ${barRequest.symbol}.`);
           }
 
-          if (!bestBars || bars.length > bestBars.length) {
+          if (isBetterHistoricalCandidate(bars, bestBars, barRequest)) {
             bestBars = bars;
             bestSymbol = symbol;
           }
 
-          if (barRequest.market !== "US" || hasSufficientHistoricalBars(bars, barRequest)) {
+          if (barRequest.market !== "US" || hasSufficientHistoricalBars(bars, barRequest) && isContinuousHistoricalSeries(bars, barRequest)) {
             if (barRequest.market === "US") {
               usExchangeByTicker.set(getUsTicker(barRequest), getTencentUsExchange(symbol));
             }
@@ -105,7 +105,7 @@ export function createTencentFinanceBarsOperations(options: TencentFinanceBarsOp
         : new Error(`Tencent Finance returned no usable historical data for ${barRequest.symbol}.`);
     },
     async fetchIntradayBars(barRequest) {
-      if (barRequest.market === "CN" && barRequest.period !== "1") {
+      if (barRequest.market === "CN") {
         const payload = await request(getCnMinuteKlineUrl(toTencentSymbol(barRequest), barRequest));
         const bars = mapCnMinuteKlineBars(payload, barRequest, toTencentSymbol(barRequest));
         if (bars.length === 0) {
@@ -325,6 +325,39 @@ function hasSufficientHistoricalBars(bars: readonly StockSdkRawRecord[], request
   const requestedCount = getBarCount(request.count);
   const minimumUsefulCount = request.period === "weekly" ? 26 : 60;
   return bars.length >= Math.min(requestedCount, minimumUsefulCount);
+}
+
+function isBetterHistoricalCandidate(
+  candidate: readonly StockSdkRawRecord[],
+  current: readonly StockSdkRawRecord[] | undefined,
+  request: StockSdkBarRequest,
+) {
+  if (!current) {
+    return true;
+  }
+
+  const candidateIsContinuous = isContinuousHistoricalSeries(candidate, request);
+  const currentIsContinuous = isContinuousHistoricalSeries(current, request);
+  return candidateIsContinuous !== currentIsContinuous
+    ? candidateIsContinuous
+    : candidate.length > current.length;
+}
+
+function isContinuousHistoricalSeries(bars: readonly StockSdkRawRecord[], request: StockSdkBarRequest) {
+  if (bars.length < 2) {
+    return true;
+  }
+
+  const timestamps = bars
+    .map((bar) => toNonNegativeNumber(bar.timestamp))
+    .filter((timestamp): timestamp is number => timestamp !== undefined)
+    .sort((left, right) => left - right);
+  if (timestamps.length !== bars.length) {
+    return false;
+  }
+
+  const maximumGapMs = (request.period === "weekly" ? 28 : 21) * 24 * 60 * 60 * 1_000;
+  return timestamps.every((timestamp, index) => index === 0 || timestamp - timestamps[index - 1]! <= maximumGapMs);
 }
 
 function getUsTicker(request: StockSdkBarRequest) {

@@ -12,9 +12,11 @@ This follow-up completes the selected stability scope without changing provider 
 
 ## Tencent US Historical Symbol Resolution Update (2026-07-13)
 
-- Tencent Finance US history now evaluates NASDAQ (`.OQ`), NYSE (`.N`), and AMEX (`.AM`) suffix candidates when a result is sparse. It keeps the first sufficiently complete result and remembers the selected suffix for the desktop-process lifetime.
-- A non-empty response is no longer treated as complete by itself. This prevents symbols such as `SPCX.US` from retaining the Tencent `.OQ` fallback's 19 daily bars or 5 weekly bars when the `.AM` route provides the available 261 daily bars and 56 weekly bars.
+- Tencent Finance US history now evaluates NASDAQ (`.OQ`), NYSE (`.N`), and AMEX (`.AM`) suffix candidates when a result is sparse, remembers the selected suffix for the desktop-process lifetime, and validates the chronological continuity of each candidate before treating it as complete.
+- A non-empty response is no longer treated as complete by itself. The `SPCX.US` `.AM` response tested on 2026-07-13 contained a multi-year discontinuity despite reporting 261 daily bars, so it is rejected in favor of the shorter but continuous `.OQ` series. A chart must not invent a continuous price history from stale upstream rows.
 - Historical chart cache is considered incomplete below 60 daily bars or 26 weekly bars. A fresh but incomplete local cache is refreshed even after market close, then overwritten by the normalized provider result.
+- Historical cache reads now remove only extreme multi-month discontinuities. This clears already-persisted malformed series before the chart makes a cache-first rendering decision, while keeping normal holiday and suspension gaps intact.
+- A-share intraday requests now use Tencent `m1` minute K-lines, which can contain the previous available trading-session tail. For Hong Kong, Tencent's public timeline may return only the current session, so the realtime cache preserves the previous session while the current session is refreshed. This preserves the required two-session display without fabricating unavailable source rows.
 - The chart diagnostic drawer now presents those events with Chinese labels. Provider credentials and raw request data remain outside the renderer diagnostics.
 - For closed markets, a fresh daily or weekly cache renders directly and skips an unnecessary remote refresh. Intraday polling still follows the existing market-session window and stops after close.
 - Refresh failure preserves usable cache and records a retained-cache event. Existing real-time merge rules continue to prevent historical bars from overwriting newer live points.

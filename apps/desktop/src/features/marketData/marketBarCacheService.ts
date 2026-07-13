@@ -61,6 +61,7 @@ const STORAGE_VERSION = 1;
 const COLLECTION_PREFIX = "market-bars";
 const INDEX_COLLECTION_KEY = `${COLLECTION_PREFIX}:index`;
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
+const maximumHistoricalCacheGapMs = 180 * millisecondsPerDay;
 
 function isHistoricalTimeframe(timeframe: Timeframe) {
   return timeframe === "1d" || timeframe === "1w";
@@ -239,6 +240,14 @@ function normalizeBars(bars: MarketDataBar[]) {
   return Array.from(byTimestamp.values()).sort((left, right) => left.timestamp - right.timestamp);
 }
 
+function hasContinuousHistoricalCache(bars: readonly MarketDataBar[], timeframe: Timeframe) {
+  if (!isHistoricalTimeframe(timeframe) || bars.length < 2) {
+    return true;
+  }
+
+  return bars.every((bar, index) => index === 0 || bar.timestamp - bars[index - 1]!.timestamp <= maximumHistoricalCacheGapMs);
+}
+
 function getDefaultMarketBarRetentionDays(timeframe: Timeframe) {
   if (timeframe === "realtime") {
     return 2;
@@ -350,11 +359,20 @@ export function readMarketBarCache(key: MarketBarCacheKey, options: ReadMarketBa
   const database = options.database ?? appLocalDatabase;
   const normalizedKey = normalizeCacheKey(key);
   discardLegacyHistoricalCache(database, normalizedKey);
-  return database.readDocument(createCollectionKey(normalizedKey), {
+  const bars = database.readDocument(createCollectionKey(normalizedKey), {
     version: STORAGE_VERSION,
     fallback: [],
     sanitize: sanitizeBars,
   });
+  const normalizedBars = normalizeBars(bars);
+
+  if (!hasContinuousHistoricalCache(normalizedBars, normalizedKey.timeframe)) {
+    database.removeDocument(createCollectionKey(normalizedKey));
+    removeMetadata(database, normalizedKey);
+    return [];
+  }
+
+  return normalizedBars;
 }
 
 export function clearMarketBarCache(key: MarketBarCacheKey, database: LocalDatabase = appLocalDatabase) {

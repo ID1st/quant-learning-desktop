@@ -186,6 +186,34 @@ test("mergeHistoricalRealtimeBarsWithLiveBars keeps newer gateway live-provider 
   );
 });
 
+test("mergeHistoricalRealtimeBarsWithLiveBars retains the previous cached market session when the source only returns today", () => {
+  const key = { symbol: "00700.HK", market: "HK" as const, timeframe: "realtime" as const };
+  const previousSessionBar = {
+    ...key,
+    timestamp: Date.parse("2026-07-10T08:00:00.000Z"),
+    open: 400,
+    high: 400,
+    low: 400,
+    close: 400,
+    volume: 1000,
+    provider: "stock-sdk" as const,
+  };
+  const currentSessionBar = {
+    ...key,
+    timestamp: Date.parse("2026-07-13T01:30:00.000Z"),
+    open: 401,
+    high: 401,
+    low: 401,
+    close: 401,
+    volume: 1000,
+    provider: "stock-sdk" as const,
+  };
+
+  const merged = mergeHistoricalRealtimeBarsWithLiveBars([currentSessionBar], [previousSessionBar], key);
+
+  assert.deepEqual(merged.map((bar) => bar.timestamp), [previousSessionBar.timestamp, currentSessionBar.timestamp]);
+});
+
 test("analyzeRealtimeHistoryGap reports delayed history bridged by AlphaFeed live points", () => {
   const key = { symbol: "9988.HK", market: "HK" as const, timeframe: "realtime" as const };
   const bars: MarketDataBar[] = [
