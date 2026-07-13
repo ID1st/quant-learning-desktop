@@ -55,3 +55,41 @@ test("backtest ignores a final-bar signal without a future open", () => {
   assert.equal(result.summary.tradeCount, 0);
   assert.equal(result.warnings.some((warning) => warning.includes("最后一根")), true);
 });
+
+test("backtest skips a short entry when its required next-bar price is zero", () => {
+  const result = runStrategyBacktest({
+    bars: [bar(1, 100), bar(2, 0), bar(3, 90), bar(4, 80)],
+    signals: [{ timestamp: 1, type: "sell" }],
+    settings: { allowShort: true },
+  });
+
+  assert.equal(result.summary.tradeCount, 0);
+  assert.ok(result.trades.every((trade) => [trade.entryPrice, trade.exitPrice, trade.quantity, trade.netPnl].every(Number.isFinite)));
+  assert.ok(result.equityCurve.every((point) => Number.isFinite(point.equity)));
+  assert.ok(Number.isFinite(result.summary.finalCapital));
+  assert.ok(Number.isFinite(result.summary.totalReturnPct));
+});
+
+test("backtest falls back from a non-executable slippage rate", () => {
+  const result = runStrategyBacktest({
+    bars: [bar(1, 100), bar(2, 100), bar(3, 90)],
+    signals: [{ timestamp: 1, type: "sell" }],
+    settings: { allowShort: true, slippageRate: 1 },
+  });
+
+  assert.equal(result.settings.slippageRate, 0.0005);
+  assert.ok(result.trades.every((trade) => Number.isFinite(trade.entryPrice) && trade.entryPrice > 0));
+});
+
+test("backtest settles an open short against the last valid close when the final bar is invalid", () => {
+  const result = runStrategyBacktest({
+    bars: [bar(1, 100), bar(2, 100), bar(3, 0)],
+    signals: [{ timestamp: 1, type: "sell" }],
+    settings: { allowShort: true },
+  });
+
+  assert.equal(result.summary.tradeCount, 1);
+  assert.ok(result.trades.every((trade) => [trade.entryPrice, trade.exitPrice, trade.quantity, trade.netPnl].every(Number.isFinite)));
+  assert.ok(result.equityCurve.every((point) => Number.isFinite(point.equity)));
+  assert.ok(Number.isFinite(result.summary.finalCapital));
+});

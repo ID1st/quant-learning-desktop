@@ -113,6 +113,10 @@ export function readStrategyBacktestRuns(database: LocalDatabase = appLocalDatab
 }
 
 export function saveStrategyBacktestRun(run: StrategyBacktestRun, database: LocalDatabase = appLocalDatabase) {
+  if (!sanitizeRun(run)) {
+    throw new Error("回测结果包含无效数值，未保存。");
+  }
+
   const nextRuns = [run, ...readStrategyBacktestRuns(database).filter((item) => item.id !== run.id)].slice(0, MAX_SAVED_RUNS);
   database.writeDocument(COLLECTION_KEY, STORAGE_VERSION, nextRuns);
   return nextRuns;

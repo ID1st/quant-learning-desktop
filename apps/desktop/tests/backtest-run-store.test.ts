@@ -32,3 +32,12 @@ test("backtest run store persists newest runs and supports deletion", () => {
   assert.deepEqual(readStrategyBacktestRuns(database).map((run) => run.id), ["two", "one"]);
   assert.deepEqual(deleteStrategyBacktestRun("two", database).map((run) => run.id), ["one"]);
 });
+
+test("backtest run store rejects non-finite results", () => {
+  const database = new LocalDatabase(createMemoryStorageDriver(), "backtest-invalid-result-test");
+  const run = createRun("invalid");
+  run.result.summary.finalCapital = Number.POSITIVE_INFINITY;
+
+  assert.throws(() => saveStrategyBacktestRun(run, database), /无效数值/);
+  assert.deepEqual(readStrategyBacktestRuns(database), []);
+});

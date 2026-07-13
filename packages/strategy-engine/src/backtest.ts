@@ -85,11 +85,30 @@ function finiteNonNegative(value: number | undefined, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
+function finiteSlippageRate(value: number | undefined, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value < 1 ? value : fallback;
+}
+
+function hasFiniteBarFields(bar: Bar) {
+  return [bar.timestamp, bar.open, bar.high, bar.low, bar.close, bar.volume].every(Number.isFinite);
+}
+
+function isTradableBar(bar: Bar) {
+  return (
+    hasFiniteBarFields(bar) &&
+    bar.open > 0 &&
+    bar.high > 0 &&
+    bar.low > 0 &&
+    bar.close > 0 &&
+    bar.volume >= 0
+  );
+}
+
 export function resolveBacktestSettings(settings: BacktestSettings = {}): ResolvedBacktestSettings {
   return {
     initialCapital: finitePositive(settings.initialCapital, defaultSettings.initialCapital),
     feeRate: finiteNonNegative(settings.feeRate, defaultSettings.feeRate),
-    slippageRate: finiteNonNegative(settings.slippageRate, defaultSettings.slippageRate),
+    slippageRate: finiteSlippageRate(settings.slippageRate, defaultSettings.slippageRate),
     allowShort: settings.allowShort ?? defaultSettings.allowShort,
   };
 }
@@ -119,11 +138,11 @@ function getUnrealizedNetPnl(position: OpenPosition, markPrice: number, feeRate:
 export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestResult {
   const settings = resolveBacktestSettings(request.settings);
   const bars = [...request.bars]
-    .filter((bar) => [bar.timestamp, bar.open, bar.high, bar.low, bar.close, bar.volume].every(Number.isFinite))
+    .filter(hasFiniteBarFields)
     .sort((left, right) => left.timestamp - right.timestamp);
   const warnings: string[] = [];
 
-  if (bars.length < 2) {
+  if (bars.filter(isTradableBar).length < 2) {
     return createEmptyResult(settings, warnings.concat("至少需要两根有效 K 线，才能按下一根 K 线开盘价成交。"));
   }
 
@@ -142,6 +161,7 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
   let pendingSignal: StrategySignal | null = null;
   const trades: BacktestTrade[] = [];
   const equityCurve: BacktestEquityPoint[] = [];
+  let latestMarkPrice: number | null = null;
 
   const closePosition = (bar: Bar, exitSignalTimestamp?: number) => {
     if (!state.position) {
@@ -192,14 +212,18 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
     const bar = bars[index];
 
     if (pendingSignal) {
-      const direction = getSignalDirection(pendingSignal, settings.allowShort);
-      if (pendingSignal.type === "exit" || (pendingSignal.type === "sell" && !settings.allowShort)) {
-        closePosition(bar, pendingSignal.timestamp);
-      } else if (direction && state.position?.direction !== direction) {
-        closePosition(bar, pendingSignal.timestamp);
-        openPosition(bar, direction, pendingSignal);
-      } else if (direction && !state.position) {
-        openPosition(bar, direction, pendingSignal);
+      if (!isTradableBar(bar)) {
+        warnings.push("待成交信号对应的下一根 K 线价格无效，已忽略该次成交。");
+      } else {
+        const direction = getSignalDirection(pendingSignal, settings.allowShort);
+        if (pendingSignal.type === "exit" || (pendingSignal.type === "sell" && !settings.allowShort)) {
+          closePosition(bar, pendingSignal.timestamp);
+        } else if (direction && state.position?.direction !== direction) {
+          closePosition(bar, pendingSignal.timestamp);
+          openPosition(bar, direction, pendingSignal);
+        } else if (direction && !state.position) {
+          openPosition(bar, direction, pendingSignal);
+        }
       }
 
       pendingSignal = null;
@@ -214,18 +238,26 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
       }
     }
 
+    if (isTradableBar(bar)) {
+      latestMarkPrice = bar.close;
+    }
+
     equityCurve.push({
       timestamp: bar.timestamp,
-      equity: capital + (state.position ? getUnrealizedNetPnl(state.position, bar.close, settings.feeRate, settings.slippageRate) : 0),
+      equity: capital + (state.position && latestMarkPrice !== null ? getUnrealizedNetPnl(state.position, latestMarkPrice, settings.feeRate, settings.slippageRate) : 0),
     });
   }
 
   if (state.position) {
-    const lastBar = bars[bars.length - 1];
+    const lastBar = [...bars].reverse().find(isTradableBar);
+    if (!lastBar) {
+      return createEmptyResult(settings, warnings);
+    }
     warnings.push("回测结束时仍有持仓，已按最后一根 K 线收盘价强制平仓。" );
     const closingBar = { ...lastBar, open: lastBar.close };
     closePosition(closingBar);
-    equityCurve[equityCurve.length - 1] = { timestamp: lastBar.timestamp, equity: capital };
+    const finalEquityIndex = equityCurve.length - 1;
+    equityCurve[finalEquityIndex] = { timestamp: bars[finalEquityIndex]?.timestamp ?? lastBar.timestamp, equity: capital };
   }
 
   const winningTradeCount = trades.filter((trade) => trade.netPnl > 0).length;

@@ -344,60 +344,69 @@ export function StrategyManagementPage() {
       return;
     }
 
-    const bars = marketBarsToStrategyBars(
-      readMarketBarCache({
+    try {
+      const bars = marketBarsToStrategyBars(
+        readMarketBarCache({
+          symbol: selectedBacktestContext.symbol,
+          market: selectedBacktestContext.market,
+          timeframe: selectedBacktestContext.timeframe,
+        }),
+      );
+      if (bars.length < 2) {
+        pushToast({
+          tone: "warning",
+          title: "行情数据不足",
+          detail: "精简回测至少需要两根有效 K 线。",
+          durationMs: 2800,
+        });
+        return;
+      }
+
+      const strategyRun = runRegisteredStrategy(strategyRegistry, {
+        strategyKey: selectedStrategy.key,
         symbol: selectedBacktestContext.symbol,
         market: selectedBacktestContext.market,
         timeframe: selectedBacktestContext.timeframe,
-      }),
-    );
-    if (bars.length < 2) {
-      pushToast({
-        tone: "warning",
-        title: "行情数据不足",
-        detail: "精简回测至少需要两根有效 K 线。",
-        durationMs: 2800,
+        bars,
+        runMode: "backtest",
+        enabled: true,
+        parameters: studyStrategySettings[selectedStrategy.key]?.parameters,
       });
-      return;
+      const result = runStrategyBacktest({
+        bars,
+        signals: strategyRun.output.signals,
+        settings: backtestSettings,
+      });
+      const run: StrategyBacktestRun = {
+        id: globalThis.crypto?.randomUUID?.() ?? `backtest-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        createdAt: new Date().toISOString(),
+        strategyKey: selectedStrategy.key,
+        strategyName: selectedStrategy.name,
+        strategyVersion: selectedStrategy.version,
+        symbol: selectedBacktestContext.symbol,
+        market: selectedBacktestContext.market,
+        timeframe: selectedBacktestContext.timeframe,
+        parameters: strategyRun.input.parameters,
+        result,
+      };
+      const nextRuns = saveStrategyBacktestRun(run);
+      setBacktestRuns(nextRuns);
+      setSelectedBacktestRunId(run.id);
+      setIsBacktestDialogOpen(false);
+      pushToast({
+        tone: "success",
+        title: `${selectedStrategy.name} 回测完成`,
+        detail: `${run.symbol} ${formatBacktestTimeframe(run.timeframe)}，生成 ${result.summary.tradeCount} 笔双向成交记录。`,
+        durationMs: 3200,
+      });
+    } catch (error) {
+      pushToast({
+        tone: "error",
+        title: "回测未完成",
+        detail: error instanceof Error ? error.message : "回测发生未知错误，请检查行情缓存后重试。",
+        durationMs: 4200,
+      });
     }
-
-    const strategyRun = runRegisteredStrategy(strategyRegistry, {
-      strategyKey: selectedStrategy.key,
-      symbol: selectedBacktestContext.symbol,
-      market: selectedBacktestContext.market,
-      timeframe: selectedBacktestContext.timeframe,
-      bars,
-      runMode: "backtest",
-      enabled: true,
-      parameters: studyStrategySettings[selectedStrategy.key]?.parameters,
-    });
-    const result = runStrategyBacktest({
-      bars,
-      signals: strategyRun.output.signals,
-      settings: backtestSettings,
-    });
-    const run: StrategyBacktestRun = {
-      id: globalThis.crypto?.randomUUID?.() ?? `backtest-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      createdAt: new Date().toISOString(),
-      strategyKey: selectedStrategy.key,
-      strategyName: selectedStrategy.name,
-      strategyVersion: selectedStrategy.version,
-      symbol: selectedBacktestContext.symbol,
-      market: selectedBacktestContext.market,
-      timeframe: selectedBacktestContext.timeframe,
-      parameters: strategyRun.input.parameters,
-      result,
-    };
-    const nextRuns = saveStrategyBacktestRun(run);
-    setBacktestRuns(nextRuns);
-    setSelectedBacktestRunId(run.id);
-    setIsBacktestDialogOpen(false);
-    pushToast({
-      tone: "success",
-      title: `${selectedStrategy.name} 回测完成`,
-      detail: `${run.symbol} ${formatBacktestTimeframe(run.timeframe)}，生成 ${result.summary.tradeCount} 笔双向成交记录。`,
-      durationMs: 3200,
-    });
   };
 
   const removeBacktestRun = (runId: string) => {
