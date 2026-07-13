@@ -255,32 +255,39 @@ function sanitizeParameterValue(parameter: StrategyParameterDefinition, value: u
     return typeof value === "string" && optionValues.includes(value) ? value : parameter.defaultValue;
   }
 
-  if (parameter.key === "openingRangeMinutes") {
-    const numericValue = typeof value === "number" && Number.isFinite(value) ? value : Number(parameter.defaultValue);
-    return Math.min(60, Math.max(15, numericValue));
-  }
-
   if (parameter.type === "number") {
     const numericValue = typeof value === "number" && Number.isFinite(value) ? value : Number(parameter.defaultValue);
-    const minimumValue = isFractionalStrategyParameter(parameter.key) ? 0.1 : 1;
-    return Math.max(minimumValue, numericValue);
+    const minimumValue = Number(getNumberInputMinimum(parameter.key));
+    const maximumValue = Number(getNumberInputMaximum(parameter.key));
+    return Math.min(maximumValue, Math.max(minimumValue, numericValue));
   }
 
   return parameter.defaultValue;
 }
 
 function isFractionalStrategyParameter(parameterKey: string) {
-  return ["supertrendFactor", "stopLossAtrMultiplier", "targetOneMultiplier", "targetTwoMultiplier", "targetThreeMultiplier"].includes(
+  return ["supertrendFactor", "stopLossAtrMultiplier", "targetOneMultiplier", "targetTwoMultiplier", "targetThreeMultiplier", "trailingStopAtrMultiplier"].includes(
     parameterKey,
   );
 }
 
 function getNumberInputMinimum(parameterKey: string) {
-  if (parameterKey === "openingRangeMinutes") {
-    return "15";
-  }
+  if (parameterKey === "timezoneOffsetHours") return "-12";
+  if (["sessionStartHour", "sessionStartMinute", "plottingEndHour", "extensionMultiplierOne", "extensionMultiplierTwo", "extensionMultiplierThree"].includes(parameterKey)) return "0";
+  if (parameterKey === "volumeProfileRows") return "5";
 
   return isFractionalStrategyParameter(parameterKey) ? "0.1" : "1";
+}
+
+function getNumberInputMaximum(parameterKey: string) {
+  if (parameterKey === "timezoneOffsetHours") return "12";
+  if (parameterKey === "sessionStartHour") return "23";
+  if (parameterKey === "sessionStartMinute") return "59";
+  if (parameterKey === "openingRangeMinutes") return "240";
+  if (parameterKey === "volumeProfileRows") return "50";
+  if (parameterKey === "volumeProfileWidthPercent") return "100";
+  if (parameterKey === "plottingEndHour") return "24";
+  return String(Number.MAX_SAFE_INTEGER);
 }
 
 function getNumberInputStep(parameterKey: string) {
@@ -2254,11 +2261,11 @@ export function ChartWorkspacePage() {
                     <span>{parameter.label}</span>
                     <input
                       id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
-                      max={parameter.key === "openingRangeMinutes" ? "60" : undefined}
+                      max={getNumberInputMaximum(parameter.key)}
                       min={getNumberInputMinimum(parameter.key)}
                       onChange={(event) => updateStrategyParameter(activeConfigStrategyRun.strategy, parameter, event.currentTarget.valueAsNumber)}
                       step={getNumberInputStep(parameter.key)}
-                      type={parameter.key === "openingRangeMinutes" ? "range" : "number"}
+                      type="number"
                       value={Number(value)}
                     />
                   </label>

@@ -9,13 +9,14 @@ import {
   type ChartStrategyWorkspaceState,
 } from "../src/features/strategies/chartStrategyRuntime.ts";
 
-const bars: Bar[] = [
-  { timestamp: Date.parse("2026-07-07T13:30:00.000Z"), open: 100, high: 101, low: 99, close: 100, volume: 1000 },
-  { timestamp: Date.parse("2026-07-07T13:31:00.000Z"), open: 100, high: 102, low: 99, close: 101, volume: 1200 },
-  { timestamp: Date.parse("2026-07-07T13:32:00.000Z"), open: 101, high: 104, low: 100, close: 103, volume: 1300 },
-  { timestamp: Date.parse("2026-07-07T13:33:00.000Z"), open: 103, high: 106, low: 102, close: 105, volume: 1400 },
-  { timestamp: Date.parse("2026-07-07T13:34:00.000Z"), open: 105, high: 107, low: 104, close: 106, volume: 1500 },
-];
+const bars: Bar[] = [10, 11, 12, 11, 10, 9, 10, 11, 12, 13].map((close, index) => ({
+  timestamp: Date.parse("2026-07-07T13:30:00.000Z") + index * 60_000,
+  open: close,
+  high: close + 1,
+  low: close - 1,
+  close,
+  volume: 1000 + index * 100,
+}));
 
 describe("chart strategy runtime", () => {
   it("runs UTORB and Trend Targets from the same normalized realtime bars", () => {
@@ -39,7 +40,7 @@ describe("chart strategy runtime", () => {
       utorb: {
         enabled: true,
         showLayer: true,
-        parameters: { openingRangeMinutes: 15, showTargets: true },
+        parameters: { sessionStartHour: 8, sessionStartMinute: 30, openingRangeMinutes: 15, timezoneOffsetHours: -5, showTargets: true },
       },
       "trend-targets": {
         enabled: true,
@@ -47,6 +48,8 @@ describe("chart strategy runtime", () => {
         parameters: {
           wmaLength: 2,
           emaLength: 2,
+          supertrendFactor: 1,
+          supertrendAtrPeriod: 2,
           targetOneMultiplier: 0.5,
           targetTwoMultiplier: 1,
           targetThreeMultiplier: 1.5,
@@ -70,6 +73,9 @@ describe("chart strategy runtime", () => {
     assert.equal(runs[0]?.result.input.bars, realtimeBars);
     assert.ok((runs.find((run) => run.strategy.key === "utorb")?.result.output.signals.length ?? 0) > 0);
     assert.ok((runs.find((run) => run.strategy.key === "trend-targets")?.result.output.render.elements.length ?? 0) > 0);
+    assert.ok(runs.find((run) => run.strategy.key === "utorb")?.result.output.render.elements.some(
+      (element) => element.kind === "price-line" && element.toTimestamp !== undefined,
+    ));
   });
 
   it("runs preset strategies from normalized market bars and exposes chart-facing output", () => {
@@ -83,6 +89,8 @@ describe("chart strategy runtime", () => {
       parameters: {
         wmaLength: 2,
         emaLength: 2,
+        supertrendFactor: 1,
+        supertrendAtrPeriod: 2,
         targetOneMultiplier: 0.5,
         targetTwoMultiplier: 1,
         targetThreeMultiplier: 1.5,
@@ -125,6 +133,8 @@ describe("chart strategy runtime", () => {
       parameters: {
         wmaLength: 2,
         emaLength: 2,
+        supertrendFactor: 1,
+        supertrendAtrPeriod: 2,
         targetOneMultiplier: 0.5,
         targetTwoMultiplier: 1,
         targetThreeMultiplier,

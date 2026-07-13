@@ -66,6 +66,7 @@ export type ChartLayerElement =
       label: string;
       tone: Extract<ChartLayerTone, "target" | "stop" | "range" | "neutral">;
       fromTimestamp?: number;
+      toTimestamp?: number;
       visible?: boolean;
     }
   | {
@@ -83,6 +84,7 @@ export type ChartLayerElement =
       label?: string;
       tone: Extract<ChartLayerTone, "range" | "risk" | "target" | "stop">;
       fromTimestamp?: number;
+      toTimestamp?: number;
       visible?: boolean;
     }
   | {
@@ -443,6 +445,25 @@ export function ChartViewport({
 
     return nearestIndex >= safeVisibleRange.start && nearestIndex < safeVisibleRange.end ? indexToX(nearestIndex) : null;
   };
+  const timedElementBounds = (fromTimestamp?: number, toTimestamp?: number) => {
+    const visibleStartTimestamp = visibleCandles[0]?.timestamp;
+    const visibleEndTimestamp = visibleCandles[visibleCandles.length - 1]?.timestamp;
+    if (typeof visibleStartTimestamp !== "number" || !Number.isFinite(visibleStartTimestamp) ||
+      typeof visibleEndTimestamp !== "number" || !Number.isFinite(visibleEndTimestamp)) return null;
+    const hasFromTimestamp = typeof fromTimestamp === "number" && Number.isFinite(fromTimestamp);
+    const hasToTimestamp = typeof toTimestamp === "number" && Number.isFinite(toTimestamp);
+    if (hasToTimestamp && toTimestamp < visibleStartTimestamp) return null;
+    if (hasFromTimestamp && fromTimestamp > visibleEndTimestamp) return null;
+
+    const x1 = !hasFromTimestamp || fromTimestamp <= visibleStartTimestamp
+      ? paddingX
+      : timestampToX(fromTimestamp);
+    const x2 = !hasToTimestamp || toTimestamp >= visibleEndTimestamp
+      ? plotRight
+      : timestampToX(toTimestamp);
+    if (x1 === null || x2 === null) return null;
+    return { x1, x2: Math.max(x1 + 2, x2) };
+  };
   const maPoints = movingAverage(candles, 9)
     .slice(safeVisibleRange.start, safeVisibleRange.end)
     .map((price, offset) => ({ x: indexToX(safeVisibleRange.start + offset), y: priceToY(price) }));
@@ -712,17 +733,15 @@ export function ChartViewport({
 
                   const y = priceToY(Math.max(element.fromPrice, element.toPrice));
                   const bandHeight = Math.max(2, Math.abs(priceToY(element.fromPrice) - priceToY(element.toPrice)));
-                  const x = isFiniteNumber(element.fromTimestamp ?? Number.NaN) ? timestampToX(element.fromTimestamp ?? 0) : paddingX;
-                  if (x === null) {
-                    return null;
-                  }
+                  const bounds = timedElementBounds(element.fromTimestamp, element.toTimestamp);
+                  if (!bounds) return null;
                   return (
                     <rect
                       className={`strategy-band ${element.tone}`}
                       height={bandHeight}
                       key={`${layer.id}-${element.id}`}
-                      width={Math.max(2, plotRight - x)}
-                      x={x}
+                      width={bounds.x2 - bounds.x1}
+                      x={bounds.x1}
                       y={y}
                     />
                   );
@@ -735,12 +754,10 @@ export function ChartViewport({
 
                   const y = priceToY(element.price);
                   const isProjected = isFiniteNumber(element.fromTimestamp ?? Number.NaN);
-                  const lineStartX = isProjected ? timestampToX(element.fromTimestamp ?? 0) : paddingX;
-                  if (lineStartX === null) {
-                    return null;
-                  }
+                  const bounds = timedElementBounds(element.fromTimestamp, element.toTimestamp);
+                  if (!bounds) return null;
                   const labelWidth = Math.max(86, element.label.length * 6.4 + 20);
-                  const labelX = plotRight - labelWidth + 6;
+                  const labelX = bounds.x2 - labelWidth + 6;
                   const labelY = y - 20;
 
                   return (
@@ -749,9 +766,9 @@ export function ChartViewport({
                       key={`${layer.id}-${element.id}`}
                       onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
                     >
-                      <line x1={lineStartX} x2={plotRight} y1={y} y2={y} />
+                      <line x1={bounds.x1} x2={bounds.x2} y1={y} y2={y} />
                       {isProjected && <rect height={30} rx={4} width={labelWidth} x={labelX} y={labelY} />}
-                      <text x={isProjected ? labelX + labelWidth - 10 : plotRight - 8} y={isProjected ? y + 5 : y - 6}>
+                      <text x={isProjected ? labelX + labelWidth - 10 : bounds.x2 - 8} y={isProjected ? y + 5 : y - 6}>
                         {element.label}
                       </text>
                     </g>
