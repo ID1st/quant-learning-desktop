@@ -738,6 +738,8 @@ export function ChartViewport({
                   return (
                     <rect
                       className={`strategy-band ${element.tone}`}
+                      data-element-id={element.id}
+                      data-strategy-id={layer.id}
                       height={bandHeight}
                       key={`${layer.id}-${element.id}`}
                       width={bounds.x2 - bounds.x1}
@@ -764,6 +766,8 @@ export function ChartViewport({
                   return (
                     <g
                       className={`strategy-price-line ${element.tone}${isProjected ? " projected" : ""}`}
+                      data-element-id={element.id}
+                      data-strategy-id={layer.id}
                       key={`${layer.id}-${element.id}`}
                       onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
                     >

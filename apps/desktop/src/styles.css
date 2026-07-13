@@ -2102,6 +2102,34 @@ textarea:focus-visible {
   stroke: rgba(255, 154, 138, 0.52);
 }
 
+/* UTORB keeps its reference levels subordinate to price action. */
+.strategy-band[data-strategy-id="utorb"][data-element-id^="utorb-opening-range"] {
+  fill: rgba(88, 166, 255, 0.045);
+  stroke: rgba(88, 166, 255, 0.16);
+}
+
+.strategy-price-line[data-strategy-id="utorb"] line {
+  opacity: 0.66;
+  stroke-dasharray: 5 5;
+  stroke-width: 1.2;
+}
+
+.strategy-price-line[data-strategy-id="utorb"][data-element-id^="utorb-opening-range"] line {
+  stroke: rgba(88, 166, 255, 0.78);
+}
+
+.strategy-price-line[data-strategy-id="utorb"][data-element-id^="utorb-target-up"] line {
+  stroke: rgba(44, 224, 167, 0.72);
+}
+
+.strategy-price-line[data-strategy-id="utorb"][data-element-id^="utorb-target-down"] line {
+  stroke: rgba(255, 112, 105, 0.7);
+}
+
+.strategy-price-line[data-strategy-id="utorb"] rect {
+  fill: rgba(23, 34, 46, 0.7);
+}
+
 .strategy-trend-line {
   fill: none;
   pointer-events: none;
