@@ -50,6 +50,7 @@ const twoSessionBars = [
   bar("2026-01-03T14:45:00Z", 201, 204, 200, 203, 200),
   bar("2026-01-03T15:00:00Z", 204, 211, 203, 206, 300),
   bar("2026-01-03T15:15:00Z", 206, 208, 205, 207, 400),
+  bar("2026-01-03T15:30:00Z", 207, 223, 207, 220, 500),
 ];
 
 test("UTORB reproduces Pine sessions, resets daily, and emits one breakout per direction per session", () => {
@@ -104,6 +105,7 @@ test("UTORB exposes Pine target hit rates, trailing stop, optimizer, and volume 
   assert.ok(Number.isFinite(result.output.metrics.bestTrailingStopMultiplier));
   assert.ok(result.output.render.elements.some((element) => element.kind === "trend-line" && element.id.startsWith("utorb-trail")));
   assert.ok(result.output.render.elements.some((element) => element.kind === "band" && element.id.startsWith("utorb-volume-profile")));
+  assert.equal(result.output.alerts.some((alert) => alert.includes("最终多头目标")), true);
 });
 
 test("UTORB exposes parameters corresponding to Pine inputs", () => {

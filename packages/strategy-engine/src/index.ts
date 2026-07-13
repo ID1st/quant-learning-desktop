@@ -978,6 +978,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   const volumeAverage = sma(bars.map((bar) => bar.volume), 20);
   const elements: StrategyVisualElement[] = [];
   const signals: StrategySignal[] = [];
+  const targetAlerts: string[] = [];
   const hour = 60 * 60 * 1000;
   const day = 24 * hour;
   const timezoneOffset = timezoneOffsetHours * hour;
@@ -1170,12 +1171,14 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         if (bar.high >= target && !sessionTargetReached.upper[targetIndex]) {
           targetHits.upper[targetIndex] += 1;
           sessionTargetReached.upper[targetIndex] = true;
+          if (targetIndex === 2) targetAlerts.push(`最终多头目标已触及：${target.toFixed(2)}`);
         }
       });
       lowerTargets.forEach((target, targetIndex) => {
         if (bar.low <= target && !sessionTargetReached.lower[targetIndex]) {
           targetHits.lower[targetIndex] += 1;
           sessionTargetReached.lower[targetIndex] = true;
+          if (targetIndex === 2) targetAlerts.push(`最终空头目标已触及：${target.toFixed(2)}`);
         }
       });
     }
@@ -1340,7 +1343,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       `UTORB 已按 UTC${timezoneOffsetHours >= 0 ? "+" : ""}${timezoneOffsetHours} 追踪 ${totalSessions} 个开盘区间。`,
       `最新区间 ${openingRangeLow.toFixed(2)} - ${openingRangeHigh.toFixed(2)}，生成 ${directionalSignalCount} 个突破信号。`,
     ],
-    alerts: signals.map((signal) => signal.label ?? signal.type),
+    alerts: [...signals.map((signal) => signal.label ?? signal.type), ...targetAlerts],
   };
 }
 
@@ -1505,6 +1508,26 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
   const targetOne = setupSide === "buy" ? entryPrice + riskDistance * targetOneMultiplier : entryPrice - riskDistance * targetOneMultiplier;
   const targetTwo = setupSide === "buy" ? entryPrice + riskDistance * targetTwoMultiplier : entryPrice - riskDistance * targetTwoMultiplier;
   const targetThree = setupSide === "buy" ? entryPrice + riskDistance * targetThreeMultiplier : entryPrice - riskDistance * targetThreeMultiplier;
+  const setupAlerts: string[] = [];
+  const targetTouched = [false, false, false];
+  let stopTouched = false;
+
+  if (latestSignalBar && projectionIndex >= 0 && riskRange > 0) {
+    input.bars.slice(projectionIndex + 1).forEach((bar) => {
+      [targetOne, targetTwo, targetThree].forEach((target, targetIndex) => {
+        const touched = setupSide === "buy" ? bar.high >= target : bar.low <= target;
+        if (touched && !targetTouched[targetIndex]) {
+          targetTouched[targetIndex] = true;
+          setupAlerts.push(`目标${targetIndex + 1}已触及：${target.toFixed(2)}`);
+        }
+      });
+      const touchedStop = setupSide === "buy" ? bar.low <= stopPrice : bar.high >= stopPrice;
+      if (touchedStop && !stopTouched) {
+        stopTouched = true;
+        setupAlerts.push(`止损线已触及：${stopPrice.toFixed(2)}`);
+      }
+    });
+  }
 
   if (showTargets && latestSignalBar && riskRange > 0) {
     const projectionStart = latestSignalBar.timestamp;
@@ -1598,6 +1621,10 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
       targetOne,
       targetTwo,
       targetThree,
+      targetOneTouched: targetTouched[0] ? 1 : 0,
+      targetTwoTouched: targetTouched[1] ? 1 : 0,
+      targetThreeTouched: targetTouched[2] ? 1 : 0,
+      stopTouched: stopTouched ? 1 : 0,
       rejectionCount,
       signalCount: directionalSignals.length,
     },
@@ -1605,7 +1632,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
       `Trend Targets 已生成 ${direction === "bullish" ? "多头" : "空头"}基准线和目标位。`,
       `当前入场参考 ${entryPrice.toFixed(2)}，止损 ${stopPrice.toFixed(2)}，目标3 ${targetThree.toFixed(2)}。`,
     ],
-    alerts: signals.map((signal) => signal.label ?? signal.type),
+    alerts: [...signals.map((signal) => signal.label ?? signal.type), ...setupAlerts],
   };
 }
 

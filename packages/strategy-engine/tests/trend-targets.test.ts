@@ -61,6 +61,7 @@ test("Trend Targets reproduces the Pine Supertrend midpoint WMA/EMA baseline and
   assert.equal(result.output.metrics.entryPrice, 12);
   assert.equal(result.output.metrics.stopPrice, 9);
   assert.equal(result.output.metrics.targetThree, 16.5);
+  assert.equal(result.output.alerts.some((alert) => alert.includes("目标1")), true);
 });
 
 test("Trend Targets emits Pine rejection markers only after the configured consecutive confirmation count", () => {
