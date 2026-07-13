@@ -1,4 +1,4 @@
-import { crossover, crossunder, sma } from "@quant/pine-runtime";
+import { crossover, crossunder, ema, sma, wma } from "@quant/pine-runtime";
 import type { Market, Timeframe } from "@quant/shared";
 
 export * from "./backtest.ts";
@@ -75,6 +75,7 @@ export interface StrategyPriceLine extends StrategyVisualBase {
   label: string;
   tone: "target" | "stop" | "range" | "neutral";
   fromTimestamp?: number;
+  toTimestamp?: number;
 }
 
 export interface StrategyTrendLine extends StrategyVisualBase {
@@ -90,6 +91,7 @@ export interface StrategyBand extends StrategyVisualBase {
   label?: string;
   tone: "range" | "risk" | "target";
   fromTimestamp?: number;
+  toTimestamp?: number;
 }
 
 export interface StrategyLabel extends StrategyVisualBase {
@@ -912,6 +914,39 @@ function averageTrueRange(bars: Bar[], period: number, endIndex: number) {
   );
 }
 
+function wilderMovingAverage(values: readonly number[], period: number): Array<number | null> {
+  const length = Math.max(1, Math.round(period));
+  let previous: number | null = null;
+
+  return values.map((value, index) => {
+    if (previous === null) {
+      const window = values.slice(index - length + 1, index + 1);
+      if (window.length < length) {
+        return null;
+      }
+
+      previous = window.reduce((total, item) => total + item, 0) / length;
+      return previous;
+    }
+
+    previous = (previous * (length - 1) + value) / length;
+    return previous;
+  });
+}
+
+function pineAtr(bars: readonly Bar[], period: number): Array<number | null> {
+  const trueRanges = bars.map((bar, index) => {
+    const previousClose = bars[index - 1]?.close ?? bar.close;
+    return Math.max(bar.high - bar.low, Math.abs(bar.high - previousClose), Math.abs(bar.low - previousClose));
+  });
+
+  return wilderMovingAverage(trueRanges, period);
+}
+
+function isSeriesNumber(value: number | null | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): StrategyOutput {
   const enabled = input.enabled ?? true;
   const openingRangeMinutes = getPositiveNumberParameter(input.parameters, "openingRangeMinutes", 30);
@@ -1065,91 +1100,160 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
     };
   }
 
-  const trendLength = Math.max(2, Math.round((wmaLength + emaLength) / 2));
-  const startIndex = Math.max(0, input.bars.length - trendLength - 1);
-  const lastBar = input.bars[input.bars.length - 1];
-  const trendBars = input.bars.slice(startIndex);
-  const trendStartBar = trendBars[0];
-  const slope = (lastBar.close - trendStartBar.close) / Math.max(1, input.bars.length - 1 - startIndex);
-  const direction = slope >= 0 ? "bullish" : "bearish";
-  const elements: StrategyVisualElement[] = [
-    {
-      id: "trend-targets-baseline",
-      kind: "trend-line",
-      points: trendBars.map((bar) => ({ timestamp: bar.timestamp, price: bar.close })),
-      tone: direction,
-    },
-  ];
-  const signals: StrategySignal[] = [];
-  let previousSignalType: StrategySignal["type"] | null = null;
+  const supertrendAtr = pineAtr(input.bars, supertrendAtrPeriod);
+  const lowerBand: number[] = [];
+  const upperBand: number[] = [];
+  const midpoint: number[] = [];
 
   input.bars.forEach((bar, index) => {
-    if (index < 2) {
-      return;
-    }
+    const atr = supertrendAtr[index];
+    const source = (bar.high + bar.low) / 2;
+    const rawLower = isSeriesNumber(atr) ? source - supertrendFactor * atr : null;
+    const rawUpper = isSeriesNumber(atr) ? source + supertrendFactor * atr : null;
+    const previousLower = lowerBand[index - 1] ?? 0;
+    const previousUpper = upperBand[index - 1] ?? 0;
+    const previousClose = input.bars[index - 1]?.close ?? bar.close;
+    const nextLower = isSeriesNumber(rawLower) && (rawLower > previousLower || previousClose < previousLower)
+      ? rawLower
+      : previousLower;
+    const nextUpper = isSeriesNumber(rawUpper) && (rawUpper < previousUpper || previousClose > previousUpper)
+      ? rawUpper
+      : previousUpper;
 
-    const comparisonBars = input.bars.slice(Math.max(0, index - wmaLength), index);
-    const priorHigh = Math.max(...comparisonBars.map((item) => item.high));
-    const priorLow = Math.min(...comparisonBars.map((item) => item.low));
-    const signalType = bar.close > priorHigh ? "buy" : bar.close < priorLow ? "sell" : null;
-
-    if (!signalType || signalType === previousSignalType) {
-      return;
-    }
-
-    previousSignalType = signalType;
-    signals.push({
-      timestamp: bar.timestamp,
-      type: signalType,
-      price: bar.close,
-      label: signalType === "buy" ? "趋势目标多头突破" : "趋势目标空头跌破",
-    });
-    elements.push({
-      id: `trend-targets-${signalType}-${bar.timestamp}`,
-      kind: "signal-marker",
-      timestamp: bar.timestamp,
-      price: signalType === "buy" ? bar.low : bar.high,
-      direction: signalType === "buy" ? "up" : "down",
-      tone: signalType,
-    });
+    lowerBand.push(nextLower);
+    upperBand.push(nextUpper);
+    midpoint.push((nextLower + nextUpper) / 2);
   });
 
-  const latestSignal = signals[signals.length - 1];
+  const baseline = ema(wma(midpoint, wmaLength), emaLength);
+  const trend: number[] = [];
+  const elements: StrategyVisualElement[] = [];
+  const signals: StrategySignal[] = [];
+  let currentTrend = 0;
+  let rejectionCount = 0;
+  type BaselineSegment = {
+    tone: "bullish" | "bearish" | "neutral";
+    points: Array<{ timestamp: number; price: number }>;
+  };
+  let baselineSegment: BaselineSegment | null = null;
+  const baselineSegments: BaselineSegment[] = [];
+
+  input.bars.forEach((bar, index) => {
+    const value = baseline[index];
+    const previousValue = baseline[index - 1];
+    const previousPreviousValue = baseline[index - 2];
+    const previousTrend = currentTrend;
+    const turnedBullish = isSeriesNumber(value) && isSeriesNumber(previousValue) && isSeriesNumber(previousPreviousValue) &&
+      value > previousValue && previousValue <= previousPreviousValue;
+    const turnedBearish = isSeriesNumber(value) && isSeriesNumber(previousValue) && isSeriesNumber(previousPreviousValue) &&
+      value < previousValue && previousValue >= previousPreviousValue;
+
+    if (turnedBullish) currentTrend = 1;
+    if (turnedBearish) currentTrend = -1;
+    trend.push(currentTrend);
+
+    if (isSeriesNumber(value)) {
+      const tone = currentTrend > 0 ? "bullish" : currentTrend < 0 ? "bearish" : "neutral";
+      const point = { timestamp: bar.timestamp, price: value };
+      if (!baselineSegment || baselineSegment.tone !== tone) {
+        const boundaryPoint = baselineSegment?.points.at(-1);
+        baselineSegment = { tone, points: boundaryPoint ? [boundaryPoint, point] : [point] };
+        baselineSegments.push(baselineSegment);
+      } else {
+        baselineSegment.points.push(point);
+      }
+    }
+
+    const trendChanged = currentTrend !== previousTrend;
+    if (previousTrend <= 0 && currentTrend > 0) {
+      signals.push({ timestamp: bar.timestamp, type: "buy", price: bar.close, label: "多头趋势转变" });
+      elements.push({
+        id: `trend-targets-buy-${bar.timestamp}`,
+        kind: "signal-marker",
+        timestamp: bar.timestamp,
+        price: isSeriesNumber(value) ? value : bar.low,
+        direction: "up",
+        tone: "buy",
+      });
+    } else if (previousTrend >= 0 && currentTrend < 0) {
+      signals.push({ timestamp: bar.timestamp, type: "sell", price: bar.close, label: "空头趋势转变" });
+      elements.push({
+        id: `trend-targets-sell-${bar.timestamp}`,
+        kind: "signal-marker",
+        timestamp: bar.timestamp,
+        price: isSeriesNumber(value) ? value : bar.high,
+        direction: "down",
+        tone: "sell",
+      });
+    }
+
+    const rejected = isSeriesNumber(value) && currentTrend !== 0 && bar.high > value && bar.low < value;
+    if (rejected) rejectionCount += 1;
+    if (trendChanged || (!rejected && rejectionCount > 0)) rejectionCount = 0;
+
+    if (rejectionCount > confirmationCount && isSeriesNumber(value)) {
+      const bullish = currentTrend > 0;
+      const label = bullish ? "多头拒绝确认" : "空头拒绝确认";
+      signals.push({ timestamp: bar.timestamp, type: "alert", price: value, label });
+      elements.push({
+        id: `trend-targets-rejection-${bar.timestamp}`,
+        kind: "signal-marker",
+        timestamp: bar.timestamp,
+        price: value,
+        direction: bullish ? "up" : "down",
+        tone: "neutral",
+      });
+    }
+  });
+
+  baselineSegments.forEach((segment, index) => {
+    if (segment.points.length > 1) {
+      elements.unshift({
+        id: `trend-targets-baseline-${index}`,
+        kind: "trend-line",
+        points: segment.points,
+        tone: segment.tone,
+      });
+    }
+  });
+
+  const directionalSignals = signals.filter((signal) => signal.type === "buy" || signal.type === "sell");
+  const latestSignal = directionalSignals[directionalSignals.length - 1];
   const latestSignalBar = latestSignal ? input.bars.find((bar) => bar.timestamp === latestSignal.timestamp) : undefined;
+  const projectionIndex = latestSignalBar ? input.bars.indexOf(latestSignalBar) : -1;
+  const volatility = pineAtr(input.bars, atrPeriod);
+  const riskRange = projectionIndex >= 0 && isSeriesNumber(volatility[projectionIndex]) ? volatility[projectionIndex] : 0;
+  const entryPrice = latestSignalBar?.close ?? 0;
   const setupSide = latestSignal?.type === "sell" ? "sell" : "buy";
-  const projectionBar = latestSignalBar ?? lastBar;
-  const projectionIndex = input.bars.indexOf(projectionBar);
-  const riskRange = Math.max(0.01, averageTrueRange(input.bars, atrPeriod, projectionIndex));
-  const entryPrice = projectionBar.close;
-  const stopDistance = riskRange * stopLossAtrMultiplier;
-  const stopPrice = setupSide === "buy" ? projectionBar.low - stopDistance : projectionBar.high + stopDistance;
+  const stopPrice = latestSignalBar
+    ? setupSide === "buy"
+      ? latestSignalBar.low - riskRange * stopLossAtrMultiplier
+      : latestSignalBar.high + riskRange * stopLossAtrMultiplier
+    : 0;
   const riskDistance = Math.abs(entryPrice - stopPrice);
   const targetOne = setupSide === "buy" ? entryPrice + riskDistance * targetOneMultiplier : entryPrice - riskDistance * targetOneMultiplier;
   const targetTwo = setupSide === "buy" ? entryPrice + riskDistance * targetTwoMultiplier : entryPrice - riskDistance * targetTwoMultiplier;
   const targetThree = setupSide === "buy" ? entryPrice + riskDistance * targetThreeMultiplier : entryPrice - riskDistance * targetThreeMultiplier;
-  const projectionStart = projectionBar.timestamp;
 
-  elements.push(
-    {
-      id: "trend-targets-risk-zone",
-      kind: "band",
-      fromPrice: Math.min(entryPrice, stopPrice),
-      toPrice: Math.max(entryPrice, stopPrice),
-      tone: "risk",
-      fromTimestamp: projectionStart,
-    },
-    {
-      id: "trend-targets-entry",
-      kind: "price-line",
-      price: entryPrice,
-      label: `Entry ▸ ${entryPrice.toFixed(2)}`,
-      tone: "neutral",
-      fromTimestamp: projectionStart,
-    },
-  );
-
-  if (showTargets) {
+  if (showTargets && latestSignalBar && riskRange > 0) {
+    const projectionStart = latestSignalBar.timestamp;
     elements.push(
+      {
+        id: "trend-targets-risk-zone",
+        kind: "band",
+        fromPrice: Math.min(entryPrice, stopPrice),
+        toPrice: Math.max(entryPrice, stopPrice),
+        tone: "risk",
+        fromTimestamp: projectionStart,
+      },
+      {
+        id: "trend-targets-entry",
+        kind: "price-line",
+        price: entryPrice,
+        label: `Entry ▸ ${entryPrice.toFixed(2)}`,
+        tone: "neutral",
+        fromTimestamp: projectionStart,
+      },
       {
         id: "trend-targets-target-zone",
         kind: "band",
@@ -1183,18 +1287,23 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         fromTimestamp: projectionStart,
       },
     );
+
+    if (showStopLoss) {
+      elements.push({
+        id: "trend-targets-stop",
+        kind: "price-line",
+        price: stopPrice,
+        label: `✕ SL ▸ ${stopPrice.toFixed(2)}`,
+        tone: "stop",
+        fromTimestamp: projectionStart,
+      });
+    }
   }
 
-  if (showStopLoss) {
-    elements.push({
-      id: "trend-targets-stop",
-      kind: "price-line",
-      price: stopPrice,
-      label: `✕ SL ▸ ${stopPrice.toFixed(2)}`,
-      tone: "stop",
-      fromTimestamp: projectionStart,
-    });
-  }
+  const lastBaseline = [...baseline].reverse().find(isSeriesNumber) ?? 0;
+  const previousBaseline = [...baseline.slice(0, -1)].reverse().find(isSeriesNumber) ?? lastBaseline;
+  const slope = lastBaseline - previousBaseline;
+  const direction = (trend[trend.length - 1] ?? 0) >= 0 ? "bullish" : "bearish";
 
   return {
     signals,
@@ -1208,8 +1317,8 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
     },
     metrics: {
       trendSlope: slope,
-      averageRange: riskRange,
       averageTrueRange: riskRange,
+      baseline: lastBaseline,
       supertrendFactor,
       supertrendAtrPeriod,
       confirmationCount,
@@ -1218,7 +1327,8 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
       targetOne,
       targetTwo,
       targetThree,
-      signalCount: signals.length,
+      rejectionCount,
+      signalCount: directionalSignals.length,
     },
     logs: [
       `Trend Targets 已生成 ${direction === "bullish" ? "多头" : "空头"}基准线和目标位。`,

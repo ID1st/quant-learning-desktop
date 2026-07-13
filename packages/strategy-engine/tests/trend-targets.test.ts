@@ -5,50 +5,99 @@ import { createPresetStrategyRegistry, runRegisteredStrategy, type Bar } from ".
 const start = Date.UTC(2026, 0, 2, 14, 30);
 const minute = 60 * 1000;
 
-function bar(offsetMinutes: number, open: number, high: number, low: number, close: number): Bar {
+function bar(offsetMinutes: number, close: number, spread = 1): Bar {
   return {
     timestamp: start + offsetMinutes * minute,
-    open,
-    high,
-    low,
+    open: close,
+    high: close + spread,
+    low: close - spread,
     close,
-    volume: 100000,
+    volume: 100_000,
   };
 }
 
-test("Trend Targets creates bullish breakout target visuals", () => {
+function runTrendTargets(bars: Bar[], parameters: Record<string, unknown> = {}) {
   const registry = createPresetStrategyRegistry();
-  const result = runRegisteredStrategy(registry, {
+  return runRegisteredStrategy(registry, {
     strategyKey: "trend-targets",
     symbol: "AAPL",
     market: "US",
     timeframe: "15m",
     runMode: "backtest",
-    bars: [
-      bar(0, 100, 101, 99, 100),
-      bar(15, 100, 102, 99, 101),
-      bar(30, 101, 103, 100, 102),
-      bar(45, 102, 106, 101, 105),
-    ],
+    bars,
     parameters: {
-      trendLength: 3,
-      targetMultiplier: 1.5,
+      supertrendFactor: 1,
+      supertrendAtrPeriod: 2,
+      wmaLength: 2,
+      emaLength: 2,
+      confirmationCount: 3,
+      atrPeriod: 2,
+      stopLossAtrMultiplier: 1,
+      targetOneMultiplier: 0.5,
+      targetTwoMultiplier: 1,
+      targetThreeMultiplier: 1.5,
+      showTargets: true,
       showStopLoss: true,
+      ...parameters,
     },
   });
+}
 
-  assert.equal(result.output.signals.length, 1);
-  assert.equal(result.output.signals[0].type, "buy");
-  assert.equal(result.output.metrics.signalCount, 1);
-  assert.equal(result.output.render.elements.some((element) => element.kind === "trend-line" && element.tone === "bullish"), true);
-  assert.equal(result.output.render.elements.filter((element) => element.kind === "price-line").length, 5);
-  assert.equal(result.output.render.elements.filter((element) => element.kind === "signal-marker").length, 1);
+test("Trend Targets reproduces the Pine Supertrend midpoint WMA/EMA baseline and turn signals", () => {
+  const bars = [10, 11, 12, 11, 10, 9, 10, 11, 12, 13].map((close, index) => bar(index * 15, close));
+  const result = runTrendTargets(bars);
+  const baselinePoints = result.output.render.elements
+    .filter((element) => element.kind === "trend-line" && element.id.startsWith("trend-targets-baseline"))
+    .flatMap((element) => element.kind === "trend-line" ? element.points : []);
+  const pointAtMinute60 = baselinePoints.find((point) => point.timestamp === start + 60 * minute);
+
+  assert.ok(pointAtMinute60);
+  assert.ok(Math.abs(pointAtMinute60.price - 11.037037037037038) < 1e-9);
+  assert.deepEqual(result.output.signals.filter((signal) => signal.type !== "alert").map((signal) => signal.type), ["sell", "buy"]);
+  assert.deepEqual(result.output.signals.filter((signal) => signal.type !== "alert").map((signal) => signal.timestamp), [
+    start + 75 * minute,
+    start + 120 * minute,
+  ]);
+  assert.equal(result.output.metrics.entryPrice, 12);
+  assert.equal(result.output.metrics.stopPrice, 9);
+  assert.equal(result.output.metrics.targetThree, 16.5);
 });
 
-test("Trend Targets exposes Pine-style core parameters", () => {
+test("Trend Targets emits Pine rejection markers only after the configured consecutive confirmation count", () => {
+  const bars = [10, 11, 12, 11, 10, 9, 10, 11, 12, 13, 14, 15].map((close, index) => bar(index * 15, close, 10));
+  const strict = runTrendTargets(bars, { confirmationCount: 20 });
+  const sensitive = runTrendTargets(bars, { confirmationCount: 1 });
+  const strictRejections = strict.output.render.elements.filter((element) => element.id.startsWith("trend-targets-rejection"));
+  const sensitiveRejections = sensitive.output.render.elements.filter((element) => element.id.startsWith("trend-targets-rejection"));
+
+  assert.equal(strictRejections.length, 0);
+  assert.ok(sensitiveRejections.length > 0);
+  assert.equal(sensitive.output.signals.some((signal) => signal.type === "alert" && signal.label?.includes("拒绝")), true);
+});
+
+test("Trend Targets core Pine parameters change the calculated baseline", () => {
+  const bars = Array.from({ length: 28 }, (_, index) => bar(index * 15, 100 + Math.sin(index / 2) * 6 + index * 0.15, 2 + index % 3));
+  const baseline = (parameters: Record<string, unknown>) => runTrendTargets(bars, parameters).output.render.elements
+    .filter((element) => element.kind === "trend-line" && element.id.startsWith("trend-targets-baseline"))
+    .flatMap((element) => element.kind === "trend-line" ? element.points.map((point) => point.price) : []);
+
+  const defaultBaseline = baseline({});
+  assert.notDeepEqual(baseline({ supertrendFactor: 3 }), defaultBaseline);
+  assert.notDeepEqual(baseline({ supertrendAtrPeriod: 4 }), defaultBaseline);
+  assert.notDeepEqual(baseline({ wmaLength: 4 }), defaultBaseline);
+  assert.notDeepEqual(baseline({ emaLength: 4 }), defaultBaseline);
+});
+
+test("Trend Targets exposes the Pine parameters and projects only the latest setup", () => {
   const registry = createPresetStrategyRegistry();
   const strategy = registry.get("trend-targets");
   const parameterKeys = strategy?.parameterSchema.map((parameter) => parameter.key) ?? [];
+  const bars = [10, 11, 12, 11, 10, 9, 10, 11, 12, 13].map((close, index) => bar(index * 15, close));
+  const result = runTrendTargets(bars);
+  const latestSignal = result.output.signals.filter((signal) => signal.type === "buy" || signal.type === "sell").at(-1);
+  const projectedPriceLines = result.output.render.elements.filter(
+    (element) => element.kind === "price-line" && element.fromTimestamp === latestSignal?.timestamp,
+  );
 
   assert.deepEqual(parameterKeys, [
     "supertrendFactor",
@@ -64,117 +113,20 @@ test("Trend Targets exposes Pine-style core parameters", () => {
     "targetThreeMultiplier",
     "showStopLoss",
   ]);
-});
-
-test("Trend Targets creates bearish breakout target visuals", () => {
-  const registry = createPresetStrategyRegistry();
-  const result = runRegisteredStrategy(registry, {
-    strategyKey: "trend-targets",
-    symbol: "AAPL",
-    market: "US",
-    timeframe: "15m",
-    runMode: "backtest",
-    bars: [
-      bar(0, 105, 106, 104, 105),
-      bar(15, 105, 106, 103, 104),
-      bar(30, 104, 105, 102, 103),
-      bar(45, 103, 104, 99, 100),
-    ],
-    parameters: {
-      wmaLength: 3,
-      targetThreeMultiplier: 1.5,
-      showStopLoss: false,
-    },
-  });
-
-  assert.equal(result.output.signals.length, 1);
-  assert.equal(result.output.signals[0].type, "sell");
-  assert.equal(result.output.render.elements.some((element) => element.kind === "trend-line" && element.tone === "bearish"), true);
-  assert.equal(
-    result.output.render.elements.some((element) => element.kind === "price-line" && element.tone === "stop"),
-    false,
-  );
-});
-
-test("Trend Targets projects target lines from the latest signal", () => {
-  const registry = createPresetStrategyRegistry();
-  const result = runRegisteredStrategy(registry, {
-    strategyKey: "trend-targets",
-    symbol: "AAPL",
-    market: "US",
-    timeframe: "15m",
-    runMode: "backtest",
-    bars: [
-      bar(0, 100, 103, 99, 101),
-      bar(15, 101, 104, 100, 102),
-      bar(30, 102, 105, 101, 105),
-      bar(45, 105, 106, 97, 98),
-      bar(60, 98, 101, 96, 100),
-      bar(75, 100, 103, 98, 102),
-    ],
-    parameters: {
-      wmaLength: 3,
-      targetThreeMultiplier: 1.5,
-      showStopLoss: true,
-    },
-  });
-
-  const latestSignal = result.output.signals[result.output.signals.length - 1];
-  const projectedPriceLines = result.output.render.elements.filter(
-    (element) => element.kind === "price-line" && element.fromTimestamp === latestSignal.timestamp,
-  );
-  const projectedBands = result.output.render.elements.filter(
-    (element) => element.kind === "band" && element.fromTimestamp === latestSignal.timestamp,
-  );
-
-  assert.equal(result.output.signals.length, 2);
-  assert.equal(result.output.signals[0].type, "buy");
-  assert.equal(result.output.signals[1].type, "sell");
-  assert.equal(result.output.render.elements.filter((element) => element.kind === "signal-marker").length, 2);
   assert.equal(projectedPriceLines.length, 5);
-  assert.equal(projectedBands.length, 2);
-  assert.equal(projectedPriceLines.some((element) => element.label.startsWith("Entry")), true);
-  assert.equal(projectedPriceLines.some((element) => element.label.startsWith("✓ 目标3")), true);
-  assert.equal(projectedPriceLines.some((element) => element.label.includes("TP")), false);
-  assert.equal(projectedPriceLines.some((element) => element.label.startsWith("✕ SL")), true);
+  assert.equal(projectedPriceLines.some((element) => element.kind === "price-line" && element.label.startsWith("Entry")), true);
+  assert.equal(result.output.render.elements.filter((element) => element.kind === "band").length, 2);
 });
 
-test("Trend Targets applies ATR stop and target multipliers", () => {
-  const registry = createPresetStrategyRegistry();
-  const result = runRegisteredStrategy(registry, {
-    strategyKey: "trend-targets",
-    symbol: "AAPL",
-    market: "US",
-    timeframe: "15m",
-    runMode: "backtest",
-    bars: [
-      bar(0, 100, 101, 99, 100),
-      bar(15, 100, 102, 99, 101),
-      bar(30, 101, 103, 100, 102),
-      bar(45, 102, 106, 101, 105),
-    ],
-    parameters: {
-      wmaLength: 3,
-      atrPeriod: 2,
-      stopLossAtrMultiplier: 2,
-      targetOneMultiplier: 0.25,
-      targetTwoMultiplier: 0.75,
-      targetThreeMultiplier: 1.25,
-      showTargets: true,
-      showStopLoss: true,
-    },
-  });
+test("Trend Targets hides the Pine setup projection when targets are disabled", () => {
+  const bars = [10, 11, 12, 11, 10, 9, 10, 11, 12, 13].map((close, index) => bar(index * 15, close));
+  const result = runTrendTargets(bars, { showTargets: false });
 
-  const entryPrice = Number(result.output.metrics.entryPrice);
-  const stopPrice = Number(result.output.metrics.stopPrice);
-  const riskDistance = Math.abs(entryPrice - stopPrice);
-
-  assert.equal(result.output.metrics.targetOne, entryPrice + riskDistance * 0.25);
-  assert.equal(result.output.metrics.targetTwo, entryPrice + riskDistance * 0.75);
-  assert.equal(result.output.metrics.targetThree, entryPrice + riskDistance * 1.25);
+  assert.equal(result.output.render.elements.some((element) => element.kind === "price-line"), false);
+  assert.equal(result.output.render.elements.some((element) => element.kind === "band"), false);
 });
 
-test("Trend Targets disabled run keeps render layer disabled", () => {
+test("Trend Targets disabled run keeps the render layer disabled", () => {
   const registry = createPresetStrategyRegistry();
   const result = runRegisteredStrategy(registry, {
     strategyKey: "trend-targets",
@@ -183,7 +135,7 @@ test("Trend Targets disabled run keeps render layer disabled", () => {
     timeframe: "15m",
     runMode: "backtest",
     enabled: false,
-    bars: [bar(0, 100, 101, 99, 100), bar(15, 100, 102, 99, 101), bar(30, 101, 103, 100, 102)],
+    bars: [bar(0, 10), bar(15, 11), bar(30, 12)],
   });
 
   assert.equal(result.output.render.enabled, false);
