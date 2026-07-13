@@ -6,6 +6,16 @@ function bar(timestamp: number, open: number, close = open): Bar {
   return { timestamp, open, high: Math.max(open, close), low: Math.min(open, close), close, volume: 100 };
 }
 
+test("backtest disables short entries by default", () => {
+  const result = runStrategyBacktest({
+    bars: [bar(1, 100), bar(2, 100), bar(3, 90)],
+    signals: [{ timestamp: 1, type: "sell" }],
+  });
+
+  assert.equal(result.settings.allowShort, false);
+  assert.equal(result.summary.tradeCount, 0);
+});
+
 test("backtest uses the next bar open and reverses between long and short", () => {
   const result = runStrategyBacktest({
     bars: [bar(1, 100), bar(2, 110, 111), bar(3, 120), bar(4, 90)],
@@ -13,7 +23,7 @@ test("backtest uses the next bar open and reverses between long and short", () =
       { timestamp: 1, type: "buy" },
       { timestamp: 2, type: "sell" },
     ],
-    settings: { initialCapital: 1000, feeRate: 0, slippageRate: 0 },
+    settings: { initialCapital: 1000, feeRate: 0, slippageRate: 0, allowShort: true },
   });
 
   assert.equal(result.trades.length, 2);

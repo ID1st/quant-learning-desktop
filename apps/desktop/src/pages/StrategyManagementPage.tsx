@@ -59,7 +59,7 @@ const defaultBacktestSettings: BacktestSettings = {
   initialCapital: 100_000,
   feeRate: 0.0005,
   slippageRate: 0.0005,
-  allowShort: true,
+  allowShort: false,
 };
 
 const samplePineSource = `//@version=5
@@ -525,7 +525,7 @@ export function StrategyManagementPage() {
               <label className="backtest-switch">
                 <span>允许做空</span>
                 <input
-                  checked={backtestSettings.allowShort ?? true}
+                  checked={backtestSettings.allowShort ?? false}
                   onChange={(event) => {
                     const allowShort = event.currentTarget.checked;
                     setBacktestSettings((current) => ({ ...current, allowShort }));

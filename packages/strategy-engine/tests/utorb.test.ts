@@ -176,6 +176,34 @@ test("UTORB exposes parameters corresponding to Pine inputs", () => {
   ]);
 });
 
+test("UTORB defaults use the evaluated US opening setup", () => {
+  const strategy = createPresetStrategyRegistry().get("utorb");
+  const defaults = Object.fromEntries(strategy?.parameterSchema.map((parameter) => [parameter.key, parameter.defaultValue]) ?? []);
+
+  assert.deepEqual(
+    {
+      sessionStartHour: defaults.sessionStartHour,
+      sessionStartMinute: defaults.sessionStartMinute,
+      openingRangeMinutes: defaults.openingRangeMinutes,
+      sessionDays: defaults.sessionDays,
+      timezoneOffsetHours: defaults.timezoneOffsetHours,
+      rangeSource: defaults.rangeSource,
+      trailingStopAtrMultiplier: defaults.trailingStopAtrMultiplier,
+      trailingStopAtrPeriod: defaults.trailingStopAtrPeriod,
+    },
+    {
+      sessionStartHour: 9,
+      sessionStartMinute: 30,
+      openingRangeMinutes: 45,
+      sessionDays: "23456",
+      timezoneOffsetHours: -4,
+      rangeSource: "close",
+      trailingStopAtrMultiplier: 2,
+      trailingStopAtrPeriod: 7,
+    },
+  );
+});
+
 test("UTORB disabled run keeps render layer disabled", () => {
   const registry = createPresetStrategyRegistry();
   const result = runRegisteredStrategy(registry, {

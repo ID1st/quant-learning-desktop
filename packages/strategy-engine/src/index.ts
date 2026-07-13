@@ -938,10 +938,10 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   const enabled = input.enabled ?? true;
   const sessionStartHour = Math.min(23, Math.max(0, Math.round(getNumberParameter(input.parameters, "sessionStartHour", 9))));
   const sessionStartMinute = Math.min(59, Math.max(0, Math.round(getNumberParameter(input.parameters, "sessionStartMinute", 30))));
-  const openingRangeMinutes = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "openingRangeMinutes", 30)));
-  const sessionDays = getStringParameter(input.parameters, "sessionDays", "1234567").replace(/[^1-7]/g, "") || "1234567";
-  const timezoneOffsetHours = Math.min(12, Math.max(-12, getNumberParameter(input.parameters, "timezoneOffsetHours", -5)));
-  const rangeSource = getStringParameter(input.parameters, "rangeSource", "high-low") === "close" ? "close" : "high-low";
+  const openingRangeMinutes = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "openingRangeMinutes", 45)));
+  const sessionDays = getStringParameter(input.parameters, "sessionDays", "23456").replace(/[^1-7]/g, "") || "23456";
+  const timezoneOffsetHours = Math.min(12, Math.max(-12, getNumberParameter(input.parameters, "timezoneOffsetHours", -4)));
+  const rangeSource = getStringParameter(input.parameters, "rangeSource", "close") === "close" ? "close" : "high-low";
   const showTargets = getBooleanParameter(input.parameters, "showTargets", true);
   const extensionType = getStringParameter(input.parameters, "extensionType", "multiples") === "fibonacci" ? "fibonacci" : "multiples";
   const extensionMultipliers = extensionType === "fibonacci"
@@ -967,7 +967,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         : 17 * 60;
   const showTrailingStop = getBooleanParameter(input.parameters, "showTrailingStop", false);
   const trailingStopAtrMultiplier = getPositiveNumberParameter(input.parameters, "trailingStopAtrMultiplier", 2);
-  const trailingStopAtrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "trailingStopAtrPeriod", 14)));
+  const trailingStopAtrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "trailingStopAtrPeriod", 7)));
   const showOptimizer = getBooleanParameter(input.parameters, "showOptimizer", false);
 
   if (!enabled) {
@@ -1734,14 +1734,14 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
         key: "openingRangeMinutes",
         label: "开盘区间分钟数",
         type: "number",
-        defaultValue: 30,
-        description: "对应 Pine 默认 09:30-10:00 的 30 分钟会话。",
+        defaultValue: 45,
+        description: "默认 09:30-10:15 的 45 分钟美股开盘会话。",
       },
       {
         key: "sessionDays",
         label: "适用交易日",
         type: "select",
-        defaultValue: "1234567",
+        defaultValue: "23456",
         options: [
           { label: "每天", value: "1234567" },
           { label: "周一至周五", value: "23456" },
@@ -1751,14 +1751,14 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
         key: "timezoneOffsetHours",
         label: "时区 UTC 偏移",
         type: "number",
-        defaultValue: -5,
-        description: "与 Pine 的 UTC-5 默认时区一致；固定偏移，不自动切换夏令时。",
+        defaultValue: -4,
+        description: "默认适配美股夏令时 UTC-4；固定偏移，不自动切换夏令时，冬令时请手动改为 UTC-5。",
       },
       {
         key: "rangeSource",
         label: "区间来源",
         type: "select",
-        defaultValue: "high-low",
+        defaultValue: "close",
         options: [
           { label: "最高/最低价", value: "high-low" },
           { label: "蜡烛实体", value: "close" },
@@ -1803,7 +1803,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       { key: "manualEndMinute", label: "手动结束分钟", type: "number", defaultValue: 0 },
       { key: "showTrailingStop", label: "显示移动止损", type: "boolean", defaultValue: false },
       { key: "trailingStopAtrMultiplier", label: "移动止损 ATR 倍数", type: "number", defaultValue: 2 },
-      { key: "trailingStopAtrPeriod", label: "移动止损 ATR 周期", type: "number", defaultValue: 14 },
+      { key: "trailingStopAtrPeriod", label: "移动止损 ATR 周期", type: "number", defaultValue: 7 },
       { key: "showOptimizer", label: "计算止损优化器", type: "boolean", defaultValue: false },
     ],
     run: (input) => runUtorbStrategy(utorbStrategy, input),

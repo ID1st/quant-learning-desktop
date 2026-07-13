@@ -74,7 +74,7 @@ const defaultSettings: ResolvedBacktestSettings = {
   initialCapital: 100_000,
   feeRate: 0.0005,
   slippageRate: 0.0005,
-  allowShort: true,
+  allowShort: false,
 };
 
 function finitePositive(value: number | undefined, fallback: number) {
