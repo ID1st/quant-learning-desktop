@@ -896,22 +896,9 @@ function getBooleanParameter(parameters: Record<string, unknown>, key: string, f
   return typeof value === "boolean" ? value : fallback;
 }
 
-function averageTrueRange(bars: Bar[], period: number, endIndex: number) {
-  const startIndex = Math.max(0, endIndex - period + 1);
-  const window = bars.slice(startIndex, endIndex + 1);
-
-  if (window.length === 0) {
-    return 0;
-  }
-
-  return (
-    window.reduce((total, bar, index) => {
-      const previousBar = bars[startIndex + index - 1];
-      const previousClose = previousBar?.close ?? bar.close;
-      const trueRange = Math.max(bar.high - bar.low, Math.abs(bar.high - previousClose), Math.abs(bar.low - previousClose));
-      return total + Math.max(0, trueRange);
-    }, 0) / window.length
-  );
+function getStringParameter(parameters: Record<string, unknown>, key: string, fallback: string) {
+  const value = parameters[key];
+  return typeof value === "string" ? value : fallback;
 }
 
 function wilderMovingAverage(values: readonly number[], period: number): Array<number | null> {
@@ -949,8 +936,30 @@ function isSeriesNumber(value: number | null | undefined): value is number {
 
 function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): StrategyOutput {
   const enabled = input.enabled ?? true;
-  const openingRangeMinutes = getPositiveNumberParameter(input.parameters, "openingRangeMinutes", 30);
+  const sessionStartHour = Math.min(23, Math.max(0, Math.round(getNumberParameter(input.parameters, "sessionStartHour", 9))));
+  const sessionStartMinute = Math.min(59, Math.max(0, Math.round(getNumberParameter(input.parameters, "sessionStartMinute", 30))));
+  const openingRangeMinutes = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "openingRangeMinutes", 30)));
+  const sessionDays = getStringParameter(input.parameters, "sessionDays", "1234567").replace(/[^1-7]/g, "") || "1234567";
+  const timezoneOffsetHours = Math.min(12, Math.max(-12, getNumberParameter(input.parameters, "timezoneOffsetHours", -5)));
+  const rangeSource = getStringParameter(input.parameters, "rangeSource", "high-low") === "close" ? "close" : "high-low";
   const showTargets = getBooleanParameter(input.parameters, "showTargets", true);
+  const extensionType = getStringParameter(input.parameters, "extensionType", "multiples") === "fibonacci" ? "fibonacci" : "multiples";
+  const extensionMultipliers = extensionType === "fibonacci"
+    ? [0.382, 0.618, 1]
+    : [
+        Math.max(0, getNumberParameter(input.parameters, "extensionMultiplierOne", 1)),
+        Math.max(0, getNumberParameter(input.parameters, "extensionMultiplierTwo", 2)),
+        Math.max(0, getNumberParameter(input.parameters, "extensionMultiplierThree", 3)),
+      ];
+  const showVolumeProfile = getBooleanParameter(input.parameters, "showVolumeProfile", true);
+  const volumeProfileRows = Math.min(50, Math.max(5, Math.round(getPositiveNumberParameter(input.parameters, "volumeProfileRows", 14))));
+  const volumeProfileWidthPercent = Math.min(100, Math.max(1, getPositiveNumberParameter(input.parameters, "volumeProfileWidthPercent", 30)));
+  const stopPlotting = getBooleanParameter(input.parameters, "stopPlotting", true);
+  const plottingEndHour = Math.min(24, Math.max(0, getNumberParameter(input.parameters, "plottingEndHour", 17)));
+  const showTrailingStop = getBooleanParameter(input.parameters, "showTrailingStop", false);
+  const trailingStopAtrMultiplier = getPositiveNumberParameter(input.parameters, "trailingStopAtrMultiplier", 2);
+  const trailingStopAtrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "trailingStopAtrPeriod", 14)));
+  const showOptimizer = getBooleanParameter(input.parameters, "showOptimizer", false);
 
   if (!enabled) {
     return createPlaceholderOutput(strategy, false);
@@ -964,90 +973,330 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
     };
   }
 
-  const sessionStart = input.bars[0].timestamp;
-  const sessionEnd = sessionStart + openingRangeMinutes * 60 * 1000;
-  const openingBars = input.bars.filter((bar) => bar.timestamp < sessionEnd);
-  const effectiveOpeningBars = openingBars.length > 0 ? openingBars : [input.bars[0]];
-  const openingRangeHigh = Math.max(...effectiveOpeningBars.map((bar) => bar.high));
-  const openingRangeLow = Math.min(...effectiveOpeningBars.map((bar) => bar.low));
-  const openingRange = openingRangeHigh - openingRangeLow;
-  const closes = input.bars.map((bar) => bar.close);
-  const highLine = input.bars.map(() => openingRangeHigh);
-  const lowLine = input.bars.map(() => openingRangeLow);
-  const breakoutUp = crossover(closes, highLine);
-  const breakoutDown = crossunder(closes, lowLine);
-  const firstUpIndex = breakoutUp.findIndex((value, index) => value && input.bars[index].timestamp >= sessionEnd);
-  const firstDownIndex = breakoutDown.findIndex((value, index) => value && input.bars[index].timestamp >= sessionEnd);
-  const elements: StrategyVisualElement[] = [
-    {
-      id: "utorb-opening-range-high",
-      kind: "price-line",
-      price: openingRangeHigh,
-      label: "开盘区间高点",
-      tone: "range",
-    },
-    {
-      id: "utorb-opening-range-low",
-      kind: "price-line",
-      price: openingRangeLow,
-      label: "开盘区间低点",
-      tone: "range",
-    },
-    {
-      id: "utorb-opening-range-band",
-      kind: "band",
-      fromPrice: openingRangeLow,
-      toPrice: openingRangeHigh,
-      label: "开盘区间",
-      tone: "range",
-    },
-  ];
+  const bars = [...input.bars].sort((left, right) => left.timestamp - right.timestamp);
+  const atr = pineAtr(bars, trailingStopAtrPeriod);
+  const volumeAverage = sma(bars.map((bar) => bar.volume), 20);
+  const elements: StrategyVisualElement[] = [];
   const signals: StrategySignal[] = [];
+  const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
+  const timezoneOffset = timezoneOffsetHours * hour;
+  const sessionStartMinutes = sessionStartHour * 60 + sessionStartMinute;
+  const openingRangeDuration = openingRangeMinutes * 60 * 1000;
+  const optimizerMultipliers = [1, 1.5, 2, 2.5, 3];
+  const optimizerProfits = optimizerMultipliers.map(() => 0);
+  const optimizerStops: Array<number | null> = optimizerMultipliers.map(() => null);
+  const optimizerDirections = optimizerMultipliers.map(() => 0);
+  const targetHits = { upper: [0, 0, 0], lower: [0, 0, 0] };
+  const sessionTargetReached = { upper: [false, false, false], lower: [false, false, false] };
+  let totalSessions = 0;
+  let sessionKey: number | null = null;
+  let sessionStartTimestamp = 0;
+  let sessionEndTimestamp = 0;
+  let plottingEndTimestamp = 0;
+  let openingRangeHigh = 0;
+  let openingRangeLow = 0;
+  let sessionEnded = false;
+  let previousInSession = false;
+  let canSignalUp = true;
+  let canSignalDown = true;
+  let activeDirection = 0;
+  let entryPrice = 0;
+  let trailStop: number | null = null;
+  let totalTrailProfit = 0;
+  let currentTrailPoints: Array<{ timestamp: number; price: number }> = [];
+  let trailSegmentDirection = 0;
+  let trailSegmentIndex = 0;
+  let latestVolumeProfile = new Map<number, number>();
+  let latestTickSize = 0.01;
+  let lastSessionRendered: number | null = null;
+  let previousClose: number | null = null;
 
-  if (showTargets && openingRange > 0) {
+  const getSessionWindow = (timestamp: number) => {
+    const localTimestamp = timestamp + timezoneOffset;
+    const currentDayStart = Math.floor(localTimestamp / day) * day;
+
+    for (const dayStart of [currentDayStart, currentDayStart - day]) {
+      const start = dayStart + sessionStartMinutes * 60 * 1000;
+      const end = start + openingRangeDuration;
+      const pineDay = new Date(dayStart).getUTCDay() + 1;
+      if (sessionDays.includes(String(pineDay)) && localTimestamp >= start && localTimestamp < end) {
+        let plotEnd = dayStart + plottingEndHour * hour;
+        if (plotEnd <= start) plotEnd += day;
+        return {
+          key: dayStart,
+          start: start - timezoneOffset,
+          end: end - timezoneOffset,
+          plotEnd: plotEnd - timezoneOffset,
+        };
+      }
+    }
+
+    return null;
+  };
+
+  const flushTrailSegment = () => {
+    if (showTrailingStop && currentTrailPoints.length > 1) {
+      elements.push({
+        id: `utorb-trail-${trailSegmentIndex}`,
+        kind: "trend-line",
+        points: currentTrailPoints,
+        tone: trailSegmentDirection > 0 ? "bullish" : "bearish",
+      });
+      trailSegmentIndex += 1;
+    }
+    currentTrailPoints = [];
+    trailSegmentDirection = 0;
+  };
+
+  const addSessionElements = () => {
+    if (sessionKey === null || lastSessionRendered === sessionKey || openingRangeHigh <= openingRangeLow) return;
+    const range = openingRangeHigh - openingRangeLow;
+    const upper = extensionMultipliers.map((multiplier) => openingRangeHigh + range * multiplier);
+    const lower = extensionMultipliers.map((multiplier) => openingRangeLow - range * multiplier);
+    const key = String(sessionKey);
+
     elements.push(
       {
-        id: "utorb-target-up-1",
+        id: `utorb-opening-range-high-${key}`,
         kind: "price-line",
-        price: openingRangeHigh + openingRange,
-        label: "上方目标 1",
-        tone: "target",
+        price: openingRangeHigh,
+        label: "开盘高点",
+        tone: "range",
+        fromTimestamp: sessionStartTimestamp,
+        toTimestamp: plottingEndTimestamp,
       },
       {
-        id: "utorb-target-down-1",
+        id: `utorb-opening-range-low-${key}`,
         kind: "price-line",
-        price: openingRangeLow - openingRange,
-        label: "下方目标 1",
-        tone: "target",
+        price: openingRangeLow,
+        label: "开盘低点",
+        tone: "range",
+        fromTimestamp: sessionStartTimestamp,
+        toTimestamp: plottingEndTimestamp,
+      },
+      {
+        id: `utorb-opening-range-${key}`,
+        kind: "band",
+        fromPrice: openingRangeLow,
+        toPrice: openingRangeHigh,
+        label: "开盘区间",
+        tone: "range",
+        fromTimestamp: sessionStartTimestamp,
+        toTimestamp: sessionEndTimestamp,
       },
     );
-  }
 
-  if (firstUpIndex >= 0) {
-    const bar = input.bars[firstUpIndex];
-    signals.push({ timestamp: bar.timestamp, type: "buy", price: bar.close, label: "开盘区间上破" });
-    elements.push({
-      id: `utorb-buy-${bar.timestamp}`,
-      kind: "signal-marker",
-      timestamp: bar.timestamp,
-      price: bar.low,
-      direction: "up",
-      tone: "buy",
+    if (showTargets) {
+      upper.forEach((price, index) => elements.push({
+        id: `utorb-target-up-${index + 1}-${key}`,
+        kind: "price-line",
+        price,
+        label: `上方目标 ${index + 1}`,
+        tone: "target",
+        fromTimestamp: sessionStartTimestamp,
+        toTimestamp: plottingEndTimestamp,
+      }));
+      lower.forEach((price, index) => elements.push({
+        id: `utorb-target-down-${index + 1}-${key}`,
+        kind: "price-line",
+        price,
+        label: `下方目标 ${index + 1}`,
+        tone: "target",
+        fromTimestamp: sessionStartTimestamp,
+        toTimestamp: plottingEndTimestamp,
+      }));
+    }
+
+    lastSessionRendered = sessionKey;
+  };
+
+  bars.forEach((bar, index) => {
+    const window = getSessionWindow(bar.timestamp);
+    const inSession = window !== null;
+
+    if (window && window.key !== sessionKey) {
+      addSessionElements();
+      flushTrailSegment();
+      sessionKey = window.key;
+      sessionStartTimestamp = window.start;
+      sessionEndTimestamp = window.end;
+      plottingEndTimestamp = window.plotEnd;
+      openingRangeHigh = Number.NEGATIVE_INFINITY;
+      openingRangeLow = Number.POSITIVE_INFINITY;
+      sessionEnded = false;
+      canSignalUp = true;
+      canSignalDown = true;
+      activeDirection = 0;
+      trailStop = null;
+      latestVolumeProfile = new Map();
+      latestTickSize = 0.01;
+      sessionTargetReached.upper.fill(false);
+      sessionTargetReached.lower.fill(false);
+      optimizerStops.fill(null);
+      optimizerDirections.fill(0);
+    }
+
+    if (inSession) {
+      const high = rangeSource === "close" ? Math.max(bar.open, bar.close) : bar.high;
+      const low = rangeSource === "close" ? Math.min(bar.open, bar.close) : bar.low;
+      openingRangeHigh = Math.max(openingRangeHigh, high);
+      openingRangeLow = Math.min(openingRangeLow, low);
+      const range = openingRangeHigh - openingRangeLow;
+      if (range > 0) latestTickSize = Math.max(0.01, range / volumeProfileRows);
+      const priceLevel = Math.round(bar.close / latestTickSize) * latestTickSize;
+      latestVolumeProfile.set(priceLevel, (latestVolumeProfile.get(priceLevel) ?? 0) + bar.volume);
+      canSignalUp = true;
+      canSignalDown = true;
+      activeDirection = 0;
+      trailStop = null;
+      flushTrailSegment();
+    }
+
+    if (!inSession && previousInSession && sessionKey !== null) {
+      sessionEnded = true;
+      totalSessions += 1;
+      addSessionElements();
+    }
+
+    const hasRange = sessionKey !== null && Number.isFinite(openingRangeHigh) && Number.isFinite(openingRangeLow) && openingRangeHigh > openingRangeLow;
+    const range = hasRange ? openingRangeHigh - openingRangeLow : 0;
+    const upperTargets = extensionMultipliers.map((multiplier) => openingRangeHigh + range * multiplier);
+    const lowerTargets = extensionMultipliers.map((multiplier) => openingRangeLow - range * multiplier);
+    const displayAllowed = !stopPlotting || (sessionKey !== null && bar.timestamp >= sessionStartTimestamp && bar.timestamp <= plottingEndTimestamp);
+
+    if (sessionEnded && hasRange) {
+      upperTargets.forEach((target, targetIndex) => {
+        if (bar.high >= target && !sessionTargetReached.upper[targetIndex]) {
+          targetHits.upper[targetIndex] += 1;
+          sessionTargetReached.upper[targetIndex] = true;
+        }
+      });
+      lowerTargets.forEach((target, targetIndex) => {
+        if (bar.low <= target && !sessionTargetReached.lower[targetIndex]) {
+          targetHits.lower[targetIndex] += 1;
+          sessionTargetReached.lower[targetIndex] = true;
+        }
+      });
+    }
+
+    const breakoutUp = !inSession && sessionEnded && hasRange && displayAllowed && previousClose !== null && previousClose <= openingRangeHigh && bar.close > openingRangeHigh;
+    const breakoutDown = !inSession && sessionEnded && hasRange && displayAllowed && previousClose !== null && previousClose >= openingRangeLow && bar.close < openingRangeLow;
+    const highVolume = isSeriesNumber(volumeAverage[index]) && bar.volume > volumeAverage[index]!;
+    const volumeSuffix = highVolume ? "（高量）" : "（低量）";
+    const currentAtr = atr[index];
+
+    if (breakoutUp && canSignalUp) {
+      const label = `多头突破${volumeSuffix}`;
+      signals.push({ timestamp: bar.timestamp, type: "buy", price: bar.close, label });
+      elements.push({ id: `utorb-buy-${bar.timestamp}`, kind: "signal-marker", timestamp: bar.timestamp, price: bar.high, direction: "up", tone: "buy" });
+      canSignalUp = false;
+      if (activeDirection === 0) {
+        activeDirection = 1;
+        entryPrice = openingRangeHigh;
+        trailStop = isSeriesNumber(currentAtr) ? bar.low - currentAtr * trailingStopAtrMultiplier : null;
+        optimizerMultipliers.forEach((multiplier, optimizerIndex) => {
+          optimizerDirections[optimizerIndex] = 1;
+          optimizerStops[optimizerIndex] = isSeriesNumber(currentAtr) ? bar.low - currentAtr * multiplier : null;
+        });
+      }
+    }
+
+    if (breakoutDown && canSignalDown) {
+      const label = `空头突破${volumeSuffix}`;
+      signals.push({ timestamp: bar.timestamp, type: "sell", price: bar.close, label });
+      elements.push({ id: `utorb-sell-${bar.timestamp}`, kind: "signal-marker", timestamp: bar.timestamp, price: bar.low, direction: "down", tone: "sell" });
+      canSignalDown = false;
+      if (activeDirection === 0) {
+        activeDirection = -1;
+        entryPrice = openingRangeLow;
+        trailStop = isSeriesNumber(currentAtr) ? bar.high + currentAtr * trailingStopAtrMultiplier : null;
+        optimizerMultipliers.forEach((multiplier, optimizerIndex) => {
+          optimizerDirections[optimizerIndex] = -1;
+          optimizerStops[optimizerIndex] = isSeriesNumber(currentAtr) ? bar.high + currentAtr * multiplier : null;
+        });
+      }
+    }
+
+    if (activeDirection !== 0 && isSeriesNumber(currentAtr)) {
+      trailStop = activeDirection > 0
+        ? Math.max(trailStop ?? bar.low - currentAtr * trailingStopAtrMultiplier, bar.low - currentAtr * trailingStopAtrMultiplier)
+        : Math.min(trailStop ?? bar.high + currentAtr * trailingStopAtrMultiplier, bar.high + currentAtr * trailingStopAtrMultiplier);
+      if (trailSegmentDirection !== activeDirection) {
+        flushTrailSegment();
+        trailSegmentDirection = activeDirection;
+      }
+      currentTrailPoints.push({ timestamp: bar.timestamp, price: trailStop });
+
+      const stopped = activeDirection > 0 ? bar.close < trailStop : bar.close > trailStop;
+      if (stopped || !displayAllowed) {
+        totalTrailProfit += activeDirection > 0 ? bar.close - entryPrice : entryPrice - bar.close;
+        signals.push({ timestamp: bar.timestamp, type: "exit", price: bar.close, label: "移动止损离场" });
+        elements.push({
+          id: `utorb-exit-${bar.timestamp}`,
+          kind: "signal-marker",
+          timestamp: bar.timestamp,
+          price: trailStop,
+          direction: activeDirection > 0 ? "down" : "up",
+          tone: "neutral",
+        });
+        activeDirection = 0;
+        trailStop = null;
+        flushTrailSegment();
+      }
+    }
+
+    if (showOptimizer && isSeriesNumber(currentAtr)) {
+      optimizerMultipliers.forEach((multiplier, optimizerIndex) => {
+        const direction = optimizerDirections[optimizerIndex];
+        if (direction === 0) return;
+        const candidate = direction > 0 ? bar.low - currentAtr * multiplier : bar.high + currentAtr * multiplier;
+        const nextStop = direction > 0
+          ? Math.max(optimizerStops[optimizerIndex] ?? candidate, candidate)
+          : Math.min(optimizerStops[optimizerIndex] ?? candidate, candidate);
+        optimizerStops[optimizerIndex] = nextStop;
+        const stopped = direction > 0 ? bar.close < nextStop : bar.close > nextStop;
+        if (stopped || !displayAllowed) {
+          optimizerProfits[optimizerIndex] += direction > 0 ? bar.close - entryPrice : entryPrice - bar.close;
+          optimizerDirections[optimizerIndex] = 0;
+        }
+      });
+    }
+
+    previousInSession = inSession;
+    previousClose = bar.close;
+  });
+
+  addSessionElements();
+  flushTrailSegment();
+
+  if (showVolumeProfile && latestVolumeProfile.size > 0 && sessionKey !== null) {
+    const maximumVolume = Math.max(...latestVolumeProfile.values());
+    const maximumWidth = openingRangeDuration * (volumeProfileWidthPercent / 100);
+    [...latestVolumeProfile.entries()].sort(([left], [right]) => left - right).forEach(([price, volume], index) => {
+      const width = maximumWidth * (volume / Math.max(1, maximumVolume));
+      elements.push({
+        id: `utorb-volume-profile-${index}`,
+        kind: "band",
+        fromPrice: price - latestTickSize / 2,
+        toPrice: price + latestTickSize / 2,
+        label: volume === maximumVolume ? "POC" : undefined,
+        tone: "range",
+        fromTimestamp: sessionEndTimestamp - width,
+        toTimestamp: sessionEndTimestamp,
+      });
     });
   }
 
-  if (firstDownIndex >= 0) {
-    const bar = input.bars[firstDownIndex];
-    signals.push({ timestamp: bar.timestamp, type: "sell", price: bar.close, label: "开盘区间下破" });
-    elements.push({
-      id: `utorb-sell-${bar.timestamp}`,
-      kind: "signal-marker",
-      timestamp: bar.timestamp,
-      price: bar.high,
-      direction: "down",
-      tone: "sell",
-    });
-  }
+  const openingRange = Math.max(0, openingRangeHigh - openingRangeLow);
+  const upperTargets = extensionMultipliers.map((multiplier) => openingRangeHigh + openingRange * multiplier);
+  const lowerTargets = extensionMultipliers.map((multiplier) => openingRangeLow - openingRange * multiplier);
+  const bestOptimizerIndex = optimizerProfits.reduce(
+    (best, profit, index) => profit > optimizerProfits[best] ? index : best,
+    0,
+  );
+  const hitRate = (hits: number) => totalSessions > 0 ? (hits / totalSessions) * 100 : 0;
+  const directionalSignalCount = signals.filter((signal) => signal.type === "buy" || signal.type === "sell").length;
 
   return {
     signals,
@@ -1063,11 +1312,33 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       openingRangeHigh,
       openingRangeLow,
       openingRange,
-      signalCount: signals.length,
+      upperTargetOne: upperTargets[0],
+      upperTargetTwo: upperTargets[1],
+      upperTargetThree: upperTargets[2],
+      lowerTargetOne: lowerTargets[0],
+      lowerTargetTwo: lowerTargets[1],
+      lowerTargetThree: lowerTargets[2],
+      totalSessions,
+      upperTargetOneHits: targetHits.upper[0],
+      upperTargetTwoHits: targetHits.upper[1],
+      upperTargetThreeHits: targetHits.upper[2],
+      lowerTargetOneHits: targetHits.lower[0],
+      lowerTargetTwoHits: targetHits.lower[1],
+      lowerTargetThreeHits: targetHits.lower[2],
+      upperTargetOneHitRate: hitRate(targetHits.upper[0]),
+      upperTargetTwoHitRate: hitRate(targetHits.upper[1]),
+      upperTargetThreeHitRate: hitRate(targetHits.upper[2]),
+      lowerTargetOneHitRate: hitRate(targetHits.lower[0]),
+      lowerTargetTwoHitRate: hitRate(targetHits.lower[1]),
+      lowerTargetThreeHitRate: hitRate(targetHits.lower[2]),
+      totalTrailingProfit: totalTrailProfit,
+      bestTrailingStopMultiplier: optimizerMultipliers[bestOptimizerIndex],
+      bestTrailingStopProfit: optimizerProfits[bestOptimizerIndex],
+      signalCount: directionalSignalCount,
     },
     logs: [
-      `UTORB 已计算开盘区间：${openingRangeLow.toFixed(2)} - ${openingRangeHigh.toFixed(2)}。`,
-      `已生成 ${signals.length} 个突破信号和 ${elements.length} 个图表元素。`,
+      `UTORB 已按 UTC${timezoneOffsetHours >= 0 ? "+" : ""}${timezoneOffsetHours} 追踪 ${totalSessions} 个开盘区间。`,
+      `最新区间 ${openingRangeLow.toFixed(2)} - ${openingRangeHigh.toFixed(2)}，生成 ${directionalSignalCount} 个突破信号。`,
     ],
     alerts: signals.map((signal) => signal.label ?? signal.type),
   };
@@ -1344,37 +1615,88 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
   const utorbStrategy: StrategyDefinition = {
     key: "utorb",
     name: "UTORB 开盘区间突破",
-    version: "0.1.0",
-    description: "从 utorb.md 规划转译的开盘区间突破策略，后续输出突破信号、区间线和目标位。",
+    version: "1.0.0",
+    description: "按 Pine Script 复刻的逐日开盘区间突破策略，包含扩展目标、量能分类、成交量分布与 ATR 移动止损。",
     sourceType: "preset",
     sourceFile: "trading-strategies/utorb.md",
     supportedMarkets: ["US", "HK", "CN"],
     supportedTimeframes: ["realtime", "1m", "5m", "15m", "30m"],
     parameterSchema: [
       {
+        key: "sessionStartHour",
+        label: "开盘时（本地）",
+        type: "number",
+        defaultValue: 9,
+        description: "开盘区间开始小时，按策略时区解释。",
+      },
+      {
+        key: "sessionStartMinute",
+        label: "开盘分（本地）",
+        type: "number",
+        defaultValue: 30,
+      },
+      {
         key: "openingRangeMinutes",
         label: "开盘区间分钟数",
         type: "number",
         defaultValue: 30,
-        description: "用于计算开盘高低点的时间窗口。",
+        description: "对应 Pine 默认 09:30-10:00 的 30 分钟会话。",
+      },
+      {
+        key: "sessionDays",
+        label: "适用交易日",
+        type: "select",
+        defaultValue: "1234567",
+        options: [
+          { label: "每天", value: "1234567" },
+          { label: "周一至周五", value: "23456" },
+        ],
+      },
+      {
+        key: "timezoneOffsetHours",
+        label: "时区 UTC 偏移",
+        type: "number",
+        defaultValue: -5,
+        description: "与 Pine 的 UTC-5 默认时区一致；固定偏移，不自动切换夏令时。",
+      },
+      {
+        key: "rangeSource",
+        label: "区间来源",
+        type: "select",
+        defaultValue: "high-low",
+        options: [
+          { label: "最高/最低价", value: "high-low" },
+          { label: "蜡烛实体", value: "close" },
+        ],
       },
       {
         key: "showTargets",
-        label: "显示目标位",
+        label: "显示扩展水平",
         type: "boolean",
         defaultValue: true,
       },
       {
-        key: "riskMode",
-        label: "风控模式",
+        key: "extensionType",
+        label: "扩展类型",
         type: "select",
-        defaultValue: "balanced",
+        defaultValue: "multiples",
         options: [
-          { label: "保守", value: "conservative" },
-          { label: "均衡", value: "balanced" },
-          { label: "进取", value: "aggressive" },
+          { label: "倍数", value: "multiples" },
+          { label: "斐波那契", value: "fibonacci" },
         ],
       },
+      { key: "extensionMultiplierOne", label: "扩展倍数 1", type: "number", defaultValue: 1 },
+      { key: "extensionMultiplierTwo", label: "扩展倍数 2", type: "number", defaultValue: 2 },
+      { key: "extensionMultiplierThree", label: "扩展倍数 3", type: "number", defaultValue: 3 },
+      { key: "showVolumeProfile", label: "显示成交量分布", type: "boolean", defaultValue: true },
+      { key: "volumeProfileRows", label: "成交量分布行数", type: "number", defaultValue: 14 },
+      { key: "volumeProfileWidthPercent", label: "成交量分布宽度 (%)", type: "number", defaultValue: 30 },
+      { key: "stopPlotting", label: "限制绘制时长", type: "boolean", defaultValue: true },
+      { key: "plottingEndHour", label: "绘制结束小时", type: "number", defaultValue: 17 },
+      { key: "showTrailingStop", label: "显示移动止损", type: "boolean", defaultValue: false },
+      { key: "trailingStopAtrMultiplier", label: "移动止损 ATR 倍数", type: "number", defaultValue: 2 },
+      { key: "trailingStopAtrPeriod", label: "移动止损 ATR 周期", type: "number", defaultValue: 14 },
+      { key: "showOptimizer", label: "计算止损优化器", type: "boolean", defaultValue: false },
     ],
     run: (input) => runUtorbStrategy(utorbStrategy, input),
   };
@@ -1382,8 +1704,8 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
   const trendTargetsStrategy: StrategyDefinition = {
     key: "trend-targets",
     name: "Trend Targets 趋势目标",
-    version: "0.1.0",
-    description: "从 trend-targets.md 最小转译的趋势目标策略，输出趋势基准线、入场参考、止损和三档目标位。",
+    version: "1.0.0",
+    description: "按 Pine Script 复刻 Supertrend 中线、WMA/EMA 平滑、趋势转变、拒绝确认与 ATR 目标位。",
     sourceType: "preset",
     sourceFile: "trading-strategies/trend-targets.md",
     supportedMarkets: ["US", "HK", "CN"],
@@ -1394,35 +1716,35 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
         label: "Supertrend 因子",
         type: "number",
         defaultValue: 12,
-        description: "保留自 Pine Script 的趋势带宽参数，完整 Supertrend 复刻时将用于趋势带计算。",
+        description: "用于计算 Supertrend 上下轨带宽。",
       },
       {
         key: "supertrendAtrPeriod",
         label: "Supertrend ATR 周期",
         type: "number",
         defaultValue: 90,
-        description: "保留自 Pine Script 的 Supertrend ATR 周期。",
+        description: "计算 Supertrend 上下轨所用的 Wilder ATR 周期。",
       },
       {
         key: "wmaLength",
         label: "WMA 长度",
         type: "number",
         defaultValue: 40,
-        description: "用于当前最小转译的趋势窗口。",
+        description: "应用于 Supertrend 中点序列的加权移动平均长度。",
       },
       {
         key: "emaLength",
         label: "EMA 长度",
         type: "number",
         defaultValue: 14,
-        description: "用于估算趋势线平滑长度。",
+        description: "应用于 WMA 结果的指数移动平均长度。",
       },
       {
         key: "confirmationCount",
         label: "确认次数",
         type: "number",
         defaultValue: 3,
-        description: "保留自 Pine Script 的拒绝信号确认次数。",
+        description: "趋势线被连续穿越并拒绝后的确认门槛。",
       },
       {
         key: "showTargets",
