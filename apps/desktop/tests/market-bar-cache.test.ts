@@ -116,7 +116,7 @@ test("writeMarketBarCache records cache metadata for governance", () => {
   assert.ok(summary.totalEstimatedBytes > 0);
 });
 
-test("writeMarketBarCache accepts realtime bars and keeps two-day retention metadata", () => {
+test("writeMarketBarCache accepts realtime bars and keeps enough retention for five market sessions", () => {
   const database = createTestDatabase();
   const realtimeKey = {
     symbol: "AAPL.US",
@@ -147,7 +147,7 @@ test("writeMarketBarCache accepts realtime bars and keeps two-day retention meta
 
   assert.equal(readMarketBarCache(realtimeKey, { database }).length, 1);
   assert.equal(summary.entries[0]?.timeframe, "realtime");
-  assert.equal(summary.entries[0]?.retentionDays, 2);
+  assert.equal(summary.entries[0]?.retentionDays, 10);
 });
 
 test("writeMarketBarCache accepts gateway provider ids and keeps them readable", () => {

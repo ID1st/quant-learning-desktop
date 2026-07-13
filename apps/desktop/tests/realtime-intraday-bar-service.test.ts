@@ -4,7 +4,7 @@ import {
   aggregateRealtimePointBarsToMinuteCandles,
   analyzeRealtimeHistoryGap,
   mergeHistoricalRealtimeBarsWithLiveBars,
-  mergeRealtimeSnapshotPointBars,
+  mergeRealtimeSnapshotMinuteBar,
   retainRecentRealtimeSessions,
 } from "../src/features/marketData/realtimeIntradayBarService.ts";
 import type { MarketQuoteSnapshot } from "../src/features/marketData/marketDataSyncService.ts";
@@ -45,22 +45,29 @@ function bar(timestamp: number, close: number): MarketDataBar {
   };
 }
 
-test("mergeRealtimeSnapshotPointBars appends 10 second quote points for line rendering", () => {
+test("mergeRealtimeSnapshotMinuteBar updates one canonical OHLC candle per exchange minute", () => {
   const bars = [
     snapshot("2026-07-01T14:30:00.000Z", 210),
     snapshot("2026-07-01T14:30:10.000Z", 211),
     snapshot("2026-07-01T14:30:20.000Z", 209),
-  ].reduce<MarketDataBar[]>((current, item) => mergeRealtimeSnapshotPointBars(current, key, item), []);
+  ].reduce<MarketDataBar[]>((current, item) => mergeRealtimeSnapshotMinuteBar(current, key, item), []);
 
+  assert.equal(bars.length, 1);
   assert.deepEqual(
-    bars.map((item) => [new Date(item.timestamp).toISOString(), item.close]),
-    [
-      ["2026-07-01T14:30:00.000Z", 210],
-      ["2026-07-01T14:30:10.000Z", 211],
-      ["2026-07-01T14:30:20.000Z", 209],
-    ],
+    [new Date(bars[0]!.timestamp).toISOString(), bars[0]!.open, bars[0]!.high, bars[0]!.low, bars[0]!.close],
+    ["2026-07-01T14:30:00.000Z", 210, 211, 209, 209],
   );
-  assert.equal(bars.every((item) => item.open === item.high && item.high === item.low && item.low === item.close), true);
+});
+
+test("mergeRealtimeSnapshotMinuteBar assigns candles by exchange quote time instead of receive time", () => {
+  const delayedSnapshot = {
+    ...snapshot("2026-07-01T14:31:05.000Z", 212),
+    quoteTime: "2026-07-01T14:30:59.000Z",
+  };
+
+  const bars = mergeRealtimeSnapshotMinuteBar([], key, delayedSnapshot);
+
+  assert.equal(bars[0]?.timestamp, Date.parse("2026-07-01T14:30:00.000Z"));
 });
 
 test("aggregateRealtimePointBarsToMinuteCandles creates derived minute candles", () => {
@@ -81,18 +88,21 @@ test("aggregateRealtimePointBarsToMinuteCandles creates derived minute candles",
   assert.equal(candles[1]?.close, 212);
 });
 
-test("retainRecentRealtimeSessions keeps at least current and previous market sessions", () => {
+test("retainRecentRealtimeSessions keeps five sessions for recursive strategy warmup", () => {
   const bars = [
+    bar(Date.UTC(2026, 5, 25, 14, 30), 198),
+    bar(Date.UTC(2026, 5, 26, 14, 30), 199),
     bar(Date.UTC(2026, 5, 29, 14, 30), 200),
     bar(Date.UTC(2026, 5, 30, 14, 30), 201),
     bar(Date.UTC(2026, 6, 1, 14, 30), 202),
+    bar(Date.UTC(2026, 6, 2, 14, 30), 203),
   ];
 
   const retained = retainRecentRealtimeSessions(bars, "US");
 
   assert.deepEqual(
     retained.map((item) => item.close),
-    [201, 202],
+    [199, 200, 201, 202, 203],
   );
 });
 

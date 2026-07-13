@@ -19,7 +19,7 @@ This follow-up completes the selected stability scope without changing provider 
 - A-share intraday requests now use Tencent `m1` minute K-lines, which can contain the previous available trading-session tail. For Hong Kong, Tencent's public timeline may return only the current session, so the realtime cache preserves the previous session while the current session is refreshed. This preserves the required two-session display without fabricating unavailable source rows.
 - The chart diagnostic drawer now presents those events with Chinese labels. Provider credentials and raw request data remain outside the renderer diagnostics.
 - For closed markets, a fresh daily or weekly cache renders directly and skips an unnecessary remote refresh. Intraday polling still follows the existing market-session window and stops after close.
-- Refresh failure preserves usable cache and records a retained-cache event. Existing real-time merge rules continue to prevent historical bars from overwriting newer live points.
+- Refresh failure preserves usable cache and records a retained-cache event. Existing real-time merge rules continue to prevent historical bars from overwriting newer live minute bars.
 - AlphaFeed WebSocket protocol hardening and automated provider probes are intentionally excluded from this slice.
 
 ## Provider Priority
@@ -48,7 +48,8 @@ The selected provider is capability- and market-specific. Yahoo is intentionally
 - Stock SDK K-line network failures are classified as transient and trip a 60-second main-process circuit breaker, so chart switching immediately uses a configured fallback rather than repeatedly waiting on the unavailable Eastmoney route.
 - Yahoo retries one transient network or HTTP 5xx request with bounded linear backoff. Authentication and rate-limit responses are not retried by this provider.
 - If an intraday or historical refresh fails, the current local cache remains the displayed data. The chart status explicitly reports the retained cache count.
-- Historical realtime bars are merged with newer live points; historical data cannot overwrite newer live points.
+- Historical realtime bars are merged with newer live minute bars; historical data cannot overwrite newer live candles.
+- Live quote snapshots are bucketed by provider quote time and update one OHLC candle per exchange minute. Realtime strategies consume this canonical minute sequence regardless of the selected chart display mode.
 
 ## Performance Rules
 

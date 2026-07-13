@@ -162,6 +162,9 @@ The desktop app runs chart strategies through `apps/desktop/src/features/strateg
 Runtime input rules:
 
 - Strategy input bars must come from normalized `MarketDataBar` cache data converted by `marketBarsToStrategyBars`.
+- Realtime strategy input is always aggregated to canonical one-minute OHLC candles, independent of whether the chart is visually rendered as a line or candlesticks.
+- Live snapshots update the candle identified by provider quote time; receive time is only a fallback for invalid quote timestamps.
+- Realtime history keeps five market sessions of calculation context so recursive Pine-derived indicators do not restart from only the current and previous session.
 - Strategy runtime code must not import or call AlphaFeed, LongBridge, Stock SDK, or provider-specific adapters.
 - Super chart parameter, symbol, timeframe, and cached-bar changes create a new `runChartStrategies` call and replace the previous output.
 - Strategy management previews use cached realtime bars when available; if no cache exists, strategies receive an empty bar list and report no-data/placeholder output.

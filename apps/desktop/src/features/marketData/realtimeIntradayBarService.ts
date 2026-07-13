@@ -6,9 +6,9 @@ import { isHistoricalMarketDataProviderId, isLiveMarketDataProviderId } from "./
 const minuteMs = 60_000;
 
 function getTimestamp(snapshot: MarketQuoteSnapshot) {
-  const receivedAt = Date.parse(snapshot.receivedAt);
   const quoteTime = Date.parse(snapshot.quoteTime);
-  return Number.isFinite(receivedAt) ? receivedAt : Number.isFinite(quoteTime) ? quoteTime : Date.now();
+  const receivedAt = Date.parse(snapshot.receivedAt);
+  return Number.isFinite(quoteTime) ? quoteTime : Number.isFinite(receivedAt) ? receivedAt : Date.now();
 }
 
 function getMarketDateKey(timestamp: number, market: Market) {
@@ -28,7 +28,7 @@ function isMatchingRealtimeBar(bar: MarketDataBar, key: MarketBarCacheKey) {
   return bar.symbol === key.symbol && bar.market === key.market && bar.timeframe === key.timeframe;
 }
 
-export function retainRecentRealtimeSessions(bars: MarketDataBar[], market: Market, sessionCount = 2) {
+export function retainRecentRealtimeSessions(bars: MarketDataBar[], market: Market, sessionCount = 5) {
   const sorted = [...bars].sort((left, right) => left.timestamp - right.timestamp);
   const sessionKeys = Array.from(new Set(sorted.map((bar) => getMarketDateKey(bar.timestamp, market))));
   const retainedKeys = new Set(sessionKeys.slice(Math.max(0, sessionKeys.length - Math.max(1, sessionCount))));
@@ -36,21 +36,22 @@ export function retainRecentRealtimeSessions(bars: MarketDataBar[], market: Mark
   return sorted.filter((bar) => retainedKeys.has(getMarketDateKey(bar.timestamp, market)));
 }
 
-export function mergeRealtimeSnapshotPointBars(
+export function mergeRealtimeSnapshotMinuteBar(
   currentBars: MarketDataBar[],
   key: MarketBarCacheKey,
   snapshot: MarketQuoteSnapshot,
 ): MarketDataBar[] {
-  const timestamp = getTimestamp(snapshot);
+  const timestamp = Math.floor(getTimestamp(snapshot) / minuteMs) * minuteMs;
   const price = snapshot.lastPrice;
-  const pointBar: MarketDataBar = {
+  const existingBar = currentBars.find((bar) => isMatchingRealtimeBar(bar, key) && bar.timestamp === timestamp);
+  const minuteBar: MarketDataBar = {
     symbol: key.symbol,
     market: key.market,
     timeframe: key.timeframe,
     timestamp,
-    open: price,
-    high: price,
-    low: price,
+    open: existingBar?.open ?? price,
+    high: Math.max(existingBar?.high ?? price, price),
+    low: Math.min(existingBar?.low ?? price, price),
     close: price,
     volume: snapshot.volume,
     amount: snapshot.amount,
@@ -60,7 +61,7 @@ export function mergeRealtimeSnapshotPointBars(
   return retainRecentRealtimeSessions(
     [
       ...currentBars.filter((bar) => isMatchingRealtimeBar(bar, key) && bar.timestamp !== timestamp),
-      pointBar,
+      minuteBar,
     ],
     key.market,
   );

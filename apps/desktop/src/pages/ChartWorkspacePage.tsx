@@ -36,7 +36,7 @@ import {
   analyzeRealtimeHistoryGap,
   aggregateRealtimePointBarsToMinuteCandles,
   mergeHistoricalRealtimeBarsWithLiveBars,
-  mergeRealtimeSnapshotPointBars,
+  mergeRealtimeSnapshotMinuteBar,
 } from "../features/marketData/realtimeIntradayBarService";
 import {
   alphaFeedMinuteBarsToRealtimeBars,
@@ -158,7 +158,7 @@ function readChartWatchlist() {
 const timeframes: Timeframe[] = ["realtime", "1d", "1w"];
 const realtimeRateLimitBackoffMs = 120_000;
 const enableAlphaFeedHistoricalIntradayBackfill = false;
-const realtimeHistoryBarCount = 1_000;
+const realtimeHistoryBarCount = 2_500;
 const longPortRealtimeDelayWarningMs = 5 * 60_000;
 const strategyRegistry = createPresetStrategyRegistry();
 const presetStrategies = strategyRegistry.list();
@@ -831,6 +831,10 @@ export function ChartWorkspacePage() {
         : activeContextMarketBars,
     [activeContextMarketBars, intradayDisplayMode, timeframe],
   );
+  const strategyMarketBars = useMemo(
+    () => timeframe === "realtime" ? aggregateRealtimePointBarsToMinuteCandles(activeContextMarketBars) : activeContextMarketBars,
+    [activeContextMarketBars, timeframe],
+  );
   const chartRenderBars = useMemo(
     () => timeframe === "realtime" ? sampleIntradayBarsForRendering(displayedMarketBars) : displayedMarketBars,
     [displayedMarketBars, timeframe],
@@ -853,7 +857,7 @@ export function ChartWorkspacePage() {
     [cachedCandles, indicatorSettings, pluginIndicators],
   );
   const drawingLayer = useMemo(() => drawingsToLayer(drawings), [drawings]);
-  const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(displayedMarketBars), [displayedMarketBars]);
+  const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(strategyMarketBars), [strategyMarketBars]);
   const renderedCandles = cachedCandles;
   const strategyInputBars = cachedStrategyBars;
   const strategyRuns = useMemo(
@@ -929,7 +933,7 @@ export function ChartWorkspacePage() {
   };
   const mergeActiveSnapshotBars = (currentBars: MarketDataBar[], snapshot: MarketQuoteSnapshot) => {
     if (timeframe === "realtime") {
-      return mergeRealtimeSnapshotPointBars(
+      return mergeRealtimeSnapshotMinuteBar(
         currentBars,
         { symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "realtime" },
         snapshot,

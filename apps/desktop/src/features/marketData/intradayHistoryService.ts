@@ -23,6 +23,7 @@ export interface IntradayHistoryWindow {
 }
 
 const minuteMs = 60_000;
+const intradayWarmupSessionCount = 5;
 
 function getMarketSessionProfile(market: Market): MarketSessionProfile {
   if (market === "US") {
@@ -101,6 +102,16 @@ function findPreviousWeekday(parts: MarketDateParts) {
   return candidate;
 }
 
+function findPreviousWeekdays(parts: MarketDateParts, count: number) {
+  let candidate = parts;
+
+  for (let index = 0; index < count; index += 1) {
+    candidate = findPreviousWeekday(candidate);
+  }
+
+  return candidate;
+}
+
 function sameMarketDate(left: MarketDateParts, right: MarketDateParts) {
   return left.year === right.year && left.month === right.month && left.day === right.day;
 }
@@ -122,7 +133,7 @@ export function getIntradayHistoryWindow(market: Market, now = Date.now()): Intr
   const isTodaySessionStarted = todayIsWeekday && now >= todayOpen;
   const isMarketOpen = todayIsWeekday && now >= todayOpen && now < todayClose;
   const latestSessionDate = isTodaySessionStarted ? today : findPreviousWeekday(today);
-  const startSessionDate = sameMarketDate(latestSessionDate, today) ? findPreviousWeekday(latestSessionDate) : latestSessionDate;
+  const startSessionDate = findPreviousWeekdays(latestSessionDate, intradayWarmupSessionCount - 1);
   const latestSessionClose = getSessionClose(latestSessionDate, profile);
   const endTime = sameMarketDate(latestSessionDate, today) && isMarketOpen ? now : latestSessionClose;
 

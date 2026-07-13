@@ -253,7 +253,7 @@ function hasContinuousHistoricalCache(bars: readonly MarketDataBar[], timeframe:
 
 function getDefaultMarketBarRetentionDays(timeframe: Timeframe) {
   if (timeframe === "realtime") {
-    return 2;
+    return 10;
   }
 
   if (timeframe === "1m" || timeframe === "5m" || timeframe === "15m") {

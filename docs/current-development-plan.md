@@ -17,7 +17,7 @@ Completed foundations:
 - Market K-line cache metadata, retention pruning, cache summary, and manual cleanup in Settings.
 - Chart workspace exposes `realtime`, `1d`, and `1w`.
 - `1d` chart rendering can merge the latest realtime quote snapshot into the current trading-day candle.
-- `realtime` intraday chart can backfill 1m history through the provider gateway, normalize returned minute bars into the `realtime` cache, preserve newer live points, and report delayed-history gaps.
+- `realtime` intraday chart can backfill 1m history through the provider gateway, normalize returned minute bars into the `realtime` cache, merge newer snapshots into canonical exchange-minute OHLC bars, and report delayed-history gaps.
 - AlphaFeed REST polling batches the full watchlist every 10 seconds by default, reports provider health, latency, latest check time, error class, rate-limit retry hints, and keeps 30/60/120 second fallback controls.
 - AlphaFeed WebSocket member-channel configuration is available in the API settings page, with stream credentials stored through the desktop secure credential bridge.
 - AlphaFeed WebSocket quote streaming has a desktop IPC session, watchlist/all-symbol subscription payload, reconnect handling, permission/auth fallback states, normalized quote snapshots, and REST batch polling fallback in the chart workspace.
@@ -57,7 +57,7 @@ Completed foundations:
   - Completed market-data stability and intraday rendering performance slice. Quotes use Stock SDK first; CN/HK current-session intraday uses the Stock SDK Tencent timeline first; chart bars try Stock SDK first, then configured AlphaFeed REST and LongBridge, with Yahoo Finance as a US-only final emergency fallback. Quote snapshots skip Yahoo because it has no quote capability.
 - Yahoo Finance is explicitly modeled as a US-only best-effort fallback for `1m`, `1d`, and `1w`, with bounded retry for transient network or HTTP 5xx failure. It does not claim websocket or guaranteed realtime capability.
 - Provider-neutral error handling preserves the latest sanitized provider health detail. Stock SDK network failures now report a readable fallback-ready reason instead of only a generic request error.
-- When a history or intraday request fails, the chart keeps any local bars already cached and reports the retained cache count. The cache-to-live merge rule still prevents historical data from overwriting newer live points.
+- When a history or intraday request fails, the chart keeps any local bars already cached and reports the retained cache count. The cache-to-live merge rule still prevents historical data from overwriting newer live minute bars.
 - Realtime rendering now samples only the render input above 1,200 points while retaining full cache and strategy input. Identical in-flight chart bar requests are deduplicated.
 - Detailed source, capability limits, cache rules, and verification are recorded in `docs/market-data-stability-plan.md`.
 
@@ -91,6 +91,15 @@ Completed foundations:
 - Completed: the compact backtest defaults to long-only execution, while the dialog still exposes an explicit short-selling switch. Existing generic backtest execution does not yet model partial exits at UTORB/Trend Targets target levels.
 - Known limitations: UTORB uses a fixed UTC offset and does not automatically switch US daylight saving time; TradingView dashboard/table placement and color-picker controls are represented by metrics or desktop chart styling rather than an exact UI clone.
 
+## Trend Targets Realtime Parity Fix (2026-07-13)
+
+- Fixed: realtime quote snapshots are assigned by provider `quoteTime` and update one canonical OHLC candle per exchange minute. Poll receive time is used only when quote time is invalid.
+- Fixed: Trend Targets and other chart strategies always consume normalized minute candles on the `realtime` timeframe; switching the visual display between line and candlestick no longer changes strategy input granularity.
+- Changed: intraday history requests now cover five weekday sessions with a 2,500-bar request budget. The realtime cache retains five market sessions and uses ten calendar days of storage retention so recursive Supertrend/WMA/EMA state has sufficient warmup context.
+- Preserved: historical refresh cannot overwrite newer live minute bars, strategy parameters remain the original Pine defaults, and current-price snapshots remain independent from strategy signal state.
+- Verification: desktop tests 181/181, strategy-engine tests 35/35, TypeScript typecheck, production build, and browser smoke verification all passed. Browser verification loaded 1,636 AAPL realtime minute bars, showed a non-degenerate latest OHLC candle, generated 29 Trend Targets render elements when enabled, and produced no console warnings or errors.
+- Remaining parity boundary: exact TradingView equality still requires the upstream provider to return the same session, adjustment, exchange calendar, and in-progress minute data as TradingView. The current weekday window does not yet model exchange holidays.
+
 ## Super Chart Loading Experience Update (2026-07-11)
 
 - Sparse cache data no longer renders as a one-bar or one-segment temporary chart. `realtime` requires 30 points, `1d` requires 20 bars, and `1w` requires 12 bars before the chart canvas renders price, volume, indicators, and strategy layers.
@@ -113,7 +122,7 @@ Completed foundations:
 10. If WebSocket is still connecting, disconnected, unauthorized, permission-denied, unconfigured, or has no first snapshot, the chart workspace keeps using AlphaFeed REST batch polling as fallback through the provider-neutral quote path.
 11. AlphaFeed REST polling fetches the deduplicated watchlist in batches and keeps the latest quote snapshot per symbol.
 12. On the `1d` chart, the active symbol quote is read from the snapshot cache and merged into the current trading-day candle.
-13. On the `realtime` chart, the active symbol loads 1m history through `intradayBars` and normalizes returned bars into the `realtime` cache. During market hours, live quote snapshots can append new points; after close, polling stops and only historical intraday data remains.
+13. On the `realtime` chart, the active symbol loads five weekday sessions of 1m history through `intradayBars` and normalizes returned bars into the `realtime` cache. During market hours, live quote snapshots update the matching exchange-minute OHLC candle; after close, polling stops and only historical intraday data remains.
 14. If Stock SDK and configured credential-backed intraday providers cannot return US 1m history, the gateway uses a final Yahoo Finance emergency fallback. The returned bars keep `provider: "yahoo-finance"` metadata and the chart status explicitly reports the downgrade.
 15. If LongBridge realtime-page history is delayed, the cache merge keeps newer live bars and the chart status explains whether the gap has been bridged.
 16. Provider health is surfaced in the chart top bar with active provider, capability, fallback source, latency, latest check time, and degraded states.

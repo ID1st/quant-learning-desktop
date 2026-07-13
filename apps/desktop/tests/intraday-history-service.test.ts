@@ -7,12 +7,12 @@ import {
 } from "../src/features/marketData/intradayHistoryService.ts";
 import type { AlphaFeedMarketDataBar } from "@quant/api-client";
 
-test("getIntradayHistoryWindow spans previous US session open to current time while market is open", () => {
+test("getIntradayHistoryWindow includes five US sessions of warmup while market is open", () => {
   const now = Date.UTC(2026, 6, 2, 15, 0); // 2026-07-02 11:00 New York
   const window = getIntradayHistoryWindow("US", now);
 
   assert.equal(window.isMarketOpen, true);
-  assert.equal(window.startTime, Date.UTC(2026, 6, 1, 13, 30)); // previous US weekday 09:30 EDT
+  assert.equal(window.startTime, Date.UTC(2026, 5, 26, 13, 30)); // fifth session including today, 09:30 EDT
   assert.equal(window.endTime, now);
   assert.equal(isMarketSessionOpen("US", now), true);
 });
@@ -22,7 +22,7 @@ test("getIntradayHistoryWindow stops at close after a trading session ends", () 
   const window = getIntradayHistoryWindow("US", now);
 
   assert.equal(window.isMarketOpen, false);
-  assert.equal(window.startTime, Date.UTC(2026, 6, 1, 13, 30));
+  assert.equal(window.startTime, Date.UTC(2026, 5, 26, 13, 30));
   assert.equal(window.endTime, Date.UTC(2026, 6, 2, 20, 0)); // 16:00 EDT
 });
 
@@ -31,7 +31,7 @@ test("getIntradayHistoryWindow uses latest complete session on weekends", () => 
   const window = getIntradayHistoryWindow("US", now);
 
   assert.equal(window.isMarketOpen, false);
-  assert.equal(window.startTime, Date.UTC(2026, 6, 3, 13, 30));
+  assert.equal(window.startTime, Date.UTC(2026, 5, 29, 13, 30));
   assert.equal(window.endTime, Date.UTC(2026, 6, 3, 20, 0));
 });
 
