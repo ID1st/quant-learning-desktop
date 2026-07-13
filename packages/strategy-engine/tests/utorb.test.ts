@@ -158,6 +158,7 @@ test("UTORB exposes parameters corresponding to Pine inputs", () => {
     "timezoneOffsetHours",
     "rangeSource",
     "showTargets",
+    "showTargetLabels",
     "extensionType",
     "extensionMultiplierOne",
     "extensionMultiplierTwo",
@@ -202,6 +203,35 @@ test("UTORB defaults use the evaluated US opening setup", () => {
       trailingStopAtrPeriod: 7,
     },
   );
+});
+
+test("UTORB defaults keep the chart overlay compact while retaining target lines", () => {
+  const registry = createPresetStrategyRegistry();
+  const result = runRegisteredStrategy(registry, {
+    strategyKey: "utorb",
+    symbol: "AAPL",
+    market: "US",
+    timeframe: "15m",
+    runMode: "backtest",
+    bars: twoSessionBars,
+    parameters: {
+      sessionStartHour: 9,
+      sessionStartMinute: 30,
+      openingRangeMinutes: 30,
+      sessionDays: "1234567",
+      timezoneOffsetHours: -5,
+      rangeSource: "high-low",
+    },
+  });
+  const targetLines = result.output.render.elements.filter(
+    (element) => element.kind === "price-line" && element.id.startsWith("utorb-target-"),
+  );
+
+  assert.equal(result.input.parameters.showVolumeProfile, false);
+  assert.equal(result.input.parameters.showTargetLabels, false);
+  assert.ok(targetLines.length > 0);
+  assert.ok(targetLines.every((line) => line.kind === "price-line" && line.label === undefined));
+  assert.equal(result.output.render.elements.some((element) => element.id.startsWith("utorb-volume-profile-")), false);
 });
 
 test("UTORB disabled run keeps render layer disabled", () => {

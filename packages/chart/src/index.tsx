@@ -63,7 +63,7 @@ export type ChartLayerElement =
       id: string;
       kind: "price-line";
       price: number;
-      label: string;
+      label?: string;
       tone: Extract<ChartLayerTone, "target" | "stop" | "range" | "neutral">;
       fromTimestamp?: number;
       toTimestamp?: number;
@@ -756,7 +756,8 @@ export function ChartViewport({
                   const isProjected = isFiniteNumber(element.fromTimestamp ?? Number.NaN);
                   const bounds = timedElementBounds(element.fromTimestamp, element.toTimestamp);
                   if (!bounds) return null;
-                  const labelWidth = Math.max(86, element.label.length * 6.4 + 20);
+                  const hasLabel = Boolean(element.label);
+                  const labelWidth = hasLabel ? Math.max(58, element.label!.length * 7 + 16) : 0;
                   const labelX = bounds.x2 - labelWidth + 6;
                   const labelY = y - 20;
 
@@ -767,10 +768,12 @@ export function ChartViewport({
                       onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
                     >
                       <line x1={bounds.x1} x2={bounds.x2} y1={y} y2={y} />
-                      {isProjected && <rect height={30} rx={4} width={labelWidth} x={labelX} y={labelY} />}
-                      <text x={isProjected ? labelX + labelWidth - 10 : bounds.x2 - 8} y={isProjected ? y + 5 : y - 6}>
-                        {element.label}
-                      </text>
+                      {isProjected && hasLabel && <rect height={30} rx={4} width={labelWidth} x={labelX} y={labelY} />}
+                      {hasLabel && (
+                        <text x={isProjected ? labelX + labelWidth - 10 : bounds.x2 - 8} y={isProjected ? y + 5 : y - 6}>
+                          {element.label}
+                        </text>
+                      )}
                     </g>
                   );
                 }

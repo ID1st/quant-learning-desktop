@@ -72,7 +72,7 @@ export interface StrategySignalMarker extends StrategyVisualBase {
 export interface StrategyPriceLine extends StrategyVisualBase {
   kind: "price-line";
   price: number;
-  label: string;
+  label?: string;
   tone: "target" | "stop" | "range" | "neutral";
   fromTimestamp?: number;
   toTimestamp?: number;
@@ -943,6 +943,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   const timezoneOffsetHours = Math.min(12, Math.max(-12, getNumberParameter(input.parameters, "timezoneOffsetHours", -4)));
   const rangeSource = getStringParameter(input.parameters, "rangeSource", "close") === "close" ? "close" : "high-low";
   const showTargets = getBooleanParameter(input.parameters, "showTargets", true);
+  const showTargetLabels = getBooleanParameter(input.parameters, "showTargetLabels", false);
   const extensionType = getStringParameter(input.parameters, "extensionType", "multiples") === "fibonacci" ? "fibonacci" : "multiples";
   const extensionMultipliers = extensionType === "fibonacci"
     ? [0.382, 0.618, 1]
@@ -951,7 +952,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         Math.max(0, getNumberParameter(input.parameters, "extensionMultiplierTwo", 2)),
         Math.max(0, getNumberParameter(input.parameters, "extensionMultiplierThree", 3)),
       ];
-  const showVolumeProfile = getBooleanParameter(input.parameters, "showVolumeProfile", true);
+  const showVolumeProfile = getBooleanParameter(input.parameters, "showVolumeProfile", false);
   const volumeProfileRows = Math.min(50, Math.max(5, Math.round(getPositiveNumberParameter(input.parameters, "volumeProfileRows", 14))));
   const volumeProfileWidthPercent = Math.min(100, Math.max(1, getPositiveNumberParameter(input.parameters, "volumeProfileWidthPercent", 30)));
   const stopPlotting = getBooleanParameter(input.parameters, "stopPlotting", true);
@@ -1105,7 +1106,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         id: `utorb-target-up-${index + 1}-${key}`,
         kind: "price-line",
         price,
-        label: `上方目标 ${index + 1}`,
+        ...(showTargetLabels ? { label: `上方目标 ${index + 1}` } : {}),
         tone: "target",
         fromTimestamp: sessionStartTimestamp,
         toTimestamp: plottingEndTimestamp,
@@ -1114,7 +1115,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         id: `utorb-target-down-${index + 1}-${key}`,
         kind: "price-line",
         price,
-        label: `下方目标 ${index + 1}`,
+        ...(showTargetLabels ? { label: `下方目标 ${index + 1}` } : {}),
         tone: "target",
         fromTimestamp: sessionStartTimestamp,
         toTimestamp: plottingEndTimestamp,
@@ -1770,6 +1771,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
         type: "boolean",
         defaultValue: true,
       },
+      { key: "showTargetLabels", label: "显示目标文字标签", type: "boolean", defaultValue: false },
       {
         key: "extensionType",
         label: "扩展类型",
@@ -1783,7 +1785,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       { key: "extensionMultiplierOne", label: "扩展倍数 1", type: "number", defaultValue: 1 },
       { key: "extensionMultiplierTwo", label: "扩展倍数 2", type: "number", defaultValue: 2 },
       { key: "extensionMultiplierThree", label: "扩展倍数 3", type: "number", defaultValue: 3 },
-      { key: "showVolumeProfile", label: "显示成交量分布", type: "boolean", defaultValue: true },
+      { key: "showVolumeProfile", label: "显示成交量分布", type: "boolean", defaultValue: false },
       { key: "volumeProfileRows", label: "成交量分布行数", type: "number", defaultValue: 14 },
       { key: "volumeProfileWidthPercent", label: "成交量分布宽度 (%)", type: "number", defaultValue: 30 },
       { key: "stopPlotting", label: "限制绘制时长", type: "boolean", defaultValue: true },
