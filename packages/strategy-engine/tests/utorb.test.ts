@@ -177,7 +177,7 @@ test("UTORB exposes parameters corresponding to Pine inputs", () => {
   ]);
 });
 
-test("UTORB defaults use the evaluated US opening setup", () => {
+test("UTORB defaults match the original Pine Script inputs", () => {
   const strategy = createPresetStrategyRegistry().get("utorb");
   const defaults = Object.fromEntries(strategy?.parameterSchema.map((parameter) => [parameter.key, parameter.defaultValue]) ?? []);
 
@@ -195,17 +195,17 @@ test("UTORB defaults use the evaluated US opening setup", () => {
     {
       sessionStartHour: 9,
       sessionStartMinute: 30,
-      openingRangeMinutes: 45,
-      sessionDays: "23456",
-      timezoneOffsetHours: -4,
-      rangeSource: "close",
+      openingRangeMinutes: 30,
+      sessionDays: "1234567",
+      timezoneOffsetHours: -5,
+      rangeSource: "high-low",
       trailingStopAtrMultiplier: 2,
-      trailingStopAtrPeriod: 7,
+      trailingStopAtrPeriod: 14,
     },
   );
 });
 
-test("UTORB defaults keep the chart overlay compact while retaining target lines", () => {
+test("UTORB defaults retain the original Pine detail layers", () => {
   const registry = createPresetStrategyRegistry();
   const result = runRegisteredStrategy(registry, {
     strategyKey: "utorb",
@@ -227,11 +227,11 @@ test("UTORB defaults keep the chart overlay compact while retaining target lines
     (element) => element.kind === "price-line" && element.id.startsWith("utorb-target-"),
   );
 
-  assert.equal(result.input.parameters.showVolumeProfile, false);
-  assert.equal(result.input.parameters.showTargetLabels, false);
+  assert.equal(result.input.parameters.showVolumeProfile, true);
+  assert.equal(result.input.parameters.showTargetLabels, true);
   assert.ok(targetLines.length > 0);
-  assert.ok(targetLines.every((line) => line.kind === "price-line" && line.label === undefined));
-  assert.equal(result.output.render.elements.some((element) => element.id.startsWith("utorb-volume-profile-")), false);
+  assert.ok(targetLines.every((line) => line.kind === "price-line" && line.label !== undefined));
+  assert.equal(result.output.render.elements.some((element) => element.id.startsWith("utorb-volume-profile-")), true);
 });
 
 test("UTORB disabled run keeps render layer disabled", () => {

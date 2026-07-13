@@ -49,35 +49,6 @@ test("chart study settings migrate legacy workspace strategy and indicator prefe
   assert.equal(getIndicatorInstance(store.getState().indicators, "boll", builtInChartIndicatorDefinitions[2]).visible, false);
 });
 
-test("chart study settings compact legacy UTORB overlays after the display upgrade", () => {
-  const driver = createMemoryStorageDriver({
-    "quant-learning.chart-workspace-preferences": JSON.stringify({
-      version: 5,
-      strategies: {
-        utorb: { enabled: true, showLayer: true, parameters: { showTargets: true, showVolumeProfile: true } },
-      },
-    }),
-  });
-  const database = new LocalDatabase(driver);
-  const store = createChartStudySettingsStore({ database, legacyStorage: driver });
-  const compactUtorb: readonly ChartStudyStrategyDefinition[] = [{
-    key: "utorb",
-    parameterSchema: [
-      { key: "showTargets", defaultValue: true },
-      { key: "showTargetLabels", defaultValue: false },
-      { key: "showVolumeProfile", defaultValue: false },
-    ],
-  }];
-
-  store.getState().initializeStrategies(compactUtorb);
-
-  assert.deepEqual(store.getState().strategies.utorb?.parameters, {
-    showTargets: true,
-    showTargetLabels: false,
-    showVolumeProfile: false,
-  });
-});
-
 test("chart study settings persist strategy and indicator updates for both workspaces", () => {
   const driver = createMemoryStorageDriver();
   const database = new LocalDatabase(driver);

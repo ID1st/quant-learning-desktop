@@ -155,18 +155,11 @@ function normalizeStrategyForDefinition(
   definition: ChartStudyStrategyDefinition,
   fallback: ChartStrategyWorkspaceState,
 ): ChartStrategyWorkspaceState {
-  const needsUtorbVisualMigration = definition.key === "utorb" && !("showTargetLabels" in state.parameters);
-
   return {
     enabled: state.enabled,
     showLayer: state.showLayer,
     parameters: Object.fromEntries(
-      definition.parameterSchema.map((parameter) => [
-        parameter.key,
-        needsUtorbVisualMigration && parameter.key === "showVolumeProfile"
-          ? false
-          : state.parameters[parameter.key] ?? fallback.parameters[parameter.key],
-      ]),
+      definition.parameterSchema.map((parameter) => [parameter.key, state.parameters[parameter.key] ?? fallback.parameters[parameter.key]]),
     ),
   };
 }
