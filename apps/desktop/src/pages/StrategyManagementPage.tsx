@@ -483,22 +483,55 @@ export function StrategyManagementPage() {
               </label>
               <label>
                 <span>初始资金</span>
-                <input min="1" onChange={(event) => setBacktestSettings((current) => ({ ...current, initialCapital: Number(event.currentTarget.value) }))} type="number" value={backtestSettings.initialCapital} />
+                <input
+                  min="1"
+                  onChange={(event) => {
+                    const initialCapital = Number(event.currentTarget.value);
+                    setBacktestSettings((current) => ({ ...current, initialCapital }));
+                  }}
+                  type="number"
+                  value={backtestSettings.initialCapital}
+                />
                 <small>默认 100,000</small>
               </label>
               <label>
                 <span>单边费率</span>
-                <input min="0" onChange={(event) => setBacktestSettings((current) => ({ ...current, feeRate: Number(event.currentTarget.value) / 100 }))} step="0.001" type="number" value={(backtestSettings.feeRate ?? 0) * 100} />
+                <input
+                  min="0"
+                  onChange={(event) => {
+                    const feeRate = Number(event.currentTarget.value) / 100;
+                    setBacktestSettings((current) => ({ ...current, feeRate }));
+                  }}
+                  step="0.001"
+                  type="number"
+                  value={(backtestSettings.feeRate ?? 0) * 100}
+                />
                 <small>百分比，例如 0.05</small>
               </label>
               <label>
                 <span>单边滑点</span>
-                <input min="0" onChange={(event) => setBacktestSettings((current) => ({ ...current, slippageRate: Number(event.currentTarget.value) / 100 }))} step="0.001" type="number" value={(backtestSettings.slippageRate ?? 0) * 100} />
+                <input
+                  min="0"
+                  onChange={(event) => {
+                    const slippageRate = Number(event.currentTarget.value) / 100;
+                    setBacktestSettings((current) => ({ ...current, slippageRate }));
+                  }}
+                  step="0.001"
+                  type="number"
+                  value={(backtestSettings.slippageRate ?? 0) * 100}
+                />
                 <small>百分比，例如 0.05</small>
               </label>
               <label className="backtest-switch">
                 <span>允许做空</span>
-                <input checked={backtestSettings.allowShort ?? true} onChange={(event) => setBacktestSettings((current) => ({ ...current, allowShort: event.currentTarget.checked }))} type="checkbox" />
+                <input
+                  checked={backtestSettings.allowShort ?? true}
+                  onChange={(event) => {
+                    const allowShort = event.currentTarget.checked;
+                    setBacktestSettings((current) => ({ ...current, allowShort }));
+                  }}
+                  type="checkbox"
+                />
                 <small>关闭后，卖出信号仅用于平多。</small>
               </label>
             </div>
