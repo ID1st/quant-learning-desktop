@@ -61,7 +61,7 @@ test("Trend Targets reproduces the Pine Supertrend midpoint WMA/EMA baseline and
   assert.equal(result.output.metrics.entryPrice, 12);
   assert.equal(result.output.metrics.stopPrice, 9);
   assert.equal(result.output.metrics.targetThree, 16.5);
-  assert.equal(result.output.alerts.some((alert) => alert.includes("目标1")), true);
+  assert.equal(result.output.alerts.some((alert) => alert.includes("目标1")), false);
 });
 
 test("Trend Targets emits Pine rejection markers only after the configured consecutive confirmation count", () => {
@@ -85,8 +85,27 @@ test("Trend Targets core Pine parameters change the calculated baseline", () => 
   const defaultBaseline = baseline({});
   assert.notDeepEqual(baseline({ supertrendFactor: 3 }), defaultBaseline);
   assert.notDeepEqual(baseline({ supertrendAtrPeriod: 4 }), defaultBaseline);
+  assert.notDeepEqual(baseline({ wmaLength: 1 }), defaultBaseline);
   assert.notDeepEqual(baseline({ wmaLength: 4 }), defaultBaseline);
   assert.notDeepEqual(baseline({ emaLength: 4 }), defaultBaseline);
+});
+
+test("Trend Targets sorts bars before calculating the Pine series", () => {
+  const bars = [10, 11, 12, 11, 10, 9, 10, 11, 12, 13].map((close, index) => bar(index * 15, close));
+  const ordered = runTrendTargets(bars);
+  const reversed = runTrendTargets([...bars].reverse());
+
+  assert.equal(reversed.output.metrics.baseline, ordered.output.metrics.baseline);
+  assert.deepEqual(reversed.output.signals, ordered.output.signals);
+});
+
+test("Trend Targets target alerts follow Pine close crossovers instead of wick touches", () => {
+  const wickOnlyBars = [10, 11, 12, 11, 10, 9, 10, 11, 12, 13].map((close, index) => bar(index * 15, close));
+  const wickOnly = runTrendTargets(wickOnlyBars);
+  const closeCross = runTrendTargets([...wickOnlyBars, bar(150, 14)]);
+
+  assert.equal(wickOnly.output.alerts.some((alert) => alert.includes("目标1")), false);
+  assert.equal(closeCross.output.alerts.some((alert) => alert.includes("目标1")), true);
 });
 
 test("Trend Targets exposes the Pine parameters and projects only the latest setup", () => {

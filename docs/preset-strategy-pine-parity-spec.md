@@ -41,24 +41,25 @@ Keep parameter fallbacks next to strategy entry points and keep Pine-specific ca
 - baseline slope crossings -> persistent trend state and buy/sell turn signals.
 - consecutive baseline rejections -> neutral chart markers and alert signals after `confirmationCount`.
 - latest trend turn -> entry, ATR stop, TP1/TP2/TP3 lines and risk/target zones.
-- stop/target crossing conditions -> alert messages and metrics.
+- Pine close/level crossing conditions -> alert messages and setup crossing metrics.
 
 ### UTORB
 
-- session/timezone/day inputs -> per-session opening-range state.
+- session/timezone/day inputs -> per-session opening-range state, including a hard reset at each local trading day.
 - High/Low or candle-body source -> opening-range high/low.
 - Multiples or Fibonacci -> three upper and lower extensions.
 - close crossover/crossunder after the session -> at most one signal per direction per session, with high/low-volume label.
 - ATR trail -> persistent long/short trail series and exit marker when crossed.
 - target hits -> per-session and aggregate hit-rate metrics.
 - opening-session volume buckets -> chart volume-profile bars represented through strategy range elements.
+- New York close, London close, manual time, or end-of-day -> time-bounded chart overlays in the configured fixed timezone.
 - TradingView dashboard values -> strategy metrics/logs; platform-specific table position, label size, and color-picker UI are not reproduced.
 
 ## Testing Strategy
 
 - Unit tests use deterministic OHLCV fixtures and assert exact series points, session resets, signal timestamps, target levels, rejection markers, and parameter sensitivity.
 - Desktop integration tests assert both strategies pass their complete chart elements through the existing runtime.
-- Browser verification confirms the chart renders the new elements with no console errors.
+- Browser verification should confirm the chart renders the new elements with no console errors when the local browser environment permits localhost navigation.
 
 ## Boundaries
 

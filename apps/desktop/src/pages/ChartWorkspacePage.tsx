@@ -273,7 +273,7 @@ function isFractionalStrategyParameter(parameterKey: string) {
 
 function getNumberInputMinimum(parameterKey: string) {
   if (parameterKey === "timezoneOffsetHours") return "-12";
-  if (["sessionStartHour", "sessionStartMinute", "plottingEndHour", "extensionMultiplierOne", "extensionMultiplierTwo", "extensionMultiplierThree"].includes(parameterKey)) return "0";
+  if (["sessionStartHour", "sessionStartMinute", "manualEndHour", "manualEndMinute", "extensionMultiplierOne", "extensionMultiplierTwo", "extensionMultiplierThree"].includes(parameterKey)) return "0";
   if (parameterKey === "volumeProfileRows") return "5";
 
   return isFractionalStrategyParameter(parameterKey) ? "0.1" : "1";
@@ -282,11 +282,11 @@ function getNumberInputMinimum(parameterKey: string) {
 function getNumberInputMaximum(parameterKey: string) {
   if (parameterKey === "timezoneOffsetHours") return "12";
   if (parameterKey === "sessionStartHour") return "23";
-  if (parameterKey === "sessionStartMinute") return "59";
+  if (["sessionStartMinute", "manualEndMinute"].includes(parameterKey)) return "59";
+  if (parameterKey === "manualEndHour") return "23";
   if (parameterKey === "openingRangeMinutes") return "240";
   if (parameterKey === "volumeProfileRows") return "50";
   if (parameterKey === "volumeProfileWidthPercent") return "100";
-  if (parameterKey === "plottingEndHour") return "24";
   return String(Number.MAX_SAFE_INTEGER);
 }
 

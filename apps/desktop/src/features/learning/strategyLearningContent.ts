@@ -41,6 +41,7 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
     parameters: [
       { name: "开盘时段 / 时区", defaultValue: "09:30-10:00 / UTC-5", description: "决定每日区间的真实时间边界；固定 UTC 偏移不会自动切换夏令时。" },
       { name: "扩展类型", defaultValue: "倍数 1/2/3", description: "也可切换为 0.382/0.618/1.0 斐波那契扩展。" },
+      { name: "结束绘制于", defaultValue: "纽约收盘", description: "也可选择伦敦收盘、手动时间或当日结束，均按策略固定时区解释。" },
       { name: "移动止损", defaultValue: "ATR(14) × 2", description: "突破后按方向单向收紧，可在图表中显示并用于离场信号。" },
       { name: "成交量分布", defaultValue: "14 行 / 30%", description: "按开盘区间内的成交量桶显示价格分布和 POC。" },
     ],

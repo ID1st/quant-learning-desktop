@@ -30,7 +30,9 @@ function runUtorb(bars: Bar[], parameters: Record<string, unknown> = {}) {
       showVolumeProfile: true,
       volumeProfileRows: 5,
       stopPlotting: true,
-      plottingEndHour: 17,
+      plottingEndType: "new-york-close",
+      manualEndHour: 16,
+      manualEndMinute: 0,
       showTrailingStop: true,
       trailingStopAtrMultiplier: 1,
       trailingStopAtrPeriod: 2,
@@ -105,7 +107,43 @@ test("UTORB exposes Pine target hit rates, trailing stop, optimizer, and volume 
   assert.ok(Number.isFinite(result.output.metrics.bestTrailingStopMultiplier));
   assert.ok(result.output.render.elements.some((element) => element.kind === "trend-line" && element.id.startsWith("utorb-trail")));
   assert.ok(result.output.render.elements.some((element) => element.kind === "band" && element.id.startsWith("utorb-volume-profile")));
-  assert.equal(result.output.alerts.some((alert) => alert.includes("最终多头目标")), true);
+  assert.equal(result.output.alerts.some((alert) => alert.includes("最终多头目标")), false);
+
+  const closeCrossResult = runUtorb([
+    ...twoSessionBars,
+    bar("2026-01-03T15:45:00Z", 220, 224, 219, 223, 600),
+  ]);
+  assert.equal(closeCrossResult.output.alerts.some((alert) => alert.includes("最终多头目标")), true);
+});
+
+test("UTORB clears the previous range at a new local day before the next opening session", () => {
+  const bars = [
+    bar("2026-01-02T14:30:00Z", 100, 102, 99, 101),
+    bar("2026-01-02T14:45:00Z", 101, 103, 100, 102),
+    bar("2026-01-03T13:00:00Z", 104, 110, 103, 109),
+    bar("2026-01-03T14:30:00Z", 200, 202, 198, 201),
+    bar("2026-01-03T14:45:00Z", 201, 204, 200, 203),
+    bar("2026-01-03T15:00:00Z", 204, 210, 203, 206),
+  ];
+  const result = runUtorb(bars, { stopPlotting: false });
+  const directionalSignals = result.output.signals.filter((signal) => signal.type === "buy" || signal.type === "sell");
+
+  assert.deepEqual(directionalSignals.map((signal) => signal.timestamp), [Date.parse("2026-01-03T15:00:00Z")]);
+  assert.equal(result.output.metrics.totalSessions, 2);
+});
+
+test("UTORB maps Pine plotting end modes to the configured timezone", () => {
+  const london = runUtorb(twoSessionBars.slice(0, 5), { plottingEndType: "london-close" });
+  const manual = runUtorb(twoSessionBars.slice(0, 5), {
+    plottingEndType: "manual",
+    manualEndHour: 16,
+    manualEndMinute: 15,
+  });
+  const londonLine = london.output.render.elements.find((element) => element.kind === "price-line");
+  const manualLine = manual.output.render.elements.find((element) => element.kind === "price-line");
+
+  assert.equal(londonLine?.kind === "price-line" ? londonLine.toTimestamp : null, Date.parse("2026-01-02T16:30:00Z"));
+  assert.equal(manualLine?.kind === "price-line" ? manualLine.toTimestamp : null, Date.parse("2026-01-02T21:15:00Z"));
 });
 
 test("UTORB exposes parameters corresponding to Pine inputs", () => {
@@ -128,7 +166,9 @@ test("UTORB exposes parameters corresponding to Pine inputs", () => {
     "volumeProfileRows",
     "volumeProfileWidthPercent",
     "stopPlotting",
-    "plottingEndHour",
+    "plottingEndType",
+    "manualEndHour",
+    "manualEndMinute",
     "showTrailingStop",
     "trailingStopAtrMultiplier",
     "trailingStopAtrPeriod",

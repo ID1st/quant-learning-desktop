@@ -955,7 +955,16 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   const volumeProfileRows = Math.min(50, Math.max(5, Math.round(getPositiveNumberParameter(input.parameters, "volumeProfileRows", 14))));
   const volumeProfileWidthPercent = Math.min(100, Math.max(1, getPositiveNumberParameter(input.parameters, "volumeProfileWidthPercent", 30)));
   const stopPlotting = getBooleanParameter(input.parameters, "stopPlotting", true);
-  const plottingEndHour = Math.min(24, Math.max(0, getNumberParameter(input.parameters, "plottingEndHour", 17)));
+  const plottingEndType = getStringParameter(input.parameters, "plottingEndType", "new-york-close");
+  const manualEndHour = Math.min(23, Math.max(0, Math.round(getNumberParameter(input.parameters, "manualEndHour", 16))));
+  const manualEndMinute = Math.min(59, Math.max(0, Math.round(getNumberParameter(input.parameters, "manualEndMinute", 0))));
+  const plottingEndMinutes = plottingEndType === "london-close"
+    ? 11 * 60 + 30
+    : plottingEndType === "manual"
+      ? manualEndHour * 60 + manualEndMinute
+      : plottingEndType === "end-of-day"
+        ? 23 * 60 + 59
+        : 17 * 60;
   const showTrailingStop = getBooleanParameter(input.parameters, "showTrailingStop", false);
   const trailingStopAtrMultiplier = getPositiveNumberParameter(input.parameters, "trailingStopAtrMultiplier", 2);
   const trailingStopAtrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "trailingStopAtrPeriod", 14)));
@@ -1011,7 +1020,10 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   let latestVolumeProfile = new Map<number, number>();
   let latestTickSize = 0.01;
   let lastSessionRendered: number | null = null;
+  let lastLocalDayKey: number | null = null;
   let previousClose: number | null = null;
+  let previousUpperTargetThree: number | null = null;
+  let previousLowerTargetThree: number | null = null;
 
   const getSessionWindow = (timestamp: number) => {
     const localTimestamp = timestamp + timezoneOffset;
@@ -1022,7 +1034,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       const end = start + openingRangeDuration;
       const pineDay = new Date(dayStart).getUTCDay() + 1;
       if (sessionDays.includes(String(pineDay)) && localTimestamp >= start && localTimestamp < end) {
-        let plotEnd = dayStart + plottingEndHour * hour;
+        let plotEnd = dayStart + plottingEndMinutes * 60 * 1000;
         if (plotEnd <= start) plotEnd += day;
         return {
           key: dayStart,
@@ -1113,6 +1125,37 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   };
 
   bars.forEach((bar, index) => {
+    const localDayKey = Math.floor((bar.timestamp + timezoneOffset) / day) * day;
+    if (lastLocalDayKey !== null && localDayKey !== lastLocalDayKey) {
+      if (previousInSession && sessionKey !== null && openingRangeHigh > openingRangeLow) {
+        totalSessions += 1;
+      }
+      addSessionElements();
+      flushTrailSegment();
+      sessionKey = null;
+      sessionStartTimestamp = 0;
+      sessionEndTimestamp = 0;
+      plottingEndTimestamp = 0;
+      openingRangeHigh = Number.NEGATIVE_INFINITY;
+      openingRangeLow = Number.POSITIVE_INFINITY;
+      sessionEnded = false;
+      canSignalUp = true;
+      canSignalDown = true;
+      activeDirection = 0;
+      entryPrice = 0;
+      trailStop = null;
+      latestVolumeProfile = new Map();
+      latestTickSize = 0.01;
+      sessionTargetReached.upper.fill(false);
+      sessionTargetReached.lower.fill(false);
+      optimizerStops.fill(null);
+      optimizerDirections.fill(0);
+      previousInSession = false;
+      previousUpperTargetThree = null;
+      previousLowerTargetThree = null;
+    }
+    lastLocalDayKey = localDayKey;
+
     const window = getSessionWindow(bar.timestamp);
     const inSession = window !== null;
 
@@ -1166,19 +1209,28 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
     const lowerTargets = extensionMultipliers.map((multiplier) => openingRangeLow - range * multiplier);
     const displayAllowed = !stopPlotting || (sessionKey !== null && bar.timestamp >= sessionStartTimestamp && bar.timestamp <= plottingEndTimestamp);
 
+    if (hasRange && previousClose !== null && previousUpperTargetThree !== null) {
+      const crossedUpperTarget = (bar.close > upperTargets[2] && previousClose <= previousUpperTargetThree) ||
+        (bar.close < upperTargets[2] && previousClose >= previousUpperTargetThree);
+      if (crossedUpperTarget) targetAlerts.push(`最终多头目标已触及：${upperTargets[2].toFixed(2)}`);
+    }
+    if (hasRange && previousClose !== null && previousLowerTargetThree !== null) {
+      const crossedLowerTarget = (bar.close > lowerTargets[2] && previousClose <= previousLowerTargetThree) ||
+        (bar.close < lowerTargets[2] && previousClose >= previousLowerTargetThree);
+      if (crossedLowerTarget) targetAlerts.push(`最终空头目标已触及：${lowerTargets[2].toFixed(2)}`);
+    }
+
     if (sessionEnded && hasRange) {
       upperTargets.forEach((target, targetIndex) => {
         if (bar.high >= target && !sessionTargetReached.upper[targetIndex]) {
           targetHits.upper[targetIndex] += 1;
           sessionTargetReached.upper[targetIndex] = true;
-          if (targetIndex === 2) targetAlerts.push(`最终多头目标已触及：${target.toFixed(2)}`);
         }
       });
       lowerTargets.forEach((target, targetIndex) => {
         if (bar.low <= target && !sessionTargetReached.lower[targetIndex]) {
           targetHits.lower[targetIndex] += 1;
           sessionTargetReached.lower[targetIndex] = true;
-          if (targetIndex === 2) targetAlerts.push(`最终空头目标已触及：${target.toFixed(2)}`);
         }
       });
     }
@@ -1268,6 +1320,8 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
 
     previousInSession = inSession;
     previousClose = bar.close;
+    previousUpperTargetThree = hasRange ? upperTargets[2] : null;
+    previousLowerTargetThree = hasRange ? lowerTargets[2] : null;
   });
 
   addSessionElements();
@@ -1351,7 +1405,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
   const enabled = input.enabled ?? true;
   const supertrendFactor = getPositiveNumberParameter(input.parameters, "supertrendFactor", 12);
   const supertrendAtrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "supertrendAtrPeriod", 90)));
-  const wmaLength = Math.max(2, Math.round(getPositiveNumberParameter(input.parameters, "wmaLength", 40)));
+  const wmaLength = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "wmaLength", 40)));
   const emaLength = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "emaLength", 14)));
   const confirmationCount = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "confirmationCount", 3)));
   const showTargets = getBooleanParameter(input.parameters, "showTargets", true);
@@ -1374,19 +1428,20 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
     };
   }
 
-  const supertrendAtr = pineAtr(input.bars, supertrendAtrPeriod);
+  const bars = [...input.bars].sort((left, right) => left.timestamp - right.timestamp);
+  const supertrendAtr = pineAtr(bars, supertrendAtrPeriod);
   const lowerBand: number[] = [];
   const upperBand: number[] = [];
   const midpoint: number[] = [];
 
-  input.bars.forEach((bar, index) => {
+  bars.forEach((bar, index) => {
     const atr = supertrendAtr[index];
     const source = (bar.high + bar.low) / 2;
     const rawLower = isSeriesNumber(atr) ? source - supertrendFactor * atr : null;
     const rawUpper = isSeriesNumber(atr) ? source + supertrendFactor * atr : null;
     const previousLower = lowerBand[index - 1] ?? 0;
     const previousUpper = upperBand[index - 1] ?? 0;
-    const previousClose = input.bars[index - 1]?.close ?? bar.close;
+    const previousClose = bars[index - 1]?.close ?? bar.close;
     const nextLower = isSeriesNumber(rawLower) && (rawLower > previousLower || previousClose < previousLower)
       ? rawLower
       : previousLower;
@@ -1412,7 +1467,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
   let baselineSegment: BaselineSegment | null = null;
   const baselineSegments: BaselineSegment[] = [];
 
-  input.bars.forEach((bar, index) => {
+  bars.forEach((bar, index) => {
     const value = baseline[index];
     const previousValue = baseline[index - 1];
     const previousPreviousValue = baseline[index - 2];
@@ -1493,9 +1548,9 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
 
   const directionalSignals = signals.filter((signal) => signal.type === "buy" || signal.type === "sell");
   const latestSignal = directionalSignals[directionalSignals.length - 1];
-  const latestSignalBar = latestSignal ? input.bars.find((bar) => bar.timestamp === latestSignal.timestamp) : undefined;
-  const projectionIndex = latestSignalBar ? input.bars.indexOf(latestSignalBar) : -1;
-  const volatility = pineAtr(input.bars, atrPeriod);
+  const latestSignalBar = latestSignal ? bars.find((bar) => bar.timestamp === latestSignal.timestamp) : undefined;
+  const projectionIndex = latestSignalBar ? bars.indexOf(latestSignalBar) : -1;
+  const volatility = pineAtr(bars, atrPeriod);
   const riskRange = projectionIndex >= 0 && isSeriesNumber(volatility[projectionIndex]) ? volatility[projectionIndex] : 0;
   const entryPrice = latestSignalBar?.close ?? 0;
   const setupSide = latestSignal?.type === "sell" ? "sell" : "buy";
@@ -1513,19 +1568,32 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
   let stopTouched = false;
 
   if (latestSignalBar && projectionIndex >= 0 && riskRange > 0) {
-    input.bars.slice(projectionIndex + 1).forEach((bar) => {
+    let previousBar = latestSignalBar;
+    bars.slice(projectionIndex + 1).forEach((bar) => {
       [targetOne, targetTwo, targetThree].forEach((target, targetIndex) => {
-        const touched = setupSide === "buy" ? bar.high >= target : bar.low <= target;
-        if (touched && !targetTouched[targetIndex]) {
+        const crossedUp = bar.close > target && previousBar.close <= target;
+        if (crossedUp) {
           targetTouched[targetIndex] = true;
           setupAlerts.push(`目标${targetIndex + 1}已触及：${target.toFixed(2)}`);
         }
       });
-      const touchedStop = setupSide === "buy" ? bar.low <= stopPrice : bar.high >= stopPrice;
-      if (touchedStop && !stopTouched) {
+
+      const crossedStopUp = bar.close > stopPrice && previousBar.close <= stopPrice;
+      const crossedStopDown = bar.close < stopPrice && previousBar.close >= stopPrice;
+      if (crossedStopUp) {
         stopTouched = true;
-        setupAlerts.push(`止损线已触及：${stopPrice.toFixed(2)}`);
+        setupAlerts.push("价格上穿止损线 - 潜在多头趋势");
       }
+      if (crossedStopDown) {
+        stopTouched = true;
+        setupAlerts.push("价格下穿止损线 - 潜在空头趋势");
+      }
+
+      const rejectedBearish = bar.high > stopPrice && previousBar.high <= stopPrice && bar.close < stopPrice;
+      const rejectedBullish = bar.low < stopPrice && previousBar.low >= stopPrice && bar.close > stopPrice;
+      if (rejectedBearish) setupAlerts.push("价格在止损线被拒绝 - 空头拒绝信号");
+      if (rejectedBullish) setupAlerts.push("价格在止损线被拒绝 - 多头拒绝信号");
+      previousBar = bar;
     });
   }
 
@@ -1719,7 +1787,20 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       { key: "volumeProfileRows", label: "成交量分布行数", type: "number", defaultValue: 14 },
       { key: "volumeProfileWidthPercent", label: "成交量分布宽度 (%)", type: "number", defaultValue: 30 },
       { key: "stopPlotting", label: "限制绘制时长", type: "boolean", defaultValue: true },
-      { key: "plottingEndHour", label: "绘制结束小时", type: "number", defaultValue: 17 },
+      {
+        key: "plottingEndType",
+        label: "结束绘制于",
+        type: "select",
+        defaultValue: "new-york-close",
+        options: [
+          { label: "纽约收盘", value: "new-york-close" },
+          { label: "伦敦收盘", value: "london-close" },
+          { label: "手动时间", value: "manual" },
+          { label: "当日结束", value: "end-of-day" },
+        ],
+      },
+      { key: "manualEndHour", label: "手动结束小时", type: "number", defaultValue: 16 },
+      { key: "manualEndMinute", label: "手动结束分钟", type: "number", defaultValue: 0 },
       { key: "showTrailingStop", label: "显示移动止损", type: "boolean", defaultValue: false },
       { key: "trailingStopAtrMultiplier", label: "移动止损 ATR 倍数", type: "number", defaultValue: 2 },
       { key: "trailingStopAtrPeriod", label: "移动止损 ATR 周期", type: "number", defaultValue: 14 },
