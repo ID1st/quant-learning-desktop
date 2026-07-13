@@ -23,7 +23,7 @@ Completed foundations:
 - AlphaFeed WebSocket quote streaming has a desktop IPC session, watchlist/all-symbol subscription payload, reconnect handling, permission/auth fallback states, normalized quote snapshots, and REST batch polling fallback in the chart workspace.
 - Super chart first capability batch is in place: zoom, pan, right price-axis drag scaling, Beijing-time x-axis labels, price y-axis labels, real visible-range reset, OHLCV hover legend, explicit crosshair/grid/volume/price-label/current-price-line toggles, current price line and label, chart settings popover, context menu scaffold, and clearer strategy layer states.
 - Built-in strategy runtime foundation and strategy render-layer contract.
-- Pine-parity UTORB and Trend Targets implementations, including real session resets, Supertrend/WMA/EMA calculations, signals, targets, alerts, volume profile, and time-bounded chart overlays.
+- Pine-parity UTORB and Trend Targets implementations, including real session resets, Supertrend/WMA/EMA calculations, signals, targets, alerts, volume profile, and time-bounded chart overlays. Both built-in schemas retain the original Pine Script input defaults; parameter-sweep findings are research references rather than product defaults.
   - `chengzuopeng/stock-sdk` is the primary source for CN/HK/US quote snapshots. The Electron main process reinforces its historical and intraday bar path with the Tencent Finance route, so daily, weekly, and CN/HK current-session minute bars do not depend on Eastmoney. The gateway falls back in the order Stock SDK, AlphaFeed REST, LongBridge, then optional Yahoo Finance for supported US bars; it rejects a closed-session US Tencent single point instead of overwriting complete intraday history.
 - Market Data Provider Gateway phase 1 is in place: provider IDs, capability declarations, health states, provider registry, and gateway fallback shell.
 - Market Data Provider Gateway phase 2 is in place: AlphaFeed REST, AlphaFeed WebSocket, and LongBridge have compatibility providers that map existing bridge results into the provider-neutral gateway shape.
@@ -73,6 +73,15 @@ Completed foundations:
 - Completed: a read-only `策略学习` navigation page explaining the current UTORB and Trend Targets strategies plus SMA, EMA, and BOLL indicators.
 - Each entry covers core logic, markets/timeframes, parameter defaults, chart outputs, usage boundaries, and risk prompts.
 - Intentionally excluded: cross-page navigation, learning records, review notes, progress tracking, AI explanation, and new market-data or strategy execution paths.
+
+## Strategy and Backtest Update (2026-07-13)
+
+- Completed: UTORB and Trend Targets run through the shared strategy engine with deterministic Pine-aligned calculations, chart render elements, alerts, metrics, and cached-bar backtest input.
+- Completed: a reproducible 880-configuration parameter sweep is available through `npm.cmd run optimize:preset-strategies`; its current evidence and data-window limits are recorded in `docs/preset-strategy-parameter-optimization-report.md`.
+- Decision: strategy schemas keep the original Pine defaults. The sweep candidates remain opt-in research settings because neither strategy showed stable profitability across every train, validation, and untouched test segment.
+- Completed: UTORB chart levels now use time-bounded, semi-transparent dashed styling with distinct opening-range, upside-target, and downside-target colors. The original Pine visibility defaults for labels and volume profile remain enabled.
+- Completed: the compact backtest defaults to long-only execution, while the dialog still exposes an explicit short-selling switch. Existing generic backtest execution does not yet model partial exits at UTORB/Trend Targets target levels.
+- Known limitations: UTORB uses a fixed UTC offset and does not automatically switch US daylight saving time; TradingView dashboard/table placement and color-picker controls are represented by metrics or desktop chart styling rather than an exact UI clone.
 
 ## Super Chart Loading Experience Update (2026-07-11)
 
@@ -156,7 +165,7 @@ Acceptance:
 3. Indicator and drawing-tool foundations.
 4. AlphaFeed WebSocket Runtime Hardening after exact member-channel protocol details are confirmed.
 5. Learning System MVP: strategy explanation pages, learning records, practice/review notes.
-6. Backtest follow-up: date-range selection, equity-curve analysis, configurable position sizing, and optional declarative chart result layers. The core deterministic run, summary metrics, and result persistence are complete.
+6. Backtest follow-up: date-range selection, equity-curve analysis, configurable position sizing, partial target exits/stop execution, and optional declarative chart result layers. The core deterministic run, summary metrics, and result persistence are complete.
 7. Desktop packaging and hardening: Electron build target, secure storage review, update path, error reporting, cache/data migration checks.
 8. Plugin System hardening: worker/process isolation, signature verification, permission consent history, hot update, and data-source/export plugin runtime hosts.
 

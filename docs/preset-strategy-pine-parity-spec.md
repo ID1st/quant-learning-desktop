@@ -55,6 +55,12 @@ Keep parameter fallbacks next to strategy entry points and keep Pine-specific ca
 - New York close, London close, manual time, or end-of-day -> time-bounded chart overlays in the configured fixed timezone.
 - TradingView dashboard values -> strategy metrics/logs; platform-specific table position, label size, and color-picker UI are not reproduced.
 
+## Default and display policy
+
+- The original files under `trading-strategies/` are authoritative for built-in parameter defaults. Backtest sweeps can document candidate research settings but must not overwrite these schema defaults.
+- UTORB preserves its original visibility defaults for horizontal labels and volume profile. To keep the desktop chart readable, its opening range, upside targets, and downside targets are rendered as semi-transparent dashed levels with distinct blue, green, and red colors.
+- The desktop chart visualization is intentionally not a pixel-for-pixel TradingView clone. It preserves signal and level meaning through declarative render elements while avoiding TradingView-specific table and color-picker controls.
+
 ## Testing Strategy
 
 - Unit tests use deterministic OHLCV fixtures and assert exact series points, session resets, signal timestamps, target levels, rejection markers, and parameter sensitivity.

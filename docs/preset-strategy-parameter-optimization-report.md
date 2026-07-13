@@ -9,6 +9,17 @@ No tested configuration remained profitable across train, validation, and untouc
 - Trend Targets: use the original slow parameters on `1d` bars with short selling disabled. Faster parameters looked excellent in the first four years but failed the untouched final year.
 - UTORB: for the current US daylight-saving period, use `UTC-4`, a 45-minute candle-body opening range, and an ATR(7) × 2 trail with short selling disabled. It was positive in the recent test segment but slightly negative over the complete 60-day sample.
 
+## Product default policy
+
+The candidates in this report are research and paper-test settings only. They do not override the built-in strategy defaults.
+
+| Strategy | Product default source | Product default policy |
+| --- | --- | --- |
+| Trend Targets | `trading-strategies/trend-targets.md` | Preserve the Pine defaults: factor 12, ATR 90, WMA 40, EMA 14, confirmation 3, ATR 14, 5 ATR stop, and 0.5R/1R/1.5R targets. |
+| UTORB | `trading-strategies/utorb.md` | Preserve the Pine defaults: 09:30-10:00, `1234567`, UTC-5, High/Low range, visible labels and volume profile, ATR(14) trail, and the original extension settings. |
+
+This policy prevents a rolling, limited-sample optimization from silently changing the strategy behavior users expect from the original Pine sources. Researchers may set the candidate values manually and should record the sample dates, timezone convention, costs, and execution mode with each comparison.
+
 ## Data and execution assumptions
 
 - Data source: Yahoo Finance chart endpoint, regular US session only.
