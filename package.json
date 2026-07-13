@@ -18,6 +18,7 @@
     "test:plugin-loader": "node --test --experimental-strip-types packages/plugin-loader/tests/*.test.ts",
     "probe:longport:a-share": "node scripts/longport-a-share-probe.mjs",
     "probe:stock-sdk": "node --experimental-strip-types scripts/stock-sdk-provider-probe.mjs",
+    "optimize:preset-strategies": "node --experimental-strip-types scripts/preset-strategy-parameter-sweep.mjs",
     "test:strategy-engine": "node --test --experimental-strip-types packages/strategy-engine/tests/*.test.ts",
     "clean": "node scripts/clean.mjs"
   },
