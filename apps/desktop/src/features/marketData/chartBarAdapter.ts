@@ -1,10 +1,7 @@
 import type { CandlePoint } from "@quant/chart";
 import type { Bar } from "@quant/strategy-engine";
 import type { MarketDataBar } from "./marketBarCacheService.ts";
-
-function isFiniteNumber(value: number) {
-  return Number.isFinite(value);
-}
+import { isMarketDataBarQualityValid } from "./marketDataQuality.ts";
 
 function getBeijingDateParts(timestamp: number) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -41,15 +38,7 @@ function formatCandleTime(timestamp: number, timeframe?: MarketDataBar["timefram
 }
 
 function isRenderableBar(bar: MarketDataBar) {
-  return (
-    isFiniteNumber(bar.timestamp) &&
-    isFiniteNumber(bar.open) &&
-    isFiniteNumber(bar.high) &&
-    isFiniteNumber(bar.low) &&
-    isFiniteNumber(bar.close) &&
-    isFiniteNumber(bar.volume) &&
-    bar.high >= bar.low
-  );
+  return isMarketDataBarQualityValid(bar);
 }
 
 /** Keeps transient state from a prior chart selection out of the next chart render. */

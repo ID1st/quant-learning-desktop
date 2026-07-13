@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-11T11:11:11.511Z",
+  "generatedAt": "2026-07-13T09:39:15.415Z",
   "package": {
     "name": "stock-sdk",
     "version": "2.3.0"
@@ -27,7 +27,7 @@
     {
       "name": "quote.cn-hk-us",
       "status": "passed",
-      "latencyMs": 1548,
+      "latencyMs": 1476,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -36,10 +36,10 @@
           {
             "market": "CN",
             "symbol": "600519.SH",
-            "price": 1204.98,
-            "previousClose": 1182.19,
-            "timestamp": 1783671285000,
-            "quoteAgeSeconds": 96988,
+            "price": 1210.99,
+            "previousClose": 1204.98,
+            "timestamp": 1783930474000,
+            "quoteAgeSeconds": 5083,
             "fields": {
               "price": true,
               "previousClose": true,
@@ -53,10 +53,10 @@
           {
             "market": "HK",
             "symbol": "00700.HK",
-            "price": 460.2,
-            "previousClose": 469.6,
-            "timestamp": 1783670926000,
-            "quoteAgeSeconds": 97347,
+            "price": 457.6,
+            "previousClose": 460.2,
+            "timestamp": 1783930136000,
+            "quoteAgeSeconds": 5421,
             "fields": {
               "price": true,
               "previousClose": true,
@@ -73,7 +73,7 @@
             "price": 315.32,
             "previousClose": 316.22,
             "timestamp": 1783713601000,
-            "quoteAgeSeconds": 54672,
+            "quoteAgeSeconds": 221956,
             "fields": {
               "price": true,
               "previousClose": true,
@@ -90,7 +90,7 @@
     {
       "name": "historical.CN.1d",
       "status": "passed",
-      "latencyMs": 1035,
+      "latencyMs": 1001,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -99,98 +99,41 @@
           "market": "CN",
           "symbol": "600519.SH",
           "timeframe": "1d",
-          "timestamp": 1767931200000,
-          "open": 1417,
-          "high": 1428.6,
-          "low": 1416.01,
-          "close": 1419.1,
-          "volume": 2984800
+          "timestamp": 1768190400000,
+          "open": 1419.1,
+          "high": 1431,
+          "low": 1417.1,
+          "close": 1423.23,
+          "volume": 3608300
         },
         "last": {
           "market": "CN",
           "symbol": "600519.SH",
           "timeframe": "1d",
-          "timestamp": 1783656000000,
-          "open": 1182.2,
-          "high": 1204.98,
-          "low": 1170.28,
-          "close": 1204.98,
-          "volume": 5221300
+          "timestamp": 1783915200000,
+          "open": 1197.12,
+          "high": 1215,
+          "low": 1190.19,
+          "close": 1210.99,
+          "volume": 4198300
         },
         "zeroOpenCount": 0,
-        "invalidOhlcCount": 0
+        "invalidOhlcCount": 0,
+        "quality": {
+          "acceptedCount": 120,
+          "rejectedCount": 0,
+          "issues": {
+            "invalid-timestamp": 0,
+            "invalid-price": 0,
+            "invalid-volume": 0,
+            "invalid-amount": 0,
+            "inconsistent-ohlc": 0
+          }
+        }
       }
     },
     {
       "name": "historical.CN.1w",
-      "status": "passed",
-      "latencyMs": 249,
-      "data": {
-        "provider": "stock-sdk",
-        "upstream": "tencent",
-        "rows": 120,
-        "first": {
-          "market": "CN",
-          "symbol": "600519.SH",
-          "timeframe": "1w",
-          "timestamp": 1711080000000,
-          "open": 1715,
-          "high": 1719.94,
-          "low": 1688,
-          "close": 1701.35,
-          "volume": 10730400
-        },
-        "last": {
-          "market": "CN",
-          "symbol": "600519.SH",
-          "timeframe": "1w",
-          "timestamp": 1783656000000,
-          "open": 1186,
-          "high": 1215,
-          "low": 1170.28,
-          "close": 1204.98,
-          "volume": 18042000
-        },
-        "zeroOpenCount": 0,
-        "invalidOhlcCount": 0
-      }
-    },
-    {
-      "name": "intraday.CN.1m",
-      "status": "passed",
-      "latencyMs": 295,
-      "data": {
-        "provider": "stock-sdk",
-        "upstream": "tencent",
-        "rows": 267,
-        "first": {
-          "market": "CN",
-          "symbol": "600519.SH",
-          "timeframe": "1m",
-          "timestamp": 1783647000000,
-          "open": 1182.2,
-          "high": 1182.2,
-          "low": 1182.2,
-          "close": 1182.2,
-          "volume": 33100
-        },
-        "last": {
-          "market": "CN",
-          "symbol": "600519.SH",
-          "timeframe": "1m",
-          "timestamp": 1783668600000,
-          "open": 1204.98,
-          "high": 1204.98,
-          "low": 1204.98,
-          "close": 1204.98,
-          "volume": 200
-        },
-        "zeroOpenCount": 0,
-        "invalidOhlcCount": 0
-      }
-    },
-    {
-      "name": "historical.HK.1d",
       "status": "passed",
       "latencyMs": 253,
       "data": {
@@ -198,35 +141,136 @@
         "upstream": "tencent",
         "rows": 120,
         "first": {
+          "market": "CN",
+          "symbol": "600519.SH",
+          "timeframe": "1w",
+          "timestamp": 1711684800000,
+          "open": 1698.54,
+          "high": 1718,
+          "low": 1680.58,
+          "close": 1702.9,
+          "volume": 10875400
+        },
+        "last": {
+          "market": "CN",
+          "symbol": "600519.SH",
+          "timeframe": "1w",
+          "timestamp": 1783915200000,
+          "open": 1197.12,
+          "high": 1215,
+          "low": 1190.19,
+          "close": 1210.99,
+          "volume": 4198300
+        },
+        "zeroOpenCount": 0,
+        "invalidOhlcCount": 0,
+        "quality": {
+          "acceptedCount": 120,
+          "rejectedCount": 0,
+          "issues": {
+            "invalid-timestamp": 0,
+            "invalid-price": 0,
+            "invalid-volume": 0,
+            "invalid-amount": 0,
+            "inconsistent-ohlc": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "intraday.CN.1m",
+      "status": "passed",
+      "latencyMs": 821,
+      "data": {
+        "provider": "stock-sdk",
+        "upstream": "tencent",
+        "rows": 120,
+        "first": {
+          "market": "CN",
+          "symbol": "600519.SH",
+          "timeframe": "1m",
+          "timestamp": 1783918860000,
+          "open": 1210.5,
+          "high": 1211.14,
+          "low": 1209.25,
+          "close": 1209.98,
+          "volume": 64000
+        },
+        "last": {
+          "market": "CN",
+          "symbol": "600519.SH",
+          "timeframe": "1m",
+          "timestamp": 1783926000000,
+          "open": 1211,
+          "high": 1211,
+          "low": 1210.99,
+          "close": 1210.99,
+          "volume": 29200
+        },
+        "zeroOpenCount": 0,
+        "invalidOhlcCount": 0,
+        "quality": {
+          "acceptedCount": 120,
+          "rejectedCount": 0,
+          "issues": {
+            "invalid-timestamp": 0,
+            "invalid-price": 0,
+            "invalid-volume": 0,
+            "invalid-amount": 0,
+            "inconsistent-ohlc": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "historical.HK.1d",
+      "status": "passed",
+      "latencyMs": 248,
+      "data": {
+        "provider": "stock-sdk",
+        "upstream": "tencent",
+        "rows": 120,
+        "first": {
           "market": "HK",
           "symbol": "00700.HK",
           "timeframe": "1d",
-          "timestamp": 1768190400000,
-          "open": 616,
-          "high": 627.5,
-          "low": 613.5,
-          "close": 623,
-          "volume": 27530129
+          "timestamp": 1768276800000,
+          "open": 637,
+          "high": 639,
+          "low": 622.5,
+          "close": 627.5,
+          "volume": 24212695
         },
         "last": {
           "market": "HK",
           "symbol": "00700.HK",
           "timeframe": "1d",
-          "timestamp": 1783656000000,
-          "open": 472.8,
-          "high": 473.6,
-          "low": 458.8,
-          "close": 460.2,
-          "volume": 40440298
+          "timestamp": 1783915200000,
+          "open": 463.2,
+          "high": 473.8,
+          "low": 456.2,
+          "close": 457.6,
+          "volume": 24291842
         },
         "zeroOpenCount": 0,
-        "invalidOhlcCount": 0
+        "invalidOhlcCount": 0,
+        "quality": {
+          "acceptedCount": 120,
+          "rejectedCount": 0,
+          "issues": {
+            "invalid-timestamp": 0,
+            "invalid-price": 0,
+            "invalid-volume": 0,
+            "invalid-amount": 0,
+            "inconsistent-ohlc": 0
+          }
+        }
       }
     },
     {
       "name": "historical.HK.1w",
       "status": "passed",
-      "latencyMs": 271,
+      "latencyMs": 249,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -235,32 +279,43 @@
           "market": "HK",
           "symbol": "00700.HK",
           "timeframe": "1w",
-          "timestamp": 1711598400000,
-          "open": 288.8,
-          "high": 309.6,
-          "low": 285,
-          "close": 303.8,
-          "volume": 123879666
+          "timestamp": 1712289600000,
+          "open": 309,
+          "high": 312.4,
+          "low": 304.4,
+          "close": 310,
+          "volume": 59840920
         },
         "last": {
           "market": "HK",
           "symbol": "00700.HK",
           "timeframe": "1w",
-          "timestamp": 1783656000000,
-          "open": 432.8,
-          "high": 485,
-          "low": 425.4,
-          "close": 460.2,
-          "volume": 236041594
+          "timestamp": 1783915200000,
+          "open": 463.2,
+          "high": 473.8,
+          "low": 456.2,
+          "close": 457.6,
+          "volume": 24291842
         },
         "zeroOpenCount": 0,
-        "invalidOhlcCount": 0
+        "invalidOhlcCount": 0,
+        "quality": {
+          "acceptedCount": 120,
+          "rejectedCount": 0,
+          "issues": {
+            "invalid-timestamp": 0,
+            "invalid-price": 0,
+            "invalid-volume": 0,
+            "invalid-amount": 0,
+            "inconsistent-ohlc": 0
+          }
+        }
       }
     },
     {
       "name": "intraday.HK.1m",
       "status": "passed",
-      "latencyMs": 324,
+      "latencyMs": 305,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -269,32 +324,43 @@
           "market": "HK",
           "symbol": "00700.HK",
           "timeframe": "1m",
-          "timestamp": 1783647000000,
-          "open": 472.8,
-          "high": 472.8,
-          "low": 472.8,
-          "close": 472.8,
-          "volume": 613651
+          "timestamp": 1783906200000,
+          "open": 463.2,
+          "high": 463.2,
+          "low": 463.2,
+          "close": 463.2,
+          "volume": 542200
         },
         "last": {
           "market": "HK",
           "symbol": "00700.HK",
           "timeframe": "1m",
-          "timestamp": 1783670880000,
-          "open": 460.2,
-          "high": 460.2,
-          "low": 460.2,
-          "close": 460.2,
-          "volume": 2367010
+          "timestamp": 1783930080000,
+          "open": 457.6,
+          "high": 457.6,
+          "low": 457.6,
+          "close": 457.6,
+          "volume": 1497948
         },
         "zeroOpenCount": 0,
-        "invalidOhlcCount": 0
+        "invalidOhlcCount": 0,
+        "quality": {
+          "acceptedCount": 332,
+          "rejectedCount": 0,
+          "issues": {
+            "invalid-timestamp": 0,
+            "invalid-price": 0,
+            "invalid-volume": 0,
+            "invalid-amount": 0,
+            "inconsistent-ohlc": 0
+          }
+        }
       }
     },
     {
       "name": "historical.US.1d",
       "status": "passed",
-      "latencyMs": 250,
+      "latencyMs": 248,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -322,13 +388,24 @@
           "volume": 34132321
         },
         "zeroOpenCount": 0,
-        "invalidOhlcCount": 0
+        "invalidOhlcCount": 0,
+        "quality": {
+          "acceptedCount": 120,
+          "rejectedCount": 0,
+          "issues": {
+            "invalid-timestamp": 0,
+            "invalid-price": 0,
+            "invalid-volume": 0,
+            "invalid-amount": 0,
+            "inconsistent-ohlc": 0
+          }
+        }
       }
     },
     {
       "name": "historical.US.1w",
       "status": "passed",
-      "latencyMs": 251,
+      "latencyMs": 265,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -356,13 +433,24 @@
           "volume": 219660270
         },
         "zeroOpenCount": 0,
-        "invalidOhlcCount": 0
+        "invalidOhlcCount": 0,
+        "quality": {
+          "acceptedCount": 120,
+          "rejectedCount": 0,
+          "issues": {
+            "invalid-timestamp": 0,
+            "invalid-price": 0,
+            "invalid-volume": 0,
+            "invalid-amount": 0,
+            "inconsistent-ohlc": 0
+          }
+        }
       }
     },
     {
       "name": "intraday.US.1m",
       "status": "passed",
-      "latencyMs": 1781,
+      "latencyMs": 1692,
       "data": {
         "provider": "yahoo-finance",
         "upstream": null,
@@ -390,7 +478,18 @@
           "volume": 0
         },
         "zeroOpenCount": 0,
-        "invalidOhlcCount": 0
+        "invalidOhlcCount": 0,
+        "quality": {
+          "acceptedCount": 1951,
+          "rejectedCount": 0,
+          "issues": {
+            "invalid-timestamp": 0,
+            "invalid-price": 0,
+            "invalid-volume": 0,
+            "invalid-amount": 0,
+            "inconsistent-ohlc": 0
+          }
+        }
       }
     }
   ],

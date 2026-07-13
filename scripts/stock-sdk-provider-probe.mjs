@@ -10,6 +10,7 @@ import {
 } from "../apps/desktop/src/features/marketData/marketDataProviderGateway.ts";
 import { createYahooFinanceIntradayProvider } from "../apps/desktop/src/features/marketData/yahooFinanceIntradayProvider.ts";
 import { createTencentFinanceBarsOperations } from "../apps/desktop/src/electron/tencentFinanceBars.ts";
+import { inspectMarketDataBars } from "../apps/desktop/src/features/marketData/marketDataQuality.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -99,6 +100,10 @@ async function runBarCheck(name, item, timeframe, kind) {
     if (!result.ok) throw new Error(result.error.message);
     const bars = result.data;
     assertMinimumRows(bars, 1, `${name} bars`);
+    const quality = inspectMarketDataBars(bars);
+    if (quality.rejectedCount > 0) {
+      throw new Error(`${name} returned ${quality.rejectedCount} invalid bars: ${JSON.stringify(quality.issues)}.`);
+    }
     return {
       provider: result.provider,
       upstream: result.health.upstream ?? null,
@@ -107,6 +112,11 @@ async function runBarCheck(name, item, timeframe, kind) {
       last: summarizeBar(bars.at(-1)),
       zeroOpenCount: bars.filter((bar) => bar.open === 0).length,
       invalidOhlcCount: bars.filter((bar) => bar.high < bar.low || bar.high < bar.open || bar.low > bar.open).length,
+      quality: {
+        acceptedCount: quality.validBars.length,
+        rejectedCount: quality.rejectedCount,
+        issues: quality.issues,
+      },
     };
   });
 }

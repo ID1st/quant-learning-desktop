@@ -2,6 +2,7 @@ import type { Market, Timeframe } from "@quant/shared";
 import { appLocalDatabase, type LocalDatabase } from "../persistence/localDatabase.ts";
 import { sanitizeMarketDataProviderId, type MarketDataProviderId } from "./marketDataProviderIds.ts";
 import type { MarketDataUpstream } from "./marketDataProviderGateway.ts";
+import { isMarketDataBarQualityValid } from "./marketDataQuality.ts";
 
 export interface MarketDataBar {
   symbol: string;
@@ -154,7 +155,7 @@ function sanitizeBar(value: unknown): MarketDataBar | null {
     return null;
   }
 
-  return {
+  const bar: MarketDataBar = {
     symbol: candidate.symbol,
     market,
     timeframe,
@@ -168,6 +169,8 @@ function sanitizeBar(value: unknown): MarketDataBar | null {
     provider,
     upstream: sanitizeUpstream(candidate.upstream),
   };
+
+  return isMarketDataBarQualityValid(bar) ? bar : null;
 }
 
 function sanitizeBars(value: unknown): MarketDataBar[] | null {
@@ -347,7 +350,13 @@ export function writeMarketBarCache(key: MarketBarCacheKey, bars: MarketDataBar[
   const normalizedKey = normalizeCacheKey(key);
   discardLegacyHistoricalCache(database, normalizedKey);
   const normalizedBars = normalizeBars(
-    bars.filter((bar) => bar.symbol === normalizedKey.symbol && bar.market === normalizedKey.market && bar.timeframe === normalizedKey.timeframe),
+    bars.filter(
+      (bar) =>
+        bar.symbol === normalizedKey.symbol &&
+        bar.market === normalizedKey.market &&
+        bar.timeframe === normalizedKey.timeframe &&
+        isMarketDataBarQualityValid(bar),
+    ),
   );
 
   database.writeDocument(createCollectionKey(normalizedKey), STORAGE_VERSION, normalizedBars);

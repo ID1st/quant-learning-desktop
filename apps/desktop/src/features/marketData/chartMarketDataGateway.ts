@@ -16,6 +16,7 @@ import { createStockSdkGatewayProvider, type StockSdkGatewayProviderOperations }
 import { createStockSdkGatewayProviderOperations } from "./stockSdkProviderOperations.ts";
 import { createYahooFinanceIntradayProvider } from "./yahooFinanceIntradayProvider.ts";
 import type { MarketDataBar } from "./marketBarCacheService.ts";
+import { isMarketDataBarQualityValid } from "./marketDataQuality.ts";
 import type { MarketQuoteSnapshot, MarketWatchlistItem } from "./marketDataSyncService.ts";
 import {
   createMarketDataGateway,
@@ -479,11 +480,11 @@ export function gatewayBarsToMarketDataBars(
     amount: bar.amount,
     provider: bar.provider,
     upstream: bar.upstream,
-  }));
+  })).filter(isMarketDataBarQualityValid);
 }
 
 export function gatewayBarsToAlphaFeedMarketDataBars(bars: readonly GatewayMarketDataBar[]): AlphaFeedMarketDataBar[] {
-  return bars.map((bar) => ({
+  return bars.filter(isMarketDataBarQualityValid).map((bar) => ({
     symbol: bar.symbol,
     market: bar.market,
     timeframe: bar.timeframe,

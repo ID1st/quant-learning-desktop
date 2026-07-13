@@ -1089,6 +1089,10 @@ export function ChartWorkspacePage() {
 
         const resultBars = gatewayBarsToMarketDataBars(result.data, isRealtimeHistory ? "realtime" : undefined);
 
+        if (resultBars.length < result.data.length) {
+          recordMarketEvent("data-invalid", `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 已拒绝 ${result.data.length - resultBars.length} 条异常行情数据`);
+        }
+
         if (resultBars.length === 0) {
           const emptyHealth = createRealtimeHealthView(
             "error",

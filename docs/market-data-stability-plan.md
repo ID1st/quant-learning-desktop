@@ -43,6 +43,8 @@ The selected provider is capability- and market-specific. Yahoo is intentionally
 ## Failure and Cache Rules
 
 - Provider errors are passed through the neutral gateway with the latest sanitized provider-health message.
+- Every normalized bar must have a positive timestamp and positive finite OHLC prices, non-negative finite volume/amount values, and a high/low range containing both open and close. The same quality rule is applied before local cache writes, chart conversion, strategy input, and probe success reporting.
+- Rejected upstream records are not persisted or rendered. The chart records a bounded `行情数据异常` runtime event with the rejected count, so malformed upstream data is diagnosable without exposing raw request details or credentials.
 - Stock SDK K-line network failures are classified as transient and trip a 60-second main-process circuit breaker, so chart switching immediately uses a configured fallback rather than repeatedly waiting on the unavailable Eastmoney route.
 - Yahoo retries one transient network or HTTP 5xx request with bounded linear backoff. Authentication and rate-limit responses are not retried by this provider.
 - If an intraday or historical refresh fails, the current local cache remains the displayed data. The chart status explicitly reports the retained cache count.
@@ -64,5 +66,7 @@ For CN/HK daily and weekly history, the operational solution is to configure and
 ## Verification
 
 - Provider fallback, provider-health detail, transient retry, and render sampling have desktop regression coverage.
+- Runtime error records redact credential-like values and deduplicate repeated browser/runtime failures; the root error boundary provides a controlled recovery screen instead of a black-screen failure.
+- The Stock SDK probe validates normalized OHLCV quality as well as connectivity. On 2026-07-13, the live probe completed 10/10 checks successfully.
 - The chart test suite verifies future-area pan, stable viewport updates, and right-axis price scaling.
 - Electron development mode was restarted after the main-process IPC change; the window responded successfully and a local renderer page loaded with a clean console.

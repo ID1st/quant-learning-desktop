@@ -373,7 +373,14 @@ test("historical cache isolates adjustment modes and drops legacy unadjusted ent
   assert.equal(readMarketBarCacheSummary(database).entries.length, 0);
 
   writeMarketBarCache(rawKey, [{ ...legacyBar, close: 285, upstream: "tencent" }], { database });
-  writeMarketBarCache(forwardKey, [{ ...legacyBar, close: 250, upstream: "tencent" }], { database });
+  writeMarketBarCache(forwardKey, [{
+    ...legacyBar,
+    open: 250,
+    high: 255,
+    low: 245,
+    close: 250,
+    upstream: "tencent",
+  }], { database });
 
   assert.equal(readMarketBarCache(rawKey, { database })[0]?.close, 285);
   assert.equal(readMarketBarCache(forwardKey, { database })[0]?.close, 250);

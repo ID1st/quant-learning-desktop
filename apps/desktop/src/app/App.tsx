@@ -4,6 +4,8 @@ import { useAuthStore } from "../features/auth/authStore";
 import { AppShell } from "../layouts/AppShell";
 import { AppRouter } from "../routes/AppRouter";
 import { useAppStore } from "../state/appStore";
+import { AppErrorBoundary } from "../ui/AppErrorBoundary";
+import { AppRuntimeErrorReporter } from "../ui/AppRuntimeErrorReporter";
 
 const queryClient = new QueryClient();
 
@@ -26,11 +28,14 @@ export function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div data-theme={theme}>
-        <AppShell>
-          <AppRouter />
-        </AppShell>
-      </div>
+      <AppErrorBoundary onRecover={() => navigate(session ? "dashboard" : "login")}>
+        <div data-theme={theme}>
+          <AppShell>
+            <AppRuntimeErrorReporter />
+            <AppRouter />
+          </AppShell>
+        </div>
+      </AppErrorBoundary>
     </QueryClientProvider>
   );
 }

@@ -2102,6 +2102,61 @@ textarea:focus-visible {
   stroke: rgba(255, 154, 138, 0.52);
 }
 
+.app-recovery-screen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: var(--space-6);
+  background: #080d14;
+}
+
+.app-recovery-card {
+  display: grid;
+  width: min(520px, 100%);
+  gap: 12px;
+  border: 1px solid rgba(255, 152, 112, 0.36);
+  border-radius: 8px;
+  background: rgba(14, 22, 33, 0.96);
+  box-shadow: 0 18px 56px rgba(0, 0, 0, 0.28);
+  padding: 28px;
+}
+
+.app-recovery-card p {
+  margin: 0;
+  color: #ffb29a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.app-recovery-card h1 {
+  margin: 0;
+  color: #f5f8ff;
+  font-size: 22px;
+}
+
+.app-recovery-card > span:not(.app-recovery-icon) {
+  color: #9ca8b8;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.app-recovery-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(255, 152, 112, 0.42);
+  border-radius: 8px;
+  color: #ff9b79;
+}
+
+.app-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 /* UTORB keeps its reference levels subordinate to price action. */
 .strategy-band[data-strategy-id="utorb"][data-element-id^="utorb-opening-range"] {
   fill: rgba(88, 166, 255, 0.045);

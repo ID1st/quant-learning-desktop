@@ -68,6 +68,14 @@ Completed foundations:
 - Confirmed: live refresh, strategy execution, chart viewport state, provider-neutral gateway contracts, and cache keys remain unchanged.
 - Explicitly skipped for this milestone: AlphaFeed WebSocket real-protocol hardening and automated provider probe expansion.
 
+## P0 Reliability And Data Quality Update (2026-07-13)
+
+- Completed: the desktop renderer is protected by a global React error boundary. A route or component exception now presents a recoverable Chinese error screen with return-to-workspace and reload actions instead of leaving the application in an unresponsive black screen.
+- Completed: browser `error` and `unhandledrejection` events are captured in a bounded local runtime record. Credential-like values are redacted before any user-facing toast or diagnostic record is created.
+- Completed: one OHLCV quality rule now guards Stock SDK normalization, gateway conversion, local bar-cache writes, chart conversion, and the Stock SDK provider probe. Invalid timestamps/prices/volume/amounts and inconsistent OHLC bars are rejected before they can reach chart rendering or strategy input.
+- Completed: the chart runtime event timeline records rejected upstream records as `行情数据异常`, retaining source/cache/fallback diagnostics without exposing credentials.
+- Verification: `npm.cmd run test:desktop` (179 passing), `npm.cmd run test:strategy-engine` (35 passing), `npm.cmd run typecheck`, `npm.cmd run build`, and `npm.cmd run probe:stock-sdk` (10/10 passing) all succeeded.
+
 ## Strategy Learning Page Update (2026-07-13)
 
 - Completed: a read-only `策略学习` navigation page explaining the current UTORB and Trend Targets strategies plus SMA, EMA, and BOLL indicators.

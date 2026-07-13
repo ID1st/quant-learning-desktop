@@ -15,6 +15,7 @@ import type {
   MarketDataUpstream,
   RealtimeQuoteProvider,
 } from "./marketDataProviderGateway.ts";
+import { getMarketDataQualityIssue } from "./marketDataQuality.ts";
 
 export type StockSdkHistoryPeriod = "daily" | "weekly";
 export type StockSdkMinutePeriod = "1" | "5" | "15" | "30" | "60";
@@ -417,14 +418,12 @@ function repairMinorOhlcPrecisionMismatch(open: number, high: number, low: numbe
 }
 
 function validateBar(bar: GatewayMarketDataBar) {
-  const values = [bar.open, bar.high, bar.low, bar.close, bar.volume, bar.timestamp];
-  if (!values.every((value) => Number.isFinite(value))) {
-    throw new Error(`Stock SDK returned invalid bar for ${bar.symbol}.`);
-  }
-
-  if (bar.high < bar.low || bar.high < bar.close || bar.high < bar.open || bar.low > bar.close || bar.low > bar.open) {
+  const issue = getMarketDataQualityIssue(bar);
+  if (issue === "inconsistent-ohlc") {
     throw new Error(`Stock SDK returned inconsistent OHLC for ${bar.symbol}.`);
   }
+
+  if (issue) throw new Error(`Stock SDK returned ${issue} bar for ${bar.symbol}.`);
 }
 
 function toStockSdkHistoryPeriod(timeframe: Timeframe): StockSdkHistoryPeriod {

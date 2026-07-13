@@ -11,6 +11,7 @@ export type MarketDataRuntimeEventKind =
   | "delayed-gap"
   | "market-closed"
   | "cache-retained"
+  | "data-invalid"
   | "error";
 
 export interface MarketDataRuntimeEvent {
@@ -47,6 +48,7 @@ const runtimeEventLabels: Record<MarketDataRuntimeEventKind, string> = {
   "delayed-gap": "数据缺口",
   "market-closed": "市场收盘",
   "cache-retained": "保留缓存",
+  "data-invalid": "行情数据异常",
   error: "同步失败",
 };
 
