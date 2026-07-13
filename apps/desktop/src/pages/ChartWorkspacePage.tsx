@@ -51,6 +51,7 @@ import {
 } from "../features/marketData/chartDataReadinessService";
 import {
   createChartWatchlistWarmupPlan,
+  hasSufficientHistoricalChartCache,
   isChartWarmupCacheFresh,
 } from "../features/marketData/chartWatchlistWarmupService";
 import {
@@ -999,7 +1000,13 @@ export function ChartWorkspacePage() {
       );
       setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "syncing" }));
 
-      if (!isRealtimeHistory && !sessionStatus.isOpen && cacheFreshness.state === "fresh" && hasRenderableChartData(timeframe, initialCachedBars.length)) {
+      if (
+        !isRealtimeHistory &&
+        !sessionStatus.isOpen &&
+        cacheFreshness.state === "fresh" &&
+        hasRenderableChartData(timeframe, initialCachedBars.length) &&
+        hasSufficientHistoricalChartCache(timeframe, initialCachedBars.length)
+      ) {
         setChartLoadState(createChartLoadState("ready", activeSymbol.symbol, timeframe, initialCachedBars.length, `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 市场已收盘，使用有效本地缓存。`));
         setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "cache" }));
         recordMarketEvent("market-closed", `${activeSymbol.symbol} 市场已收盘，历史缓存仍有效，跳过远端刷新`);
@@ -1176,7 +1183,7 @@ export function ChartWorkspacePage() {
         );
         const isFresh = isChartWarmupCacheFresh(cacheTimeframe, metadata?.updatedAt);
 
-        if (isFresh && hasRenderableChartData(task.timeframe, cachedBars.length)) {
+        if (isFresh && hasRenderableChartData(task.timeframe, cachedBars.length) && hasSufficientHistoricalChartCache(task.timeframe, cachedBars.length)) {
           setWatchlistDataStatusByKey((current) => ({ ...current, [`${task.market}:${task.symbol}`]: "cache" }));
           continue;
         }

@@ -53,7 +53,7 @@ test("Tencent Finance history retries a US ticker with the NYSE suffix after an 
       const symbol = new URL(url).searchParams.get("param")?.split(",")[0] ?? "";
       return jsonResponse({
         code: 0,
-        data: symbol.endsWith(".NY")
+        data: symbol.endsWith(".N")
           ? { [symbol]: { day: [["2026-07-10", "290", "291", "292", "289", "1000"]] } }
           : { [symbol]: { day: [] } },
       });
@@ -70,7 +70,45 @@ test("Tencent Finance history retries a US ticker with the NYSE suffix after an 
 
   assert.equal(bars.length, 1);
   assert.match(urls[0] ?? "", /usJPM.OQ/u);
-  assert.match(urls[1] ?? "", /usJPM.NY/u);
+  assert.match(urls[1] ?? "", /usJPM.N/u);
+});
+
+test("Tencent Finance history prefers a complete AMEX series over a partial NASDAQ result", async () => {
+  const urls: string[] = [];
+  const rows = (count: number) => Array.from({ length: count }, (_, index) => {
+    const date = new Date(Date.UTC(2025, 0, 1 + index)).toISOString().slice(0, 10);
+    return [
+      date,
+      "100",
+      "101",
+      "102",
+      "99",
+      "1000",
+    ];
+  });
+  const operations = createTencentFinanceBarsOperations({
+    fetchImpl: async (input) => {
+      const url = String(input);
+      urls.push(url);
+      const symbol = new URL(url).searchParams.get("param")?.split(",")[0] ?? "";
+      const count = symbol.endsWith(".OQ") ? 5 : symbol.endsWith(".N") ? 1 : 56;
+      return jsonResponse({ code: 0, data: { [symbol]: { week: rows(count) } } });
+    },
+  });
+
+  const bars = await operations.fetchHistoricalBars({
+    market: "US",
+    symbol: "SPCX.US",
+    providerSymbol: "105.SPCX",
+    timeframe: "1w",
+    period: "weekly",
+    count: 260,
+  });
+
+  assert.equal(bars.length, 56);
+  assert.match(urls[0] ?? "", /usSPCX.OQ/u);
+  assert.match(urls[1] ?? "", /usSPCX.N/u);
+  assert.match(urls[2] ?? "", /usSPCX.AM/u);
 });
 
 test("Tencent Finance deduplicates an in-flight history request and retries one transient upstream failure", async () => {

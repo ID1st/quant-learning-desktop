@@ -9,6 +9,12 @@ Completed on 2026-07-11. This slice stabilizes the provider-neutral chart data p
 This follow-up completes the selected stability scope without changing provider priority or the AlphaFeed WebSocket protocol:
 
 - A shared runtime-status module classifies cache freshness, market session state, and chart events. The event timeline has bounded deduplication for cache hit/stale, synchronization, fallback, rate limit, delayed gap, closed-market, retained-cache, and error states.
+
+## Tencent US Historical Symbol Resolution Update (2026-07-13)
+
+- Tencent Finance US history now evaluates NASDAQ (`.OQ`), NYSE (`.N`), and AMEX (`.AM`) suffix candidates when a result is sparse. It keeps the first sufficiently complete result and remembers the selected suffix for the desktop-process lifetime.
+- A non-empty response is no longer treated as complete by itself. This prevents symbols such as `SPCX.US` from retaining the Tencent `.OQ` fallback's 19 daily bars or 5 weekly bars when the `.AM` route provides the available 261 daily bars and 56 weekly bars.
+- Historical chart cache is considered incomplete below 60 daily bars or 26 weekly bars. A fresh but incomplete local cache is refreshed even after market close, then overwritten by the normalized provider result.
 - The chart diagnostic drawer now presents those events with Chinese labels. Provider credentials and raw request data remain outside the renderer diagnostics.
 - For closed markets, a fresh daily or weekly cache renders directly and skips an unnecessary remote refresh. Intraday polling still follows the existing market-session window and stops after close.
 - Refresh failure preserves usable cache and records a retained-cache event. Existing real-time merge rules continue to prevent historical bars from overwriting newer live points.

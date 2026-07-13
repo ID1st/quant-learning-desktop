@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   createChartWatchlistWarmupPlan,
+  hasSufficientHistoricalChartCache,
   isChartWarmupCacheFresh,
 } from "../src/features/marketData/chartWatchlistWarmupService.ts";
 
@@ -29,4 +30,11 @@ test("watchlist warmup only treats recent timeframe caches as fresh", () => {
   assert.equal(isChartWarmupCacheFresh("realtime", "2026-07-11T08:59:30.000Z", now), true);
   assert.equal(isChartWarmupCacheFresh("realtime", "2026-07-11T08:58:00.000Z", now), false);
   assert.equal(isChartWarmupCacheFresh("1w", "2026-07-11T05:00:00.000Z", now), true);
+});
+
+test("historical cache completeness prevents short daily and weekly series from being treated as ready", () => {
+  assert.equal(hasSufficientHistoricalChartCache("1d", 59), false);
+  assert.equal(hasSufficientHistoricalChartCache("1d", 60), true);
+  assert.equal(hasSufficientHistoricalChartCache("1w", 25), false);
+  assert.equal(hasSufficientHistoricalChartCache("1w", 26), true);
 });

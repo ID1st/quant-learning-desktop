@@ -58,12 +58,14 @@ const requestHeaders = {
 export function createTencentFinanceBarsOperations(options: TencentFinanceBarsOptions = {}): TencentFinanceBarsOperations {
   const fetchImpl = options.fetchImpl ?? fetch;
   const request = createTencentRequestClient(fetchImpl, options.timeoutMs ?? 8_000, options.maxConcurrency ?? 2);
-  const usExchangeByTicker = new Map<string, "OQ" | "NY">();
+  const usExchangeByTicker = new Map<string, TencentUsExchange>();
 
   return {
     async fetchHistoricalBars(barRequest) {
       const candidates = getHistorySymbolCandidates(barRequest, usExchangeByTicker);
       let lastError: unknown;
+      let bestBars: readonly StockSdkRawRecord[] | undefined;
+      let bestSymbol: string | undefined;
 
       for (const symbol of candidates) {
         try {
@@ -74,17 +76,28 @@ export function createTencentFinanceBarsOperations(options: TencentFinanceBarsOp
             throw new TencentFinanceNoDataError(`Tencent Finance returned no usable historical data for ${barRequest.symbol}.`);
           }
 
-          if (barRequest.market === "US") {
-            usExchangeByTicker.set(getUsTicker(barRequest), symbol.endsWith(".NY") ? "NY" : "OQ");
+          if (!bestBars || bars.length > bestBars.length) {
+            bestBars = bars;
+            bestSymbol = symbol;
           }
 
-          return bars;
+          if (barRequest.market !== "US" || hasSufficientHistoricalBars(bars, barRequest)) {
+            if (barRequest.market === "US") {
+              usExchangeByTicker.set(getUsTicker(barRequest), getTencentUsExchange(symbol));
+            }
+            return bars;
+          }
         } catch (error) {
           lastError = error;
           if (barRequest.market !== "US" || !(error instanceof TencentFinanceNoDataError)) {
             break;
           }
         }
+      }
+
+      if (bestBars && bestSymbol) {
+        usExchangeByTicker.set(getUsTicker(barRequest), getTencentUsExchange(bestSymbol));
+        return bestBars;
       }
 
       throw lastError instanceof Error
@@ -115,7 +128,7 @@ export function createTencentFinanceBarsOperations(options: TencentFinanceBarsOp
           }
 
           if (barRequest.market === "US") {
-            usExchangeByTicker.set(getUsTicker(barRequest), symbol.endsWith(".NY") ? "NY" : "OQ");
+            usExchangeByTicker.set(getUsTicker(barRequest), getTencentUsExchange(symbol));
           }
 
           return bars;
@@ -282,19 +295,36 @@ function getBarCount(count: number | undefined) {
   return Math.min(maximumHistoryCount, Math.max(2, Math.floor(count ?? defaultHistoryCount)));
 }
 
-function getHistorySymbolCandidates(request: StockSdkBarRequest, usExchangeByTicker: ReadonlyMap<string, "OQ" | "NY">) {
+type TencentUsExchange = "OQ" | "N" | "AM";
+
+const tencentUsExchanges: readonly TencentUsExchange[] = ["OQ", "N", "AM"];
+
+function getHistorySymbolCandidates(request: StockSdkBarRequest, usExchangeByTicker: ReadonlyMap<string, TencentUsExchange>) {
   return request.market === "US" ? getUsSymbolCandidates(request, usExchangeByTicker) : [toTencentSymbol(request)];
 }
 
-function getIntradaySymbolCandidates(request: StockSdkBarRequest, usExchangeByTicker: ReadonlyMap<string, "OQ" | "NY">) {
+function getIntradaySymbolCandidates(request: StockSdkBarRequest, usExchangeByTicker: ReadonlyMap<string, TencentUsExchange>) {
   return request.market === "US" ? getUsSymbolCandidates(request, usExchangeByTicker) : [toTencentSymbol(request)];
 }
 
-function getUsSymbolCandidates(request: StockSdkBarRequest, usExchangeByTicker: ReadonlyMap<string, "OQ" | "NY">) {
+function getUsSymbolCandidates(request: StockSdkBarRequest, usExchangeByTicker: ReadonlyMap<string, TencentUsExchange>) {
   const ticker = getUsTicker(request);
   const cachedExchange = usExchangeByTicker.get(ticker);
-  const exchanges: readonly ("OQ" | "NY")[] = cachedExchange ? [cachedExchange] : ["OQ", "NY"];
+  const exchanges = cachedExchange
+    ? [cachedExchange, ...tencentUsExchanges.filter((exchange) => exchange !== cachedExchange)]
+    : tencentUsExchanges;
   return exchanges.map((exchange) => `us${ticker}.${exchange}`);
+}
+
+function getTencentUsExchange(symbol: string): TencentUsExchange {
+  const exchange = symbol.split(".").at(-1)?.toUpperCase();
+  return exchange === "N" || exchange === "AM" ? exchange : "OQ";
+}
+
+function hasSufficientHistoricalBars(bars: readonly StockSdkRawRecord[], request: StockSdkBarRequest) {
+  const requestedCount = getBarCount(request.count);
+  const minimumUsefulCount = request.period === "weekly" ? 26 : 60;
+  return bars.length >= Math.min(requestedCount, minimumUsefulCount);
 }
 
 function getUsTicker(request: StockSdkBarRequest) {

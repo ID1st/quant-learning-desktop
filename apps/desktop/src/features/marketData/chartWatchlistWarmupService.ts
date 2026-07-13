@@ -22,6 +22,18 @@ const cacheMaxAgeMs: Record<Timeframe, number> = {
   "1w": 6 * 60 * 60_000,
 };
 
+export function hasSufficientHistoricalChartCache(timeframe: Timeframe, barCount: number) {
+  if (timeframe === "1d") {
+    return barCount >= 60;
+  }
+
+  if (timeframe === "1w") {
+    return barCount >= 26;
+  }
+
+  return true;
+}
+
 export function createChartWatchlistWarmupPlan(
   watchlist: readonly ChartWarmupSymbol[],
   activeSymbol: ChartWarmupSymbol,
