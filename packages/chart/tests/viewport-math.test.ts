@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   clampChartVisibleRange,
   getScaledPriceRange,
+  panChartPriceRange,
   panChartVisibleRange,
   shouldInitializeChartViewAfterSparseLoad,
   syncChartVisibleRangeForDataUpdate,
@@ -53,4 +54,9 @@ test("scaled price range keeps price center and changes vertical density", () =>
   assert.deepEqual(getScaledPriceRange(100, 120, 1), { min: 100, max: 120 });
   assert.deepEqual(getScaledPriceRange(100, 120, 0.5), { min: 105, max: 115 });
   assert.deepEqual(getScaledPriceRange(100, 120, 2), { min: 90, max: 130 });
+});
+
+test("chart price pan shifts the viewport without changing its scale", () => {
+  assert.deepEqual(panChartPriceRange(100, 120, 5), { min: 105, max: 125 });
+  assert.deepEqual(panChartPriceRange(100, 120, -8), { min: 92, max: 112 });
 });

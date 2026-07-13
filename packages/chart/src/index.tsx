@@ -3,6 +3,7 @@ import type { Market, Timeframe } from "@quant/shared";
 import {
   clampChartVisibleRange,
   getChartFuturePaddingBars,
+  panChartPriceRange,
   getScaledPriceRange,
   panChartVisibleRange,
   shouldInitializeChartViewAfterSparseLoad,
@@ -14,6 +15,7 @@ import {
 export {
   clampChartVisibleRange,
   getChartFuturePaddingBars,
+  panChartPriceRange,
   getScaledPriceRange,
   panChartVisibleRange,
   shouldInitializeChartViewAfterSparseLoad,
@@ -308,7 +310,7 @@ export function ChartViewport({
     focusLatestKey,
   });
   const dragStateRef = useRef<
-    | { mode: "pan"; pointerId: number; startX: number; startRange: ChartVisibleRange }
+    | { mode: "pan"; pointerId: number; startX: number; startY: number; startRange: ChartVisibleRange; startPriceOffset: number }
     | { mode: "price-scale"; pointerId: number; startY: number; startScaleFactor: number }
     | { mode: "drawing"; pointerId: number; drawingId: string; pointIndex: number | null }
     | null
@@ -316,6 +318,7 @@ export function ChartViewport({
   const [isPanning, setIsPanning] = useState(false);
   const [isScalingPriceAxis, setIsScalingPriceAxis] = useState(false);
   const [priceScaleFactor, setPriceScaleFactor] = useState(1);
+  const [pricePanOffset, setPricePanOffset] = useState(0);
 
   const width = 980;
   const height = 520;
@@ -339,6 +342,7 @@ export function ChartViewport({
       setScaleDomain(calculateScaleDomain(candles, nextRange));
       setHoverIndex(candles.length > 0 ? candles.length - 1 : null);
       setPriceScaleFactor(1);
+      setPricePanOffset(0);
       previousChartStateRef.current = { candleCount: candles.length, contextKey, resetViewKey, focusLatestKey };
       return;
     }
@@ -412,8 +416,9 @@ export function ChartViewport({
   const candleGap = (plotRight - paddingX) / visibleCount;
   const candleWidth = Math.max(5, candleGap * 0.58);
   const scaledPriceRange = getScaledPriceRange(scaleDomain.minPrice, scaleDomain.maxPrice, priceScaleFactor);
-  const maxPrice = scaledPriceRange.max;
-  const minPrice = scaledPriceRange.min;
+  const pannedPriceRange = panChartPriceRange(scaledPriceRange.min, scaledPriceRange.max, pricePanOffset);
+  const maxPrice = pannedPriceRange.max;
+  const minPrice = pannedPriceRange.min;
   const maxVolume = scaleDomain.maxVolume;
   const priceRange = Math.max(1, maxPrice - minPrice);
   const safeHoverIndex = hoverIndex === null ? null : Math.min(hoverIndex, candles.length - 1);
@@ -532,7 +537,14 @@ export function ChartViewport({
       return;
     }
 
-    dragStateRef.current = { mode: "pan", pointerId: event.pointerId, startX: event.clientX, startRange: safeVisibleRange };
+    dragStateRef.current = {
+      mode: "pan",
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startRange: safeVisibleRange,
+      startPriceOffset: pricePanOffset,
+    };
     setIsPanning(true);
   };
   const handlePointerMove = (event: PointerEvent<SVGSVGElement>) => {
@@ -560,6 +572,7 @@ export function ChartViewport({
     const rect = event.currentTarget.getBoundingClientRect();
     const windowSize = Math.max(1, dragState.startRange.end - dragState.startRange.start);
     const deltaBars = -((event.clientX - dragState.startX) / Math.max(1, rect.width)) * windowSize;
+    const deltaPrice = ((event.clientY - dragState.startY) / Math.max(1, rect.height)) * priceRange;
     setVisibleRange(
       panChartVisibleRange(
         dragState.startRange,
@@ -568,6 +581,7 @@ export function ChartViewport({
         getChartFuturePaddingBars(dragState.startRange),
       ),
     );
+    setPricePanOffset(dragState.startPriceOffset + deltaPrice);
   };
   const handlePointerUp = (event: PointerEvent<SVGSVGElement>) => {
     if (dragStateRef.current?.pointerId === event.pointerId) {
@@ -583,6 +597,7 @@ export function ChartViewport({
     setScaleDomain(calculateScaleDomain(candles, nextRange));
     setHoverIndex(candles.length - 1);
     setPriceScaleFactor(1);
+    setPricePanOffset(0);
   };
   const beginDrawingDrag = (event: PointerEvent<SVGElement>, drawingId: string, pointIndex: number | null) => {
     event.stopPropagation();

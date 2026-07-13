@@ -100,3 +100,15 @@ export function getScaledPriceRange(minPrice: number, maxPrice: number, scaleFac
     max: center + scaledRange / 2,
   };
 }
+
+/** Moves the price viewport without changing its vertical density. */
+export function panChartPriceRange(minPrice: number, maxPrice: number, deltaPrice: number) {
+  const safeMin = Math.min(minPrice, maxPrice);
+  const safeMax = Math.max(minPrice, maxPrice);
+  const safeDelta = Number.isFinite(deltaPrice) ? deltaPrice : 0;
+
+  return {
+    min: safeMin + safeDelta,
+    max: safeMax + safeDelta,
+  };
+}
