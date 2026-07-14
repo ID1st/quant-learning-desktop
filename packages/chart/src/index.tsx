@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEven
 import type { Market, Timeframe } from "@quant/shared";
 import {
   clampChartVisibleRange,
+  getChartPriceLineLabelLayout,
   getChartFuturePaddingBars,
   panChartPriceRange,
   getScaledPriceRange,
@@ -14,6 +15,7 @@ import {
 
 export {
   clampChartVisibleRange,
+  getChartPriceLineLabelLayout,
   getChartFuturePaddingBars,
   panChartPriceRange,
   getScaledPriceRange,
@@ -774,8 +776,7 @@ export function ChartViewport({
                   const bounds = timedElementBounds(element.fromTimestamp, element.toTimestamp);
                   if (!bounds) return null;
                   const hasLabel = Boolean(element.label);
-                  const labelWidth = hasLabel ? Math.max(58, element.label!.length * 7 + 16) : 0;
-                  const labelX = bounds.x2 - labelWidth + 6;
+                  const labelLayout = hasLabel ? getChartPriceLineLabelLayout(element.label!, bounds.x2, paddingX) : null;
                   const labelY = y - 20;
 
                   return (
@@ -787,9 +788,14 @@ export function ChartViewport({
                       onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
                     >
                       <line x1={bounds.x1} x2={bounds.x2} y1={y} y2={y} />
-                      {isProjected && hasLabel && <rect height={30} rx={4} width={labelWidth} x={labelX} y={labelY} />}
+                      {isProjected && labelLayout && <rect height={30} rx={4} width={labelLayout.width} x={labelLayout.x} y={labelY} />}
                       {hasLabel && (
-                        <text x={isProjected ? labelX + labelWidth - 10 : bounds.x2 - 8} y={isProjected ? y + 5 : y - 6}>
+                        <text
+                          lengthAdjust={isProjected ? "spacingAndGlyphs" : undefined}
+                          textLength={isProjected ? labelLayout?.textLength : undefined}
+                          x={isProjected ? labelLayout?.textX : bounds.x2 - 8}
+                          y={isProjected ? y + 5 : y - 6}
+                        >
                           {element.label}
                         </text>
                       )}

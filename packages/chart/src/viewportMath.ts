@@ -112,3 +112,25 @@ export function panChartPriceRange(minPrice: number, maxPrice: number, deltaPric
     max: safeMax + safeDelta,
   };
 }
+
+/** Keeps price-line text inside its SVG label across Chinese and Latin scripts. */
+export function getChartPriceLineLabelLayout(label: string, rightX: number, minimumX: number) {
+  const safeRightX = Number.isFinite(rightX) ? rightX : 0;
+  const safeMinimumX = Math.min(safeRightX, Number.isFinite(minimumX) ? minimumX : 0);
+  const horizontalPadding = 12;
+  const estimatedTextWidth = Array.from(label).reduce((width, character) => {
+    if (/\s/.test(character)) return width + 6;
+    return width + (/[^\u0000-\u00ff]/.test(character) ? 12 : 7);
+  }, 0);
+  const desiredWidth = Math.max(100, Math.ceil(estimatedTextWidth + horizontalPadding * 2));
+  const availableWidth = Math.max(1, safeRightX - safeMinimumX);
+  const width = Math.min(desiredWidth, availableWidth);
+  const x = safeRightX - width;
+
+  return {
+    x,
+    width,
+    textX: x + width - horizontalPadding,
+    textLength: Math.max(1, width - horizontalPadding * 2),
+  };
+}

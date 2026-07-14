@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   clampChartVisibleRange,
   getScaledPriceRange,
+  getChartPriceLineLabelLayout,
   panChartPriceRange,
   panChartVisibleRange,
   shouldInitializeChartViewAfterSparseLoad,
@@ -59,4 +60,12 @@ test("scaled price range keeps price center and changes vertical density", () =>
 test("chart price pan shifts the viewport without changing its scale", () => {
   assert.deepEqual(panChartPriceRange(100, 120, 5), { min: 105, max: 125 });
   assert.deepEqual(panChartPriceRange(100, 120, -8), { min: 92, max: 112 });
+});
+
+test("strategy price labels reserve enough width for Chinese text and stay inside the plot", () => {
+  const layout = getChartPriceLineLabelLayout("上方目标 3", 180, 54);
+
+  assert.equal(layout.x, 80);
+  assert.equal(layout.width, 100);
+  assert.equal(layout.textX, 168);
 });
