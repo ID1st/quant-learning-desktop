@@ -13,7 +13,6 @@ import type {
 } from "../../../../packages/api-client/src/longport.ts";
 import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
 import type { AlphaFeedStreamConnectionState, AlphaFeedStreamMode } from "./alphaFeedStreamBridge";
-import { createDesktopBridgeFromPersistenceStore, createMemoryPersistenceStore } from "./localPersistence";
 import { marketDataIpcChannels } from "./marketDataIpcContract";
 import type { MarketDataIpcBridge } from "./marketDataIpcContract";
 import { providerDataIpcChannels } from "./providerDataIpcContract";
@@ -24,20 +23,12 @@ import type { AlphaFeedStreamCredentials } from "./secureCredentialStore";
 export interface DesktopBridge {
   readonly platform: "desktop";
   readonly version: string;
-  readonly localDatabase: {
-    getItem(key: string): string | null;
-    setItem(key: string, value: string): void;
-    removeItem(key: string): void;
-  };
   readonly secureCredentials: {
     saveAlphaFeed(credentials: AlphaFeedApiCredentials): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
-    readAlphaFeed(): Promise<{ ok: true; credentials: AlphaFeedApiCredentials | null } | { ok: false; error: { message: string } }>;
     clearAlphaFeed(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     saveAlphaFeedStream(credentials: AlphaFeedStreamCredentials): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
-    readAlphaFeedStream(): Promise<{ ok: true; credentials: AlphaFeedStreamCredentials | null } | { ok: false; error: { message: string } }>;
     clearAlphaFeedStream(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     saveLongPort(credentials: LongPortApiCredentials): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
-    readLongPort(): Promise<{ ok: true; credentials: LongPortApiCredentials | null } | { ok: false; error: { message: string } }>;
     clearLongPort(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
   };
   readonly marketData: MarketDataIpcBridge;
@@ -156,8 +147,6 @@ export interface DesktopBridge {
   };
 }
 
-const preloadLocalDatabaseStore = createMemoryPersistenceStore();
-
 async function invokeSecureCredential<T>(channel: string, payload?: unknown): Promise<T> {
   return ipcRenderer.invoke(channel, payload) as Promise<T>;
 }
@@ -177,7 +166,6 @@ async function invokePlugin<T>(channel: string, ...payload: unknown[]): Promise<
 export const desktopBridge: DesktopBridge = {
   platform: "desktop",
   version: "0.1.0",
-  localDatabase: createDesktopBridgeFromPersistenceStore(preloadLocalDatabaseStore),
   secureCredentials: {
     saveAlphaFeed: async (credentials) => {
       const result = await invokeSecureCredential<{ ok: true; value: null } | { ok: false; error: { message: string } }>(
@@ -185,12 +173,6 @@ export const desktopBridge: DesktopBridge = {
         credentials,
       );
       return result.ok ? { ok: true } : result;
-    },
-    readAlphaFeed: async () => {
-      const result = await invokeSecureCredential<
-        { ok: true; value: AlphaFeedApiCredentials | null } | { ok: false; error: { message: string } }
-      >("secureCredentials:readAlphaFeed");
-      return result.ok ? { ok: true, credentials: result.value } : result;
     },
     clearAlphaFeed: async () => {
       const result = await invokeSecureCredential<{ ok: true; value: null } | { ok: false; error: { message: string } }>(
@@ -205,12 +187,6 @@ export const desktopBridge: DesktopBridge = {
       );
       return result.ok ? { ok: true } : result;
     },
-    readAlphaFeedStream: async () => {
-      const result = await invokeSecureCredential<
-        { ok: true; value: AlphaFeedStreamCredentials | null } | { ok: false; error: { message: string } }
-      >("secureCredentials:readAlphaFeedStream");
-      return result.ok ? { ok: true, credentials: result.value } : result;
-    },
     clearAlphaFeedStream: async () => {
       const result = await invokeSecureCredential<{ ok: true; value: null } | { ok: false; error: { message: string } }>(
         "secureCredentials:clearAlphaFeedStream",
@@ -223,12 +199,6 @@ export const desktopBridge: DesktopBridge = {
         credentials,
       );
       return result.ok ? { ok: true } : result;
-    },
-    readLongPort: async () => {
-      const result = await invokeSecureCredential<
-        { ok: true; value: LongPortApiCredentials | null } | { ok: false; error: { message: string } }
-      >("secureCredentials:readLongPort");
-      return result.ok ? { ok: true, credentials: result.value } : result;
     },
     clearLongPort: async () => {
       const result = await invokeSecureCredential<{ ok: true; value: null } | { ok: false; error: { message: string } }>(

@@ -1,6 +1,7 @@
 import {
   ALPHAFEED_DEFAULT_API_URL,
   createAlphaFeedSecretPreview,
+  isLoopbackHostname,
   verifyAlphaFeedApiCredentials,
   LONGPORT_DEFAULT_HTTP_URL,
   verifyLongPortApiCredentials,
@@ -220,34 +221,14 @@ async function saveLongPortCredentials(form: LongPortApiForm) {
 }
 
 export async function readSavedAlphaFeedCredentials(): Promise<AlphaFeedApiForm | null> {
-  const result = await window.quantDesktop?.secureCredentials?.readAlphaFeed();
-
-  if (!result) {
-    return null;
-  }
-
-  if (!result.ok) {
-    throw new Error(result.error.message);
-  }
-
-  return result.credentials;
+  return null;
 }
 
 export async function readSavedAlphaFeedStreamCredentials(): Promise<Pick<AlphaFeedStreamForm, "wsUrl" | "apiKey"> | null> {
-  const result = await window.quantDesktop?.secureCredentials?.readAlphaFeedStream();
-
-  if (!result) {
-    return null;
-  }
-
-  if (!result.ok) {
-    throw new Error(result.error.message);
-  }
-
-  return result.credentials;
+  return null;
 }
 
-function normalizeAlphaFeedStreamForm(form: AlphaFeedStreamForm): AlphaFeedStreamForm {
+export function normalizeAlphaFeedStreamForm(form: AlphaFeedStreamForm): AlphaFeedStreamForm {
   const wsUrl = form.wsUrl.trim() || ALPHAFEED_DEFAULT_STREAM_URL;
   let parsedUrl: URL;
 
@@ -259,6 +240,10 @@ function normalizeAlphaFeedStreamForm(form: AlphaFeedStreamForm): AlphaFeedStrea
 
   if (!["ws:", "wss:"].includes(parsedUrl.protocol)) {
     throw new Error("AlphaFeed WebSocket URL 需要以 ws 或 wss 开头。");
+  }
+
+  if (parsedUrl.protocol === "ws:" && !isLoopbackHostname(parsedUrl.hostname)) {
+    throw new Error("AlphaFeed WebSocket 远程地址必须使用 wss。");
   }
 
   const apiKey = form.apiKey.trim();
@@ -291,17 +276,7 @@ export async function saveAlphaFeedStreamConfig(form: AlphaFeedStreamForm): Prom
 }
 
 export async function readSavedLongPortCredentials(): Promise<LongPortApiForm | null> {
-  const result = await window.quantDesktop?.secureCredentials?.readLongPort();
-
-  if (!result) {
-    return null;
-  }
-
-  if (!result.ok) {
-    throw new Error(result.error.message);
-  }
-
-  return result.credentials;
+  return null;
 }
 
 export async function resolveAlphaFeedCredentials(form: AlphaFeedApiForm): Promise<AlphaFeedApiForm> {

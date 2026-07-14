@@ -1,6 +1,6 @@
 import type { InstalledPluginRecord, PluginManager, PluginRuntimeModule } from "./pluginManager.ts";
 
-export type PluginIpcErrorCode = "PLUGIN_OPERATION_FAILED";
+export type PluginIpcErrorCode = "PLUGIN_OPERATION_FAILED" | "PLUGIN_RUNTIME_ISOLATION_REQUIRED";
 
 export type PluginIpcResult<T> =
   | { readonly ok: true; readonly data: T }
@@ -45,7 +45,15 @@ export function createPluginIpcHandlers(manager: PluginManager): PluginIpcHandle
       await manager.uninstall(pluginId);
       return null;
     }),
-    readEnabledRuntimeModules: () => invoke(() => manager.readEnabledRuntimeModules()),
+    async readEnabledRuntimeModules() {
+      return {
+        ok: false,
+        error: {
+          code: "PLUGIN_RUNTIME_ISOLATION_REQUIRED",
+          message: "第三方插件运行时正在升级隔离机制，当前仅支持安装与管理。",
+        },
+      };
+    },
   };
 }
 

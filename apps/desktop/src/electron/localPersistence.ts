@@ -1,4 +1,3 @@
-import type { DesktopBridge } from "./preload";
 import { dirname } from "node:path";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 
@@ -127,7 +126,7 @@ export function createNodeJsonFilePersistenceDriver(filePath: string): JsonFileP
   };
 }
 
-export function createDesktopBridgeFromPersistenceStore(store: LocalPersistenceStore): DesktopBridge["localDatabase"] {
+export function createDesktopBridgeFromPersistenceStore(store: LocalPersistenceStore): LocalPersistenceStore {
   return {
     getItem: (key) => store.getItem(key),
     setItem: (key, value) => store.setItem(key, value),

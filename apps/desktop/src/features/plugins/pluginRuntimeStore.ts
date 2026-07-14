@@ -64,7 +64,14 @@ export const usePluginRuntimeStore = create<PluginRuntimeState>((set) => ({
 
       const modulesResult = await bridge.readEnabledRuntimeModules();
       if (!modulesResult.ok) {
-        set({ plugins: listResult.data, strategies: [], indicators: [], logs: [], status: "error", message: modulesResult.error.message });
+        set({
+          plugins: listResult.data,
+          strategies: [],
+          indicators: [],
+          logs: [],
+          status: modulesResult.error.code === "PLUGIN_RUNTIME_ISOLATION_REQUIRED" ? "unavailable" : "error",
+          message: modulesResult.error.message,
+        });
         return;
       }
 

@@ -37,9 +37,11 @@ export function createMainWindow(): BrowserWindow {
       preload: windowConfig.preloadEntry,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
   const rendererDevServer = process.env.ELECTRON_RENDERER_URL;
 

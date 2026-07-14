@@ -23,6 +23,22 @@ const plugin = {
   failureCount: 0,
 };
 
+async function importTestPluginModule(source: string) {
+  return import(`data:text/javascript;base64,${Buffer.from(source, "utf8").toString("base64")}`);
+}
+
+test("plugin runtime refuses source execution without an explicit isolated importer", async () => {
+  const result = await activatePluginRuntimeModules([{ plugin, source: "export function activate() {}" }]);
+
+  assert.equal(result.strategies.length, 0);
+  assert.deepEqual(result.failures, [
+    {
+      pluginId: plugin.manifest.id,
+      message: "第三方插件运行需要隔离宿主，当前运行时已停用。",
+    },
+  ]);
+});
+
 test("plugin runtime activates a namespaced strategy without exposing desktop internals", async () => {
   const result = await activatePluginRuntimeModules(
     [{ plugin, source: "export function activate() {}" }],
@@ -84,7 +100,7 @@ test("the bundled SMA sample plugin registers chart render elements for its sign
     ...plugin,
     manifest: { ...plugin.manifest, id: "com.quant.strategy.sma-crossover" },
   };
-  const result = await activatePluginRuntimeModules([{ plugin: samplePlugin, source }]);
+  const result = await activatePluginRuntimeModules([{ plugin: samplePlugin, source }], importTestPluginModule);
   const strategy = result.strategies[0];
   assert.ok(strategy);
 

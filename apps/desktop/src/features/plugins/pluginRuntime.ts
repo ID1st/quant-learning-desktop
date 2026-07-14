@@ -33,7 +33,7 @@ export interface PluginRuntimeOptions {
 
 export async function activatePluginRuntimeModules(
   modules: readonly PluginRuntimeModule[],
-  importer: PluginModuleImporter = importRuntimeModule,
+  importer: PluginModuleImporter = rejectUnisolatedRuntimeModule,
   options: PluginRuntimeOptions = {},
 ): Promise<PluginRuntimeActivationResult> {
   const strategies = new Map<string, StrategyDefinition>();
@@ -87,18 +87,8 @@ export async function activatePluginRuntimeModules(
   };
 }
 
-async function importRuntimeModule(source: string) {
-  const encoded = encodeRuntimeModule(source);
-  return import(/* @vite-ignore */ `data:text/javascript;base64,${encoded}`);
-}
-
-function encodeRuntimeModule(source: string) {
-  const bytes = new TextEncoder().encode(source);
-  let binary = "";
-  for (const value of bytes) {
-    binary += String.fromCharCode(value);
-  }
-  return btoa(binary);
+async function rejectUnisolatedRuntimeModule() {
+  throw new Error("第三方插件运行需要隔离宿主，当前运行时已停用。");
 }
 
 function getActivateFunction(value: unknown): ((context: PluginRuntimeActivationContext) => unknown) | null {

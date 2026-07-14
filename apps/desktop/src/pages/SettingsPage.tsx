@@ -154,7 +154,7 @@ export function SettingsPage() {
       <header className="module-header">
         <p>系统设置</p>
         <h1>插件与本地扩展</h1>
-        <span>统一管理策略插件、指标插件、数据源插件和导出插件。当前桌面版支持受信任本地策略与指标插件的安装、启停、卸载和受控加载；热更新与其他插件类型将在后续阶段开放。</span>
+        <span>统一管理策略插件、指标插件、数据源插件和导出插件。当前桌面版支持本地策略与指标插件的安装、启停和卸载；第三方插件执行将在隔离宿主完成后恢复。</span>
       </header>
 
       <section className="settings-summary-grid" aria-label="插件能力概览">
@@ -261,7 +261,7 @@ export function SettingsPage() {
             <ShieldCheck size={20} />
             <div>
               <h2>权限策略</h2>
-              <p>未知权限会被阻断；当前运行时只授予策略和指标所需的只读行情、策略运行、图表图层和设置读取权限。</p>
+              <p>未知权限会被阻断；权限清单会为后续隔离运行时保留，当前不会执行第三方插件源码。</p>
             </div>
           </div>
 
@@ -273,7 +273,7 @@ export function SettingsPage() {
 
           <div className="settings-note warning">
             <AlertTriangle size={16} />
-            <span>仅安装来源可信的本地插件。当前模块以受控 API 加载，不向插件提供交易凭证、Node 全局对象或本地文件接口；完整进程隔离属于后续强化项。</span>
+            <span>插件包可先安装和管理，但当前不会执行。后续仅在独立 Worker 或工具进程中通过能力消息开放运行，交易凭证不会交给插件。</span>
           </div>
         </div>
       </section>
@@ -344,7 +344,7 @@ export function SettingsPage() {
           <PackageCheck size={20} />
           <div>
             <h2>插件运行时状态</h2>
-            <p>本地插件只在受控桌面桥可用时加载；运行失败会被隔离，连续三次失败将自动停用。</p>
+            <p>第三方插件执行已暂停，等待独立运行宿主、资源限制和终止控制完成。</p>
           </div>
         </div>
         <div className={`settings-note ${pluginRuntimeStatus === "error" || pluginRuntimeStatus === "degraded" ? "warning" : ""}`}>
@@ -358,7 +358,7 @@ export function SettingsPage() {
           <PackageCheck size={20} />
           <div>
             <h2>已安装插件</h2>
-            <p>已启用的策略和指标会通过统一能力入口进入策略引擎与图表，不直接访问桌面内部服务。</p>
+            <p>启用状态会保留，但在隔离运行时交付前不会向策略引擎或图表注册第三方能力。</p>
           </div>
         </div>
 

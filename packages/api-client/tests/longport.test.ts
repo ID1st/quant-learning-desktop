@@ -47,6 +47,27 @@ describe("normalizeLongPortApiCredentials", () => {
       /App Key 至少需要 8 位/,
     );
   });
+
+  it("rejects remote plaintext HTTP but permits loopback development endpoints", () => {
+    assert.throws(
+      () =>
+        normalizeLongPortApiCredentials({
+          apiUrl: "http://api.example.com",
+          appKey: "app-key-123",
+          appSecret: "app-secret-123",
+          accessToken: "access-token-123",
+        }),
+      /远程地址必须使用 https/,
+    );
+
+    const credentials = normalizeLongPortApiCredentials({
+      apiUrl: "http://localhost:8788/",
+      appKey: "app-key-123",
+      appSecret: "app-secret-123",
+      accessToken: "access-token-123",
+    });
+    assert.equal(credentials.apiUrl, "http://localhost:8788");
+  });
 });
 
 describe("verifyLongPortApiCredentials", () => {

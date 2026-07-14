@@ -169,12 +169,12 @@ Permission rules:
 
 ## 8. Isolation Strategy
 
-First implementation:
+Current implementation:
 
-- Load trusted local plugins only.
-- Run plugins through a restricted host API.
-- Do not expose Node globals directly.
-- Disable plugin on repeated runtime failures.
+- Install and manage trusted local plugins only.
+- Runtime source delivery to the renderer is blocked until an isolated host is complete.
+- Keep the planned host API restricted to declared registration capabilities.
+- Preserve failure records and disable controls for the future isolated runtime.
 
 Future implementation:
 
@@ -259,13 +259,13 @@ Implemented now:
 
 - Electron main-process installation copies a selected local directory into the managed application plugin directory.
 - `plugin.json` schema, package path, JavaScript entry path, supported permissions/capabilities, and app/plugin API versions are checked before install.
-- Only trusted, self-contained strategy and indicator modules are executable in the MVP. Data-source and export packages remain declared future capabilities and are rejected by the current runtime.
-- The preload bridge exposes only list, install, enable/disable, uninstall, runtime-failure report, and enabled-module read operations.
-- Plugins receive only `registerStrategy`, `registerIndicator`, and `log`. They cannot receive provider credentials, Node APIs, file APIs, or desktop IPC handles through the plugin context.
-- A broken plugin is isolated. Runtime failures are persisted as degraded state and the plugin is disabled after three failures.
-- `examples/plugins/sma-crossover` is an installable sample strategy plugin that produces declarative chart signal overlays.
+- Strategy and indicator manifests can be installed and managed. Data-source and export packages remain declared future capabilities and are rejected by the current runtime.
+- The preload bridge exposes list, install, enable/disable, uninstall, and runtime-failure reporting. The legacy enabled-module operation now returns `PLUGIN_RUNTIME_ISOLATION_REQUIRED` and never returns source code.
+- Third-party plugin execution is temporarily disabled. Re-enabling it requires Worker or utility-process isolation with a capability-only message protocol.
+- Existing runtime failure records and automatic-disable logic are retained for migration to the future isolated host.
+- `examples/plugins/sma-crossover` remains an installable compatibility fixture but does not execute until the isolated host is delivered.
 
 Deliberate MVP limits:
 
-- This is trusted-local extensibility, not a sandbox for arbitrary third-party code. Full worker/process isolation and signing are required before a marketplace or untrusted packages are supported.
+- Plugin package management is available, but runtime execution is deliberately paused. Full worker/process isolation and signing are required before runtime or marketplace support is restored.
 - No automatic hot update, remote download, data-source plugin host, export plugin host, or plugin-specific persistence API is provided yet.

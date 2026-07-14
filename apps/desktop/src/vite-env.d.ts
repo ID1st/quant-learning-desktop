@@ -261,7 +261,13 @@ interface QuantDesktopPluginRuntimeModule {
 
 type QuantDesktopPluginResult<T> =
   | { readonly ok: true; readonly data: T }
-  | { readonly ok: false; readonly error: { readonly code: "PLUGIN_OPERATION_FAILED"; readonly message: string } };
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly code: "PLUGIN_OPERATION_FAILED" | "PLUGIN_RUNTIME_ISOLATION_REQUIRED";
+        readonly message: string;
+      };
+    };
 
 interface QuantDesktopPluginBridge {
   list(): Promise<QuantDesktopPluginResult<readonly QuantDesktopInstalledPlugin[]>>;
@@ -278,22 +284,11 @@ interface QuantDesktopBridge {
   readonly localDatabase?: QuantDesktopLocalDatabaseBridge;
   readonly secureCredentials?: {
     saveAlphaFeed(credentials: { apiUrl: string; apiKey: string }): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
-    readAlphaFeed(): Promise<{ ok: true; credentials: { apiUrl: string; apiKey: string } | null } | { ok: false; error: { message: string } }>;
     clearAlphaFeed(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     saveAlphaFeedStream(credentials: {
       wsUrl: string;
       apiKey: string;
     }): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
-    readAlphaFeedStream(): Promise<
-      | {
-          ok: true;
-          credentials: {
-            wsUrl: string;
-            apiKey: string;
-          } | null;
-        }
-      | { ok: false; error: { message: string } }
-    >;
     clearAlphaFeedStream(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     saveLongPort(credentials: {
       apiUrl: string;
@@ -301,18 +296,6 @@ interface QuantDesktopBridge {
       appSecret: string;
       accessToken: string;
     }): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
-    readLongPort(): Promise<
-      | {
-          ok: true;
-          credentials: {
-            apiUrl: string;
-            appKey: string;
-            appSecret: string;
-            accessToken: string;
-          } | null;
-        }
-      | { ok: false; error: { message: string } }
-    >;
     clearLongPort(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
   };
   readonly marketData?: QuantDesktopMarketDataBridge;

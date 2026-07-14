@@ -36,6 +36,19 @@ describe("normalizeAlphaFeedApiCredentials", () => {
     );
     assert.throws(() => normalizeAlphaFeedApiCredentials({ apiUrl: ALPHAFEED_DEFAULT_API_URL, apiKey: "short" }), /至少需要 8 位/);
   });
+
+  it("rejects remote plaintext HTTP but permits loopback development endpoints", () => {
+    assert.throws(
+      () => normalizeAlphaFeedApiCredentials({ apiUrl: "http://api.example.com", apiKey: "alpha-key-1234" }),
+      /远程地址必须使用 https/,
+    );
+
+    const credentials = normalizeAlphaFeedApiCredentials({
+      apiUrl: "http://127.0.0.1:8787/",
+      apiKey: "alpha-key-1234",
+    });
+    assert.equal(credentials.apiUrl, "http://127.0.0.1:8787");
+  });
 });
 
 describe("fetchAlphaFeedQuoteSnapshots", () => {

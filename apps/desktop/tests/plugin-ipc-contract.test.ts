@@ -33,7 +33,7 @@ test("plugin IPC channels expose a narrow plugin-management boundary", () => {
   });
 });
 
-test("plugin IPC handlers only delegate to the main-process plugin manager", async () => {
+test("plugin IPC handlers keep management available but block renderer runtime source", async () => {
   const calls: string[] = [];
   const manager: PluginManager = {
     list: () => [record],
@@ -64,12 +64,17 @@ test("plugin IPC handlers only delegate to the main-process plugin manager", asy
   assert.equal((await handlers.setEnabled(record.manifest.id, false)).ok, true);
   assert.equal((await handlers.reportRuntimeFailure(record.manifest.id, "activation failed")).ok, true);
   assert.deepEqual(await handlers.uninstall(record.manifest.id), { ok: true, data: null });
-  assert.equal((await handlers.readEnabledRuntimeModules()).ok, true);
+  assert.deepEqual(await handlers.readEnabledRuntimeModules(), {
+    ok: false,
+    error: {
+      code: "PLUGIN_RUNTIME_ISOLATION_REQUIRED",
+      message: "第三方插件运行时正在升级隔离机制，当前仅支持安装与管理。",
+    },
+  });
   assert.deepEqual(calls, [
     "install:C:/plugins/sample",
     `enabled:${record.manifest.id}:false`,
     `failure:${record.manifest.id}:activation failed`,
     `uninstall:${record.manifest.id}`,
-    "runtime",
   ]);
 });

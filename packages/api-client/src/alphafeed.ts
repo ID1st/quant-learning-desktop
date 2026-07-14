@@ -1,4 +1,5 @@
 import type { Market, Timeframe } from "@quant/shared";
+import { isLoopbackHostname } from "./urlSecurity.ts";
 
 export const ALPHAFEED_DEFAULT_API_URL = "https://api.alphafeed.org";
 
@@ -119,6 +120,10 @@ function ensureHttpUrl(apiUrl: string) {
 
   if (!["http:", "https:"].includes(url.protocol)) {
     throw new Error("AlphaFeed API URL 需要以 http 或 https 开头。");
+  }
+
+  if (url.protocol === "http:" && !isLoopbackHostname(url.hostname)) {
+    throw new Error("AlphaFeed API 远程地址必须使用 https。");
   }
 
   return url.toString().replace(/\/$/, "");

@@ -1,5 +1,6 @@
 import type { ApiResult } from "@quant/shared";
 import { validatePluginManifest, type PluginCapability, type PluginManifest, type PluginPermission } from "@quant/plugin-loader";
+export { isLoopbackHostname } from "./urlSecurity.ts";
 export {
   ALPHAFEED_DEFAULT_API_URL,
   createAlphaFeedSecretPreview,

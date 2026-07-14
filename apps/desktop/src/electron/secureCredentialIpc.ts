@@ -41,14 +41,6 @@ export function registerSecureCredentialIpcHandlers(credentialStore = createMain
     }
   });
 
-  ipcMain.handle("secureCredentials:readAlphaFeed", (): SecureCredentialInvokeResult<AlphaFeedApiCredentials | null> => {
-    try {
-      return { ok: true, value: credentialStore.readAlphaFeedCredentials() };
-    } catch (error) {
-      return { ok: false, error: { message: toSafeCredentialError(error) } };
-    }
-  });
-
   ipcMain.handle("secureCredentials:clearAlphaFeed", (): SecureCredentialInvokeResult<null> => {
     try {
       credentialStore.clearAlphaFeedCredentials();
@@ -70,14 +62,6 @@ export function registerSecureCredentialIpcHandlers(credentialStore = createMain
     },
   );
 
-  ipcMain.handle("secureCredentials:readAlphaFeedStream", (): SecureCredentialInvokeResult<AlphaFeedStreamCredentials | null> => {
-    try {
-      return { ok: true, value: credentialStore.readAlphaFeedStreamCredentials() };
-    } catch (error) {
-      return { ok: false, error: { message: toSafeCredentialError(error) } };
-    }
-  });
-
   ipcMain.handle("secureCredentials:clearAlphaFeedStream", (): SecureCredentialInvokeResult<null> => {
     try {
       credentialStore.clearAlphaFeedStreamCredentials();
@@ -91,14 +75,6 @@ export function registerSecureCredentialIpcHandlers(credentialStore = createMain
     try {
       credentialStore.saveLongPortCredentials(credentials);
       return { ok: true, value: null };
-    } catch (error) {
-      return { ok: false, error: { message: toSafeCredentialError(error) } };
-    }
-  });
-
-  ipcMain.handle("secureCredentials:readLongPort", (): SecureCredentialInvokeResult<LongPortApiCredentials | null> => {
-    try {
-      return { ok: true, value: credentialStore.readLongPortCredentials() };
     } catch (error) {
       return { ok: false, error: { message: toSafeCredentialError(error) } };
     }

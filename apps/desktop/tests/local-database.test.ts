@@ -136,3 +136,37 @@ test("createAppLocalDatabase falls back to browser storage without a desktop bri
     globalThis.window = previousWindow;
   }
 });
+
+test("desktop renderer data persists through browser storage when no database bridge is exposed", () => {
+  const browserSeed: Record<string, string> = {};
+  const previousWindow = globalThis.window;
+
+  globalThis.window = {
+    quantDesktop: {
+      platform: "desktop",
+      version: "0.1.0",
+    },
+    localStorage: {
+      getItem: (key: string) => browserSeed[key] ?? null,
+      setItem: (key: string, value: string) => {
+        browserSeed[key] = value;
+      },
+      removeItem: (key: string) => {
+        delete browserSeed[key];
+      },
+    },
+  } as unknown as Window & typeof globalThis;
+
+  try {
+    createAppLocalDatabase().writeDocument("sample", 1, { id: "desktop-persistent", count: 5 });
+    const restored = createAppLocalDatabase().readDocument("sample", {
+      version: 1,
+      fallback: { id: "fallback", count: 0 },
+      sanitize: sanitizeSampleDocument,
+    });
+
+    assert.deepEqual(restored, { id: "desktop-persistent", count: 5 });
+  } finally {
+    globalThis.window = previousWindow;
+  }
+});
