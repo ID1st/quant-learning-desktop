@@ -100,6 +100,14 @@ Completed foundations:
 - Verification: desktop tests 181/181, strategy-engine tests 35/35, TypeScript typecheck, production build, and browser smoke verification all passed. Browser verification loaded 1,636 AAPL realtime minute bars, showed a non-degenerate latest OHLC candle, generated 29 Trend Targets render elements when enabled, and produced no console warnings or errors.
 - Remaining parity boundary: exact TradingView equality still requires the upstream provider to return the same session, adjustment, exchange calendar, and in-progress minute data as TradingView. The current weekday window does not yet model exchange holidays.
 
+## Windows Installer Build (2026-07-14)
+
+- Completed: rebuilt the Electron desktop application and generated an x64 NSIS installer from commit `270a612`, including the canonical realtime minute-candle and Trend Targets input fix.
+- Artifact: `release/quant-learning-desktop-2026-07-14/量化学习桌面版 Setup 0.1.0.exe`.
+- Verification: desktop tests 181/181, strategy-engine tests 35/35, TypeScript typecheck, Electron main/preload/renderer production build, SHA-256 calculation, and unpacked executable startup smoke test all passed.
+- Release limitations: the installer currently uses the default Electron icon and has no Authenticode publisher certificate. Windows may therefore show an unknown-publisher warning. The configured npm mirror does not implement the npm advisory endpoint, so `npm audit` could not complete for this build.
+- Detailed artifact metadata, checksum, packaging command, installation behavior, and rollback reference are recorded in `docs/release-notes-2026-07-14.md`.
+
 ## Super Chart Loading Experience Update (2026-07-11)
 
 - Sparse cache data no longer renders as a one-bar or one-segment temporary chart. `realtime` requires 30 points, `1d` requires 20 bars, and `1w` requires 12 bars before the chart canvas renders price, volume, indicators, and strategy layers.
