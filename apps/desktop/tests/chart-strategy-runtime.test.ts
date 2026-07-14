@@ -116,7 +116,7 @@ describe("chart strategy runtime", () => {
     assert.ok(run?.result.output.logs.some((item) => item.includes("Trend Targets")));
 
     const signalRows = buildChartStrategySignalRows([run!]);
-    assert.ok(signalRows.some((row) => row.direction === "买入"));
+    assert.ok(signalRows.some((row) => row.direction === "向上突破"));
 
     const logItems = buildChartStrategyLogItems([run!], { symbol: "AAPL", timeframe: "realtime" });
     assert.ok(logItems.some((item) => item.includes("运行 Trend Targets")));

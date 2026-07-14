@@ -134,7 +134,7 @@ test("Trend Targets exposes the Pine parameters and projects only the latest set
     "showStopLoss",
   ]);
   assert.equal(projectedPriceLines.length, 5);
-  assert.equal(projectedPriceLines.some((element) => element.kind === "price-line" && element.label.startsWith("Entry")), true);
+  assert.equal(projectedPriceLines.some((element) => element.kind === "price-line" && element.label.startsWith("信号参考")), true);
   assert.equal(result.output.render.elements.filter((element) => element.kind === "band").length, 2);
 });
 

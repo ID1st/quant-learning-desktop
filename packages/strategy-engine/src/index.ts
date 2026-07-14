@@ -1213,12 +1213,12 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
     if (hasRange && previousClose !== null && previousUpperTargetThree !== null) {
       const crossedUpperTarget = (bar.close > upperTargets[2] && previousClose <= previousUpperTargetThree) ||
         (bar.close < upperTargets[2] && previousClose >= previousUpperTargetThree);
-      if (crossedUpperTarget) targetAlerts.push(`最终多头目标已触及：${upperTargets[2].toFixed(2)}`);
+      if (crossedUpperTarget) targetAlerts.push(`最终向上目标已触及：${upperTargets[2].toFixed(2)}`);
     }
     if (hasRange && previousClose !== null && previousLowerTargetThree !== null) {
       const crossedLowerTarget = (bar.close > lowerTargets[2] && previousClose <= previousLowerTargetThree) ||
         (bar.close < lowerTargets[2] && previousClose >= previousLowerTargetThree);
-      if (crossedLowerTarget) targetAlerts.push(`最终空头目标已触及：${lowerTargets[2].toFixed(2)}`);
+      if (crossedLowerTarget) targetAlerts.push(`最终向下目标已触及：${lowerTargets[2].toFixed(2)}`);
     }
 
     if (sessionEnded && hasRange) {
@@ -1243,7 +1243,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
     const currentAtr = atr[index];
 
     if (breakoutUp && canSignalUp) {
-      const label = `多头突破${volumeSuffix}`;
+      const label = `向上突破${volumeSuffix}`;
       signals.push({ timestamp: bar.timestamp, type: "buy", price: bar.close, label });
       elements.push({ id: `utorb-buy-${bar.timestamp}`, kind: "signal-marker", timestamp: bar.timestamp, price: bar.high, direction: "up", tone: "buy" });
       canSignalUp = false;
@@ -1259,7 +1259,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
     }
 
     if (breakoutDown && canSignalDown) {
-      const label = `空头突破${volumeSuffix}`;
+      const label = `向下突破${volumeSuffix}`;
       signals.push({ timestamp: bar.timestamp, type: "sell", price: bar.close, label });
       elements.push({ id: `utorb-sell-${bar.timestamp}`, kind: "signal-marker", timestamp: bar.timestamp, price: bar.low, direction: "down", tone: "sell" });
       canSignalDown = false;
@@ -1287,7 +1287,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       const stopped = activeDirection > 0 ? bar.close < trailStop : bar.close > trailStop;
       if (stopped || !displayAllowed) {
         totalTrailProfit += activeDirection > 0 ? bar.close - entryPrice : entryPrice - bar.close;
-        signals.push({ timestamp: bar.timestamp, type: "exit", price: bar.close, label: "移动止损离场" });
+        signals.push({ timestamp: bar.timestamp, type: "exit", price: bar.close, label: "移动风险线失效" });
         elements.push({
           id: `utorb-exit-${bar.timestamp}`,
           kind: "signal-marker",
@@ -1496,7 +1496,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
 
     const trendChanged = currentTrend !== previousTrend;
     if (previousTrend <= 0 && currentTrend > 0) {
-      signals.push({ timestamp: bar.timestamp, type: "buy", price: bar.close, label: "多头趋势转变" });
+      signals.push({ timestamp: bar.timestamp, type: "buy", price: bar.close, label: "向上趋势转变" });
       elements.push({
         id: `trend-targets-buy-${bar.timestamp}`,
         kind: "signal-marker",
@@ -1506,7 +1506,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         tone: "buy",
       });
     } else if (previousTrend >= 0 && currentTrend < 0) {
-      signals.push({ timestamp: bar.timestamp, type: "sell", price: bar.close, label: "空头趋势转变" });
+      signals.push({ timestamp: bar.timestamp, type: "sell", price: bar.close, label: "向下趋势转变" });
       elements.push({
         id: `trend-targets-sell-${bar.timestamp}`,
         kind: "signal-marker",
@@ -1523,7 +1523,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
 
     if (rejectionCount > confirmationCount && isSeriesNumber(value)) {
       const bullish = currentTrend > 0;
-      const label = bullish ? "多头拒绝确认" : "空头拒绝确认";
+      const label = bullish ? "向上拒绝确认" : "向下拒绝确认";
       signals.push({ timestamp: bar.timestamp, type: "alert", price: value, label });
       elements.push({
         id: `trend-targets-rejection-${bar.timestamp}`,
@@ -1583,17 +1583,17 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
       const crossedStopDown = bar.close < stopPrice && previousBar.close >= stopPrice;
       if (crossedStopUp) {
         stopTouched = true;
-        setupAlerts.push("价格上穿止损线 - 潜在多头趋势");
+        setupAlerts.push("价格上穿风险线 - 潜在上行趋势");
       }
       if (crossedStopDown) {
         stopTouched = true;
-        setupAlerts.push("价格下穿止损线 - 潜在空头趋势");
+        setupAlerts.push("价格下穿风险线 - 潜在下行趋势");
       }
 
       const rejectedBearish = bar.high > stopPrice && previousBar.high <= stopPrice && bar.close < stopPrice;
       const rejectedBullish = bar.low < stopPrice && previousBar.low >= stopPrice && bar.close > stopPrice;
-      if (rejectedBearish) setupAlerts.push("价格在止损线被拒绝 - 空头拒绝信号");
-      if (rejectedBullish) setupAlerts.push("价格在止损线被拒绝 - 多头拒绝信号");
+      if (rejectedBearish) setupAlerts.push("价格在风险线被拒绝 - 向下拒绝信号");
+      if (rejectedBullish) setupAlerts.push("价格在风险线被拒绝 - 向上拒绝信号");
       previousBar = bar;
     });
   }
@@ -1613,7 +1613,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         id: "trend-targets-entry",
         kind: "price-line",
         price: entryPrice,
-        label: `Entry ▸ ${entryPrice.toFixed(2)}`,
+        label: `信号参考 ▸ ${entryPrice.toFixed(2)}`,
         tone: "neutral",
         fromTimestamp: projectionStart,
       },
@@ -1656,7 +1656,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         id: "trend-targets-stop",
         kind: "price-line",
         price: stopPrice,
-        label: `✕ SL ▸ ${stopPrice.toFixed(2)}`,
+        label: `✕ 风险线 ▸ ${stopPrice.toFixed(2)}`,
         tone: "stop",
         fromTimestamp: projectionStart,
       });
@@ -1698,8 +1698,8 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
       signalCount: directionalSignals.length,
     },
     logs: [
-      `Trend Targets 已生成 ${direction === "bullish" ? "多头" : "空头"}基准线和目标位。`,
-      `当前入场参考 ${entryPrice.toFixed(2)}，止损 ${stopPrice.toFixed(2)}，目标3 ${targetThree.toFixed(2)}。`,
+      `Trend Targets 已生成 ${direction === "bullish" ? "上行" : "下行"}基准线和目标位。`,
+      `当前信号参考 ${entryPrice.toFixed(2)}，风险线 ${stopPrice.toFixed(2)}，目标3 ${targetThree.toFixed(2)}。`,
     ],
     alerts: [...signals.map((signal) => signal.label ?? signal.type), ...setupAlerts],
   };
@@ -1712,7 +1712,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
     key: "utorb",
     name: "UTORB 开盘区间突破",
     version: "1.0.0",
-    description: "按 Pine Script 复刻的逐日开盘区间突破策略，包含扩展目标、量能分类、成交量分布与 ATR 移动止损。",
+    description: "按 Pine Script 复刻的逐日开盘区间突破策略，包含扩展目标、量能分类、成交量分布与 ATR 移动风险线。",
     sourceType: "preset",
     sourceFile: "trading-strategies/utorb.md",
     supportedMarkets: ["US", "HK", "CN"],
@@ -1803,10 +1803,10 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       },
       { key: "manualEndHour", label: "手动结束小时", type: "number", defaultValue: 16 },
       { key: "manualEndMinute", label: "手动结束分钟", type: "number", defaultValue: 0 },
-      { key: "showTrailingStop", label: "显示移动止损", type: "boolean", defaultValue: false },
-      { key: "trailingStopAtrMultiplier", label: "移动止损 ATR 倍数", type: "number", defaultValue: 2 },
-      { key: "trailingStopAtrPeriod", label: "移动止损 ATR 周期", type: "number", defaultValue: 14 },
-      { key: "showOptimizer", label: "计算止损优化器", type: "boolean", defaultValue: false },
+      { key: "showTrailingStop", label: "显示移动风险线", type: "boolean", defaultValue: false },
+      { key: "trailingStopAtrMultiplier", label: "移动风险线 ATR 倍数", type: "number", defaultValue: 2 },
+      { key: "trailingStopAtrPeriod", label: "移动风险线 ATR 周期", type: "number", defaultValue: 14 },
+      { key: "showOptimizer", label: "计算风险线优化器", type: "boolean", defaultValue: false },
     ],
     run: (input) => runUtorbStrategy(utorbStrategy, input),
   };
@@ -1858,7 +1858,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       },
       {
         key: "showTargets",
-        label: "显示止盈水平",
+        label: "显示目标水平",
         type: "boolean",
         defaultValue: true,
       },
@@ -1870,7 +1870,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       },
       {
         key: "stopLossAtrMultiplier",
-        label: "止损 ATR 倍数",
+        label: "风险线 ATR 倍数",
         type: "number",
         defaultValue: 5,
       },
@@ -1894,7 +1894,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       },
       {
         key: "showStopLoss",
-        label: "显示止损线",
+        label: "显示风险线",
         type: "boolean",
         defaultValue: true,
       },

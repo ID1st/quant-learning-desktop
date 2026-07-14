@@ -466,7 +466,7 @@ export function StrategyManagementPage() {
               <LineChart size={20} />
               <div>
                 <h2>精简回测</h2>
-                <p>策略信号在下一根 K 线开盘成交；买入做多、卖出做空，结束时按最后收盘价结算。</p>
+                <p>研究信号在下一根 K 线开盘进行模拟确认；向上与向下方向均基于历史价格计算，结束时按最后收盘价结算。</p>
               </div>
             </div>
             <div className="backtest-form-grid">
@@ -523,7 +523,7 @@ export function StrategyManagementPage() {
                 <small>百分比，例如 0.05</small>
               </label>
               <label className="backtest-switch">
-                <span>允许做空</span>
+                <span>启用向下方向模拟</span>
                 <input
                   checked={backtestSettings.allowShort ?? false}
                   onChange={(event) => {
@@ -532,7 +532,7 @@ export function StrategyManagementPage() {
                   }}
                   type="checkbox"
                 />
-                <small>关闭后，卖出信号仅用于平多。</small>
+                <small>关闭后，向下突破仅用于结束上行方向模拟。</small>
               </label>
             </div>
             <div className="backtest-dialog-footer">
@@ -1031,7 +1031,7 @@ export function StrategyManagementPage() {
                   <tbody>
                     {selectedBacktestRun.result.trades.slice(0, 8).map((trade) => (
                       <tr key={`${trade.entryTimestamp}-${trade.exitTimestamp}-${trade.direction}`}>
-                        <td>{trade.direction === "long" ? "做多" : "做空"}</td>
+                        <td>{trade.direction === "long" ? "上行方向" : "下行方向"}</td>
                         <td>{trade.entryPrice.toFixed(2)}</td>
                         <td>{trade.exitPrice.toFixed(2)}</td>
                         <td className={trade.netPnl >= 0 ? "positive" : "negative"}>{formatBacktestNumber(trade.netPnl)}</td>
@@ -1229,7 +1229,7 @@ export function StrategyManagementPage() {
             <div className="runtime-signal-list">
               {runResult.output.signals.map((signal, index) => (
                 <div className={signal.type} key={`${signal.timestamp}-${signal.type}-${index}`}>
-                  <strong>{signal.type === "buy" ? "买入" : signal.type === "sell" ? "卖出" : "提醒"}</strong>
+                  <strong>{signal.type === "buy" ? "向上突破" : signal.type === "sell" ? "向下突破" : "提醒"}</strong>
                   <span>{signal.price?.toFixed(2) ?? "-"}</span>
                   <small>{signal.label ?? "策略信号"}</small>
                 </div>

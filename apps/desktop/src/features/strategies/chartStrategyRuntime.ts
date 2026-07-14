@@ -25,7 +25,7 @@ export interface ChartStrategySignalRow {
   timestamp: number;
   strategyName: string;
   time: string;
-  direction: "买入" | "卖出" | "提醒";
+  direction: "向上突破" | "向下突破" | "提醒";
   tone: "buy" | "sell" | "exit" | "alert";
   price: string;
   label: string;
@@ -109,7 +109,7 @@ export function buildChartStrategySignalRows(runs: readonly ChartStrategyRunItem
       timestamp: signal.timestamp,
       strategyName: result.strategy.name,
       time: formatSignalTime(signal.timestamp),
-      direction: signal.type === "buy" ? "买入" : signal.type === "sell" ? "卖出" : "提醒",
+      direction: signal.type === "buy" ? "向上突破" : signal.type === "sell" ? "向下突破" : "提醒",
       tone: signal.type,
       price: signal.price === undefined ? "-" : signal.price.toFixed(2),
       label: signal.label ?? "策略信号",

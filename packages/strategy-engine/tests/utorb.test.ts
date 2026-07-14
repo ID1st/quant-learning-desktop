@@ -66,7 +66,7 @@ test("UTORB reproduces Pine sessions, resets daily, and emits one breakout per d
     Date.parse("2026-01-02T15:15:00Z"),
     Date.parse("2026-01-03T15:00:00Z"),
   ]);
-  assert.equal(directionalSignals[0]?.label, "多头突破（低量）");
+  assert.equal(directionalSignals[0]?.label, "向上突破（低量）");
   assert.equal(result.output.metrics.openingRangeHigh, 204);
   assert.equal(result.output.metrics.openingRangeLow, 198);
 });
@@ -107,13 +107,13 @@ test("UTORB exposes Pine target hit rates, trailing stop, optimizer, and volume 
   assert.ok(Number.isFinite(result.output.metrics.bestTrailingStopMultiplier));
   assert.ok(result.output.render.elements.some((element) => element.kind === "trend-line" && element.id.startsWith("utorb-trail")));
   assert.ok(result.output.render.elements.some((element) => element.kind === "band" && element.id.startsWith("utorb-volume-profile")));
-  assert.equal(result.output.alerts.some((alert) => alert.includes("最终多头目标")), false);
+  assert.equal(result.output.alerts.some((alert) => alert.includes("最终向上目标")), false);
 
   const closeCrossResult = runUtorb([
     ...twoSessionBars,
     bar("2026-01-03T15:45:00Z", 220, 224, 219, 223, 600),
   ]);
-  assert.equal(closeCrossResult.output.alerts.some((alert) => alert.includes("最终多头目标")), true);
+  assert.equal(closeCrossResult.output.alerts.some((alert) => alert.includes("最终向上目标")), true);
 });
 
 test("UTORB clears the previous range at a new local day before the next opening session", () => {
