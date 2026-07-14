@@ -2,7 +2,7 @@
 
 ## Status
 
-The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 10 are complete, Provider-neutral Desktop IPC stages 1 through 10 are complete, the built-in strategies now run from normalized cached market bars, Super Chart UI/display optimization rounds 1 and 2 are complete, the trusted-local Plugin System MVP is complete, and the read-only Strategy Learning page plus Simplified Backtest MVP are complete.
+The project is in Phase 4 module development. Market Data Provider Gateway phases 1 through 10 are complete, Provider-neutral Desktop IPC stages 1 through 10 are complete, the built-in strategies now run from normalized cached market bars, Super Chart UI/display optimization rounds 1 and 2 are complete, plugin package management is complete with third-party runtime execution paused for isolation, and the read-only Strategy Learning page plus Simplified Backtest MVP are complete.
 
 Completed foundations:
 
@@ -49,8 +49,19 @@ Completed foundations:
 - Strategy real-bar runtime slice is complete: UTORB and Trend Targets now run on normalized cached bars through `apps/desktop/src/features/strategies/chartStrategyRuntime.ts`; the chart and strategy management pages no longer rely on generated/sample strategy bars; parameter changes recompute strategy output; logs, signals, metrics, alerts, and render elements are exposed to the chart-facing layer.
 - Super Chart UI/display optimization round 1 is complete: the chart workspace now uses a tighter chart-first layout, a collapsible right watchlist, a compact bottom status/tab dock, on-demand strategy configuration, first-pass layer controls, and candle-first price scaling so strategy overlays do not flatten the price view.
 - Browser verification covered 1366x768, 1440x900, and 1920x1080. The chart workspace had no page-level vertical scroll, no button overflow, no blank chart state, and watchlist collapse reduced the right panel from 210px to 44px while expanding the chart area.
-- Plugin System MVP is complete: Electron main-process installation into a managed local directory, manifest and version validation, allow-listed strategy/indicator permissions, enable/disable/uninstall controls, typed preload IPC, self-contained runtime modules, failure isolation with auto-disable after three failures, strategy/indicator registration, and a local SMA crossover sample plugin. Plugins run through a narrow capability context and never receive credentials, Node globals, or file APIs.
+- Plugin package management MVP is complete: Electron main-process installation into a managed local directory, manifest and version validation, allow-listed strategy/indicator permissions, enable/disable/uninstall controls, typed preload IPC, and a local SMA crossover compatibility fixture. Third-party runtime execution is temporarily blocked at the IPC boundary because renderer imports are not a security sandbox; package source is not returned to the renderer while a Worker or utility-process host is designed.
 - Simplified Backtest MVP is complete: Strategy Management now provides a compact backtest dialog that uses only normalized local bar cache, configures initial capital, one-way fee, one-way slippage, and optional short selling, then records deterministic next-bar-open entries, long/short reversals, terminal settlement, summaries, warnings, and a bounded local history of the latest 20 result snapshots. It does not make market-data requests, duplicate cached bars, or introduce live order execution.
+
+## Desktop Hardening Update (2026-07-14)
+
+- Third-party plugin source delivery to the renderer is blocked until an isolated runtime host exists. Installation and management remain available.
+- The renderer can save or delete encrypted provider credentials but cannot read decrypted AlphaFeed or LongBridge secrets. Provider-neutral market-data IPC continues to use them inside the main process.
+- Remote AlphaFeed REST, AlphaFeed WebSocket, and LongBridge endpoints require TLS; plaintext HTTP/WS remains available only for loopback development addresses.
+- Electron renderer sandboxing and a restrictive Content Security Policy are enabled, and child-window creation is denied.
+- Packaged desktop business data now falls back to persistent Chromium local storage instead of a preload-scoped in-memory store. Secure credentials remain in the main-process encrypted file store.
+- Realtime chart snapshots update in memory on every tick while full bar-cache persistence is limited to once per chart context every 30 seconds.
+- Non-login workstation routes load on demand to reduce initial renderer parsing; the login implementation itself was intentionally not changed.
+- Root `npm run test` and `npm run check` commands plus a Windows GitHub Actions workflow now enforce tests, typecheck, renderer build, Electron build, and production dependency audit.
 
 ## Latest Stability Update (2026-07-11)
 
@@ -185,14 +196,12 @@ Acceptance:
 
 ### Remaining Product Milestones
 
-1. Super Chart UI/display optimization.
-2. Super Chart layer controls and provider diagnostics timeline.
-3. Indicator and drawing-tool foundations.
-4. AlphaFeed WebSocket Runtime Hardening after exact member-channel protocol details are confirmed.
-5. Learning System MVP: strategy explanation pages, learning records, practice/review notes.
-6. Backtest follow-up: date-range selection, equity-curve analysis, configurable position sizing, partial target exits/stop execution, and optional declarative chart result layers. The core deterministic run, summary metrics, and result persistence are complete.
-7. Desktop packaging and hardening: Electron build target, secure storage review, update path, error reporting, cache/data migration checks.
-8. Plugin System hardening: worker/process isolation, signature verification, permission consent history, hot update, and data-source/export plugin runtime hosts.
+1. Market-data runtime stability: broaden automated provider probes, validate fallback behavior on mainland networks, and keep cache migration checks repeatable.
+2. AlphaFeed WebSocket runtime hardening after exact member-channel protocol details are confirmed.
+3. Plugin runtime isolation: Worker or utility-process host, capability messages, resource limits, signature verification, and permission consent history.
+4. Optional backtest follow-up: date-range selection, equity curve, position sizing, and partial target/stop execution. The agreed simplified MVP is complete.
+5. Desktop release readiness: product icon, Authenticode signing, update/rollback path, crash reporting, and installer regression checks.
+6. Login and account flow redesign remains a separate future rewrite and is intentionally excluded from the current hardening slice.
 
 ### 0. Provider-Neutral Desktop IPC
 
@@ -396,7 +405,7 @@ Verification:
 
 ### 3. Super Chart Capability Completion
 
-Status: next recommended slice.
+Status: complete for the agreed second-round scope.
 
 Goal: complete the TradingView-like super chart as the unified surface for market data, indicators, strategy overlays, drawing tools, and future plugin layers.
 
@@ -414,12 +423,12 @@ Deferred:
 
 - Full TradingView Charting Library migration.
 - Full multi-window synchronization.
-- Drawing object persistence.
+- Advanced drawing tools such as Fibonacci, rectangles, and measurement overlays.
 - Real order entry from chart context menu.
 
 ### 4. Mixed Provider Diagnostics
 
-Status: first pass completed in phase 2.11; richer history/timeline remains.
+Status: complete for the current MVP. The compact provider-event timeline covers fallback, rate-limit, delayed-history, gap, cache, and rejected-data events.
 
 Goal: make the multi-provider model visible and easier to debug.
 

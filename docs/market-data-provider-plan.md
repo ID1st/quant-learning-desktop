@@ -71,13 +71,13 @@ The current direct bridge methods remain supported during migration:
 The provider-neutral bridge is implemented with these methods:
 
 - `window.quantDesktop.marketData.getProviderStatus`
-- `window.quantDesktop.marketData.verifyProvider`
 - `window.quantDesktop.marketData.fetchQuoteSnapshot`
 - `window.quantDesktop.marketData.fetchHistoricalBars`
 - `window.quantDesktop.marketData.fetchIntradayBars`
-- `window.quantDesktop.marketData.connectStream`
-- `window.quantDesktop.marketData.readStreamSnapshot`
-- `window.quantDesktop.marketData.disconnectStream`
+- `window.quantDesktop.marketData.searchInstruments`
+- `window.quantDesktop.marketData.connectQuoteStream`
+- `window.quantDesktop.marketData.readQuoteStreamSnapshot`
+- `window.quantDesktop.marketData.disconnectQuoteStream`
 
 ## Target Contracts
 

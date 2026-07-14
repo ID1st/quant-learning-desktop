@@ -16,7 +16,7 @@ Completed major foundations:
 
 Current recommended next milestone:
 
-- Continue Milestone 7.5: Super Chart Capability Completion. UI/display optimization round 1 is complete; the next work should focus on provider diagnostics timeline, indicator controls, drawing-tool state, and deeper layer ordering controls.
+- Milestone 7.5 is complete for the agreed second-round scope. The next work is reliability hardening, isolated plugin runtime design, and release-readiness verification.
 - Operational prerequisite: keep Stock SDK as the quote and CN/HK intraday primary path, route US chart bars to Yahoo Finance first, and reverify a credential-backed fallback before relying on CN/HK daily or weekly history in the current network.
 
 ## 2. Execution Rule
@@ -313,9 +313,8 @@ Acceptance:
 
 Status:
 
-- Partially complete. Core chart interactions, provider-neutral data loading, realtime intraday history, strategy render layers, current price display, and settings scaffold are in place.
-- UI/display optimization round 1 is complete: chart-first viewport, collapsible watchlist, compact bottom dock, on-demand strategy configuration, first-pass layer controls, and candle-first price scaling are in place.
-- Next work should continue into provider diagnostics timeline, indicator controls, drawing-tool state, deeper layer ordering controls, and UI verification.
+- Complete for the agreed second-round scope. Provider diagnostics, SMA/EMA/BOLL indicator registration, persistent trend/horizontal/text drawings, drawing commands, strategy signal inspection, layer controls, viewport actions, and browser verification are in place.
+- Later chart work is limited to deferred advanced TradingView parity rather than unfinished MVP behavior.
 
 Goal:
 
@@ -349,7 +348,7 @@ Deferred:
 
 - Full TradingView Charting Library migration.
 - Full multi-window synchronization.
-- Drawing object persistence.
+- Advanced drawing tools such as Fibonacci, rectangles, and measurement overlays.
 - Real order entry from chart context menu.
 
 ## 11. Milestone 8: Strategy Engine
@@ -410,7 +409,7 @@ Acceptance:
 Status:
 
 - MVP complete: trusted local strategy/indicator plugins can be installed, validated, enabled, disabled, uninstalled, and loaded through Electron IPC.
-- The runtime is intentionally limited to self-contained modules and a narrow strategy/indicator capability context. Data-source/export hosts, signatures, hot update, and process isolation remain follow-up hardening work.
+- Package management is complete, but renderer runtime loading is now blocked at the IPC boundary. Data-source/export hosts, signatures, hot update, and an isolated Worker or utility-process runtime remain follow-up work.
 
 Goal:
 
@@ -428,8 +427,8 @@ Deliverables:
 
 Acceptance:
 
-- A sample plugin registers a strategy and chart signal overlays.
-- Plugin failure does not crash the app or prevent other plugins from activating.
+- A sample plugin remains available as an installation and future isolated-runtime compatibility fixture.
+- Plugin source is never returned to the renderer while runtime isolation is unavailable.
 - Permissions, enable state, error state, and uninstall controls are visible to the user.
 
 ## 14. Milestone 11: Learning System

@@ -20,6 +20,8 @@
     "probe:stock-sdk": "node --experimental-strip-types scripts/stock-sdk-provider-probe.mjs",
     "optimize:preset-strategies": "node --experimental-strip-types scripts/preset-strategy-parameter-sweep.mjs",
     "test:strategy-engine": "node --test --experimental-strip-types packages/strategy-engine/tests/*.test.ts",
+    "test": "npm run test:api-client && npm run test:chart && npm run test:desktop && npm run test:pine-runtime && npm run test:plugin-loader && npm run test:strategy-engine",
+    "check": "npm run test && npm run typecheck && npm run build && npm run build:electron -w @quant/desktop",
     "clean": "node scripts/clean.mjs"
   },
   "devDependencies": {
