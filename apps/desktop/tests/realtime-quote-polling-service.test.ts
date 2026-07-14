@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   createQuotePollingBatches,
+  createSnapshotCacheWriteGate,
   defaultRealtimePollIntervalMs,
   mergeQuoteSnapshots,
   sanitizeRealtimePollIntervalMs,
@@ -55,4 +56,13 @@ test("mergeQuoteSnapshots replaces only updated symbols and keeps previous snaps
 
   assert.equal(merged["US:AAPL.US"]?.lastPrice, 201);
   assert.equal(merged["US:TSLA.US"]?.lastPrice, 200);
+});
+
+test("snapshot cache write gate writes immediately per context and throttles repeated snapshots", () => {
+  const gate = createSnapshotCacheWriteGate(30_000);
+
+  assert.equal(gate.shouldWrite("US:AAPL.US:realtime", 1_000), true);
+  assert.equal(gate.shouldWrite("US:AAPL.US:realtime", 10_000), false);
+  assert.equal(gate.shouldWrite("US:AAPL.US:realtime", 31_000), true);
+  assert.equal(gate.shouldWrite("US:TSLA.US:realtime", 31_001), true);
 });

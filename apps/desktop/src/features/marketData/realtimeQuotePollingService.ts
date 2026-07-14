@@ -2,7 +2,25 @@ import type { MarketQuoteSnapshot, MarketWatchlistItem } from "./marketDataSyncS
 
 export const realtimeQuoteBatchSize = 30;
 export const defaultRealtimePollIntervalMs = 10_000;
+export const defaultSnapshotCacheWriteIntervalMs = 30_000;
 export const realtimePollIntervalOptionsMs = [10_000, 30_000, 60_000, 120_000] as const;
+
+export function createSnapshotCacheWriteGate(intervalMs = defaultSnapshotCacheWriteIntervalMs) {
+  const lastWriteByContext = new Map<string, number>();
+  const safeIntervalMs = Math.max(1_000, intervalMs);
+
+  return {
+    shouldWrite(contextKey: string, now = Date.now()) {
+      const lastWriteAt = lastWriteByContext.get(contextKey);
+      if (lastWriteAt !== undefined && now - lastWriteAt < safeIntervalMs) {
+        return false;
+      }
+
+      lastWriteByContext.set(contextKey, now);
+      return true;
+    },
+  };
+}
 
 export function sanitizeRealtimePollIntervalMs(value: unknown) {
   return typeof value === "number" && realtimePollIntervalOptionsMs.includes(value as (typeof realtimePollIntervalOptionsMs)[number])

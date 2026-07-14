@@ -27,6 +27,7 @@ import { readMarketBarCache, readMarketBarCacheSummary, writeMarketBarCache, typ
 import { readMarketWatchlist, writeMarketWatchlist, type MarketQuoteSnapshot, type MarketWatchlistItem } from "../features/marketData/marketDataSyncService";
 import {
   createQuotePollingBatches,
+  createSnapshotCacheWriteGate,
   defaultRealtimePollIntervalMs,
   mergeQuoteSnapshots,
   realtimePollIntervalOptionsMs,
@@ -766,6 +767,7 @@ export function ChartWorkspacePage() {
   const [cachedMarketBars, setCachedMarketBars] = useState<MarketDataBar[]>(() =>
     readMarketBarCache({ symbol: readChartWatchlist()[0]?.dataSymbol ?? symbols[0].dataSymbol, market: readChartWatchlist()[0]?.market ?? symbols[0].market, timeframe: "1d" }),
   );
+  const snapshotCacheWriteGateRef = useRef(createSnapshotCacheWriteGate());
   const [chartLoadState, setChartLoadState] = useState<ChartLoadState>(() => {
     const item = readChartWatchlist()[0] ?? symbols[0];
     const bars = readMarketBarCache({ symbol: item.dataSymbol, market: item.market, timeframe: "1d" });
@@ -943,6 +945,11 @@ export function ChartWorkspacePage() {
     return mergeRealtimeDailyBar(currentBars, { symbol: activeSymbol.dataSymbol, market: activeSymbol.market }, snapshot);
   };
   const writeActiveSnapshotBars = (bars: MarketDataBar[]) => {
+    const contextKey = `${activeSymbol.market}:${activeSymbol.dataSymbol}:${timeframe}`;
+    if (!snapshotCacheWriteGateRef.current.shouldWrite(contextKey)) {
+      return;
+    }
+
     writeMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe }, bars);
   };
 

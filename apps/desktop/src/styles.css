@@ -5810,3 +5810,11 @@ textarea:focus-visible {
 .api-provider-section[open] summary::after {
   content: "收起";
 }
+.route-loading-state {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  color: var(--text-muted);
+  background: var(--bg-canvas);
+  font-size: 13px;
+}
