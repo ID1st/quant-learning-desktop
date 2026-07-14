@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEven
 import type { Market, Timeframe } from "@quant/shared";
 import {
   clampChartVisibleRange,
-  getChartPriceLineLabelLayout,
   getChartFuturePaddingBars,
   panChartPriceRange,
   getScaledPriceRange,
@@ -12,10 +11,10 @@ import {
   zoomChartVisibleRange,
   type ChartVisibleRange,
 } from "./viewportMath.ts";
+import { getProjectedPriceLabelLayout } from "./priceLabelLayout.ts";
 
 export {
   clampChartVisibleRange,
-  getChartPriceLineLabelLayout,
   getChartFuturePaddingBars,
   panChartPriceRange,
   getScaledPriceRange,
@@ -776,8 +775,17 @@ export function ChartViewport({
                   const bounds = timedElementBounds(element.fromTimestamp, element.toTimestamp);
                   if (!bounds) return null;
                   const hasLabel = Boolean(element.label);
-                  const labelLayout = hasLabel ? getChartPriceLineLabelLayout(element.label!, bounds.x2, paddingX) : null;
-                  const labelY = y - 20;
+                  const projectedLabelLayout = hasLabel && isProjected
+                    ? getProjectedPriceLabelLayout({
+                      label: element.label!,
+                      lineEndX: bounds.x2,
+                      priceY: y,
+                      plotLeft: paddingX,
+                      plotRight,
+                      plotTop: chartTop,
+                      plotBottom: volumeTop - 4,
+                    })
+                    : null;
 
                   return (
                     <g
@@ -788,14 +796,9 @@ export function ChartViewport({
                       onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
                     >
                       <line x1={bounds.x1} x2={bounds.x2} y1={y} y2={y} />
-                      {isProjected && labelLayout && <rect height={30} rx={4} width={labelLayout.width} x={labelLayout.x} y={labelY} />}
+                      {projectedLabelLayout && <rect height={24} rx={3} width={projectedLabelLayout.width} x={projectedLabelLayout.x} y={projectedLabelLayout.y} />}
                       {hasLabel && (
-                        <text
-                          lengthAdjust={isProjected ? "spacingAndGlyphs" : undefined}
-                          textLength={isProjected ? labelLayout?.textLength : undefined}
-                          x={isProjected ? labelLayout?.textX : bounds.x2 - 8}
-                          y={isProjected ? y + 5 : y - 6}
-                        >
+                        <text x={projectedLabelLayout ? projectedLabelLayout.x + projectedLabelLayout.width - 7 : bounds.x2 - 8} y={projectedLabelLayout ? projectedLabelLayout.y + 16 : y - 6}>
                           {element.label}
                         </text>
                       )}
