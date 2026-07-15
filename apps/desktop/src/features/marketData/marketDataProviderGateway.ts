@@ -187,7 +187,49 @@ export interface MarketDataGateway {
   searchInstruments(query: string, markets?: readonly Market[]): Promise<MarketDataGatewayResult<readonly MarketInstrument[]>>;
 }
 
+export interface MarketDataGatewayOptions {
+  readonly requestTimeoutMs?: number;
+  readonly healthTimeoutMs?: number;
+}
+
 const usableHealthStatuses = new Set<MarketDataProviderHealthStatus>(["healthy", "degraded", "delayed"]);
+const defaultRequestTimeoutMs = 10_000;
+const defaultHealthTimeoutMs = 3_000;
+
+class MarketDataProviderTimeoutError extends Error {}
+
+function resolveTimeout(value: number | undefined, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new MarketDataProviderTimeoutError(message)), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+}
+
+function createUnavailableHealth(
+  provider: GatewayMarketDataProvider,
+  message: string,
+): MarketDataProviderHealthView {
+  return {
+    provider: provider.id,
+    status: "unavailable",
+    message,
+    checkedAt: new Date().toISOString(),
+    capability: provider.capability,
+  };
+}
 
 class InMemoryMarketDataProviderRegistry implements MarketDataProviderRegistry {
   private readonly providers = new Map<GatewayMarketDataProviderId, GatewayMarketDataProvider>();
@@ -232,7 +274,10 @@ export function createMarketDataGateway(
     "alphafeed-websocket",
     "longbridge",
   ],
+  options: MarketDataGatewayOptions = {},
 ): MarketDataGateway {
+  const requestTimeoutMs = resolveTimeout(options.requestTimeoutMs, defaultRequestTimeoutMs);
+  const healthTimeoutMs = resolveTimeout(options.healthTimeoutMs, defaultHealthTimeoutMs);
   const orderProviders = (providers: readonly GatewayMarketDataProvider[]) =>
     [...providers].sort((left, right) => getPriority(priority, left.id) - getPriority(priority, right.id));
 
@@ -249,7 +294,25 @@ export function createMarketDataGateway(
 
     for (const provider of candidates) {
       triedProviders.push(provider.id);
-      const health = await provider.getHealth();
+      let health: MarketDataProviderHealthView;
+      try {
+        health = await withTimeout(
+          provider.getHealth(),
+          healthTimeoutMs,
+          `${provider.displayName} health check timed out after ${healthTimeoutMs} ms`,
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : `${provider.displayName} health check failed`;
+        health = createUnavailableHealth(provider, message);
+        healthViews.push(health);
+        lastError = {
+          code: "PROVIDER_UNAVAILABLE",
+          message,
+          provider: provider.id,
+          cause: error,
+        };
+        continue;
+      }
       healthViews.push(health);
 
       if (!usableHealthStatuses.has(health.status)) {
@@ -262,8 +325,16 @@ export function createMarketDataGateway(
       }
 
       try {
-        const data = await operation(provider);
-        const latestHealth = await provider.getHealth();
+        const data = await withTimeout(
+          operation(provider),
+          requestTimeoutMs,
+          `${provider.displayName} ${capability} request timed out after ${requestTimeoutMs} ms`,
+        );
+        const latestHealth = await withTimeout(
+          provider.getHealth(),
+          healthTimeoutMs,
+          `${provider.displayName} health check timed out after ${healthTimeoutMs} ms`,
+        ).catch(() => health);
         healthViews[healthViews.length - 1] = latestHealth;
 
         if (!isUsableData(data)) {
@@ -283,13 +354,18 @@ export function createMarketDataGateway(
           triedProviders,
         };
       } catch (error) {
-        const latestHealth = await provider.getHealth();
+        const latestHealth = await withTimeout(
+          provider.getHealth(),
+          healthTimeoutMs,
+          `${provider.displayName} health check timed out after ${healthTimeoutMs} ms`,
+        ).catch(() => health);
         healthViews[healthViews.length - 1] = latestHealth;
+        const timeoutMessage = error instanceof MarketDataProviderTimeoutError ? error.message : null;
         lastError = {
           code: "PROVIDER_UNAVAILABLE",
           // Health stores the provider-specific, sanitized failure reason. Keep it
           // through the neutral gateway so the renderer can explain a fallback.
-          message: latestHealth.message || `${provider.displayName} request failed`,
+          message: timeoutMessage ?? (latestHealth.message || `${provider.displayName} request failed`),
           provider: provider.id,
           cause: error,
         };

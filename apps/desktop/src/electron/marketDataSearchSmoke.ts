@@ -2,6 +2,7 @@ import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
 import { createMarketDataIpcHandlers, registerMarketDataIpcHandlers } from "./marketDataIpc.ts";
 import type { SecureCredentialStore } from "./secureCredentialStore.ts";
+import { createDesktopRendererSecurityPolicy } from "./electronSecurity.ts";
 
 const request = {
   context: { source: "diagnostics" as const },
@@ -32,8 +33,12 @@ void app.whenReady().then(async () => {
   });
 
   try {
-    registerMarketDataIpcHandlers(createMarketDataIpcHandlers({ credentialStore: createSmokeCredentialStore() }));
-    await window.loadFile(join(__dirname, "../renderer/index.html"));
+    const rendererEntry = join(__dirname, "../renderer/index.html");
+    registerMarketDataIpcHandlers(
+      createDesktopRendererSecurityPolicy({ rendererEntry }),
+      createMarketDataIpcHandlers({ credentialStore: createSmokeCredentialStore() }),
+    );
+    await window.loadFile(rendererEntry);
     const bridgeAvailable = await window.webContents.executeJavaScript(
       "typeof window.quantDesktop?.marketData?.searchInstruments === 'function'",
       true,

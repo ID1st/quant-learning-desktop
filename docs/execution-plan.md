@@ -14,13 +14,13 @@ Completed major foundations:
 - Built-in UTORB and Trend Targets strategies translated into TypeScript runtime implementations.
 - Strategy chart runtime now consumes normalized cached market bars and emits signals, logs, metrics, alerts, and declarative render elements.
 - A read-only Strategy Learning page explains the currently supported strategies and indicators without cross-page learning flows.
-- Installed strategy plugins run through an Electron Utility Process boundary; renderer code receives no plugin source.
+- Installed plugins can be managed, but third-party strategy execution is disabled after the former Utility Process/Node `vm` boundary failed adversarial escape review; renderer code still receives no plugin source.
 - Live provider probes, controlled fallback/cache-retention drills, and an Electron plugin-runtime smoke test are available as repeatable verification commands.
 
 Current recommended next milestone:
 
 - Confirm and harden the real AlphaFeed WebSocket member protocol: authentication, subscription payloads, heartbeat, reconnect limits, and source diagnostics.
-- Then complete isolated indicator-plugin execution. Strategy plugins are already isolated; data-source and export plugins remain intentionally disabled.
+- Then design a genuinely no-Node strategy/indicator sandbox. Strategy, indicator, data-source, and export plugin execution remain intentionally disabled until their dedicated boundaries pass adversarial isolation tests.
 - Keep Stock SDK/Tencent as the primary production route for supported quote/history data. AlphaFeed REST, AlphaFeed WebSocket, LongBridge, and US-only Yahoo Finance remain capability-specific fallbacks; no provider should be described as universally available.
 
 ## 2. Execution Rule
@@ -410,9 +410,9 @@ Acceptance:
 
 Status:
 
-- Strategy-plugin MVP complete: trusted local strategy/indicator packages can be installed, validated, enabled, disabled, and uninstalled through Electron IPC.
-- Enabled strategy plugins activate and execute inside an Electron Utility Process with a message-only protocol. Renderer code receives descriptors and validated outputs, never installed source.
-- Strategy activation/execution has import rejection, restricted registration, source/input/output limits, VM timeout, process watchdog termination, atomic activation, failure recording, and automatic disable behavior.
+- Plugin package-management MVP complete: trusted local strategy/indicator packages can be installed, validated, enabled, disabled, and uninstalled through Electron IPC.
+- Third-party strategy activation/execution is disabled. The main host and utility entry fail closed without reading source after the previous Node `vm` boundary failed adversarial escape review.
+- Runtime failure recording and automatic disable behavior remain available; a no-Node capability sandbox is required before execution can be re-enabled.
 - Indicator execution, data-source/export hosts, signatures, permission-consent history, and hot update remain follow-up work.
 
 Goal:
@@ -431,7 +431,7 @@ Deliverables:
 
 Acceptance:
 
-- A sample strategy plugin is covered by Utility Process unit tests and an Electron production-build smoke test.
+- Fail-closed strategy execution is covered by unit tests and an Electron production-build smoke test.
 - Plugin source is never returned to the renderer.
 - Permissions, enable state, error state, and uninstall controls are visible to the user.
 
@@ -464,7 +464,7 @@ Deferred:
 
 Status:
 
-- Partially complete: credential boundary hardening, renderer sandbox/CSP, plugin strategy isolation, runtime error redaction, cache write throttling, provider probes, fallback/cache-retention drill, and Electron plugin-runtime smoke test are complete.
+- Partially complete: credential boundary hardening, renderer sandbox/CSP, fail-closed third-party plugin execution, runtime error redaction, cache write throttling, provider probes, fallback/cache-retention drill, and Electron plugin-runtime smoke test are complete. A no-Node plugin sandbox remains pending.
 - Broad release readiness remains pending; installer signing and release automation should follow final functional scope confirmation.
 
 Goal:

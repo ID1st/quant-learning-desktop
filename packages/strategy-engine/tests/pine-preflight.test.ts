@@ -217,3 +217,23 @@ plot(close)
   assert.equal(runnableResult.ok, false);
   assert.equal(runnableResult.error.code, "DRAFT_NOT_READY");
 });
+
+test("Pine translation blocks an unsupported reassignment instead of silently running stale logic", () => {
+  const draftResult = createUserStrategyDraftDefinition({
+    fileName: "unsupported-reassignment.pine",
+    sourceText: `//@version=5
+indicator("Unsupported reassignment", overlay=true)
+ma = ta.sma(close, 2)
+ma := request.security(syminfo.tickerid, "D", close)
+plot(ma)
+`,
+  });
+
+  assert.equal(draftResult.ok, true);
+  assert.equal(draftResult.draft.translation.status, "manual-review");
+  assert.ok(draftResult.draft.translation.ir.unsupportedCalls.some((item) => item.includes("request.security")));
+
+  const runnableResult = createRunnableUserStrategyDefinition(draftResult.draft);
+  assert.equal(runnableResult.ok, false);
+  assert.equal(runnableResult.error.code, "DRAFT_NOT_READY");
+});

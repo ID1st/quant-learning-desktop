@@ -29,15 +29,20 @@ void app.whenReady().then(async () => {
   const host = createPluginRuntimeHost({ manager: createSmokePluginManager() });
   try {
     const snapshot = await host.refresh();
-    const output = await host.runStrategy(pluginId, `${pluginId}:signal`, {
-      symbol: "AAPL.US",
-      market: "US",
-      timeframe: "1d",
-      bars: [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1, volume: 1 }],
-      parameters: {},
-      runMode: "backtest",
-    });
-    console.log(JSON.stringify({ ok: snapshot.strategies.length === 1 && output.signals.length === 1 }));
+    let blocked = false;
+    try {
+      await host.runStrategy(pluginId, `${pluginId}:signal`, {
+        symbol: "AAPL.US",
+        market: "US",
+        timeframe: "1d",
+        bars: [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1, volume: 1 }],
+        parameters: {},
+        runMode: "backtest",
+      });
+    } catch (error) {
+      blocked = error instanceof Error && error.message.includes("disabled until a no-Node sandbox is available");
+    }
+    console.log(JSON.stringify({ ok: snapshot.strategies.length === 0 && blocked }));
     app.exit(0);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);

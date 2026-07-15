@@ -103,3 +103,43 @@ test("backtest settles an open short against the last valid close when the final
   assert.ok(result.equityCurve.every((point) => Number.isFinite(point.equity)));
   assert.ok(Number.isFinite(result.summary.finalCapital));
 });
+
+test("backtest stops opening positions after capital is exhausted", () => {
+  const result = runStrategyBacktest({
+    bars: [bar(1, 100), bar(2, 100), bar(3, 300), bar(4, 300), bar(5, 200)],
+    signals: [
+      { timestamp: 1, type: "sell" },
+      { timestamp: 2, type: "buy" },
+    ],
+    settings: { initialCapital: 100_000, feeRate: 0, slippageRate: 0, allowShort: true },
+  });
+
+  assert.equal(result.trades.length, 1);
+  assert.ok(result.trades.every((trade) => trade.quantity > 0));
+  assert.equal(result.summary.finalCapital, -100_000);
+  assert.ok(result.warnings.some((warning) => warning.includes("capital is exhausted")));
+});
+
+test("backtest entry sizing reserves the entry fee", () => {
+  const initialCapital = 1_000;
+  const feeRate = 0.01;
+  const result = runStrategyBacktest({
+    bars: [bar(1, 100), bar(2, 100), bar(3, 100)],
+    signals: [{ timestamp: 1, type: "buy" }],
+    settings: { initialCapital, feeRate, slippageRate: 0 },
+  });
+
+  const trade = result.trades[0];
+  assert.ok(trade);
+  assert.ok(trade.entryPrice * trade.quantity + trade.entryPrice * trade.quantity * feeRate <= initialCapital + Number.EPSILON);
+});
+
+test("backtest rejects a fee rate that can consume the full notional", () => {
+  const result = runStrategyBacktest({
+    bars: [bar(1, 100), bar(2, 100), bar(3, 100)],
+    signals: [{ timestamp: 1, type: "buy" }],
+    settings: { feeRate: 1 },
+  });
+
+  assert.equal(result.settings.feeRate, 0.0005);
+});

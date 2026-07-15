@@ -70,6 +70,22 @@ test("mergeRealtimeSnapshotMinuteBar assigns candles by exchange quote time inst
   assert.equal(bars[0]?.timestamp, Date.parse("2026-07-01T14:30:00.000Z"));
 });
 
+test("mergeRealtimeSnapshotMinuteBar converts cumulative quote volume into minute volume", () => {
+  const snapshots = [
+    { ...snapshot("2026-07-01T14:30:10.000Z", 210), volume: 1_000, amount: 210_000 },
+    { ...snapshot("2026-07-01T14:31:10.000Z", 211), volume: 1_125, amount: 236_375 },
+    { ...snapshot("2026-07-01T14:31:40.000Z", 212), volume: 1_150, amount: 241_675 },
+  ];
+
+  const bars = snapshots.reduce<MarketDataBar[]>(
+    (current, item) => mergeRealtimeSnapshotMinuteBar(current, key, item),
+    [],
+  );
+
+  assert.deepEqual(bars.map((item) => item.volume), [1_000, 150]);
+  assert.deepEqual(bars.map((item) => item.amount), [210_000, 31_675]);
+});
+
 test("aggregateRealtimePointBarsToMinuteCandles creates derived minute candles", () => {
   const bars = [
     bar(Date.UTC(2026, 6, 1, 14, 30, 0), 210),
@@ -193,6 +209,38 @@ test("mergeHistoricalRealtimeBarsWithLiveBars keeps newer gateway live-provider 
   assert.deepEqual(
     merged.map((bar) => bar.provider),
     ["longbridge", "alphafeed-websocket", "stock-sdk"],
+  );
+});
+
+test("mergeHistoricalRealtimeBarsWithLiveBars lets a live update refresh the same historical minute", () => {
+  const timestamp = Date.UTC(2026, 6, 1, 13, 30);
+  const historical = {
+    ...key,
+    timestamp,
+    open: 200,
+    high: 201,
+    low: 199,
+    close: 200,
+    volume: 1_000,
+    provider: "longbridge" as const,
+  };
+  const live = {
+    ...key,
+    timestamp,
+    open: 200,
+    high: 202,
+    low: 198,
+    close: 201,
+    volume: 120,
+    provider: "stock-sdk" as const,
+  };
+
+  const merged = mergeHistoricalRealtimeBarsWithLiveBars([historical], [live], key);
+
+  assert.equal(merged.length, 1);
+  assert.deepEqual(
+    [merged[0]?.open, merged[0]?.high, merged[0]?.low, merged[0]?.close, merged[0]?.volume, merged[0]?.provider],
+    [200, 202, 198, 201, 120, "stock-sdk"],
   );
 });
 

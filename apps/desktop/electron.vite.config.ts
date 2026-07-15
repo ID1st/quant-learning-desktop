@@ -26,7 +26,6 @@ export default defineConfig({
         main: resolve(__dirname, "src/electron/main.ts"),
         marketDataSearchSmoke: resolve(__dirname, "src/electron/marketDataSearchSmoke.ts"),
         pluginRuntimeSmoke: resolve(__dirname, "src/electron/pluginRuntimeSmoke.ts"),
-        pluginUtilityProcess: resolve(__dirname, "src/electron/pluginUtilityProcess.ts"),
       },
       },
     },

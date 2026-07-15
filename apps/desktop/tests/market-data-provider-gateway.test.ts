@@ -154,6 +154,44 @@ describe("MarketDataGateway", () => {
     assert.deepEqual(result.data, [quote]);
   });
 
+  it("times out a stalled provider and continues to the fallback", async () => {
+    const quote: GatewayMarketQuoteSnapshot = {
+      provider: "longbridge",
+      market: "US",
+      symbol: "AAPL.US",
+      price: 294.28,
+      timestamp: 1_788_288_000_000,
+    };
+    let fallbackCalled = false;
+    const registry = createMarketDataProviderRegistry([
+      createProvider(
+        "alphafeed-rest",
+        "healthy",
+        baseCapability,
+        () => new Promise<readonly GatewayMarketQuoteSnapshot[]>(() => undefined),
+      ),
+      createProvider("longbridge", "healthy", baseCapability, async () => {
+        fallbackCalled = true;
+        return [quote];
+      }),
+    ]);
+    const gateway = createMarketDataGateway(
+      registry,
+      ["alphafeed-rest", "longbridge"],
+      { requestTimeoutMs: 10, healthTimeoutMs: 10 },
+    );
+
+    const result = await Promise.race([
+      gateway.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]),
+      new Promise<"deadline">((resolve) => setTimeout(() => resolve("deadline"), 100)),
+    ]);
+
+    assert.notEqual(result, "deadline");
+    assert.equal(fallbackCalled, true);
+    assert.equal(typeof result === "object" && result.ok, true);
+    assert.equal(typeof result === "object" && result.ok ? result.provider : null, "longbridge");
+  });
+
   it("does not try a US-only fallback for a Hong Kong intraday request", async () => {
     const barCapability: MarketDataProviderCapability = {
       ...baseCapability,

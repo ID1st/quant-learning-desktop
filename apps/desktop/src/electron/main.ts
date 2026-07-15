@@ -7,6 +7,11 @@ import { createPluginManager } from "./pluginManager";
 import { createPluginIpcHandlers } from "./pluginIpcContract";
 import { createPluginRuntimeHost } from "./pluginRuntimeHost";
 import { createMainSecureCredentialStore, registerSecureCredentialIpcHandlers } from "./secureCredentialIpc";
+import {
+  createDesktopRendererSecurityPolicy,
+  isTrustedRendererUrl,
+  type DesktopRendererSecurityPolicy,
+} from "./electronSecurity";
 
 export interface DesktopWindowOptions {
   title: string;
@@ -26,8 +31,13 @@ export function createMainWindowConfig(): DesktopWindowOptions {
   };
 }
 
-export function createMainWindow(): BrowserWindow {
+export function createMainWindow(securityPolicy?: DesktopRendererSecurityPolicy): BrowserWindow {
   const windowConfig = createMainWindowConfig();
+  const rendererDevServer = process.env.ELECTRON_RENDERER_URL;
+  const resolvedSecurityPolicy = securityPolicy ?? createDesktopRendererSecurityPolicy({
+    rendererEntry: windowConfig.rendererEntry,
+    rendererDevServerUrl: rendererDevServer,
+  });
   const mainWindow = new BrowserWindow({
     title: windowConfig.title,
     width: windowConfig.width,
@@ -44,8 +54,11 @@ export function createMainWindow(): BrowserWindow {
   });
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-
-  const rendererDevServer = process.env.ELECTRON_RENDERER_URL;
+  const preventUntrustedNavigation = (event: { preventDefault(): void }, url: string) => {
+    if (!isTrustedRendererUrl(url, resolvedSecurityPolicy)) event.preventDefault();
+  };
+  mainWindow.webContents.on("will-navigate", preventUntrustedNavigation);
+  mainWindow.webContents.on("will-redirect", preventUntrustedNavigation);
 
   if (rendererDevServer) {
     void mainWindow.loadURL(rendererDevServer);
@@ -57,19 +70,24 @@ export function createMainWindow(): BrowserWindow {
 }
 
 void app.whenReady().then(() => {
+  const windowConfig = createMainWindowConfig();
+  const securityPolicy = createDesktopRendererSecurityPolicy({
+    rendererEntry: windowConfig.rendererEntry,
+    rendererDevServerUrl: process.env.ELECTRON_RENDERER_URL,
+  });
   const credentialStore = createMainSecureCredentialStore();
-  registerMarketDataIpcHandlers(createMarketDataIpcHandlers({ credentialStore }));
-  registerProviderDataIpcHandlers();
-  registerSecureCredentialIpcHandlers(credentialStore);
+  registerMarketDataIpcHandlers(securityPolicy, createMarketDataIpcHandlers({ credentialStore }));
+  registerProviderDataIpcHandlers(securityPolicy);
+  registerSecureCredentialIpcHandlers(securityPolicy, credentialStore);
   const pluginManager = createPluginManager({ pluginsDirectory: join(app.getPath("userData"), "plugins") });
   const pluginRuntime = createPluginRuntimeHost({ manager: pluginManager });
-  registerPluginIpcHandlers(pluginManager, undefined, createPluginIpcHandlers(pluginManager, pluginRuntime));
+  registerPluginIpcHandlers(securityPolicy, pluginManager, undefined, createPluginIpcHandlers(pluginManager, pluginRuntime));
   app.once("before-quit", () => pluginRuntime.dispose());
-  createMainWindow();
+  createMainWindow(securityPolicy);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
+      createMainWindow(securityPolicy);
     }
   });
 });

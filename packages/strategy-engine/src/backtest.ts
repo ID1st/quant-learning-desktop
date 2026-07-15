@@ -81,10 +81,6 @@ function finitePositive(value: number | undefined, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-function finiteNonNegative(value: number | undefined, fallback: number) {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
-}
-
 function finiteSlippageRate(value: number | undefined, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value < 1 ? value : fallback;
 }
@@ -107,7 +103,7 @@ function isTradableBar(bar: Bar) {
 export function resolveBacktestSettings(settings: BacktestSettings = {}): ResolvedBacktestSettings {
   return {
     initialCapital: finitePositive(settings.initialCapital, defaultSettings.initialCapital),
-    feeRate: finiteNonNegative(settings.feeRate, defaultSettings.feeRate),
+    feeRate: finiteSlippageRate(settings.feeRate, defaultSettings.feeRate),
     slippageRate: finiteSlippageRate(settings.slippageRate, defaultSettings.slippageRate),
     allowShort: settings.allowShort ?? defaultSettings.allowShort,
   };
@@ -162,6 +158,14 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
   const trades: BacktestTrade[] = [];
   const equityCurve: BacktestEquityPoint[] = [];
   let latestMarkPrice: number | null = null;
+  let capitalExhaustionWarned = false;
+
+  const warnCapitalExhausted = () => {
+    if (!capitalExhaustionWarned) {
+      warnings.push("capital is exhausted; no new position was opened.");
+      capitalExhaustionWarned = true;
+    }
+  };
 
   const closePosition = (bar: Bar, exitSignalTimestamp?: number) => {
     if (!state.position) {
@@ -196,7 +200,15 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
 
   const openPosition = (bar: Bar, direction: BacktestPositionDirection, signal: StrategySignal) => {
     const entryPrice = getEntryPrice(bar.open, direction, settings.slippageRate);
-    const quantity = capital / entryPrice;
+    if (capital <= 0 || !Number.isFinite(entryPrice) || entryPrice <= 0) {
+      warnCapitalExhausted();
+      return;
+    }
+    const quantity = capital / (entryPrice * (1 + settings.feeRate));
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      warnCapitalExhausted();
+      return;
+    }
     const entryFee = entryPrice * quantity * settings.feeRate;
     state.position = {
       direction,

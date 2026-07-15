@@ -74,6 +74,28 @@ test("writeMarketBarCache stores sorted unique bars for one symbol and timeframe
   assert.equal(cached[1]?.amount, 1614910);
 });
 
+test("writeMarketBarCache can merge a sparse refresh without deleting cached history", () => {
+  const database = createTestDatabase();
+  const createBar = (timestamp: number, close: number): MarketDataBar => ({
+    ...cacheKey,
+    timestamp,
+    open: close,
+    high: close,
+    low: close,
+    close,
+    volume: 1_000,
+    provider: "stock-sdk",
+  });
+  writeMarketBarCache(cacheKey, [createBar(1, 100), createBar(2, 101), createBar(3, 102)], { database });
+
+  writeMarketBarCache(cacheKey, [createBar(3, 103)], { database, mergeExisting: true });
+
+  assert.deepEqual(
+    readMarketBarCache(cacheKey, { database }).map((item) => [item.timestamp, item.close]),
+    [[1, 100], [2, 101], [3, 103]],
+  );
+});
+
 test("writeMarketBarCache records cache metadata for governance", () => {
   const database = createTestDatabase();
   const bars: MarketDataBar[] = [

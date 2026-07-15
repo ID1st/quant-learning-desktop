@@ -336,6 +336,25 @@ function findUnsupportedOrderCalls(sourceText: string) {
   return ["strategy.entry", "strategy.exit", "strategy.order", "strategy.close"].filter((call) => sourceText.includes(call));
 }
 
+function findUnsupportedPineStatements(sourceText: string) {
+  const supportedStatements = [
+    /^(?:indicator|strategy|library)\s*\(.+\)$/i,
+    /^\w+\s*=\s*input(?:\.\w+)?\s*\(.+\)$/i,
+    /^\w+\s*=\s*ta\.sma\s*\(.+\)$/i,
+    /^(?:plot|plotshape|plotchar|plotbar|plotcandle)\s*\(.+\)$/i,
+    /^alertcondition\s*\(.+\)$/i,
+    /^strategy\.(?:entry|exit|order|close)\s*\(.+\)$/i,
+  ];
+
+  return sourceText.split(/\r?\n/).flatMap((sourceLine, index) => {
+    const line = sourceLine.replace(/\/\/.*$/u, "").trim();
+    if (!line || supportedStatements.some((pattern) => pattern.test(line))) {
+      return [];
+    }
+    return [`line ${index + 1}: ${line.slice(0, 160)}`];
+  });
+}
+
 function parseVisuals(sourceText: string): PineTranslationVisualIR[] {
   const visuals: PineTranslationVisualIR[] = [];
   const pattern = /\b(plot|plotshape|plotchar|plotbar|plotcandle)\s*\(([^)]*)\)/gi;
@@ -453,9 +472,14 @@ export function preflightPineStrategySource(input: PineStrategyPreflightInput): 
 
   const warnings: string[] = [];
   const unsupportedOrderCalls = findUnsupportedOrderCalls(sourceText);
+  const unsupportedStatements = findUnsupportedPineStatements(sourceText);
 
   if (unsupportedOrderCalls.length > 0) {
     warnings.push(`检测到暂不支持的交易下单调用：${unsupportedOrderCalls.join(" / ")}。`);
+  }
+
+  if (unsupportedStatements.length > 0) {
+    warnings.push(`Unsupported Pine statements require manual review: ${unsupportedStatements.join(" / ")}`);
   }
 
   if (declaration === "library") {
@@ -464,7 +488,11 @@ export function preflightPineStrategySource(input: PineStrategyPreflightInput): 
 
   const reasons = [...warnings];
   const translationStatus: PineStrategyTranslationStatus =
-    declaration === "library" ? "unsupported" : unsupportedOrderCalls.length > 0 ? "manual-review" : "ready";
+    declaration === "library"
+      ? "unsupported"
+      : unsupportedOrderCalls.length > 0 || unsupportedStatements.length > 0
+        ? "manual-review"
+        : "ready";
 
   return {
     ok: true,
@@ -515,7 +543,7 @@ export function createPineTranslationPlan(input: PineStrategyPreflightInput): Pi
         calculations: parseCalculations(sourceText),
         visuals: parseVisuals(sourceText),
         alerts: parseAlerts(sourceText),
-        unsupportedCalls: findUnsupportedOrderCalls(sourceText),
+        unsupportedCalls: [...findUnsupportedOrderCalls(sourceText), ...findUnsupportedPineStatements(sourceText)],
       },
     },
   };

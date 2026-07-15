@@ -151,7 +151,7 @@ function writeHistoricalBars(database: LocalDatabase, bars: MarketDataBar[]) {
         timeframe: firstBar.timeframe,
       },
       groupBars,
-      { database },
+      { database, mergeExisting: true },
     );
   }
 }

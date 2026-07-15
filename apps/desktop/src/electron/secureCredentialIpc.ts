@@ -3,6 +3,13 @@ import { join } from "node:path";
 import type { AlphaFeedApiCredentials, LongPortApiCredentials } from "@quant/api-client";
 import { createJsonFilePersistenceStore, createNodeJsonFilePersistenceDriver } from "./localPersistence";
 import { createSecureCredentialStore, type AlphaFeedStreamCredentials } from "./secureCredentialStore";
+import {
+  assertAlphaFeedCredentials,
+  assertAlphaFeedStreamCredentials,
+  assertLongPortCredentials,
+  assertTrustedIpcSender,
+  type DesktopRendererSecurityPolicy,
+} from "./electronSecurity.ts";
 
 type SecureCredentialInvokeResult<T> =
   | {
@@ -31,18 +38,24 @@ export function createMainSecureCredentialStore() {
   );
 }
 
-export function registerSecureCredentialIpcHandlers(credentialStore = createMainSecureCredentialStore()) {
-  ipcMain.handle("secureCredentials:saveAlphaFeed", (_event, credentials: AlphaFeedApiCredentials): SecureCredentialInvokeResult<null> => {
+export function registerSecureCredentialIpcHandlers(
+  securityPolicy: DesktopRendererSecurityPolicy,
+  credentialStore = createMainSecureCredentialStore(),
+) {
+  ipcMain.handle("secureCredentials:saveAlphaFeed", (event, credentials: unknown): SecureCredentialInvokeResult<null> => {
     try {
-      credentialStore.saveAlphaFeedCredentials(credentials);
+      assertTrustedIpcSender(event, securityPolicy);
+      assertAlphaFeedCredentials(credentials);
+      credentialStore.saveAlphaFeedCredentials(credentials as unknown as AlphaFeedApiCredentials);
       return { ok: true, value: null };
     } catch (error) {
       return { ok: false, error: { message: toSafeCredentialError(error) } };
     }
   });
 
-  ipcMain.handle("secureCredentials:clearAlphaFeed", (): SecureCredentialInvokeResult<null> => {
+  ipcMain.handle("secureCredentials:clearAlphaFeed", (event): SecureCredentialInvokeResult<null> => {
     try {
+      assertTrustedIpcSender(event, securityPolicy);
       credentialStore.clearAlphaFeedCredentials();
       return { ok: true, value: null };
     } catch (error) {
@@ -52,9 +65,11 @@ export function registerSecureCredentialIpcHandlers(credentialStore = createMain
 
   ipcMain.handle(
     "secureCredentials:saveAlphaFeedStream",
-    (_event, credentials: AlphaFeedStreamCredentials): SecureCredentialInvokeResult<null> => {
+    (event, credentials: unknown): SecureCredentialInvokeResult<null> => {
       try {
-        credentialStore.saveAlphaFeedStreamCredentials(credentials);
+        assertTrustedIpcSender(event, securityPolicy);
+        assertAlphaFeedStreamCredentials(credentials);
+        credentialStore.saveAlphaFeedStreamCredentials(credentials as unknown as AlphaFeedStreamCredentials);
         return { ok: true, value: null };
       } catch (error) {
         return { ok: false, error: { message: toSafeCredentialError(error) } };
@@ -62,8 +77,9 @@ export function registerSecureCredentialIpcHandlers(credentialStore = createMain
     },
   );
 
-  ipcMain.handle("secureCredentials:clearAlphaFeedStream", (): SecureCredentialInvokeResult<null> => {
+  ipcMain.handle("secureCredentials:clearAlphaFeedStream", (event): SecureCredentialInvokeResult<null> => {
     try {
+      assertTrustedIpcSender(event, securityPolicy);
       credentialStore.clearAlphaFeedStreamCredentials();
       return { ok: true, value: null };
     } catch (error) {
@@ -71,17 +87,20 @@ export function registerSecureCredentialIpcHandlers(credentialStore = createMain
     }
   });
 
-  ipcMain.handle("secureCredentials:saveLongPort", (_event, credentials: LongPortApiCredentials): SecureCredentialInvokeResult<null> => {
+  ipcMain.handle("secureCredentials:saveLongPort", (event, credentials: unknown): SecureCredentialInvokeResult<null> => {
     try {
-      credentialStore.saveLongPortCredentials(credentials);
+      assertTrustedIpcSender(event, securityPolicy);
+      assertLongPortCredentials(credentials);
+      credentialStore.saveLongPortCredentials(credentials as unknown as LongPortApiCredentials);
       return { ok: true, value: null };
     } catch (error) {
       return { ok: false, error: { message: toSafeCredentialError(error) } };
     }
   });
 
-  ipcMain.handle("secureCredentials:clearLongPort", (): SecureCredentialInvokeResult<null> => {
+  ipcMain.handle("secureCredentials:clearLongPort", (event): SecureCredentialInvokeResult<null> => {
     try {
+      assertTrustedIpcSender(event, securityPolicy);
       credentialStore.clearLongPortCredentials();
       return { ok: true, value: null };
     } catch (error) {

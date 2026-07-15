@@ -1167,7 +1167,7 @@ export function ChartWorkspacePage() {
               timeframe: "realtime",
             })
           : resultBars;
-        const written = writeMarketBarCache(cacheKey, mergedBars);
+        const written = writeMarketBarCache(cacheKey, mergedBars, { mergeExisting: !isRealtimeHistory });
         setCachedMarketBars(written);
         setChartLoadState(createChartLoadState("layers", activeSymbol.symbol, timeframe, written.length));
         setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "ready" }));
@@ -1287,7 +1287,7 @@ export function ChartWorkspacePage() {
         const nextBars = isIntraday
           ? mergeHistoricalRealtimeBarsWithLiveBars(resultBars, cachedBars, cacheKey)
           : resultBars;
-        const written = writeMarketBarCache(cacheKey, nextBars);
+        const written = writeMarketBarCache(cacheKey, nextBars, { mergeExisting: !isIntraday });
         setWatchlistDataStatusByKey((current) => ({
           ...current,
           [`${task.market}:${task.symbol}`]: hasRenderableChartData(task.timeframe, written.length) ? "ready" : "error",

@@ -28,6 +28,33 @@ function isMatchingRealtimeBar(bar: MarketDataBar, key: MarketBarCacheKey) {
   return bar.symbol === key.symbol && bar.market === key.market && bar.timeframe === key.timeframe;
 }
 
+function cumulativeSnapshotValueToMinuteValue(
+  currentBars: MarketDataBar[],
+  key: MarketBarCacheKey,
+  timestamp: number,
+  cumulativeValue: number | undefined,
+  existingValue: number | undefined,
+  selectValue: (bar: MarketDataBar) => number | undefined,
+) {
+  if (cumulativeValue === undefined || !Number.isFinite(cumulativeValue) || cumulativeValue < 0) {
+    return existingValue;
+  }
+
+  const sessionKey = getMarketDateKey(timestamp, key.market);
+  const previousSessionTotal = currentBars
+    .filter(
+      (bar) =>
+        isMatchingRealtimeBar(bar, key) &&
+        bar.timestamp < timestamp &&
+        getMarketDateKey(bar.timestamp, key.market) === sessionKey,
+    )
+    .reduce((total, bar) => total + (selectValue(bar) ?? 0), 0);
+
+  return cumulativeValue >= previousSessionTotal
+    ? cumulativeValue - previousSessionTotal
+    : existingValue ?? 0;
+}
+
 export function retainRecentRealtimeSessions(bars: MarketDataBar[], market: Market, sessionCount = 5) {
   const sorted = [...bars].sort((left, right) => left.timestamp - right.timestamp);
   const sessionKeys = Array.from(new Set(sorted.map((bar) => getMarketDateKey(bar.timestamp, market))));
@@ -44,6 +71,22 @@ export function mergeRealtimeSnapshotMinuteBar(
   const timestamp = Math.floor(getTimestamp(snapshot) / minuteMs) * minuteMs;
   const price = snapshot.lastPrice;
   const existingBar = currentBars.find((bar) => isMatchingRealtimeBar(bar, key) && bar.timestamp === timestamp);
+  const volume = cumulativeSnapshotValueToMinuteValue(
+    currentBars,
+    key,
+    timestamp,
+    snapshot.volume,
+    existingBar?.volume,
+    (bar) => bar.volume,
+  ) ?? 0;
+  const amount = cumulativeSnapshotValueToMinuteValue(
+    currentBars,
+    key,
+    timestamp,
+    snapshot.amount,
+    existingBar?.amount,
+    (bar) => bar.amount,
+  );
   const minuteBar: MarketDataBar = {
     symbol: key.symbol,
     market: key.market,
@@ -53,8 +96,8 @@ export function mergeRealtimeSnapshotMinuteBar(
     high: Math.max(existingBar?.high ?? price, price),
     low: Math.min(existingBar?.low ?? price, price),
     close: price,
-    volume: snapshot.volume,
-    amount: snapshot.amount,
+    volume,
+    ...(amount === undefined ? {} : { amount }),
     provider: snapshot.provider,
   };
 
@@ -79,10 +122,30 @@ export function mergeHistoricalRealtimeBarsWithLiveBars(
     (bar) => isMatchingRealtimeBar(bar, key) && bar.timestamp < earliestHistoricalTimestamp,
   );
   const retainedLiveBars = currentBars.filter(
-    (bar) => isMatchingRealtimeBar(bar, key) && isLiveMarketDataProviderId(bar.provider) && bar.timestamp > latestHistoricalTimestamp,
+    (bar) => isMatchingRealtimeBar(bar, key) && isLiveMarketDataProviderId(bar.provider) && bar.timestamp >= latestHistoricalTimestamp,
   );
+  const byTimestamp = new Map<number, MarketDataBar>();
 
-  return retainRecentRealtimeSessions([...retainedPreviousSessionBars, ...matchingHistory, ...retainedLiveBars], key.market);
+  for (const bar of [...retainedPreviousSessionBars, ...matchingHistory]) {
+    byTimestamp.set(bar.timestamp, bar);
+  }
+  for (const liveBar of retainedLiveBars) {
+    const historicalBar = byTimestamp.get(liveBar.timestamp);
+    byTimestamp.set(liveBar.timestamp, historicalBar
+      ? {
+          ...historicalBar,
+          high: Math.max(historicalBar.high, liveBar.high),
+          low: Math.min(historicalBar.low, liveBar.low),
+          close: liveBar.close,
+          volume: liveBar.volume,
+          amount: liveBar.amount ?? historicalBar.amount,
+          provider: liveBar.provider,
+          upstream: liveBar.upstream,
+        }
+      : liveBar);
+  }
+
+  return retainRecentRealtimeSessions(Array.from(byTimestamp.values()), key.market);
 }
 
 export function analyzeRealtimeHistoryGap(

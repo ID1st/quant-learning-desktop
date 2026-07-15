@@ -47,6 +47,7 @@ export interface MarketBarCacheSummary {
 
 export interface WriteMarketBarCacheOptions {
   database?: LocalDatabase;
+  mergeExisting?: boolean;
 }
 
 export interface ReadMarketBarCacheOptions {
@@ -349,8 +350,11 @@ export function writeMarketBarCache(key: MarketBarCacheKey, bars: MarketDataBar[
   const database = options.database ?? appLocalDatabase;
   const normalizedKey = normalizeCacheKey(key);
   discardLegacyHistoricalCache(database, normalizedKey);
+  const candidateBars = options.mergeExisting
+    ? [...readMarketBarCache(normalizedKey, { database }), ...bars]
+    : bars;
   const normalizedBars = normalizeBars(
-    bars.filter(
+    candidateBars.filter(
       (bar) =>
         bar.symbol === normalizedKey.symbol &&
         bar.market === normalizedKey.market &&

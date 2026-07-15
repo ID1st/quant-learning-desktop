@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { StrategyInput } from "@quant/strategy-engine";
 import { createPluginRuntimeHost } from "../src/electron/pluginRuntimeHost.ts";
-import type { PluginRuntimeHostRequest, PluginRuntimeHostResponse } from "../src/electron/pluginRuntimeProtocol.ts";
 import type { PluginManager } from "../src/electron/pluginManager.ts";
 
 const record = {
@@ -46,57 +45,41 @@ function createInput(): StrategyInput {
   };
 }
 
-test("plugin runtime host keeps source in the main-to-utility boundary and returns descriptors only", async () => {
-  let onMessage: ((message: PluginRuntimeHostResponse) => void) | undefined;
-  let onExit: (() => void) | undefined;
-  const received: PluginRuntimeHostRequest[] = [];
+test("plugin runtime host does not read or execute third-party source", async () => {
+  let sourceRead = false;
+  const manager = createManager();
+  manager.readEnabledRuntimeModules = async () => {
+    sourceRead = true;
+    return [{ plugin: record, source: "export function activate() {}" }];
+  };
   const host = createPluginRuntimeHost({
-    manager: createManager(),
-    spawn: () => ({
-      postMessage(message) {
-        received.push(message);
-        if (message.type === "refresh") {
-          onMessage?.({ id: message.id, ok: true, type: "refresh", snapshot: {
-            strategies: [{ kind: "strategy", pluginId: record.manifest.id, key: `${record.manifest.id}:signal`, name: "Sample", version: "1.0.0", description: "test", supportedMarkets: ["US"], supportedTimeframes: ["1d"], parameterSchema: [] }],
-            logs: [],
-            failures: [],
-          } });
-        }
-        if (message.type === "run-strategy") {
-          onMessage?.({ id: message.id, ok: true, type: "run-strategy", output: { signals: [], overlays: [], render: { strategyId: message.key, strategyName: "Sample", enabled: true, zIndex: 20, elements: [] }, metrics: {}, logs: [], alerts: [] } });
-        }
-      },
-      kill: () => true,
-      on(event, listener) {
-        if (event === "message") onMessage = listener as (message: PluginRuntimeHostResponse) => void;
-        if (event === "exit") onExit = listener as () => void;
-        return this;
-      },
-    }),
+    manager,
   });
 
   const snapshot = await host.refresh();
-  assert.equal(snapshot.strategies[0]?.key, `${record.manifest.id}:signal`);
-  assert.equal(received[0]?.type, "refresh");
-  assert.equal("source" in (snapshot.strategies[0] ?? {}), false);
-  const output = await host.runStrategy(record.manifest.id, `${record.manifest.id}:signal`, createInput());
-  assert.equal(output.render.strategyId, `${record.manifest.id}:signal`);
+  assert.deepEqual(snapshot.strategies, []);
+  assert.equal(sourceRead, false);
+  await assert.rejects(
+    () => host.runStrategy(record.manifest.id, `${record.manifest.id}:signal`, createInput()),
+    /disabled until a no-Node sandbox is available/i,
+  );
   host.dispose();
-  onExit?.();
 });
 
-test("plugin runtime host terminates an unresponsive utility process", async () => {
-  let killed = false;
+test("plugin runtime host reports the disabled execution attempt without starting a process", async () => {
+  const failures: string[] = [];
+  const manager = createManager();
+  manager.recordRuntimeFailure = async (_id, message) => {
+    failures.push(message);
+    return { ...record, status: "degraded" as const, failureCount: 1, lastError: message };
+  };
   const host = createPluginRuntimeHost({
-    manager: createManager(),
-    operationTimeoutMs: 10,
-    spawn: () => ({
-      postMessage: () => undefined,
-      kill: () => (killed = true),
-      on() { return this; },
-    }),
+    manager,
   });
 
-  await assert.rejects(() => host.refresh(), /timed out/i);
-  assert.equal(killed, true);
+  await assert.rejects(
+    () => host.runStrategy(record.manifest.id, `${record.manifest.id}:signal`, createInput()),
+    /disabled until a no-Node sandbox is available/i,
+  );
+  assert.equal(failures.length, 1);
 });
