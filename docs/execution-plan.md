@@ -13,11 +13,15 @@ Completed major foundations:
 - Local market cache for quotes, bars, provider metadata, and cache cleanup.
 - Built-in UTORB and Trend Targets strategies translated into TypeScript runtime implementations.
 - Strategy chart runtime now consumes normalized cached market bars and emits signals, logs, metrics, alerts, and declarative render elements.
+- A read-only Strategy Learning page explains the currently supported strategies and indicators without cross-page learning flows.
+- Installed strategy plugins run through an Electron Utility Process boundary; renderer code receives no plugin source.
+- Live provider probes, controlled fallback/cache-retention drills, and an Electron plugin-runtime smoke test are available as repeatable verification commands.
 
 Current recommended next milestone:
 
-- Milestone 7.5 is complete for the agreed second-round scope. The next work is reliability hardening, isolated plugin runtime design, and release-readiness verification.
-- Operational prerequisite: keep Stock SDK as the quote and CN/HK intraday primary path, route US chart bars to Yahoo Finance first, and reverify a credential-backed fallback before relying on CN/HK daily or weekly history in the current network.
+- Confirm and harden the real AlphaFeed WebSocket member protocol: authentication, subscription payloads, heartbeat, reconnect limits, and source diagnostics.
+- Then complete isolated indicator-plugin execution. Strategy plugins are already isolated; data-source and export plugins remain intentionally disabled.
+- Keep Stock SDK/Tencent as the primary production route for supported quote/history data. AlphaFeed REST, AlphaFeed WebSocket, LongBridge, and US-only Yahoo Finance remain capability-specific fallbacks; no provider should be described as universally available.
 
 ## 2. Execution Rule
 
@@ -239,9 +243,7 @@ Acceptance:
 
 Deferred:
 
-- Direct production switch to `stock-sdk`.
 - Native WebSocket support for `stock-sdk` unless a real upstream stream API is confirmed.
-- Provider-neutral desktop IPC (`window.quantDesktop.marketData.*`) as the next follow-up slice.
 
 ## 8.5. Milestone 6.5: Provider-Neutral Desktop IPC
 
@@ -408,8 +410,10 @@ Acceptance:
 
 Status:
 
-- MVP complete: trusted local strategy/indicator plugins can be installed, validated, enabled, disabled, uninstalled, and loaded through Electron IPC.
-- Package management is complete, but renderer runtime loading is now blocked at the IPC boundary. Data-source/export hosts, signatures, hot update, and an isolated Worker or utility-process runtime remain follow-up work.
+- Strategy-plugin MVP complete: trusted local strategy/indicator packages can be installed, validated, enabled, disabled, and uninstalled through Electron IPC.
+- Enabled strategy plugins activate and execute inside an Electron Utility Process with a message-only protocol. Renderer code receives descriptors and validated outputs, never installed source.
+- Strategy activation/execution has import rejection, restricted registration, source/input/output limits, VM timeout, process watchdog termination, atomic activation, failure recording, and automatic disable behavior.
+- Indicator execution, data-source/export hosts, signatures, permission-consent history, and hot update remain follow-up work.
 
 Goal:
 
@@ -427,39 +431,41 @@ Deliverables:
 
 Acceptance:
 
-- A sample plugin remains available as an installation and future isolated-runtime compatibility fixture.
-- Plugin source is never returned to the renderer while runtime isolation is unavailable.
+- A sample strategy plugin is covered by Utility Process unit tests and an Electron production-build smoke test.
+- Plugin source is never returned to the renderer.
 - Permissions, enable state, error state, and uninstall controls are visible to the user.
 
 ## 14. Milestone 11: Learning System
 
 Status:
 
-- Not started beyond design documentation.
-- This should follow the chart and strategy surfaces so lessons can link to working strategies and chart states.
+- Simplified MVP complete: a read-only Strategy Learning page explains UTORB, Trend Targets, SMA, EMA, and BOLL.
+- The agreed scope deliberately does not add cross-page navigation, progress tracking, practice exercises, or notes.
 
 Goal:
 
 - Add learning workflows around strategy research.
 
-Deliverables:
+Completed deliverables:
 
-- Learning content model.
-- Strategy explanation pages.
-- Progress tracking.
-- Practice and review notes.
-- Links from strategies to lessons.
+- Structured built-in educational content.
+- Strategy and indicator explanation page.
+- Regression test coverage for supported learning content.
 
 Acceptance:
 
-- Users can study a strategy, run it, and review results in one flow.
+- Users can read the supported strategy/indicator explanations in the desktop application.
+
+Deferred:
+
+- Progress tracking, practice and review notes, and strategy-to-lesson deep links.
 
 ## 15. Milestone 12: Hardening
 
 Status:
 
-- Not started as a dedicated milestone.
-- Packaging should wait until market data, strategy display, plugin MVP scope, and security review are stable.
+- Partially complete: credential boundary hardening, renderer sandbox/CSP, plugin strategy isolation, runtime error redaction, cache write throttling, provider probes, fallback/cache-retention drill, and Electron plugin-runtime smoke test are complete.
+- Broad release readiness remains pending; installer signing and release automation should follow final functional scope confirmation.
 
 Goal:
 

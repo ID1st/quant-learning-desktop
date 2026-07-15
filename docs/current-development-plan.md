@@ -191,12 +191,13 @@ Acceptance:
 
 ### Remaining Product Milestones
 
-1. Market-data runtime stability: automated primary-route probes and data-quality classification are complete. Next, add scheduled/manual mainland-network fallback drills and keep cache migration checks repeatable.
-2. AlphaFeed WebSocket runtime hardening after exact member-channel protocol details are confirmed.
-3. Plugin runtime isolation: Worker or utility-process host, capability messages, resource limits, signature verification, and permission consent history.
-4. Optional backtest follow-up: date-range selection, equity curve, position sizing, and partial target/stop execution. The agreed simplified MVP is complete.
-5. Desktop release readiness: product icon, Authenticode signing, update/rollback path, crash reporting, and installer regression checks.
-6. Login and account flow redesign remains a separate future rewrite and is intentionally excluded from the current hardening slice.
+1. AlphaFeed WebSocket runtime hardening: confirm the member protocol, then add heartbeat, reconnect-limit handling, and stream-source diagnostics.
+2. Plugin runtime second stage: create a dedicated isolated indicator execution/render protocol. Strategy-plugin Utility Process isolation is complete; signing, consent history, data-source/export hosts, and hot update remain later work.
+3. Market-data operational stability: keep `probe:stock-sdk` and `drill:market-data` repeatable; add scheduled/manual mainland-network drills only after defining their local scheduling policy.
+4. Optional strategy research follow-up: date-range selection, equity curve, position sizing, and partial target/stop execution. The agreed simplified backtest MVP is complete.
+5. Super-chart advanced parity: multi-chart synchronization, additional drawing tools, workspaces, and indicator sub-panes remain optional product upgrades rather than MVP defects.
+6. Desktop release readiness: product icon, Authenticode signing, update/rollback path, crash reporting, installer regression checks, and release notes.
+7. Login and account flow redesign remains a separate future rewrite and is intentionally excluded from the current hardening slice.
 
 ### 0. Provider-Neutral Desktop IPC
 
