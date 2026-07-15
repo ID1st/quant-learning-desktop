@@ -2,6 +2,7 @@ import {
   ALPHAFEED_DEFAULT_API_URL,
   createAlphaFeedSecretPreview,
   isLoopbackHostname,
+  isTrustedServiceHostname,
   verifyAlphaFeedApiCredentials,
   LONGPORT_DEFAULT_HTTP_URL,
   verifyLongPortApiCredentials,
@@ -244,6 +245,10 @@ export function normalizeAlphaFeedStreamForm(form: AlphaFeedStreamForm): AlphaFe
 
   if (parsedUrl.protocol === "ws:" && !isLoopbackHostname(parsedUrl.hostname)) {
     throw new Error("AlphaFeed WebSocket 远程地址必须使用 wss。");
+  }
+
+  if (!isTrustedServiceHostname(parsedUrl.hostname, ["api.tickflow.org"])) {
+    throw new Error("AlphaFeed WebSocket 仅支持官方服务地址或本机开发地址。");
   }
 
   const apiKey = form.apiKey.trim();

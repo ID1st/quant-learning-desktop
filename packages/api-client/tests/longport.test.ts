@@ -68,6 +68,13 @@ describe("normalizeLongPortApiCredentials", () => {
     });
     assert.equal(credentials.apiUrl, "http://localhost:8788");
   });
+
+  it("rejects HTTPS endpoints outside the LongBridge allowlist", () => {
+    assert.throws(
+      () => normalizeLongPortApiCredentials({ apiUrl: "https://example.invalid", appKey: "app-key-123", appSecret: "secret-123", accessToken: "token-123" }),
+      /官方服务地址或本机开发地址/u,
+    );
+  });
 });
 
 describe("verifyLongPortApiCredentials", () => {

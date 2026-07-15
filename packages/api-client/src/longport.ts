@@ -1,5 +1,5 @@
 import type { Market, Timeframe } from "@quant/shared";
-import { isLoopbackHostname } from "./urlSecurity.ts";
+import { isLoopbackHostname, isTrustedServiceHostname } from "./urlSecurity.ts";
 
 export const LONGPORT_DEFAULT_HTTP_URL = "https://openapi.longbridge.com";
 
@@ -75,6 +75,10 @@ function ensureHttpUrl(apiUrl: string) {
 
   if (url.protocol === "http:" && !isLoopbackHostname(url.hostname)) {
     throw new Error("长桥 API 远程地址必须使用 https。");
+  }
+
+  if (!isTrustedServiceHostname(url.hostname, ["openapi.longbridge.com"])) {
+    throw new Error("长桥 API 仅支持官方服务地址或本机开发地址。");
   }
 
   return url.toString().replace(/\/$/, "");

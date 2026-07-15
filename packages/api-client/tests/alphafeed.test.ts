@@ -49,6 +49,13 @@ describe("normalizeAlphaFeedApiCredentials", () => {
     });
     assert.equal(credentials.apiUrl, "http://127.0.0.1:8787");
   });
+
+  it("rejects HTTPS endpoints outside the AlphaFeed allowlist", () => {
+    assert.throws(
+      () => normalizeAlphaFeedApiCredentials({ apiUrl: "https://example.invalid", apiKey: "alpha-key-123" }),
+      /官方服务地址或本机开发地址/u,
+    );
+  });
 });
 
 describe("fetchAlphaFeedQuoteSnapshots", () => {
