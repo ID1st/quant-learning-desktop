@@ -171,32 +171,25 @@ Important constraints:
 
 ## Next Tasks
 
-### Recommended Next Slice: Super Chart Capability Completion Round 2
+### Latest Completed Slice: Market-Data Stability And Observability
 
-Status: ready.
+Status: completed on 2026-07-15.
 
-Goal: build on the completed chart-first layout and finish the remaining chart workstation controls before moving into plugins, learning workflows, or packaging.
+Completion notes:
 
-Recommended implementation slices:
-
-1. Add richer provider diagnostics timeline: active provider, fallback events, rate-limit events, delayed-history events, latest update time, and data-gap explanations.
-2. Expand indicator controls beyond the current moving average: at minimum moving average variants and a provider-neutral indicator render layer.
-3. Improve drawing-tool scaffolding: UI state, selected tool, cancel/reset, and persisted command model placeholder; defer full drawing persistence.
-4. Add explicit z-index ordering controls for strategy/indicator layers after the layer model is expanded beyond the current first-pass display.
-5. Add browser smoke verification for the super chart with real cached bars, realtime intraday history, strategy layers, and provider status after each chart slice.
+1. The production-route Stock SDK probe now records source provenance, latency, freshness, OHLCV quality, row count, historical completeness, continuity, and classified failure cause for CN/HK/US quote, daily, weekly, and intraday checks.
+2. Stale data is visible without treating a closed market as a failed request. Sparse daily/weekly history and excessive continuity gaps fail the probe before they can be mistaken for a healthy historical route.
+3. The latest real-network run completed 10/10 checks. Eight checks were delayed, which reflects market/session timing and remains diagnostic rather than a request failure.
+4. This work stays inside the provider-neutral market-data feature and verification script. Chart rendering, strategy inputs, cache contracts, and concrete provider credentials remain unchanged.
 
 Acceptance:
 
-- Existing `realtime`, `1d`, and `1w` chart behavior remains stable.
-- The chart workspace keeps the TradingView-like information hierarchy: chart first, compact controls second, detailed settings only on demand.
-- Chart content remains legible at normal desktop sizes without scrolling the main workstation.
-- Strategy output continues to enter the chart only through declarative render elements.
-- Provider diagnostics are understandable without exposing provider credentials.
-- `npm run test:desktop`, `npm run typecheck`, and `npm run build` pass after the slice.
+- `npm run probe:stock-sdk` exposes actionable provider data quality and connectivity outcomes.
+- `npm run test:desktop`, `npm run typecheck`, and production builds continue to pass.
 
 ### Remaining Product Milestones
 
-1. Market-data runtime stability: broaden automated provider probes, validate fallback behavior on mainland networks, and keep cache migration checks repeatable.
+1. Market-data runtime stability: automated primary-route probes and data-quality classification are complete. Next, add scheduled/manual mainland-network fallback drills and keep cache migration checks repeatable.
 2. AlphaFeed WebSocket runtime hardening after exact member-channel protocol details are confirmed.
 3. Plugin runtime isolation: Worker or utility-process host, capability messages, resource limits, signature verification, and permission consent history.
 4. Optional backtest follow-up: date-range selection, equity curve, position sizing, and partial target/stop execution. The agreed simplified MVP is complete.

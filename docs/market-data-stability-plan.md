@@ -20,7 +20,14 @@ This follow-up completes the selected stability scope without changing provider 
 - The chart diagnostic drawer now presents those events with Chinese labels. Provider credentials and raw request data remain outside the renderer diagnostics.
 - For closed markets, a fresh daily or weekly cache renders directly and skips an unnecessary remote refresh. Intraday polling still follows the existing market-session window and stops after close.
 - Refresh failure preserves usable cache and records a retained-cache event. Existing real-time merge rules continue to prevent historical bars from overwriting newer live minute bars.
-- AlphaFeed WebSocket protocol hardening and automated provider probes are intentionally excluded from this slice.
+- AlphaFeed WebSocket protocol hardening remains intentionally excluded until the exact member-channel protocol is confirmed.
+
+## Probe And Observability Update (2026-07-15)
+
+- `npm run probe:stock-sdk` now exercises the production adapter route for CN/HK/US quotes, daily bars, weekly bars, and 1-minute bars while recording provider, upstream, latency, freshness, normalized OHLCV quality, row count, and history-series health.
+- Freshness is reported as `fresh`, `delayed`, or `unknown`; delayed data is diagnostic only, so a closed market does not fail the probe merely because its last bar is older than 15 minutes.
+- Historical series health requires 60 daily bars or 26 weekly bars. A daily gap above 14 days or weekly gap above 35 days is reported as discontinuous. This makes sparse-symbol and malformed-upstream conditions visible before they are treated as a successful route.
+- Probe failures are normalized to `network`, `rate-limited`, `unauthorized`, `no-data`, `insufficient-history`, `discontinuous-history`, `invalid-data`, or `unknown`. The report retains no credentials or raw request headers.
 
 ## Provider Priority
 

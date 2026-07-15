@@ -11,6 +11,11 @@ import {
 import { createYahooFinanceIntradayProvider } from "../apps/desktop/src/features/marketData/yahooFinanceIntradayProvider.ts";
 import { createTencentFinanceBarsOperations } from "../apps/desktop/src/electron/tencentFinanceBars.ts";
 import { inspectMarketDataBars } from "../apps/desktop/src/features/marketData/marketDataQuality.ts";
+import {
+  classifyMarketDataProbeFailure,
+  evaluateMarketDataProbeFreshness,
+  evaluateMarketDataProbeSeries,
+} from "../apps/desktop/src/features/marketData/marketDataProbeReport.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -34,6 +39,7 @@ const gateway = createMarketDataGateway(
 );
 
 const report = {
+  schemaVersion: 2,
   generatedAt: new Date().toISOString(),
   package: {
     name: "stock-sdk",
@@ -47,6 +53,7 @@ const report = {
     total: 0,
     passed: 0,
     failed: 0,
+    delayed: 0,
   },
 };
 
@@ -65,7 +72,7 @@ await runCheck("quote.cn-hk-us", async () => {
       price: quote.price,
       previousClose: quote.previousClose ?? null,
       timestamp: quote.timestamp,
-      quoteAgeSeconds: Math.round((Date.now() - quote.timestamp) / 1000),
+      freshness: evaluateMarketDataProbeFreshness(quote.timestamp),
       fields: presentFields(quote, ["price", "previousClose", "openPrice", "highPrice", "lowPrice", "volume", "amount"]),
     })),
   };
@@ -80,6 +87,7 @@ for (const item of symbols) {
 report.summary.total = report.checks.length;
 report.summary.passed = report.checks.filter((check) => check.status === "passed").length;
 report.summary.failed = report.checks.filter((check) => check.status === "failed").length;
+report.summary.delayed = countDelayedChecks(report.checks);
 
 await mkdir(path.dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
@@ -104,12 +112,21 @@ async function runBarCheck(name, item, timeframe, kind) {
     if (quality.rejectedCount > 0) {
       throw new Error(`${name} returned ${quality.rejectedCount} invalid bars: ${JSON.stringify(quality.issues)}.`);
     }
+    const series = evaluateMarketDataProbeSeries(bars, timeframe === "1m" ? "realtime" : timeframe);
+    if (series.status === "partial") {
+      throw new Error(`Partial ${timeframe} series: ${series.rows} of ${series.minimumRows} rows.`);
+    }
+    if (series.status === "discontinuous") {
+      throw new Error(`Discontinuous ${timeframe} series: largest gap is ${series.largestGapDays?.toFixed(1) ?? "unknown"} days.`);
+    }
     return {
       provider: result.provider,
       upstream: result.health.upstream ?? null,
       rows: bars.length,
       first: summarizeBar(bars[0]),
       last: summarizeBar(bars.at(-1)),
+      freshness: evaluateMarketDataProbeFreshness(bars.at(-1)?.timestamp),
+      series,
       zeroOpenCount: bars.filter((bar) => bar.open === 0).length,
       invalidOhlcCount: bars.filter((bar) => bar.high < bar.low || bar.high < bar.open || bar.low > bar.open).length,
       quality: {
@@ -119,6 +136,13 @@ async function runBarCheck(name, item, timeframe, kind) {
       },
     };
   });
+}
+
+function countDelayedChecks(checks) {
+  return checks.reduce((count, check) => {
+    const sampleFreshness = check.data?.samples?.some((sample) => sample.freshness?.status === "delayed");
+    return count + (check.data?.freshness?.status === "delayed" || sampleFreshness ? 1 : 0);
+  }, 0);
 }
 
 async function runCheck(name, execute) {
@@ -139,6 +163,7 @@ async function runCheck(name, execute) {
       error: {
         message: error instanceof Error ? error.message : String(error),
         name: error instanceof Error ? error.name : "UnknownError",
+        kind: classifyMarketDataProbeFailure(error),
       },
     });
   }
