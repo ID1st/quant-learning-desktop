@@ -3,6 +3,7 @@ import type { Market, Timeframe } from "@quant/shared";
 import {
   clampChartVisibleRange,
   getChartFuturePaddingBars,
+  getPriceScaleOffsetForAnchor,
   panChartPriceRange,
   getScaledPriceRange,
   panChartVisibleRange,
@@ -16,6 +17,7 @@ import { getProjectedPriceLabelLayout } from "./priceLabelLayout.ts";
 export {
   clampChartVisibleRange,
   getChartFuturePaddingBars,
+  getPriceScaleOffsetForAnchor,
   panChartPriceRange,
   getScaledPriceRange,
   panChartVisibleRange,
@@ -312,7 +314,16 @@ export function ChartViewport({
   });
   const dragStateRef = useRef<
     | { mode: "pan"; pointerId: number; startX: number; startY: number; startRange: ChartVisibleRange; startPriceOffset: number }
-    | { mode: "price-scale"; pointerId: number; startY: number; startScaleFactor: number }
+    | {
+      mode: "price-scale";
+      pointerId: number;
+      startY: number;
+      startScaleFactor: number;
+      anchorRatio: number;
+      anchorPrice: number;
+      baseMinPrice: number;
+      baseMaxPrice: number;
+    }
     | { mode: "drawing"; pointerId: number; drawingId: string; pointIndex: number | null }
     | null
   >(null);
@@ -514,6 +525,27 @@ export function ChartViewport({
       return nextRange;
     });
   };
+  const beginPriceAxisScale = (event: PointerEvent<SVGElement>, canvas: SVGSVGElement) => {
+    if (lockPriceScale) {
+      return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const chartY = (event.clientY - rect.top) * (height / Math.max(1, rect.height));
+    const anchorRatio = Math.max(0, Math.min(1, (chartY - chartTop) / priceHeight));
+    canvas.setPointerCapture(event.pointerId);
+    dragStateRef.current = {
+      mode: "price-scale",
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startScaleFactor: priceScaleFactor,
+      anchorRatio,
+      anchorPrice: maxPrice - priceRange * anchorRatio,
+      baseMinPrice: scaleDomain.minPrice,
+      baseMaxPrice: scaleDomain.maxPrice,
+    };
+    setIsScalingPriceAxis(true);
+  };
   const handlePointerDown = (event: PointerEvent<SVGSVGElement>) => {
     if (event.button !== 0) {
       return;
@@ -531,13 +563,12 @@ export function ChartViewport({
       return;
     }
 
-    event.currentTarget.setPointerCapture(event.pointerId);
     if (x >= plotRight && !lockPriceScale) {
-      dragStateRef.current = { mode: "price-scale", pointerId: event.pointerId, startY: event.clientY, startScaleFactor: priceScaleFactor };
-      setIsScalingPriceAxis(true);
+      beginPriceAxisScale(event, event.currentTarget);
       return;
     }
 
+    event.currentTarget.setPointerCapture(event.pointerId);
     dragStateRef.current = {
       mode: "pan",
       pointerId: event.pointerId,
@@ -567,6 +598,15 @@ export function ChartViewport({
       const deltaY = event.clientY - dragState.startY;
       const nextScaleFactor = Math.max(0.25, Math.min(4, dragState.startScaleFactor * Math.exp(deltaY / 220)));
       setPriceScaleFactor(nextScaleFactor);
+      setPricePanOffset(
+        getPriceScaleOffsetForAnchor(
+          dragState.baseMinPrice,
+          dragState.baseMaxPrice,
+          nextScaleFactor,
+          dragState.anchorRatio,
+          dragState.anchorPrice,
+        ),
+      );
       return;
     }
 
@@ -972,7 +1012,14 @@ export function ChartViewport({
 
         <rect
           className="price-axis-hit-area"
-          height={volumeTop + volumeHeight - chartTop}
+          height={priceHeight}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            const canvas = event.currentTarget.ownerSVGElement;
+            if (canvas) {
+              beginPriceAxisScale(event, canvas);
+            }
+          }}
           width={priceAxisWidth}
           x={plotRight}
           y={chartTop}

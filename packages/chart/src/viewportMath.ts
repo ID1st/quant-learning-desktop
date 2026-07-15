@@ -101,6 +101,22 @@ export function getScaledPriceRange(minPrice: number, maxPrice: number, scaleFac
   };
 }
 
+/** Keeps the price beneath a vertical-axis drag pointer stationary while scaling. */
+export function getPriceScaleOffsetForAnchor(
+  minPrice: number,
+  maxPrice: number,
+  scaleFactor: number,
+  anchorRatio: number,
+  anchorPrice: number,
+) {
+  const scaled = getScaledPriceRange(minPrice, maxPrice, scaleFactor);
+  const safeAnchorRatio = Math.max(0, Math.min(1, Number.isFinite(anchorRatio) ? anchorRatio : 0.5));
+  const safeAnchorPrice = Number.isFinite(anchorPrice) ? anchorPrice : (scaled.min + scaled.max) / 2;
+  const unpannedAnchorPrice = scaled.max - (scaled.max - scaled.min) * safeAnchorRatio;
+
+  return safeAnchorPrice - unpannedAnchorPrice;
+}
+
 /** Moves the price viewport without changing its vertical density. */
 export function panChartPriceRange(minPrice: number, maxPrice: number, deltaPrice: number) {
   const safeMin = Math.min(minPrice, maxPrice);

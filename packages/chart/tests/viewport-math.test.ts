@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   clampChartVisibleRange,
+  getPriceScaleOffsetForAnchor,
   getScaledPriceRange,
   getChartPriceLineLabelLayout,
   panChartPriceRange,
@@ -60,6 +61,16 @@ test("scaled price range keeps price center and changes vertical density", () =>
 test("chart price pan shifts the viewport without changing its scale", () => {
   assert.deepEqual(panChartPriceRange(100, 120, 5), { min: 105, max: 125 });
   assert.deepEqual(panChartPriceRange(100, 120, -8), { min: 92, max: 112 });
+});
+
+test("price-axis scaling keeps the pointer price fixed instead of vertically panning the chart", () => {
+  const anchorRatio = 0.25;
+  const anchorPrice = 118;
+  const offset = getPriceScaleOffsetForAnchor(100, 120, 0.5, anchorRatio, anchorPrice);
+  const scaled = getScaledPriceRange(100, 120, 0.5);
+  const anchored = panChartPriceRange(scaled.min, scaled.max, offset);
+
+  assert.equal(anchored.max - (anchored.max - anchored.min) * anchorRatio, anchorPrice);
 });
 
 test("strategy price labels reserve enough width for Chinese text and stay inside the plot", () => {
