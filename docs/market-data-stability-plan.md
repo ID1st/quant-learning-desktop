@@ -29,6 +29,14 @@ This follow-up completes the selected stability scope without changing provider 
 - Historical series health requires 60 daily bars or 26 weekly bars. A daily gap above 14 days or weekly gap above 35 days is reported as discontinuous. This makes sparse-symbol and malformed-upstream conditions visible before they are treated as a successful route.
 - Probe failures are normalized to `network`, `rate-limited`, `unauthorized`, `no-data`, `insufficient-history`, `discontinuous-history`, `invalid-data`, or `unknown`. The report retains no credentials or raw request headers.
 
+## Real Environment Stability Drill (2026-07-15)
+
+- `npm run drill:market-data` runs a separate production-adapter exercise and writes `docs/generated/market-data-stability-drill-latest.json`.
+- It validates a live CN/HK/US quote batch, Tencent-backed daily history and 1-minute intraday routes, a deliberately injected first-provider failure that falls back to a real Stock SDK/Tencent request, and an in-memory retained-history assertion after a failed refresh.
+- The injected failure is explicitly marked as simulated. It validates gateway ordering only; it is not reported as a real upstream outage.
+- A closed-market US minute endpoint with no complete source history is recorded as an `observed` condition instead of a false pass or a quality-gate failure. Production behavior must retain cached bars or use a configured fallback in that window.
+- The drill exits non-zero only for unclassified failures. It does not write credentials, raw headers, or API responses to the report.
+
 ## Provider Priority
 
 1. `stock-sdk`: primary source for CN/HK/US quote snapshots and for CN/HK current-session 1-minute timelines.

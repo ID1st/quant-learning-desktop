@@ -223,7 +223,8 @@ export const desktopBridge: DesktopBridge = {
     setEnabled: (pluginId, enabled) => invokePlugin(pluginIpcChannels.setEnabled, pluginId, enabled),
     reportRuntimeFailure: (pluginId, message) => invokePlugin(pluginIpcChannels.reportRuntimeFailure, pluginId, message),
     uninstall: (pluginId) => invokePlugin(pluginIpcChannels.uninstall, pluginId),
-    readEnabledRuntimeModules: () => invokePlugin(pluginIpcChannels.readEnabledRuntimeModules),
+    getRuntimeSnapshot: () => invokePlugin(pluginIpcChannels.getRuntimeSnapshot),
+    runStrategy: (pluginId, key, input) => invokePlugin(pluginIpcChannels.runStrategy, pluginId, key, input),
   },
   longPort: {
     verifyCredentials: (credentials) => invokeProviderData(providerDataIpcChannels.verifyLongPortCredentials, credentials),

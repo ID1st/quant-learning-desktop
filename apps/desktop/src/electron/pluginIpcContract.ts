@@ -1,6 +1,9 @@
-import type { InstalledPluginRecord, PluginManager, PluginRuntimeModule } from "./pluginManager.ts";
+import type { StrategyInput, StrategyOutput } from "@quant/strategy-engine";
+import type { InstalledPluginRecord, PluginManager } from "./pluginManager.ts";
+import { createPluginRuntimeHost, type PluginRuntimeHost } from "./pluginRuntimeHost.ts";
+import type { PluginRuntimeSnapshot } from "./pluginRuntimeProtocol.ts";
 
-export type PluginIpcErrorCode = "PLUGIN_OPERATION_FAILED" | "PLUGIN_RUNTIME_ISOLATION_REQUIRED";
+export type PluginIpcErrorCode = "PLUGIN_OPERATION_FAILED" | "PLUGIN_RUNTIME_UNAVAILABLE";
 
 export type PluginIpcResult<T> =
   | { readonly ok: true; readonly data: T }
@@ -12,7 +15,8 @@ export interface PluginIpcHandlers {
   setEnabled(pluginId: string, enabled: boolean): Promise<PluginIpcResult<InstalledPluginRecord>>;
   reportRuntimeFailure(pluginId: string, message: string): Promise<PluginIpcResult<InstalledPluginRecord>>;
   uninstall(pluginId: string): Promise<PluginIpcResult<null>>;
-  readEnabledRuntimeModules(): Promise<PluginIpcResult<readonly PluginRuntimeModule[]>>;
+  getRuntimeSnapshot(): Promise<PluginIpcResult<PluginRuntimeSnapshot>>;
+  runStrategy(pluginId: string, key: string, input: StrategyInput): Promise<PluginIpcResult<StrategyOutput>>;
 }
 
 export interface PluginIpcBridge {
@@ -21,7 +25,8 @@ export interface PluginIpcBridge {
   setEnabled(pluginId: string, enabled: boolean): Promise<PluginIpcResult<InstalledPluginRecord>>;
   reportRuntimeFailure(pluginId: string, message: string): Promise<PluginIpcResult<InstalledPluginRecord>>;
   uninstall(pluginId: string): Promise<PluginIpcResult<null>>;
-  readEnabledRuntimeModules(): Promise<PluginIpcResult<readonly PluginRuntimeModule[]>>;
+  getRuntimeSnapshot(): Promise<PluginIpcResult<PluginRuntimeSnapshot>>;
+  runStrategy(pluginId: string, key: string, input: StrategyInput): Promise<PluginIpcResult<StrategyOutput>>;
 }
 
 export const pluginIpcChannels = {
@@ -30,10 +35,11 @@ export const pluginIpcChannels = {
   setEnabled: "plugins:setEnabled",
   reportRuntimeFailure: "plugins:reportRuntimeFailure",
   uninstall: "plugins:uninstall",
-  readEnabledRuntimeModules: "plugins:readEnabledRuntimeModules",
+  getRuntimeSnapshot: "plugins:getRuntimeSnapshot",
+  runStrategy: "plugins:runStrategy",
 } as const;
 
-export function createPluginIpcHandlers(manager: PluginManager): PluginIpcHandlers {
+export function createPluginIpcHandlers(manager: PluginManager, runtime: PluginRuntimeHost = createPluginRuntimeHost({ manager })): PluginIpcHandlers {
   return {
     async list() {
       return { ok: true, data: manager.list() };
@@ -45,27 +51,20 @@ export function createPluginIpcHandlers(manager: PluginManager): PluginIpcHandle
       await manager.uninstall(pluginId);
       return null;
     }),
-    async readEnabledRuntimeModules() {
-      return {
-        ok: false,
-        error: {
-          code: "PLUGIN_RUNTIME_ISOLATION_REQUIRED",
-          message: "第三方插件运行时正在升级隔离机制，当前仅支持安装与管理。",
-        },
-      };
-    },
+    getRuntimeSnapshot: () => invoke(() => runtime.refresh(), "PLUGIN_RUNTIME_UNAVAILABLE"),
+    runStrategy: (pluginId, key, input) => invoke(() => runtime.runStrategy(pluginId, key, input), "PLUGIN_RUNTIME_UNAVAILABLE"),
   };
 }
 
-async function invoke<T>(operation: () => Promise<T>): Promise<PluginIpcResult<T>> {
+async function invoke<T>(operation: () => Promise<T>, code: PluginIpcErrorCode = "PLUGIN_OPERATION_FAILED"): Promise<PluginIpcResult<T>> {
   try {
     return { ok: true, data: await operation() };
   } catch (error) {
     return {
       ok: false,
       error: {
-        code: "PLUGIN_OPERATION_FAILED",
-        message: error instanceof Error && error.message.trim() ? error.message : "插件操作失败。",
+        code,
+        message: error instanceof Error && error.message.trim() ? error.message : "Plugin runtime failed.",
       },
     };
   }

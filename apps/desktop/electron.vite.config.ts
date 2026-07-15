@@ -22,7 +22,11 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        input: resolve(__dirname, "src/electron/main.ts"),
+      input: {
+        main: resolve(__dirname, "src/electron/main.ts"),
+        pluginRuntimeSmoke: resolve(__dirname, "src/electron/pluginRuntimeSmoke.ts"),
+        pluginUtilityProcess: resolve(__dirname, "src/electron/pluginUtilityProcess.ts"),
+      },
       },
     },
   },

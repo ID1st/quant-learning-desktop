@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { PluginManager } from "../src/electron/pluginManager.ts";
+import type { PluginRuntimeHost } from "../src/electron/pluginRuntimeHost.ts";
 import { createPluginIpcHandlers, pluginIpcChannels } from "../src/electron/pluginIpcContract.ts";
 
 const record = {
@@ -17,64 +18,51 @@ const record = {
     capabilities: ["strategy"] as const,
   },
   status: "enabled" as const,
-  installedAt: "2026-07-11T00:00:00.000Z",
-  updatedAt: "2026-07-11T00:00:00.000Z",
+  installedAt: "2026-07-15T00:00:00.000Z",
+  updatedAt: "2026-07-15T00:00:00.000Z",
   failureCount: 0,
 };
 
-test("plugin IPC channels expose a narrow plugin-management boundary", () => {
+test("plugin IPC exposes management plus a source-free isolated runtime boundary", () => {
   assert.deepEqual(pluginIpcChannels, {
     list: "plugins:list",
     installLocal: "plugins:installLocal",
     setEnabled: "plugins:setEnabled",
     reportRuntimeFailure: "plugins:reportRuntimeFailure",
     uninstall: "plugins:uninstall",
-    readEnabledRuntimeModules: "plugins:readEnabledRuntimeModules",
+    getRuntimeSnapshot: "plugins:getRuntimeSnapshot",
+    runStrategy: "plugins:runStrategy",
   });
 });
 
-test("plugin IPC handlers keep management available but block renderer runtime source", async () => {
+test("plugin IPC returns isolated descriptors and routes strategy execution without sending source", async () => {
   const calls: string[] = [];
   const manager: PluginManager = {
     list: () => [record],
-    installFromDirectory: async (directory) => {
-      calls.push(`install:${directory}`);
-      return record;
-    },
-    setEnabled: async (id, enabled) => {
-      calls.push(`enabled:${id}:${enabled}`);
-      return { ...record, status: enabled ? "enabled" : "disabled" };
-    },
-    recordRuntimeFailure: async (id, message) => {
-      calls.push(`failure:${id}:${message}`);
-      return { ...record, status: "degraded", failureCount: 1, lastError: message };
-    },
-    uninstall: async (id) => {
-      calls.push(`uninstall:${id}`);
-    },
-    readEnabledRuntimeModules: async () => {
-      calls.push("runtime");
-      return [{ plugin: record, source: "export function activate() {}" }];
-    },
+    installFromDirectory: async () => record,
+    setEnabled: async () => record,
+    recordRuntimeFailure: async () => ({ ...record, status: "degraded" as const, failureCount: 1 }),
+    uninstall: async (id) => { calls.push(`uninstall:${id}`); },
+    readEnabledRuntimeModules: async () => [{ plugin: record, source: "export function activate() {}" }],
   };
-  const handlers = createPluginIpcHandlers(manager);
-
-  assert.deepEqual(await handlers.list(), { ok: true, data: [record] });
-  assert.deepEqual(await handlers.installFromDirectory("C:/plugins/sample"), { ok: true, data: record });
-  assert.equal((await handlers.setEnabled(record.manifest.id, false)).ok, true);
-  assert.equal((await handlers.reportRuntimeFailure(record.manifest.id, "activation failed")).ok, true);
-  assert.deepEqual(await handlers.uninstall(record.manifest.id), { ok: true, data: null });
-  assert.deepEqual(await handlers.readEnabledRuntimeModules(), {
-    ok: false,
-    error: {
-      code: "PLUGIN_RUNTIME_ISOLATION_REQUIRED",
-      message: "第三方插件运行时正在升级隔离机制，当前仅支持安装与管理。",
+  const runtime: PluginRuntimeHost = {
+    async refresh() {
+      calls.push("refresh");
+      return { strategies: [{ kind: "strategy", pluginId: record.manifest.id, key: `${record.manifest.id}:signal`, name: "Sample", version: "1.0.0", description: "test", supportedMarkets: ["US"], supportedTimeframes: ["1d"], parameterSchema: [] }], logs: [], failures: [] };
     },
+    async runStrategy(pluginId, key) {
+      calls.push(`run:${pluginId}:${key}`);
+      return { signals: [], overlays: [], render: { strategyId: key, strategyName: "Sample", enabled: true, zIndex: 20, elements: [] }, metrics: {}, logs: [], alerts: [] };
+    },
+    dispose: () => undefined,
+  };
+  const handlers = createPluginIpcHandlers(manager, runtime);
+  const snapshot = await handlers.getRuntimeSnapshot();
+  assert.equal(snapshot.ok, true);
+  assert.equal(snapshot.ok && "source" in snapshot.data.strategies[0]!, false);
+  const execution = await handlers.runStrategy(record.manifest.id, `${record.manifest.id}:signal`, {
+    symbol: "AAPL.US", market: "US", timeframe: "1d", bars: [], parameters: {}, runMode: "backtest",
   });
-  assert.deepEqual(calls, [
-    "install:C:/plugins/sample",
-    `enabled:${record.manifest.id}:false`,
-    `failure:${record.manifest.id}:activation failed`,
-    `uninstall:${record.manifest.id}`,
-  ]);
+  assert.equal(execution.ok, true);
+  assert.deepEqual(calls, ["refresh", `run:${record.manifest.id}:${record.manifest.id}:signal`]);
 });

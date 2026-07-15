@@ -254,9 +254,48 @@ interface QuantDesktopInstalledPlugin {
   readonly lastError?: string;
 }
 
-interface QuantDesktopPluginRuntimeModule {
-  readonly plugin: QuantDesktopInstalledPlugin;
-  readonly source: string;
+interface QuantDesktopPluginStrategyDescriptor {
+  readonly kind: "strategy";
+  readonly pluginId: string;
+  readonly key: string;
+  readonly name: string;
+  readonly version: string;
+  readonly description: string;
+  readonly supportedMarkets: QuantDesktopMarket[];
+  readonly supportedTimeframes: QuantDesktopTimeframe[];
+  readonly parameterSchema: Array<{
+    readonly key: string;
+    readonly label: string;
+    readonly type: "number" | "boolean" | "select";
+    readonly defaultValue: number | boolean | string;
+    readonly description?: string;
+    readonly options?: Array<{ readonly label: string; readonly value: string }>;
+  }>;
+}
+
+interface QuantDesktopPluginRuntimeSnapshot {
+  readonly strategies: readonly QuantDesktopPluginStrategyDescriptor[];
+  readonly logs: readonly { readonly pluginId: string; readonly message: string }[];
+  readonly failures: readonly { readonly pluginId: string; readonly message: string }[];
+}
+
+interface QuantDesktopPluginStrategyInput {
+  readonly symbol: string;
+  readonly market: QuantDesktopMarket;
+  readonly timeframe: QuantDesktopTimeframe;
+  readonly bars: readonly { readonly timestamp: number; readonly open: number; readonly high: number; readonly low: number; readonly close: number; readonly volume: number }[];
+  readonly parameters: Record<string, unknown>;
+  readonly runMode: "backtest" | "realtime";
+  readonly enabled?: boolean;
+}
+
+interface QuantDesktopPluginStrategyOutput {
+  readonly signals: readonly unknown[];
+  readonly overlays: readonly unknown[];
+  readonly render: Record<string, unknown>;
+  readonly metrics: Record<string, number>;
+  readonly logs: readonly string[];
+  readonly alerts: readonly string[];
 }
 
 type QuantDesktopPluginResult<T> =
@@ -264,7 +303,7 @@ type QuantDesktopPluginResult<T> =
   | {
       readonly ok: false;
       readonly error: {
-        readonly code: "PLUGIN_OPERATION_FAILED" | "PLUGIN_RUNTIME_ISOLATION_REQUIRED";
+        readonly code: "PLUGIN_OPERATION_FAILED" | "PLUGIN_RUNTIME_UNAVAILABLE";
         readonly message: string;
       };
     };
@@ -275,7 +314,8 @@ interface QuantDesktopPluginBridge {
   setEnabled(pluginId: string, enabled: boolean): Promise<QuantDesktopPluginResult<QuantDesktopInstalledPlugin>>;
   reportRuntimeFailure(pluginId: string, message: string): Promise<QuantDesktopPluginResult<QuantDesktopInstalledPlugin>>;
   uninstall(pluginId: string): Promise<QuantDesktopPluginResult<null>>;
-  readEnabledRuntimeModules(): Promise<QuantDesktopPluginResult<readonly QuantDesktopPluginRuntimeModule[]>>;
+  getRuntimeSnapshot(): Promise<QuantDesktopPluginResult<QuantDesktopPluginRuntimeSnapshot>>;
+  runStrategy(pluginId: string, key: string, input: QuantDesktopPluginStrategyInput): Promise<QuantDesktopPluginResult<QuantDesktopPluginStrategyOutput>>;
 }
 
 interface QuantDesktopBridge {

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-15T06:34:13.820Z",
+  "generatedAt": "2026-07-15T07:12:46.443Z",
   "package": {
     "name": "stock-sdk",
     "version": "2.3.0"
@@ -28,7 +28,7 @@
     {
       "name": "quote.cn-hk-us",
       "status": "passed",
-      "latencyMs": 901,
+      "latencyMs": 1476,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -37,9 +37,9 @@
           {
             "market": "CN",
             "symbol": "600519.SH",
-            "price": 1255.02,
+            "price": 1251.06,
             "previousClose": 1214.88,
-            "timestamp": 1784097255000,
+            "timestamp": 1784099568000,
             "freshness": {
               "status": "fresh",
               "ageSeconds": 0
@@ -57,12 +57,12 @@
           {
             "market": "HK",
             "symbol": "00700.HK",
-            "price": 474,
+            "price": 475,
             "previousClose": 456.2,
-            "timestamp": 1784096356000,
+            "timestamp": 1784098667000,
             "freshness": {
-              "status": "fresh",
-              "ageSeconds": 899
+              "status": "delayed",
+              "ageSeconds": 901
             },
             "fields": {
               "price": true,
@@ -82,7 +82,7 @@
             "timestamp": 1784059201000,
             "freshness": {
               "status": "delayed",
-              "ageSeconds": 38054
+              "ageSeconds": 40367
             },
             "fields": {
               "price": true,
@@ -100,7 +100,7 @@
     {
       "name": "historical.CN.1d",
       "status": "passed",
-      "latencyMs": 596,
+      "latencyMs": 994,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -124,12 +124,12 @@
           "open": 1203.66,
           "high": 1256.6,
           "low": 1198.66,
-          "close": 1255.02,
-          "volume": 6614600
+          "close": 1251.06,
+          "volume": 7194400
         },
         "freshness": {
           "status": "delayed",
-          "ageSeconds": 9255
+          "ageSeconds": 11569
         },
         "series": {
           "status": "complete",
@@ -155,7 +155,7 @@
     {
       "name": "historical.CN.1w",
       "status": "passed",
-      "latencyMs": 165,
+      "latencyMs": 269,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -179,12 +179,12 @@
           "open": 1197.12,
           "high": 1256.6,
           "low": 1190.19,
-          "close": 1255.02,
-          "volume": 15165600
+          "close": 1251.06,
+          "volume": 15745400
         },
         "freshness": {
           "status": "delayed",
-          "ageSeconds": 9255
+          "ageSeconds": 11569
         },
         "series": {
           "status": "complete",
@@ -210,7 +210,7 @@
     {
       "name": "intraday.CN.1m",
       "status": "passed",
-      "latencyMs": 501,
+      "latencyMs": 814,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -219,33 +219,33 @@
           "market": "CN",
           "symbol": "600519.SH",
           "timeframe": "1m",
-          "timestamp": 1784084760000,
-          "open": 1245.9,
-          "high": 1246.48,
-          "low": 1244.1,
-          "close": 1245.99,
-          "volume": 33200
+          "timestamp": 1784091660000,
+          "open": 1244.97,
+          "high": 1248,
+          "low": 1243.81,
+          "close": 1248,
+          "volume": 96300
         },
         "last": {
           "market": "CN",
           "symbol": "600519.SH",
           "timeframe": "1m",
-          "timestamp": 1784097300000,
-          "open": 1255.23,
-          "high": 1256,
-          "low": 1255.02,
-          "close": 1255.02,
-          "volume": 1000
+          "timestamp": 1784098800000,
+          "open": 1251,
+          "high": 1251.06,
+          "low": 1251,
+          "close": 1251.06,
+          "volume": 35500
         },
         "freshness": {
           "status": "fresh",
-          "ageSeconds": 0
+          "ageSeconds": 770
         },
         "series": {
           "status": "complete",
           "rows": 120,
           "minimumRows": 30,
-          "largestGapDays": 0.06319444444444444
+          "largestGapDays": 0.0006944444444444445
         },
         "zeroOpenCount": 0,
         "invalidOhlcCount": 0,
@@ -265,7 +265,7 @@
     {
       "name": "historical.HK.1d",
       "status": "passed",
-      "latencyMs": 207,
+      "latencyMs": 244,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -289,12 +289,12 @@
           "open": 467.6,
           "high": 476.4,
           "low": 455.4,
-          "close": 475,
-          "volume": 25896340
+          "close": 472.2,
+          "volume": 28047905
         },
         "freshness": {
           "status": "delayed",
-          "ageSeconds": 9256
+          "ageSeconds": 11570
         },
         "series": {
           "status": "complete",
@@ -320,7 +320,7 @@
     {
       "name": "historical.HK.1w",
       "status": "passed",
-      "latencyMs": 163,
+      "latencyMs": 248,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -344,12 +344,12 @@
           "open": 463.2,
           "high": 476.4,
           "low": 447.4,
-          "close": 475,
-          "volume": 75728722
+          "close": 472,
+          "volume": 77881587
         },
         "freshness": {
           "status": "delayed",
-          "ageSeconds": 9256
+          "ageSeconds": 11570
         },
         "series": {
           "status": "complete",
@@ -375,11 +375,11 @@
     {
       "name": "intraday.HK.1m",
       "status": "passed",
-      "latencyMs": 202,
+      "latencyMs": 285,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
-        "rows": 247,
+        "rows": 285,
         "first": {
           "market": "HK",
           "symbol": "00700.HK",
@@ -395,12 +395,12 @@
           "market": "HK",
           "symbol": "00700.HK",
           "timeframe": "1m",
-          "timestamp": 1784097300000,
-          "open": 475,
-          "high": 475,
-          "low": 475,
-          "close": 475,
-          "volume": 22100
+          "timestamp": 1784099580000,
+          "open": 472.2,
+          "high": 472.2,
+          "low": 472.2,
+          "close": 472.2,
+          "volume": 29400
         },
         "freshness": {
           "status": "fresh",
@@ -408,14 +408,14 @@
         },
         "series": {
           "status": "complete",
-          "rows": 247,
+          "rows": 285,
           "minimumRows": 30,
           "largestGapDays": 0.041666666666666664
         },
         "zeroOpenCount": 0,
         "invalidOhlcCount": 0,
         "quality": {
-          "acceptedCount": 247,
+          "acceptedCount": 285,
           "rejectedCount": 0,
           "issues": {
             "invalid-timestamp": 0,
@@ -430,7 +430,7 @@
     {
       "name": "historical.US.1d",
       "status": "passed",
-      "latencyMs": 183,
+      "latencyMs": 254,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -459,7 +459,7 @@
         },
         "freshness": {
           "status": "delayed",
-          "ageSeconds": 52457
+          "ageSeconds": 54771
         },
         "series": {
           "status": "complete",
@@ -485,7 +485,7 @@
     {
       "name": "historical.US.1w",
       "status": "passed",
-      "latencyMs": 161,
+      "latencyMs": 247,
       "data": {
         "provider": "stock-sdk",
         "upstream": "tencent",
@@ -514,7 +514,7 @@
         },
         "freshness": {
           "status": "delayed",
-          "ageSeconds": 52457
+          "ageSeconds": 54771
         },
         "series": {
           "status": "complete",
@@ -540,7 +540,7 @@
     {
       "name": "intraday.US.1m",
       "status": "passed",
-      "latencyMs": 1078,
+      "latencyMs": 1642,
       "data": {
         "provider": "yahoo-finance",
         "upstream": null,
@@ -569,7 +569,7 @@
         },
         "freshness": {
           "status": "delayed",
-          "ageSeconds": 38058
+          "ageSeconds": 40373
         },
         "series": {
           "status": "complete",

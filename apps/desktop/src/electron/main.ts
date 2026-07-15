@@ -4,6 +4,8 @@ import { createMarketDataIpcHandlers, registerMarketDataIpcHandlers } from "./ma
 import { registerProviderDataIpcHandlers } from "./providerDataIpc";
 import { registerPluginIpcHandlers } from "./pluginIpc";
 import { createPluginManager } from "./pluginManager";
+import { createPluginIpcHandlers } from "./pluginIpcContract";
+import { createPluginRuntimeHost } from "./pluginRuntimeHost";
 import { createMainSecureCredentialStore, registerSecureCredentialIpcHandlers } from "./secureCredentialIpc";
 
 export interface DesktopWindowOptions {
@@ -59,7 +61,10 @@ void app.whenReady().then(() => {
   registerMarketDataIpcHandlers(createMarketDataIpcHandlers({ credentialStore }));
   registerProviderDataIpcHandlers();
   registerSecureCredentialIpcHandlers(credentialStore);
-  registerPluginIpcHandlers(createPluginManager({ pluginsDirectory: join(app.getPath("userData"), "plugins") }));
+  const pluginManager = createPluginManager({ pluginsDirectory: join(app.getPath("userData"), "plugins") });
+  const pluginRuntime = createPluginRuntimeHost({ manager: pluginManager });
+  registerPluginIpcHandlers(pluginManager, undefined, createPluginIpcHandlers(pluginManager, pluginRuntime));
+  app.once("before-quit", () => pluginRuntime.dispose());
   createMainWindow();
 
   app.on("activate", () => {

@@ -4,6 +4,7 @@ import type { Market, Timeframe } from "@quant/shared";
 import {
   createEmptyStrategyRegistry,
   createPresetStrategyRegistry,
+  createStrategyInput,
   createRunnableUserStrategyDefinition,
   type StrategyDefinition,
   type StrategyParameterDefinition,
@@ -730,6 +731,7 @@ export function ChartWorkspacePage() {
   const pluginStrategies = usePluginRuntimeStore((state) => state.strategies);
   const pluginIndicators = usePluginRuntimeStore((state) => state.indicators);
   const refreshPluginRuntime = usePluginRuntimeStore((state) => state.refresh);
+  const runPluginStrategies = usePluginRuntimeStore((state) => state.runStrategies);
   const strategySettings = useChartStudySettingsStore((state) => state.strategies);
   const indicatorSettings = useChartStudySettingsStore((state) => state.indicators);
   const initializeStudyStrategies = useChartStudySettingsStore((state) => state.initializeStrategies);
@@ -876,6 +878,42 @@ export function ChartWorkspacePage() {
       }),
     [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySettings, timeframe],
   );
+  const pluginStrategyRunSignature = useMemo(() => {
+    const lastBar = strategyInputBars.at(-1);
+    return JSON.stringify({
+      symbol: activeSymbol.dataSymbol,
+      market: activeSymbol.market,
+      timeframe,
+      barCount: chartHasRenderableData ? strategyInputBars.length : 0,
+      lastBar,
+      strategies: chartStrategies.filter((strategy) => strategy.sourceType === "plugin").map((strategy) => ({
+        key: strategy.key,
+        enabled: strategySettings[strategy.key]?.enabled ?? false,
+        parameters: strategySettings[strategy.key]?.parameters ?? {},
+      })),
+    });
+  }, [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, strategyInputBars, strategySettings, timeframe]);
+  const lastPluginStrategyRunSignatureRef = useRef("");
+  useEffect(() => {
+    if (pluginStrategyRunSignature === lastPluginStrategyRunSignatureRef.current || !chartHasRenderableData) return;
+    lastPluginStrategyRunSignatureRef.current = pluginStrategyRunSignature;
+    const requests = chartStrategies
+      .filter((strategy) => strategy.sourceType === "plugin" && strategy.supportedTimeframes.includes(timeframe))
+      .map((strategy) => ({
+        strategy,
+        input: createStrategyInput(strategy, {
+          strategyKey: strategy.key,
+          symbol: activeSymbol.dataSymbol,
+          market: activeSymbol.market,
+          timeframe,
+          bars: strategyInputBars,
+          runMode: "backtest",
+          enabled: strategySettings[strategy.key]?.enabled ?? false,
+          parameters: strategySettings[strategy.key]?.parameters,
+        }),
+      }));
+    void runPluginStrategies(requests);
+  }, [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, pluginStrategyRunSignature, runPluginStrategies, strategyInputBars, strategySettings, timeframe]);
   const strategyLayers = useMemo<ChartLayer[]>(
     () =>
       strategyRuns.map(({ result, settings }) => ({

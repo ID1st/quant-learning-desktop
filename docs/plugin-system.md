@@ -172,16 +172,17 @@ Permission rules:
 Current implementation:
 
 - Install and manage trusted local plugins only.
-- Runtime source delivery to the renderer is blocked until an isolated host is complete.
-- Keep the planned host API restricted to declared registration capabilities.
-- Preserve failure records and disable controls for the future isolated runtime.
+- Runtime source delivery to the renderer is blocked.
+- Strategy plugins run in an Electron Utility Process through a message-only host. The renderer receives no source code, only descriptors and validated result data.
+- The host supports `registerStrategy()` only. It blocks imports, does not provide Electron, credential, filesystem, network, or provider objects, and limits source size, bars, output size, VM execution time, and host response time.
+- Host failures are isolated, recorded, and can disable a repeatedly failing plugin without crashing the workstation.
 
 Future implementation:
 
-- Worker thread isolation.
-- Process isolation for untrusted plugins.
 - Signature verification.
 - Plugin store or curated registry.
+- Permission consent history and audited updates.
+- Dedicated asynchronous indicator, data-source, and export-plugin hosts.
 
 ## 9. Versioning
 
@@ -253,19 +254,20 @@ Initial built-ins:
 
 This keeps future user and plugin strategies consistent with built-in strategies.
 
-## 14. MVP Implementation Status (2026-07-11)
+## 14. MVP Implementation Status (2026-07-15)
 
 Implemented now:
 
 - Electron main-process installation copies a selected local directory into the managed application plugin directory.
 - `plugin.json` schema, package path, JavaScript entry path, supported permissions/capabilities, and app/plugin API versions are checked before install.
 - Strategy and indicator manifests can be installed and managed. Data-source and export packages remain declared future capabilities and are rejected by the current runtime.
-- The preload bridge exposes list, install, enable/disable, uninstall, and runtime-failure reporting. The legacy enabled-module operation now returns `PLUGIN_RUNTIME_ISOLATION_REQUIRED` and never returns source code.
-- Third-party plugin execution is temporarily disabled. Re-enabling it requires Worker or utility-process isolation with a capability-only message protocol.
-- Existing runtime failure records and automatic-disable logic are retained for migration to the future isolated host.
-- `examples/plugins/sma-crossover` remains an installable compatibility fixture but does not execute until the isolated host is delivered.
+- The preload bridge exposes list, install, enable/disable, uninstall, isolated runtime snapshots, and strategy-run requests. It never exposes installed module source.
+- Enabled strategy plugins activate and run inside the Utility Process host. The example SMA crossover plugin is covered by isolated-host tests.
+- Existing runtime failure records and automatic-disable logic are used by the host when activation or execution fails.
+- Indicator manifests can still be installed and managed, but their execution is intentionally rejected until the indicator render protocol is isolated.
+- `npm run smoke:plugin-runtime` verifies the built Electron Utility Process path in addition to Node-level unit tests.
 
 Deliberate MVP limits:
 
-- Plugin package management is available, but runtime execution is deliberately paused. Full worker/process isolation and signing are required before runtime or marketplace support is restored.
-- No automatic hot update, remote download, data-source plugin host, export plugin host, or plugin-specific persistence API is provided yet.
+- The strategy host is a restrictive execution boundary, not a claim of complete hostile-code sandboxing. Full signing, user consent history, and OS-level sandboxing are still required before any marketplace or remote-download capability.
+- No automatic hot update, remote download, indicator/data-source/export runtime host, or plugin-specific persistence API is provided yet.

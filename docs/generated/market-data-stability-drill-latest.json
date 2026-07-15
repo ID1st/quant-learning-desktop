@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-15T07:20:41.985Z",
+  "purpose": "live-provider-connectivity-with-explicit-fallback-and-cache-retention-drills",
+  "checks": [
+    {
+      "name": "live.quote.cn-hk-us",
+      "status": "passed",
+      "latencyMs": 1476,
+      "data": {
+        "provider": "stock-sdk",
+        "upstream": "tencent",
+        "rows": 3,
+        "triedProviders": [
+          "stock-sdk"
+        ]
+      }
+    },
+    {
+      "name": "live.history.CN.1d",
+      "status": "passed",
+      "latencyMs": 1028,
+      "data": {
+        "provider": "stock-sdk",
+        "upstream": "tencent",
+        "rows": 121,
+        "firstTimestamp": 1768276800000,
+        "lastTimestamp": 1784088000000,
+        "triedProviders": [
+          "stock-sdk"
+        ]
+      }
+    },
+    {
+      "name": "live.intraday.CN.1m",
+      "status": "passed",
+      "latencyMs": 820,
+      "data": {
+        "provider": "stock-sdk",
+        "upstream": "tencent",
+        "rows": 120,
+        "firstTimestamp": 1784091660000,
+        "lastTimestamp": 1784098800000,
+        "triedProviders": [
+          "stock-sdk"
+        ]
+      }
+    },
+    {
+      "name": "live.history.HK.1d",
+      "status": "passed",
+      "latencyMs": 270,
+      "data": {
+        "provider": "stock-sdk",
+        "upstream": "tencent",
+        "rows": 121,
+        "firstTimestamp": 1768363200000,
+        "lastTimestamp": 1784088000000,
+        "triedProviders": [
+          "stock-sdk"
+        ]
+      }
+    },
+    {
+      "name": "live.intraday.HK.1m",
+      "status": "passed",
+      "latencyMs": 307,
+      "data": {
+        "provider": "stock-sdk",
+        "upstream": "tencent",
+        "rows": 293,
+        "firstTimestamp": 1784079000000,
+        "lastTimestamp": 1784100060000,
+        "triedProviders": [
+          "stock-sdk"
+        ]
+      }
+    },
+    {
+      "name": "live.history.US.1d",
+      "status": "passed",
+      "latencyMs": 260,
+      "data": {
+        "provider": "stock-sdk",
+        "upstream": "tencent",
+        "rows": 120,
+        "firstTimestamp": 1769014800000,
+        "lastTimestamp": 1784044800000,
+        "triedProviders": [
+          "stock-sdk"
+        ]
+      }
+    },
+    {
+      "name": "live.intraday.US.1m",
+      "status": "observed",
+      "latencyMs": 896,
+      "observation": "Tencent Finance has no complete US minute history in the current closed-market window; the production route must retain cache or use a configured fallback."
+    },
+    {
+      "name": "drill.forced-primary-failure-falls-back-to-stock-sdk",
+      "status": "passed",
+      "latencyMs": 246,
+      "data": {
+        "simulatedFailure": "yahoo-finance",
+        "provider": "stock-sdk",
+        "upstream": "tencent",
+        "rows": 121,
+        "triedProviders": [
+          "yahoo-finance",
+          "stock-sdk"
+        ]
+      }
+    },
+    {
+      "name": "drill.failed-refresh-retains-real-history-snapshot",
+      "status": "passed",
+      "latencyMs": 258,
+      "data": {
+        "retainedRows": 121,
+        "retainedProvider": "stock-sdk",
+        "refreshError": "PROVIDER_UNAVAILABLE"
+      }
+    }
+  ],
+  "summary": {
+    "total": 9,
+    "passed": 8,
+    "observed": 1,
+    "failed": 0
+  }
+}

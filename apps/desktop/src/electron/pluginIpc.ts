@@ -23,7 +23,8 @@ export function registerPluginIpcHandlers(
     handlers.reportRuntimeFailure(pluginId, message),
   );
   ipcMain.handle(pluginIpcChannels.uninstall, (_event, pluginId: string) => handlers.uninstall(pluginId));
-  ipcMain.handle(pluginIpcChannels.readEnabledRuntimeModules, () => handlers.readEnabledRuntimeModules());
+  ipcMain.handle(pluginIpcChannels.getRuntimeSnapshot, () => handlers.getRuntimeSnapshot());
+  ipcMain.handle(pluginIpcChannels.runStrategy, (_event, pluginId: string, key: string, input) => handlers.runStrategy(pluginId, key, input));
 }
 
 function createElectronPluginDirectoryPicker(): PluginDirectoryPicker {

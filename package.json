@@ -18,6 +18,8 @@
     "test:plugin-loader": "node --test --experimental-strip-types packages/plugin-loader/tests/*.test.ts",
     "probe:longport:a-share": "node scripts/longport-a-share-probe.mjs",
     "probe:stock-sdk": "node --experimental-strip-types scripts/stock-sdk-provider-probe.mjs",
+    "drill:market-data": "node --experimental-strip-types scripts/market-data-stability-drill.mjs",
+    "smoke:plugin-runtime": "npm run build:electron -w @quant/desktop && node scripts/plugin-runtime-electron-smoke.mjs",
     "optimize:preset-strategies": "node --experimental-strip-types scripts/preset-strategy-parameter-sweep.mjs",
     "test:strategy-engine": "node --test --experimental-strip-types packages/strategy-engine/tests/*.test.ts",
     "test": "npm run test:api-client && npm run test:chart && npm run test:desktop && npm run test:pine-runtime && npm run test:plugin-loader && npm run test:strategy-engine",
