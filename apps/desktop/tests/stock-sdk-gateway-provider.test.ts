@@ -537,6 +537,21 @@ describe("Stock SDK provider operations", () => {
     assert.deepEqual(first, [{ code: "usnok.n", name: "Nokia", market: "us" }]);
     assert.deepEqual(second, first);
   });
+
+  it("lets Stock SDK complete a slow instrument search using its own request policy", async () => {
+    const operations = createStockSdkGatewayProviderOperations({
+      search: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 6_100));
+        return [{ code: "usnok.n", name: "Nokia", market: "us" }];
+      },
+      quotes: { cn: async () => [], hk: async () => [], us: async () => [] },
+      kline: { cn: async () => [], cnMinute: async () => [], hk: async () => [], hkMinute: async () => [], us: async () => [], usMinute: async () => [] },
+    });
+
+    const records = await operations.searchInstruments?.("NOK");
+
+    assert.deepEqual(records, [{ code: "usnok.n", name: "Nokia", market: "us" }]);
+  });
 });
 
 function createThrowingOperations(): StockSdkGatewayProviderOperations {

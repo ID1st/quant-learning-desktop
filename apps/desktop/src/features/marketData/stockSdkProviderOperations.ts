@@ -179,7 +179,10 @@ export function createStockSdkGatewayProviderOperations(
 
         for (let attempt = 0; attempt < 2; attempt += 1) {
           try {
-            const records = toRawRecords(await withRequestTimeout(sdk.search(query), "Stock SDK instrument search", 6_000));
+            // Stock SDK owns provider timeout and retry policy. A second, shorter
+            // deadline here can abort a healthy first search while its upstream
+            // request is still resolving in the Electron main process.
+            const records = toRawRecords(await sdk.search(query));
             instrumentSearchCache.set(normalizedQuery, { records, expiresAt: Date.now() + instrumentSearchCacheTtlMs });
             return records;
           } catch (error) {
