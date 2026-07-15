@@ -1,6 +1,6 @@
 import type { StrategyInput, StrategyOutput } from "@quant/strategy-engine";
 import type { InstalledPluginRecord, PluginManager } from "./pluginManager.ts";
-import { createPluginRuntimeHost, type PluginRuntimeHost } from "./pluginRuntimeHost.ts";
+import type { PluginRuntimeHost } from "./pluginRuntimeHost.ts";
 import type { PluginRuntimeSnapshot } from "./pluginRuntimeProtocol.ts";
 
 export type PluginIpcErrorCode = "PLUGIN_OPERATION_FAILED" | "PLUGIN_RUNTIME_UNAVAILABLE";
@@ -39,7 +39,7 @@ export const pluginIpcChannels = {
   runStrategy: "plugins:runStrategy",
 } as const;
 
-export function createPluginIpcHandlers(manager: PluginManager, runtime: PluginRuntimeHost = createPluginRuntimeHost({ manager })): PluginIpcHandlers {
+export function createPluginIpcHandlers(manager: PluginManager, runtime: PluginRuntimeHost): PluginIpcHandlers {
   return {
     async list() {
       return { ok: true, data: manager.list() };

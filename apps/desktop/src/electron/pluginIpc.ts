@@ -1,6 +1,7 @@
 import { dialog, ipcMain } from "electron";
 import { createPluginIpcHandlers, pluginIpcChannels, type PluginIpcHandlers } from "./pluginIpcContract.ts";
 import type { PluginManager } from "./pluginManager.ts";
+import { createPluginRuntimeHost } from "./pluginRuntimeHost.ts";
 
 export interface PluginDirectoryPicker {
   pickDirectory(): Promise<string | null>;
@@ -9,7 +10,7 @@ export interface PluginDirectoryPicker {
 export function registerPluginIpcHandlers(
   manager: PluginManager,
   directoryPicker: PluginDirectoryPicker = createElectronPluginDirectoryPicker(),
-  handlers: PluginIpcHandlers = createPluginIpcHandlers(manager),
+  handlers: PluginIpcHandlers = createPluginIpcHandlers(manager, createPluginRuntimeHost({ manager })),
 ) {
   ipcMain.handle(pluginIpcChannels.list, () => handlers.list());
   ipcMain.handle(pluginIpcChannels.installLocal, async () => {

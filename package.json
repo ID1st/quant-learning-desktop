@@ -19,6 +19,7 @@
     "probe:longport:a-share": "node scripts/longport-a-share-probe.mjs",
     "probe:stock-sdk": "node --experimental-strip-types scripts/stock-sdk-provider-probe.mjs",
     "drill:market-data": "node --experimental-strip-types scripts/market-data-stability-drill.mjs",
+    "smoke:market-data-search": "npm run build:electron -w @quant/desktop && node scripts/market-data-search-electron-smoke.mjs",
     "smoke:plugin-runtime": "npm run build:electron -w @quant/desktop && node scripts/plugin-runtime-electron-smoke.mjs",
     "optimize:preset-strategies": "node --experimental-strip-types scripts/preset-strategy-parameter-sweep.mjs",
     "test:strategy-engine": "node --test --experimental-strip-types packages/strategy-engine/tests/*.test.ts",
