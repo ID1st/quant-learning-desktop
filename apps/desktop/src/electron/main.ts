@@ -19,7 +19,7 @@ export function createMainWindowConfig(): DesktopWindowOptions {
     title: "量化学习桌面版",
     width: 1440,
     height: 960,
-    preloadEntry: join(__dirname, "../preload/preload.mjs"),
+    preloadEntry: join(__dirname, "../preload/preload.cjs"),
     rendererEntry: join(__dirname, "../renderer/index.html"),
   };
 }

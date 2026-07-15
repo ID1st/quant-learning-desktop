@@ -15,7 +15,7 @@ import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marke
 import type { AlphaFeedStreamConnectionState, AlphaFeedStreamMode } from "./alphaFeedStreamBridge";
 import { marketDataIpcChannels } from "./marketDataIpcContract";
 import type { MarketDataIpcBridge } from "./marketDataIpcContract";
-import { providerDataIpcChannels } from "./providerDataIpcContract";
+import { providerDataIpcChannels } from "./providerDataIpcChannels";
 import { pluginIpcChannels } from "./pluginIpcContract";
 import type { PluginIpcBridge } from "./pluginIpcContract";
 import type { AlphaFeedStreamCredentials } from "./secureCredentialStore";

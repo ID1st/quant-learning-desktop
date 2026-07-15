@@ -24,6 +24,9 @@ import {
   type LongPortBridgeQuoteSnapshotResult,
   type LongPortBridgeVerificationResult,
 } from "./longPortBridge.ts";
+import { providerDataIpcChannels } from "./providerDataIpcChannels.ts";
+
+export { providerDataIpcChannels } from "./providerDataIpcChannels.ts";
 
 export interface ProviderDataIpcHandlers {
   verifyAlphaFeedCredentials(credentials: AlphaFeedApiCredentials): Promise<AlphaFeedBridgeVerificationResult>;
@@ -61,19 +64,6 @@ export interface ProviderDataIpcDependencies {
 }
 
 const defaultAlphaFeedStreamSession = createAlphaFeedStreamSession();
-
-export const providerDataIpcChannels = {
-  verifyAlphaFeedCredentials: "providerData:verifyAlphaFeedCredentials",
-  fetchAlphaFeedQuoteSnapshot: "providerData:fetchAlphaFeedQuoteSnapshot",
-  fetchAlphaFeedHistoricalBars: "providerData:fetchAlphaFeedHistoricalBars",
-  fetchAlphaFeedIntradayBars: "providerData:fetchAlphaFeedIntradayBars",
-  connectAlphaFeedStream: "providerData:connectAlphaFeedStream",
-  readAlphaFeedStreamSnapshot: "providerData:readAlphaFeedStreamSnapshot",
-  disconnectAlphaFeedStream: "providerData:disconnectAlphaFeedStream",
-  verifyLongPortCredentials: "providerData:verifyLongPortCredentials",
-  fetchLongPortQuoteSnapshot: "providerData:fetchLongPortQuoteSnapshot",
-  fetchLongPortHistoricalBars: "providerData:fetchLongPortHistoricalBars",
-} as const;
 
 export function createProviderDataIpcHandlers(dependencies: ProviderDataIpcDependencies = {}): ProviderDataIpcHandlers {
   return {

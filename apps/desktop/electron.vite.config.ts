@@ -27,13 +27,18 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin({ exclude: Object.keys(packageAliases) })],
     resolve: {
       alias: packageAliases,
     },
     build: {
+      // Sandboxed preload scripts must be self-contained CommonJS files.
+      externalizeDeps: false,
       rollupOptions: {
         input: resolve(__dirname, "src/electron/preload.ts"),
+        output: {
+          format: "cjs",
+          entryFileNames: "preload.cjs",
+        },
       },
     },
   },
