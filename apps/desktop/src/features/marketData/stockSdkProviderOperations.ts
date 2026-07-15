@@ -15,6 +15,15 @@ export interface StockSdkGatewayProviderOperationsOptions {
   readonly tencentBars?: StockSdkTencentBarsOperations;
 }
 
+const instrumentSearchCacheTtlMs = 15 * 60_000;
+
+class StockSdkInstrumentSearchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StockSdkInstrumentSearchError";
+  }
+}
+
 interface StockSdkClient {
   search(keyword: string): Promise<readonly unknown[]>;
   readonly quotes: {
@@ -40,6 +49,8 @@ export function createStockSdkGatewayProviderOperations(
   let sdkPromise: Promise<StockSdkClient> | null = initialSdk ? Promise.resolve(initialSdk) : null;
   let klineUnavailableUntil = 0;
   let klineFailureMessage = "";
+  const instrumentSearchCache = new Map<string, { readonly records: readonly StockSdkRawRecord[]; readonly expiresAt: number }>();
+  const instrumentSearchInFlight = new Map<string, Promise<readonly StockSdkRawRecord[]>>();
   const tencentBars = options.tencentBars;
   const getSdk = () => {
     sdkPromise ??= createStockSdkClient();
@@ -151,8 +162,44 @@ export function createStockSdkGatewayProviderOperations(
       }
     },
     async searchInstruments(query) {
-      const sdk = await getSdk();
-      return toRawRecords(await sdk.search(query));
+      const normalizedQuery = query.trim().toUpperCase();
+      const cached = instrumentSearchCache.get(normalizedQuery);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.records;
+      }
+
+      const existing = instrumentSearchInFlight.get(normalizedQuery);
+      if (existing) {
+        return existing;
+      }
+
+      const pending = (async () => {
+        const sdk = await getSdk();
+        let lastError: unknown;
+
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            const records = toRawRecords(await withRequestTimeout(sdk.search(query), "Stock SDK instrument search", 6_000));
+            instrumentSearchCache.set(normalizedQuery, { records, expiresAt: Date.now() + instrumentSearchCacheTtlMs });
+            return records;
+          } catch (error) {
+            lastError = error;
+            if (attempt === 0 && isNetworkFailure(error)) {
+              await delay(200);
+              continue;
+            }
+          }
+          break;
+        }
+
+        if (cached) {
+          return cached.records;
+        }
+        const message = lastError instanceof Error ? lastError.message : String(lastError);
+        throw new StockSdkInstrumentSearchError(`Stock SDK instrument search failed: ${message}`);
+      })().finally(() => instrumentSearchInFlight.delete(normalizedQuery));
+      instrumentSearchInFlight.set(normalizedQuery, pending);
+      return pending;
     },
   };
 }
@@ -171,6 +218,10 @@ function withRequestTimeout<T>(request: Promise<T>, label: string, timeoutMs = 8
       clearTimeout(timeoutId);
     }
   });
+}
+
+function delay(milliseconds: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function toRawRecords(records: readonly unknown[]): readonly StockSdkRawRecord[] {

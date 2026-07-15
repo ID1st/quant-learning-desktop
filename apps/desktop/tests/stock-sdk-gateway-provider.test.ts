@@ -515,6 +515,28 @@ describe("Stock SDK provider operations", () => {
     await assert.rejects(() => operations.fetchHistoricalBars(request), /temporarily unavailable/);
     assert.equal(klineCalls, 1);
   });
+
+  it("retries a transient instrument search once and reuses the successful result", async () => {
+    let searchCalls = 0;
+    const operations = createStockSdkGatewayProviderOperations({
+      search: async () => {
+        searchCalls += 1;
+        if (searchCalls === 1) {
+          throw new Error("fetch failed: connection reset");
+        }
+        return [{ code: "usnok.n", name: "Nokia", market: "us" }];
+      },
+      quotes: { cn: async () => [], hk: async () => [], us: async () => [] },
+      kline: { cn: async () => [], cnMinute: async () => [], hk: async () => [], hkMinute: async () => [], us: async () => [], usMinute: async () => [] },
+    });
+
+    const first = await operations.searchInstruments?.("NOK");
+    const second = await operations.searchInstruments?.("nok");
+
+    assert.equal(searchCalls, 2);
+    assert.deepEqual(first, [{ code: "usnok.n", name: "Nokia", market: "us" }]);
+    assert.deepEqual(second, first);
+  });
 });
 
 function createThrowingOperations(): StockSdkGatewayProviderOperations {

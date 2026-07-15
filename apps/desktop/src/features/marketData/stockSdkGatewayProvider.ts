@@ -530,6 +530,10 @@ function classifyStockSdkFailure(message: string): MarketDataProviderHealthStatu
 function formatStockSdkFailure(message: string) {
   const lower = message.toLowerCase();
 
+  if (lower.includes("stock sdk instrument search")) {
+    return "证券搜索暂时不可用，请稍后重试。";
+  }
+
   if (lower.includes("401") || lower.includes("403") || lower.includes("unauthorized") || lower.includes("permission")) {
     return "Stock SDK 请求权限不足。";
   }
