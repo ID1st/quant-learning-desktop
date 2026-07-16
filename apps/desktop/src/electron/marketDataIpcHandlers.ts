@@ -132,7 +132,57 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
         yahooFinanceProvider: dependencies.yahooFinanceProvider,
       });
       const gateway = createMarketDataGateway(createMarketDataProviderRegistry(providers), ["stock-sdk"]);
-      return toIpcGatewayResult(await gateway.searchInstruments(request.query, request.markets));
+      const searchResult = await gateway.searchInstruments(request.query, request.markets);
+      if (searchResult.ok) {
+        return toIpcGatewayResult(searchResult);
+      }
+
+      const exactSymbol = toExactSearchCandidate(request.query, request.markets);
+      if (!exactSymbol) {
+        return toIpcGatewayResult(searchResult);
+      }
+
+      // Name/pinyin search is an optional upstream capability. A code lookup is
+      // deterministic, so validate it through the normal quote gateway instead
+      // of making the user wait for the name-search endpoint to recover.
+      // Use a separate provider instance: a failed optional search has already
+      // marked the search provider unhealthy and must not suppress quote lookup.
+      const quoteProviders = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
+        credentialStore,
+        stockSdkOperations,
+        yahooFinanceProvider: dependencies.yahooFinanceProvider,
+      });
+      const quoteGateway = createMarketDataGateway(
+        createMarketDataProviderRegistry(quoteProviders),
+        createQuoteSnapshotPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true),
+      );
+      const quoteResult = await quoteGateway.fetchQuoteSnapshot([exactSymbol]);
+      if (!quoteResult.ok) {
+        return toIpcGatewayResult(searchResult);
+      }
+      const quote = quoteResult.data[0];
+      if (!quote) {
+        return toIpcGatewayResult(searchResult);
+      }
+      return {
+        ok: true,
+        data: [{
+          provider: quoteResult.provider,
+          market: exactSymbol.market,
+          symbol: exactSymbol.symbol,
+          name: quote.name ?? exactSymbol.name ?? exactSymbol.symbol,
+        }],
+        meta: {
+          provider: quoteResult.provider,
+          health: quoteResult.health,
+          servedAt: new Date().toISOString(),
+          fallback: {
+            activeProvider: quoteResult.provider,
+            fallbackFrom: quoteResult.triedProviders.find((provider) => provider !== quoteResult.provider),
+            triedProviders: quoteResult.triedProviders,
+          },
+        },
+      } as const;
     },
     async connectQuoteStream(request) {
       const credentials = credentialStore.readAlphaFeedStreamCredentials();
@@ -232,6 +282,34 @@ function createIntradayBarsPriority(
   return stockSdkPrimaryEnabled
     ? ["stock-sdk", "alphafeed-rest", "longbridge", "yahoo-finance"]
     : ["alphafeed-rest", "longbridge", "yahoo-finance"];
+}
+
+function toExactSearchCandidate(query: string, markets?: readonly ("US" | "HK" | "CN")[]): MarketDataProviderRequestItem | null {
+  const input = query.trim();
+  if (!input || (input !== input.toUpperCase() && input !== input.toLowerCase())) {
+    return null;
+  }
+
+  const value = input.toUpperCase();
+  const allowedMarkets = markets ?? ["US", "HK", "CN"];
+
+  if (allowedMarkets.includes("CN") && /^\d{6}(?:\.(?:SH|SZ))?$/u.test(value)) {
+    const code = value.replace(/\.(?:SH|SZ)$/u, "");
+    const exchange = value.endsWith(".SZ") || code.startsWith("0") || code.startsWith("3") ? "SZ" : "SH";
+    return { market: "CN", symbol: `${code}.${exchange}`, name: code };
+  }
+
+  if (allowedMarkets.includes("HK") && /^\d{5}(?:\.HK)?$/u.test(value)) {
+    const code = value.replace(/\.HK$/u, "");
+    return { market: "HK", symbol: `${code}.HK`, name: code };
+  }
+
+  if (allowedMarkets.includes("US") && /^[A-Z][A-Z0-9.-]{0,11}(?:\.US)?$/u.test(value)) {
+    const symbol = value.endsWith(".US") ? value : `${value}.US`;
+    return { market: "US", symbol, name: symbol.replace(/\.US$/u, "") };
+  }
+
+  return null;
 }
 
 function toIpcGatewayResult<Data>(result: MarketDataGatewayResult<Data>) {

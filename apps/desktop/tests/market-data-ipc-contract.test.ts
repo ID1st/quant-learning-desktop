@@ -125,6 +125,88 @@ test("market data IPC handlers search instruments through the primary provider",
   assert.deepEqual(result.data, [{ provider: "stock-sdk", market: "US", symbol: "AAPL.US", name: "Apple" }]);
 });
 
+test("market data IPC handlers validate exact US, HK and CN codes through quote fallback", async () => {
+  const quoteRequests: Array<{ market: string; providerSymbol: string }> = [];
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createEmptyCredentialStore(),
+    stockSdkOperations: {
+      fetchQuoteSnapshot: async (requests) => {
+        const request = requests[0];
+        if (!request) return [];
+
+        quoteRequests.push({ market: request.market, providerSymbol: request.providerSymbol });
+        if (request.market === "US") {
+          return [{
+            code: "AAPL", name: "Apple", price: 210, previousClose: 208,
+            open: 209, high: 211, low: 207, volume: 1, amount: 1, time: "2026-07-06 16:00:01",
+          }];
+        }
+        if (request.market === "HK") {
+          return [{
+            code: "00700", name: "Tencent", lastPrice: 83.2, prevClose: 82,
+            open: 82, high: 84, low: 81, volume: 100, amount: 8320, time: "2026/07/07 16:08:52",
+          }];
+        }
+        return [{
+          code: "sh600519", name: "Kweichow Moutai", price: 1468.1, previousClose: 1460,
+          open: 1462, high: 1475, low: 1458, volume: 1000, amount: 1_468_100, time: "2026/07/07 15:00:00",
+        }];
+      },
+      fetchHistoricalBars: async () => [],
+      fetchIntradayBars: async () => [],
+      searchInstruments: async () => {
+        throw new Error("search upstream unavailable");
+      },
+    },
+  });
+
+  const cases = [
+    { query: "aapl", markets: ["US"] as const, expected: { market: "US", symbol: "AAPL.US", name: "Apple" } },
+    { query: "00700", markets: ["HK"] as const, expected: { market: "HK", symbol: "00700.HK", name: "Tencent" } },
+    { query: "600519", markets: ["CN"] as const, expected: { market: "CN", symbol: "600519.SH", name: "Kweichow Moutai" } },
+  ];
+
+  for (const entry of cases) {
+    const result = await handlers.searchInstruments({
+      context: { source: "chart" }, query: entry.query, markets: entry.markets,
+    });
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.deepEqual(result.data, [{ provider: "stock-sdk", ...entry.expected }]);
+    }
+  }
+
+  assert.deepEqual(quoteRequests, [
+    { market: "US", providerSymbol: "AAPL" },
+    { market: "HK", providerSymbol: "00700" },
+    { market: "CN", providerSymbol: "sh600519" },
+  ]);
+});
+
+test("market data IPC handlers do not use quote fallback for name searches", async () => {
+  let quoteCalls = 0;
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: createEmptyCredentialStore(),
+    stockSdkOperations: {
+      fetchQuoteSnapshot: async () => {
+        quoteCalls += 1;
+        return [];
+      },
+      fetchHistoricalBars: async () => [],
+      fetchIntradayBars: async () => [],
+      searchInstruments: async () => {
+        throw new Error("search upstream unavailable");
+      },
+    },
+  });
+
+  const result = await handlers.searchInstruments({
+    context: { source: "chart" }, query: "Apple", markets: ["US"],
+  });
+  assert.equal(result.ok, false);
+  assert.equal(quoteCalls, 0);
+});
+
 test("market data IPC handlers expose provider status from secure main-side provider registry", async () => {
   const handlers = createMarketDataIpcHandlers({
     credentialStore: createCredentialStoreWithFallbackCredentials(),
