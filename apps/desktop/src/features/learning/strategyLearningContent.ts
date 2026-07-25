@@ -11,6 +11,17 @@ export interface StrategyLearningParameter {
   readonly description: string;
 }
 
+export interface StrategyLearningSource {
+  readonly label: string;
+  readonly url: string;
+  readonly license: string;
+}
+
+export interface StrategyLearningWorkspaceAction {
+  readonly label: string;
+  readonly route: "chart";
+}
+
 export interface StrategyLearningEntry {
   readonly id: string;
   readonly category: StrategyLearningCategory;
@@ -23,6 +34,9 @@ export interface StrategyLearningEntry {
   readonly parameters: readonly StrategyLearningParameter[];
   readonly chartOutputs: readonly string[];
   readonly risks: readonly string[];
+  readonly directoryLabel?: string;
+  readonly source?: StrategyLearningSource;
+  readonly workspaceAction?: StrategyLearningWorkspaceAction;
 }
 
 export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
@@ -69,6 +83,96 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
     ],
     chartOutputs: ["上行/下行分段趋势基准线", "趋势转变箭头", "连续拒绝标记", "信号参考线", "目标 1 / 目标 2 / 目标 3", "风险线"],
     risks: ["趋势指标有滞后性，不能避免突发消息或跳空风险。", "目标位是研究参考，不代表价格一定会触及。"],
+  },
+  {
+    id: "smart-money-concepts",
+    category: "strategy",
+    title: "Smart Money Concepts（SMC）",
+    subtitle: "以已确认的价格结构、流动性与供需区域解释行情，绘制 BOS、CHoCH、订单块、FVG 和多周期高低点。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["分时", "1m", "5m", "15m", "30m", "1h", "1d", "1w"],
+    placement: "主图叠加",
+    directoryLabel: "结构图层指标",
+    workspaceAction: { label: "在超级图表中配置", route: "chart" },
+    sections: [
+      {
+        title: "市场结构",
+        content: "内部结构用于观察较短波段，摆动结构用于识别更高层级方向。价格突破已确认枢轴时绘制 BOS；当突破方向与此前结构趋势相反时绘制 CHoCH，并同步标注 HH、HL、LH、LL 以及 Strong / Weak High / Low。",
+      },
+      {
+        title: "供需与失衡",
+        content: "订单块从结构突破前的来源蜡烛提取，分为内部和摆动两级，并使用 ATR(200) 或累计均幅过滤异常波动。FVG 表示三根 K 线形成的价格失衡；订单块被价格失效、FVG 被回补后会从当前有效图层移除。",
+      },
+      {
+        title: "流动性与多周期",
+        content: "EQH / EQL 连接接近的已确认高点或低点，用于观察潜在流动性区域。前日、前周和前月高低点只读取已确认周期数据；Premium、Equilibrium、Discount 区域帮助描述价格在当前摆动区间中的相对位置。",
+      },
+    ],
+    parameters: [
+      {
+        name: "显示模式",
+        defaultValue: "Historical / Colored",
+        description: "Historical 保留受对象上限约束的历史结构；Present 只显示各类别最近的有效对象。可切换彩色或单色主题。",
+      },
+      {
+        name: "内部结构",
+        defaultValue: "全部 BOS / CHoCH",
+        description: "控制较短层级结构、方向过滤、标签大小以及内部订单块的显示数量。",
+      },
+      {
+        name: "摆动结构",
+        defaultValue: "全部 BOS / CHoCH",
+        description: "控制摆动枢轴、HH / HL / LH / LL、Strong / Weak High / Low 和摆动订单块。",
+      },
+      {
+        name: "订单块过滤",
+        defaultValue: "ATR(200)",
+        description: "ATR 需要至少 200 根 K 线完成预热；不足时页面和图表明确显示“ATR 预热中”，不会静默切换算法。",
+      },
+      {
+        name: "EQH / EQL",
+        defaultValue: "长度 3 / 阈值 0.1",
+        description: "用独立枢轴长度确认相近高低点；阈值越小，对价格接近程度的要求越严格。",
+      },
+      {
+        name: "FVG",
+        defaultValue: "关闭 / 自动阈值",
+        description: "开启后绘制看涨或看跌双区块，可选择图表周期或补充周期，并设置向右延伸长度。",
+      },
+      {
+        name: "多周期高低点",
+        defaultValue: "前日 / 前周 / 前月关闭",
+        description: "开启后只使用已经收盘确认的日、周、月数据，避免历史前视。",
+      },
+      {
+        name: "趋势蜡烛",
+        defaultValue: "关闭",
+        description: "按当前 SMC 结构趋势为蜡烛着色；与其他图层冲突时由最高可见层级决定。",
+      },
+    ],
+    chartOutputs: [
+      "内部 / 摆动 BOS 与 CHoCH",
+      "HH / HL / LH / LL",
+      "Strong / Weak High / Low",
+      "内部 / 摆动订单块",
+      "EQH / EQL",
+      "FVG 失衡区",
+      "Premium / Equilibrium / Discount",
+      "前日 / 前周 / 前月高低点",
+      "趋势蜡烛",
+      "16 类结构提醒",
+    ],
+    risks: [
+      "SMC 在本系统中是图层型指标：只产生结构、区域、提醒和事件统计，不生成交易、收益率或回测 PnL。",
+      "枢轴必须等待右侧 K 线确认，因此结构标记天然晚于极值出现；这是避免历史前视的必要条件。",
+      "结构、订单块与流动性区域是研究解释，不等同于确定的入场、止损或目标建议。",
+      "当前实现按 CC BY-NC-SA 4.0 用于本地非商业研究；商业发布需要另行取得授权。",
+    ],
+    source: {
+      label: "Smart Money Concepts (SMC) [LuxAlgo]",
+      url: "https://www.tradingview.com/script/CnB3fSph-Smart-Money-Concepts-SMC-LuxAlgo/",
+      license: "CC BY-NC-SA 4.0",
+    },
   },
   {
     id: "sma",

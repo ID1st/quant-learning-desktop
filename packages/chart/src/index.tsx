@@ -13,6 +13,12 @@ import {
   type ChartVisibleRange,
 } from "./viewportMath.ts";
 import { getProjectedPriceLabelLayout } from "./priceLabelLayout.ts";
+import {
+  getChartLabelPosition,
+  getChartLineDasharray,
+  type ChartLabelAnchor,
+  type ChartLineStyle,
+} from "./strategyLayerStyle.ts";
 
 export {
   clampChartVisibleRange,
@@ -54,7 +60,20 @@ export type ChartDisplayMode = "candlestick" | "line";
 export type ChartLayerTone = "buy" | "sell" | "range" | "risk" | "target" | "stop" | "neutral";
 export type ChartTrendTone = "bullish" | "bearish" | "neutral";
 
-export type ChartLayerElement =
+export interface ChartLayerVisualBase {
+  visible?: boolean;
+  zIndex?: number;
+  color?: string;
+  opacity?: number;
+  lineStyle?: ChartLineStyle;
+  textSize?: "tiny" | "small" | "normal";
+  labelAnchor?: ChartLabelAnchor;
+  extendRight?: boolean;
+  placement?: "under-candles" | "over-candles";
+}
+
+export type ChartLayerElement = ChartLayerVisualBase &
+  (
   | {
       id: string;
       kind: "signal-marker";
@@ -62,7 +81,6 @@ export type ChartLayerElement =
       price: number;
       direction: "up" | "down";
       tone: Extract<ChartLayerTone, "buy" | "sell" | "neutral">;
-      visible?: boolean;
     }
   | {
       id: string;
@@ -72,14 +90,12 @@ export type ChartLayerElement =
       tone: Extract<ChartLayerTone, "target" | "stop" | "range" | "neutral">;
       fromTimestamp?: number;
       toTimestamp?: number;
-      visible?: boolean;
     }
   | {
       id: string;
       kind: "trend-line";
       points: Array<{ timestamp: number; price: number }>;
       tone: ChartTrendTone;
-      visible?: boolean;
     }
   | {
       id: string;
@@ -90,7 +106,8 @@ export type ChartLayerElement =
       tone: Extract<ChartLayerTone, "range" | "risk" | "target" | "stop">;
       fromTimestamp?: number;
       toTimestamp?: number;
-      visible?: boolean;
+      fillColor?: string;
+      borderColor?: string;
     }
   | {
       id: string;
@@ -98,8 +115,15 @@ export type ChartLayerElement =
       timestamp: number;
       price: number;
       text: string;
-      visible?: boolean;
-    };
+      tone?: "info" | "warning" | "success";
+    }
+  | {
+      id: string;
+      kind: "candle-style";
+      timestamp: number;
+      color: string;
+    }
+  );
 
 export interface ChartLayer {
   strategyId: string;
@@ -135,6 +159,9 @@ export interface ChartViewportProps {
   showPriceLabels?: boolean;
   showCurrentPriceLine?: boolean;
   displayMode?: ChartDisplayMode;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  initialVisibleBars?: number;
   resetViewKey?: number;
   focusLatestKey?: number;
   lockPriceScale?: boolean;
@@ -248,9 +275,9 @@ function isFiniteNumber(value: number) {
   return Number.isFinite(value);
 }
 
-function createDefaultVisibleRange(candleCount: number): ChartVisibleRange {
+function createDefaultVisibleRange(candleCount: number, visibleBarCount = 96): ChartVisibleRange {
   return {
-    start: Math.max(0, candleCount - 96),
+    start: Math.max(0, candleCount - Math.max(12, visibleBarCount)),
     end: candleCount,
   };
 }
@@ -290,6 +317,9 @@ export function ChartViewport({
   showPriceLabels = true,
   showCurrentPriceLine = true,
   displayMode = "candlestick",
+  canvasWidth = 980,
+  canvasHeight = 520,
+  initialVisibleBars = 96,
   resetViewKey = 0,
   focusLatestKey = 0,
   lockPriceScale = false,
@@ -303,8 +333,8 @@ export function ChartViewport({
   const generatedCandles = useMemo(() => generateCandles(context), [context.symbol, context.market, context.timeframe]);
   const candles = providedCandles ?? generatedCandles;
   const contextKey = `${context.market}:${context.symbol}:${context.timeframe}`;
-  const [visibleRange, setVisibleRange] = useState<ChartVisibleRange>(() => createDefaultVisibleRange(candles.length));
-  const [scaleDomain, setScaleDomain] = useState<ChartScaleDomain>(() => calculateScaleDomain(candles, createDefaultVisibleRange(candles.length)));
+  const [visibleRange, setVisibleRange] = useState<ChartVisibleRange>(() => createDefaultVisibleRange(candles.length, initialVisibleBars));
+  const [scaleDomain, setScaleDomain] = useState<ChartScaleDomain>(() => calculateScaleDomain(candles, createDefaultVisibleRange(candles.length, initialVisibleBars)));
   const [hoverIndex, setHoverIndex] = useState<number | null>(candles.length - 1);
   const previousChartStateRef = useRef({
     candleCount: candles.length,
@@ -332,8 +362,8 @@ export function ChartViewport({
   const [priceScaleFactor, setPriceScaleFactor] = useState(1);
   const [pricePanOffset, setPricePanOffset] = useState(0);
 
-  const width = 980;
-  const height = 520;
+  const width = canvasWidth;
+  const height = canvasHeight;
   const hasCandles = candles.length > 0;
   const minimumInteractiveCandleCount = 12;
 
@@ -349,7 +379,7 @@ export function ChartViewport({
     );
 
     if (shouldResetScale || shouldFocusLatest || (previous.candleCount === 0 && candles.length > 0) || shouldInitializeAfterSparseLoad) {
-      const nextRange = createDefaultVisibleRange(candles.length);
+      const nextRange = createDefaultVisibleRange(candles.length, initialVisibleBars);
       setVisibleRange(nextRange);
       setScaleDomain(calculateScaleDomain(candles, nextRange));
       setHoverIndex(candles.length > 0 ? candles.length - 1 : null);
@@ -374,7 +404,7 @@ export function ChartViewport({
       return current >= previous.candleCount - 1 ? candles.length - 1 : Math.min(current, candles.length - 1);
     });
     previousChartStateRef.current = { candleCount: candles.length, contextKey, resetViewKey, focusLatestKey };
-  }, [candles, contextKey, focusLatestKey, resetViewKey]);
+  }, [candles, contextKey, focusLatestKey, initialVisibleBars, resetViewKey]);
 
   if (loadingState || !hasCandles) {
     return (
@@ -415,12 +445,12 @@ export function ChartViewport({
     );
   }
 
-  const chartTop = 34;
-  const priceHeight = 338;
-  const volumeTop = 410;
-  const volumeHeight = 76;
-  const paddingX = 54;
-  const priceAxisWidth = 86;
+  const chartTop = (34 / 520) * height;
+  const priceHeight = (338 / 520) * height;
+  const volumeTop = (410 / 520) * height;
+  const volumeHeight = (76 / 520) * height;
+  const paddingX = (54 / 980) * width;
+  const priceAxisWidth = (86 / 980) * width;
   const plotRight = width - priceAxisWidth;
   const safeVisibleRange = clampChartVisibleRange(visibleRange, candles.length, 12, getChartFuturePaddingBars(visibleRange));
   const visibleCandles = candles.slice(safeVisibleRange.start, safeVisibleRange.end);
@@ -462,7 +492,7 @@ export function ChartViewport({
 
     return nearestIndex >= safeVisibleRange.start && nearestIndex < safeVisibleRange.end ? indexToX(nearestIndex) : null;
   };
-  const timedElementBounds = (fromTimestamp?: number, toTimestamp?: number) => {
+  const timedElementBounds = (fromTimestamp?: number, toTimestamp?: number, extendRight = false) => {
     const visibleStartTimestamp = visibleCandles[0]?.timestamp;
     const visibleEndTimestamp = visibleCandles[visibleCandles.length - 1]?.timestamp;
     if (typeof visibleStartTimestamp !== "number" || !Number.isFinite(visibleStartTimestamp) ||
@@ -475,7 +505,7 @@ export function ChartViewport({
     const x1 = !hasFromTimestamp || fromTimestamp <= visibleStartTimestamp
       ? paddingX
       : timestampToX(fromTimestamp);
-    const x2 = !hasToTimestamp || toTimestamp >= visibleEndTimestamp
+    const x2 = extendRight || !hasToTimestamp || toTimestamp >= visibleEndTimestamp
       ? plotRight
       : timestampToX(toTimestamp);
     if (x1 === null || x2 === null) return null;
@@ -633,7 +663,7 @@ export function ChartViewport({
     }
   };
   const resetInteractionView = () => {
-    const nextRange = createDefaultVisibleRange(candles.length);
+    const nextRange = createDefaultVisibleRange(candles.length, initialVisibleBars);
     setVisibleRange(nextRange);
     setScaleDomain(calculateScaleDomain(candles, nextRange));
     setHoverIndex(candles.length - 1);
@@ -659,6 +689,219 @@ export function ChartViewport({
       </section>
     );
   }
+
+  const renderLayers = [
+    ...strategyLayers.map((layer): ChartRenderLayer => ({
+      id: layer.strategyId,
+      name: layer.strategyName,
+      source: "strategy",
+      enabled: layer.enabled,
+      visible: true,
+      zIndex: layer.zIndex,
+      elements: layer.elements,
+    })),
+    ...layers,
+  ]
+    .filter((layer) => layer.enabled && layer.visible)
+    .sort((left, right) => left.zIndex - right.zIndex);
+  const textSize = (size: ChartLayerVisualBase["textSize"]) =>
+    size === "tiny" ? 10 : size === "small" ? 11 : 12;
+  const candleStyleByTimestamp = new Map<number, ChartLayerElement & { kind: "candle-style" }>();
+  renderLayers.forEach((layer) => {
+    [...layer.elements]
+      .sort((left, right) => (left.zIndex ?? 0) - (right.zIndex ?? 0))
+      .forEach((element) => {
+        if (element.kind === "candle-style" && element.visible !== false) {
+          candleStyleByTimestamp.set(element.timestamp, element);
+        }
+      });
+  });
+  const renderChartLayers = (placement: "under-candles" | "over-candles") =>
+    showStrategyLayers &&
+    renderLayers.flatMap((layer) =>
+      [...layer.elements]
+        .sort((left, right) => (left.zIndex ?? 0) - (right.zIndex ?? 0))
+        .map((element) => {
+          if (
+            element.visible === false ||
+            element.kind === "candle-style" ||
+            (element.placement ?? "under-candles") !== placement
+          ) {
+            return null;
+          }
+
+          if (element.kind === "band") {
+            if (!isFiniteNumber(element.fromPrice) || !isFiniteNumber(element.toPrice)) {
+              return null;
+            }
+
+            const y = priceToY(Math.max(element.fromPrice, element.toPrice));
+            const bandHeight = Math.max(2, Math.abs(priceToY(element.fromPrice) - priceToY(element.toPrice)));
+            const bounds = timedElementBounds(element.fromTimestamp, element.toTimestamp, element.extendRight);
+            if (!bounds) return null;
+            return (
+              <rect
+                className={`strategy-band ${element.tone}`}
+                data-element-id={element.id}
+                data-strategy-id={layer.id}
+                height={bandHeight}
+                key={`${placement}-${layer.id}-${element.id}`}
+                style={{
+                  fill: element.fillColor ?? element.color,
+                  fillOpacity: element.opacity,
+                  stroke: element.borderColor ?? element.color,
+                  strokeOpacity: element.opacity,
+                }}
+                width={bounds.x2 - bounds.x1}
+                x={bounds.x1}
+                y={y}
+              />
+            );
+          }
+
+          if (element.kind === "price-line") {
+            if (!isFiniteNumber(element.price)) {
+              return null;
+            }
+
+            const y = priceToY(element.price);
+            const isProjected = isFiniteNumber(element.fromTimestamp ?? Number.NaN) && !element.labelAnchor;
+            const bounds = timedElementBounds(element.fromTimestamp, element.toTimestamp, element.extendRight);
+            if (!bounds) return null;
+            const hasLabel = Boolean(element.label);
+            const projectedLabelLayout = hasLabel && isProjected && !element.labelAnchor
+              ? getProjectedPriceLabelLayout({
+                label: element.label!,
+                lineEndX: bounds.x2,
+                priceY: y,
+                plotLeft: paddingX,
+                plotRight,
+                plotTop: chartTop,
+                plotBottom: volumeTop - 4,
+              })
+              : null;
+            const anchoredLabel = hasLabel && element.labelAnchor
+              ? getChartLabelPosition(element.labelAnchor, bounds, y)
+              : null;
+
+            return (
+              <g
+                className={`strategy-price-line ${element.tone}${isProjected ? " projected" : ""}`}
+                data-element-id={element.id}
+                data-strategy-id={layer.id}
+                key={`${placement}-${layer.id}-${element.id}`}
+                onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
+              >
+                <line
+                  style={{
+                    stroke: element.color,
+                    strokeDasharray: getChartLineDasharray(element.lineStyle),
+                    strokeOpacity: element.opacity,
+                  }}
+                  x1={bounds.x1}
+                  x2={bounds.x2}
+                  y1={y}
+                  y2={y}
+                />
+                {projectedLabelLayout && <rect height={24} rx={3} width={projectedLabelLayout.width} x={projectedLabelLayout.x} y={projectedLabelLayout.y} />}
+                {hasLabel && (
+                  <text
+                    style={{
+                      fill: element.color,
+                      fontSize: textSize(element.textSize),
+                      opacity: element.opacity,
+                    }}
+                    textAnchor={anchoredLabel?.textAnchor}
+                    x={anchoredLabel?.x ?? (projectedLabelLayout ? projectedLabelLayout.x + projectedLabelLayout.width - 7 : bounds.x2 - 8)}
+                    y={anchoredLabel?.y ?? (projectedLabelLayout ? projectedLabelLayout.y + 16 : y - 6)}
+                  >
+                    {element.label}
+                  </text>
+                )}
+              </g>
+            );
+          }
+
+          if (element.kind === "trend-line") {
+            const trendPoints = element.points
+              .filter((point) => isFiniteNumber(point.timestamp) && isFiniteNumber(point.price))
+              .map((point) => ({ x: timestampToX(point.timestamp), y: priceToY(point.price) }));
+            const visibleTrendPoints = trendPoints.filter((point): point is { x: number; y: number } => point.x !== null);
+
+            if (visibleTrendPoints.length < 2) {
+              return null;
+            }
+
+            return (
+              <g key={`${placement}-${layer.id}-${element.id}`}>
+                <path
+                  className={`strategy-trend-line ${element.tone}`}
+                  d={createSmoothPath(visibleTrendPoints)}
+                  style={{
+                    fill: "none",
+                    stroke: element.color,
+                    strokeDasharray: getChartLineDasharray(element.lineStyle),
+                    strokeOpacity: element.opacity,
+                  }}
+                />
+                {layer.source === "drawing" && visibleTrendPoints.map((point, pointIndex) => <circle className="drawing-handle" cx={point.x} cy={point.y} key={`${element.id}-${pointIndex}`} onPointerDown={(event) => beginDrawingDrag(event, element.id, pointIndex)} r="6" />)}
+              </g>
+            );
+          }
+
+          if (element.kind === "text") {
+            const x = timestampToX(element.timestamp);
+            if (x === null || !isFiniteNumber(element.price)) {
+              return null;
+            }
+            const priceY = priceToY(element.price);
+            const anchor = getChartLabelPosition(element.labelAnchor, { x1: x, x2: x }, priceY);
+            return (
+              <text
+                className="chart-text-annotation"
+                data-element-id={element.id}
+                data-strategy-id={layer.id}
+                key={`${placement}-${layer.id}-${element.id}`}
+                onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
+                style={{
+                  fill: element.color,
+                  fontSize: textSize(element.textSize),
+                  opacity: element.opacity,
+                }}
+                textAnchor={anchor.textAnchor}
+                x={anchor.x}
+                y={anchor.y}
+              >
+                {element.text}
+              </text>
+            );
+          }
+
+          if (!isFiniteNumber(element.timestamp) || !isFiniteNumber(element.price)) {
+            return null;
+          }
+
+          const x = timestampToX(element.timestamp);
+          if (x === null) {
+            return null;
+          }
+          const y = priceToY(element.price);
+          const points =
+            element.direction === "up"
+              ? `${x},${y - 18} ${x - 8},${y - 3} ${x + 8},${y - 3}`
+              : `${x},${y + 18} ${x - 8},${y + 3} ${x + 8},${y + 3}`;
+
+          return (
+            <g
+              className={`strategy-signal-marker ${element.tone}`}
+              key={`${placement}-${layer.id}-${element.id}`}
+              style={{ opacity: element.opacity }}
+            >
+              <polygon points={points} style={{ fill: element.color }} />
+            </g>
+          );
+        }),
+    );
 
   return (
     <section className="chart-viewport" aria-label={`${context.symbol} ${context.timeframe} K 线图`}>
@@ -762,137 +1005,9 @@ export function ChartViewport({
             return <line className="chart-grid-line" key={`v-${index}`} x1={x} x2={x} y1={chartTop} y2={volumeTop + volumeHeight} />;
           })}
 
-        {chartDepthPath && <path className="chart-depth" d={chartDepthPath} />}
+        {displayMode === "line" && chartDepthPath && <path className="chart-depth" d={chartDepthPath} />}
 
-        {showStrategyLayers &&
-          [...strategyLayers.map((layer): ChartRenderLayer => ({
-            id: layer.strategyId,
-            name: layer.strategyName,
-            source: "strategy",
-            enabled: layer.enabled,
-            visible: true,
-            zIndex: layer.zIndex,
-            elements: layer.elements,
-          })), ...layers]
-            .filter((layer) => layer.enabled && layer.visible)
-            .sort((left, right) => left.zIndex - right.zIndex)
-            .flatMap((layer) =>
-              layer.elements.map((element) => {
-                if (element.visible === false) {
-                  return null;
-                }
-
-                if (element.kind === "band") {
-                  if (!isFiniteNumber(element.fromPrice) || !isFiniteNumber(element.toPrice)) {
-                    return null;
-                  }
-
-                  const y = priceToY(Math.max(element.fromPrice, element.toPrice));
-                  const bandHeight = Math.max(2, Math.abs(priceToY(element.fromPrice) - priceToY(element.toPrice)));
-                  const bounds = timedElementBounds(element.fromTimestamp, element.toTimestamp);
-                  if (!bounds) return null;
-                  return (
-                    <rect
-                      className={`strategy-band ${element.tone}`}
-                      data-element-id={element.id}
-                      data-strategy-id={layer.id}
-                      height={bandHeight}
-                      key={`${layer.id}-${element.id}`}
-                      width={bounds.x2 - bounds.x1}
-                      x={bounds.x1}
-                      y={y}
-                    />
-                  );
-                }
-
-                if (element.kind === "price-line") {
-                  if (!isFiniteNumber(element.price)) {
-                    return null;
-                  }
-
-                  const y = priceToY(element.price);
-                  const isProjected = isFiniteNumber(element.fromTimestamp ?? Number.NaN);
-                  const bounds = timedElementBounds(element.fromTimestamp, element.toTimestamp);
-                  if (!bounds) return null;
-                  const hasLabel = Boolean(element.label);
-                  const projectedLabelLayout = hasLabel && isProjected
-                    ? getProjectedPriceLabelLayout({
-                      label: element.label!,
-                      lineEndX: bounds.x2,
-                      priceY: y,
-                      plotLeft: paddingX,
-                      plotRight,
-                      plotTop: chartTop,
-                      plotBottom: volumeTop - 4,
-                    })
-                    : null;
-
-                  return (
-                    <g
-                      className={`strategy-price-line ${element.tone}${isProjected ? " projected" : ""}`}
-                      data-element-id={element.id}
-                      data-strategy-id={layer.id}
-                      key={`${layer.id}-${element.id}`}
-                      onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
-                    >
-                      <line x1={bounds.x1} x2={bounds.x2} y1={y} y2={y} />
-                      {projectedLabelLayout && <rect height={24} rx={3} width={projectedLabelLayout.width} x={projectedLabelLayout.x} y={projectedLabelLayout.y} />}
-                      {hasLabel && (
-                        <text x={projectedLabelLayout ? projectedLabelLayout.x + projectedLabelLayout.width - 7 : bounds.x2 - 8} y={projectedLabelLayout ? projectedLabelLayout.y + 16 : y - 6}>
-                          {element.label}
-                        </text>
-                      )}
-                    </g>
-                  );
-                }
-
-                if (element.kind === "trend-line") {
-                  const trendPoints = element.points
-                    .filter((point) => isFiniteNumber(point.timestamp) && isFiniteNumber(point.price))
-                    .map((point) => ({ x: timestampToX(point.timestamp), y: priceToY(point.price) }));
-                  const visibleTrendPoints = trendPoints.filter((point): point is { x: number; y: number } => point.x !== null);
-
-                  if (visibleTrendPoints.length < 2) {
-                    return null;
-                  }
-
-                  return (
-                    <g key={`${layer.id}-${element.id}`}>
-                      <path className={`strategy-trend-line ${element.tone}`} d={createSmoothPath(visibleTrendPoints)} />
-                      {layer.source === "drawing" && visibleTrendPoints.map((point, pointIndex) => <circle className="drawing-handle" cx={point.x} cy={point.y} key={`${element.id}-${pointIndex}`} onPointerDown={(event) => beginDrawingDrag(event, element.id, pointIndex)} r="6" />)}
-                    </g>
-                  );
-                }
-
-                if (element.kind === "text") {
-                  const x = timestampToX(element.timestamp);
-                  if (x === null || !isFiniteNumber(element.price)) {
-                    return null;
-                  }
-                  return <text className="chart-text-annotation" key={`${layer.id}-${element.id}`} onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined} x={x + 6} y={priceToY(element.price) - 8}>{element.text}</text>;
-                }
-
-                if (!isFiniteNumber(element.timestamp) || !isFiniteNumber(element.price)) {
-                  return null;
-                }
-
-                const x = timestampToX(element.timestamp);
-                if (x === null) {
-                  return null;
-                }
-                const y = priceToY(element.price);
-                const points =
-                  element.direction === "up"
-                    ? `${x},${y - 18} ${x - 8},${y - 3} ${x + 8},${y - 3}`
-                    : `${x},${y + 18} ${x - 8},${y + 3} ${x + 8},${y + 3}`;
-
-                return (
-                  <g className={`strategy-signal-marker ${element.tone}`} key={`${layer.id}-${element.id}`}>
-                    <polygon points={points} />
-                  </g>
-                );
-              }),
-            )}
+        {renderChartLayers("under-candles")}
 
         {displayMode === "line" && (
           <path className="intraday-close-line" d={closeLinePath} />
@@ -909,15 +1024,25 @@ export function ChartViewport({
           const bodyY = Math.min(openY, closeY);
           const bodyHeight = Math.max(3, Math.abs(openY - closeY));
           const volumeY = volumeToY(candle.volume);
+          const candleStyle =
+            !showStrategyLayers || candle.timestamp === undefined ? undefined : candleStyleByTimestamp.get(candle.timestamp);
 
           return (
             <g key={`${candle.timestamp}-${index}`}>
               {displayMode === "candlestick" && (
                 <>
-                  <line className={isUp ? "candle-wick up" : "candle-wick down"} x1={x} x2={x} y1={highY} y2={lowY} />
+                  <line
+                    className={isUp ? "candle-wick up" : "candle-wick down"}
+                    style={candleStyle ? { opacity: candleStyle.opacity, stroke: candleStyle.color } : undefined}
+                    x1={x}
+                    x2={x}
+                    y1={highY}
+                    y2={lowY}
+                  />
                   <rect
                     className={isUp ? "candle-body up" : "candle-body down"}
                     height={bodyHeight}
+                    style={candleStyle ? { fill: candleStyle.color, opacity: candleStyle.opacity } : undefined}
                     rx="2"
                     width={candleWidth}
                     x={x - candleWidth / 2}
@@ -948,6 +1073,8 @@ export function ChartViewport({
             </g>
           );
         })}
+
+        {renderChartLayers("over-candles")}
 
         {showMovingAverage && <path className="moving-average" d={maPath} />}
 

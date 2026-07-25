@@ -1,6 +1,7 @@
-import { BookOpen, ChartNoAxesCombined, ShieldAlert, SlidersHorizontal } from "lucide-react";
+import { BookOpen, ChartCandlestick, ChartNoAxesCombined, ShieldAlert, SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 import { strategyLearningEntries, type StrategyLearningCategory } from "../features/learning/strategyLearningContent";
+import { useAppStore } from "../state/appStore";
 
 const categoryLabels: Record<StrategyLearningCategory, string> = {
   strategy: "策略",
@@ -9,10 +10,12 @@ const categoryLabels: Record<StrategyLearningCategory, string> = {
 
 export function StrategyLearningPage() {
   const [selectedId, setSelectedId] = useState(strategyLearningEntries[0]?.id ?? "utorb");
+  const navigate = useAppStore((state) => state.navigate);
   const selectedEntry = useMemo(
     () => strategyLearningEntries.find((entry) => entry.id === selectedId) ?? strategyLearningEntries[0]!,
     [selectedId],
   );
+  const workspaceAction = selectedEntry.workspaceAction;
 
   return (
     <section className="strategy-learning-page">
@@ -40,7 +43,7 @@ export function StrategyLearningPage() {
                     type="button"
                   >
                     <strong>{entry.title}</strong>
-                    <small>{entry.category === "strategy" ? "预制策略" : entry.placement}</small>
+                    <small>{entry.directoryLabel ?? (entry.category === "strategy" ? "预制策略" : entry.placement)}</small>
                   </button>
                 ))}
               </section>
@@ -56,6 +59,16 @@ export function StrategyLearningPage() {
               <h2>{selectedEntry.title}</h2>
               <p>{selectedEntry.subtitle}</p>
             </div>
+            {workspaceAction && (
+              <button
+                className="strategy-learning-workspace-action"
+                onClick={() => navigate(workspaceAction.route)}
+                type="button"
+              >
+                <ChartCandlestick aria-hidden="true" size={17} />
+                {workspaceAction.label}
+              </button>
+            )}
           </header>
 
           <div className="strategy-learning-meta">

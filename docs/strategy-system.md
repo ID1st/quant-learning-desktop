@@ -78,6 +78,7 @@ StrategyInput
   - market
   - timeframe
   - bars
+  - seriesByTimeframe (optional)
   - parameters
   - session
   - runMode
@@ -146,6 +147,13 @@ Supported visual element types:
 - `TrendLine`: strategy-generated trend or moving guide lines.
 - `Band`: opening range, risk zone, target zone.
 - `Label`: compact strategy notes.
+- `CandleStyle`: timestamp-keyed candle color overrides. When several visible
+  strategies target the same candle, the highest visible element `zIndex` wins.
+
+Visual elements may declare `color`, `opacity`, `lineStyle`, `textSize`,
+`labelAnchor`, `extendRight`, and `placement`. Bands may set fill and border
+colors independently. These fields are optional so existing preset and plugin
+strategies remain source-compatible.
 
 Layering rules:
 
@@ -153,6 +161,8 @@ Layering rules:
 - Enabling or disabling a strategy toggles the whole layer.
 - Parameter changes recompute the strategy output and replace that layer.
 - Multiple strategies can be rendered at the same time by sorting `zIndex`.
+- Elements with `placement: under-candles` render before price candles; elements
+  with `placement: over-candles` render afterward.
 - Chart packages consume `StrategyRenderOutput[]`, not strategy internals.
 
 ### Desktop Real-Bar Runtime Boundary
@@ -163,6 +173,9 @@ Runtime input rules:
 
 - Strategy input bars must come from normalized `MarketDataBar` cache data converted by `marketBarsToStrategyBars`.
 - Realtime strategy input is always aggregated to canonical one-minute OHLC candles, independent of whether the chart is visually rendered as a line or candlesticks.
+- Strategies that need multiple periods receive confirmed 5m/15m/30m/1h
+  aggregates plus cached daily and weekly bars through `seriesByTimeframe`.
+  The primary `bars` array remains unchanged for existing strategies.
 - Live snapshots update the candle identified by provider quote time; receive time is only a fallback for invalid quote timestamps.
 - Realtime history keeps five market sessions of calculation context so recursive Pine-derived indicators do not restart from only the current and previous session.
 - Strategy runtime code must not import or call AlphaFeed, LongBridge, Stock SDK, or provider-specific adapters.

@@ -9,6 +9,7 @@ const legacyWorkspacePreferencesKey = "quant-learning.chart-workspace-preference
 
 export interface ChartStudyStrategyDefinition {
   readonly key: string;
+  readonly defaultEnabled?: boolean;
   readonly parameterSchema: readonly { readonly key: string; readonly defaultValue: unknown }[];
 }
 
@@ -144,7 +145,7 @@ function mergeStrategySettings(
 
 function createDefaultStrategyState(definition: ChartStudyStrategyDefinition, index: number): ChartStrategyWorkspaceState {
   return {
-    enabled: index === 0,
+    enabled: definition.defaultEnabled ?? index === 0,
     showLayer: true,
     parameters: Object.fromEntries(definition.parameterSchema.map((parameter) => [parameter.key, parameter.defaultValue])),
   };

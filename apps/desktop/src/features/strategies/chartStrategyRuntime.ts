@@ -40,6 +40,7 @@ export interface RunChartStrategiesOptions {
   readonly market: Market;
   readonly timeframe: Timeframe;
   readonly bars: Bar[];
+  readonly seriesByTimeframe?: Partial<Record<Timeframe, readonly Bar[]>>;
 }
 
 export function runChartStrategies(options: RunChartStrategiesOptions): ChartStrategyRunItem[] {
@@ -55,6 +56,7 @@ export function runChartStrategies(options: RunChartStrategiesOptions): ChartStr
             market: options.market,
             timeframe: options.timeframe,
             bars: options.bars,
+            seriesByTimeframe: options.seriesByTimeframe,
             runMode: "backtest",
             enabled: settings.enabled,
             parameters: settings.parameters,
@@ -107,7 +109,7 @@ export function buildChartStrategySignalRows(runs: readonly ChartStrategyRunItem
       id: `${result.strategy.key}-${signal.type}-${signal.timestamp}-${index}`,
       strategyKey: result.strategy.key,
       timestamp: signal.timestamp,
-      strategyName: result.strategy.name,
+      strategyName: formatChartStrategySignalName(result.strategy),
       time: formatSignalTime(signal.timestamp),
       direction: signal.type === "buy" ? "向上突破" : signal.type === "sell" ? "向下突破" : "提醒",
       tone: signal.type,
@@ -115,6 +117,12 @@ export function buildChartStrategySignalRows(runs: readonly ChartStrategyRunItem
       label: signal.label ?? "策略信号",
     })),
   );
+}
+
+export function formatChartStrategySignalName(strategy: Pick<StrategyDefinition, "key" | "name">) {
+  return strategy.key === "smart-money-concepts"
+    ? strategy.name.replace(/\s*\[LuxAlgo\]$/, "")
+    : strategy.name;
 }
 
 export function createFailedStrategyRunResult(

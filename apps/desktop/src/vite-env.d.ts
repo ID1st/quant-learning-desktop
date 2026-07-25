@@ -266,7 +266,7 @@ interface QuantDesktopPluginStrategyDescriptor {
   readonly parameterSchema: Array<{
     readonly key: string;
     readonly label: string;
-    readonly type: "number" | "boolean" | "select";
+    readonly type: "number" | "boolean" | "select" | "color";
     readonly defaultValue: number | boolean | string;
     readonly description?: string;
     readonly options?: Array<{ readonly label: string; readonly value: string }>;

@@ -840,6 +840,12 @@ export function StrategyManagementPage() {
                           </option>
                         ))}
                       </select>
+                    ) : parameter.type === "color" ? (
+                      <input
+                        onChange={(event) => updateDraftParameter(selectedDraft.id, parameter.key, event.currentTarget.value)}
+                        type="color"
+                        value={String(parameter.defaultValue)}
+                      />
                     ) : (
                       <input
                         onChange={(event) => updateDraftParameter(selectedDraft.id, parameter.key, coerceParameterValue(parameter, event.currentTarget.value))}
@@ -1061,6 +1067,8 @@ export function StrategyManagementPage() {
                       <select onChange={(event) => updateStrategyParameter(parameter, event.currentTarget.value)} value={String(value)}>
                         {(parameter.options ?? []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                       </select>
+                    ) : parameter.type === "color" ? (
+                      <input onChange={(event) => updateStrategyParameter(parameter, event.currentTarget.value)} type="color" value={String(value)} />
                     ) : (
                       <input onChange={(event) => updateStrategyParameter(parameter, event.currentTarget.value)} type="number" value={String(value)} />
                     )}

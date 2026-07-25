@@ -5,6 +5,7 @@ import { createPresetStrategyRegistry, type Bar } from "@quant/strategy-engine";
 import {
   buildChartStrategyLogItems,
   buildChartStrategySignalRows,
+  formatChartStrategySignalName,
   runChartStrategies,
   type ChartStrategyWorkspaceState,
 } from "../src/features/strategies/chartStrategyRuntime.ts";
@@ -19,6 +20,17 @@ const bars: Bar[] = [10, 11, 12, 11, 10, 9, 10, 11, 12, 13].map((close, index) =
 }));
 
 describe("chart strategy runtime", () => {
+  it("hides the LuxAlgo suffix only in SMC signal panel names", () => {
+    assert.equal(
+      formatChartStrategySignalName({ key: "smart-money-concepts", name: "Smart Money Concepts [LuxAlgo]" }),
+      "Smart Money Concepts",
+    );
+    assert.equal(
+      formatChartStrategySignalName({ key: "example-plugin", name: "Example [LuxAlgo]" }),
+      "Example [LuxAlgo]",
+    );
+  });
+
   it("runs UTORB and Trend Targets from the same normalized realtime bars", () => {
     const registry = createPresetStrategyRegistry();
     const strategies = ["utorb", "trend-targets"].map((key) => registry.get(key));

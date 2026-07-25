@@ -1922,6 +1922,46 @@ textarea:focus-visible {
   cursor: ns-resize;
 }
 
+.smc-visual-qa {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #080d12;
+}
+
+.smc-visual-qa .chart-viewport {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.smc-visual-qa .chart-legend,
+.smc-visual-qa .chart-interaction-toolbar {
+  display: none;
+}
+
+.smc-visual-qa-title {
+  position: absolute;
+  top: 8px;
+  left: 14px;
+  z-index: 3;
+  display: grid;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.smc-visual-qa-title strong {
+  color: #c9ced8;
+  font-family: var(--font-data);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.smc-visual-qa-title span {
+  color: #aeb4c0;
+  font-family: var(--font-data);
+  font-size: 16px;
+}
+
 .price-axis-hit-area {
   cursor: ns-resize;
   fill: transparent;
@@ -2931,6 +2971,28 @@ textarea:focus-visible {
   padding: 7px 8px;
 }
 
+.parameter-color-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.parameter-color-field input[type="color"] {
+  width: 36px;
+  height: 28px;
+  border: 1px solid rgba(73, 91, 112, 0.48);
+  border-radius: 6px;
+  background: rgba(8, 13, 20, 0.68);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.parameter-color-field code {
+  color: #9aa6b8;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+}
+
 .parameter-toggle > span {
   display: grid;
   gap: 3px;
@@ -3381,6 +3443,30 @@ textarea:focus-visible {
   width: 38px;
 }
 
+.strategy-learning-title > div {
+  min-width: 0;
+}
+
+.strategy-learning-workspace-action {
+  align-items: center;
+  align-self: center;
+  border: 1px solid rgba(51, 127, 215, 0.72);
+  border-radius: 6px;
+  background: rgba(22, 66, 111, 0.34);
+  color: #cfe4fb;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 7px;
+  margin-left: auto;
+  padding: 8px 11px;
+}
+
+.strategy-learning-workspace-action:hover {
+  border-color: #4d9ce9;
+  background: rgba(34, 88, 143, 0.46);
+}
+
 .strategy-learning-title em {
   color: #42dfbd;
   font-size: 12px;
@@ -3517,6 +3603,16 @@ textarea:focus-visible {
 
   .strategy-learning-section-grid {
     grid-template-columns: 1fr;
+  }
+
+  .strategy-learning-title {
+    flex-wrap: wrap;
+  }
+
+  .strategy-learning-workspace-action {
+    justify-content: center;
+    margin-left: 0;
+    width: 100%;
   }
 }
 

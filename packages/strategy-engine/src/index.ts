@@ -1,7 +1,9 @@
 import { crossover, crossunder, ema, sma, wma } from "@quant/pine-runtime";
 import type { Market, Timeframe } from "@quant/shared";
+import { createSmartMoneyConceptsStrategyDefinition } from "./smartMoneyConcepts.ts";
 
 export * from "./backtest.ts";
+export { createSmcVisualFixture } from "./smartMoneyConceptsVisualFixture.ts";
 
 export interface Bar {
   timestamp: number;
@@ -15,7 +17,7 @@ export interface Bar {
 export interface StrategyParameterDefinition {
   key: string;
   label: string;
-  type: "number" | "boolean" | "select";
+  type: "number" | "boolean" | "select" | "color";
   defaultValue: number | boolean | string;
   description?: string;
   options?: Array<{ label: string; value: string }>;
@@ -26,6 +28,7 @@ export interface StrategyInput {
   market: Market;
   timeframe: Timeframe;
   bars: Bar[];
+  seriesByTimeframe?: Partial<Record<Timeframe, readonly Bar[]>>;
   parameters: Record<string, unknown>;
   runMode: "backtest" | "realtime";
   enabled?: boolean;
@@ -37,6 +40,7 @@ export interface StrategyRunRequest {
   market: Market;
   timeframe: Timeframe;
   bars: Bar[];
+  seriesByTimeframe?: Partial<Record<Timeframe, readonly Bar[]>>;
   parameters?: Record<string, unknown>;
   runMode: "backtest" | "realtime";
   enabled?: boolean;
@@ -59,6 +63,13 @@ export interface StrategyVisualBase {
   id: string;
   visible?: boolean;
   zIndex?: number;
+  color?: string;
+  opacity?: number;
+  lineStyle?: "solid" | "dashed" | "dotted";
+  textSize?: "tiny" | "small" | "normal";
+  labelAnchor?: "above" | "below" | "center" | "right";
+  extendRight?: boolean;
+  placement?: "under-candles" | "over-candles";
 }
 
 export interface StrategySignalMarker extends StrategyVisualBase {
@@ -92,6 +103,8 @@ export interface StrategyBand extends StrategyVisualBase {
   tone: "range" | "risk" | "target";
   fromTimestamp?: number;
   toTimestamp?: number;
+  fillColor?: string;
+  borderColor?: string;
 }
 
 export interface StrategyLabel extends StrategyVisualBase {
@@ -102,12 +115,19 @@ export interface StrategyLabel extends StrategyVisualBase {
   tone: "info" | "warning" | "success";
 }
 
+export interface StrategyCandleStyle extends StrategyVisualBase {
+  kind: "candle-style";
+  timestamp: number;
+  color: string;
+}
+
 export type StrategyVisualElement =
   | StrategySignalMarker
   | StrategyPriceLine
   | StrategyTrendLine
   | StrategyBand
-  | StrategyLabel;
+  | StrategyLabel
+  | StrategyCandleStyle;
 
 export interface StrategyRenderOutput {
   strategyId: string;
@@ -133,6 +153,8 @@ export interface StrategyDefinition {
   description: string;
   sourceType: "preset" | "user" | "plugin";
   sourceFile?: string;
+  strategyType?: "indicator" | "strategy";
+  defaultEnabled?: boolean;
   supportedMarkets: Market[];
   supportedTimeframes: Timeframe[];
   parameterSchema: StrategyParameterDefinition[];
@@ -863,9 +885,10 @@ export function createStrategyInput(strategy: StrategyDefinition, request: Strat
     market: request.market,
     timeframe: request.timeframe,
     bars: request.bars,
+    seriesByTimeframe: request.seriesByTimeframe,
     parameters: resolveStrategyParameters(strategy, request.parameters),
     runMode: request.runMode,
-    enabled: request.enabled ?? true,
+    enabled: request.enabled ?? strategy.defaultEnabled ?? true,
   };
 }
 
@@ -1932,6 +1955,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
 
   registry.register(utorbStrategy);
   registry.register(trendTargetsStrategy);
+  registry.register(createSmartMoneyConceptsStrategyDefinition());
 
   return registry;
 }

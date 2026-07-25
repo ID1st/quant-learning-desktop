@@ -1,0 +1,30 @@
+export type ChartLineStyle = "solid" | "dashed" | "dotted";
+export type ChartLabelAnchor = "above" | "below" | "center" | "right";
+
+export function getChartLineDasharray(style: ChartLineStyle | undefined) {
+  if (style === "dashed") {
+    return "8 7";
+  }
+  if (style === "dotted") {
+    return "2 5";
+  }
+  return undefined;
+}
+
+export function getChartLabelPosition(
+  anchor: ChartLabelAnchor | undefined,
+  bounds: { x1: number; x2: number },
+  priceY: number,
+): { x: number; y: number; textAnchor: "start" | "middle" | "end" } {
+  const midpoint = (bounds.x1 + bounds.x2) / 2;
+  if (anchor === "below") {
+    return { x: midpoint, y: priceY + 14, textAnchor: "middle" };
+  }
+  if (anchor === "center") {
+    return { x: midpoint, y: priceY + 4, textAnchor: "middle" };
+  }
+  if (anchor === "right") {
+    return { x: bounds.x2 - 6, y: priceY - 4, textAnchor: "end" };
+  }
+  return { x: midpoint, y: priceY - 8, textAnchor: "middle" };
+}

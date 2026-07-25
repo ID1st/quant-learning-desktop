@@ -37,3 +37,38 @@ findings: one blocking verification issue remains; implementation build succeeds
 patches made since previous QA pass: none
 
 final result: blocked
+
+---
+
+# SMC Visual QA
+
+Status: passed for the Smart Money Concepts overlay contract.
+
+## Evidence
+
+- Reference: `C:/Users/Admin/AppData/Local/Temp/codex-clipboard-5f56fd48-7f81-4850-96c5-d01305216d4f.png`
+- Implementation capture: `data/tmp/smc-visual-qa.png`
+- Side-by-side comparison: `data/tmp/smc-visual-comparison.png`
+- Viewport: 1984 × 842 CSS pixels and 1984 × 842 captured pixels
+- Runtime: Electron Chromium against the Vite development build
+- Console: no application errors; the development-only Electron CSP warning is absent from packaged builds
+
+## Verified
+
+- Bullish `#089981` and bearish `#F23645` structure colors
+- Dashed internal structure and solid swing structure
+- Dotted EQH/EQL connector and midpoint label placement
+- Structure labels centered above bullish lines and below bearish lines
+- Strong/Weak High/Low labels anchored at the right edge
+- Swing order blocks behind candles with independent fill and border colors
+- FVG rendered as two compact adjacent bands
+- Candles rendered between lower zones and upper structure/label layers
+- Time/price anchoring remains data-coordinate based
+- Fixed fixture contains bullish and bearish BOS/CHoCH, EQH, strong/weak levels, bullish/bearish order blocks, and FVG
+
+## Intentional exclusions
+
+- TradingView navigation, logo, watermark, and product chrome are not copied.
+- The product's existing candle theme, price axis, and typography remain in use; the reference image is used only for SMC overlay appearance and hierarchy.
+
+final result: passed

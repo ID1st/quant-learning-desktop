@@ -9,7 +9,6 @@ import {
   type StrategyDefinition,
   type StrategyParameterDefinition,
   type StrategyRunResult,
-  type StrategyVisualElement,
 } from "@quant/strategy-engine";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
 import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
@@ -19,6 +18,8 @@ import {
   runChartStrategies,
   type ChartStrategyWorkspaceState,
 } from "../features/strategies/chartStrategyRuntime";
+import { createStrategySeriesByTimeframe } from "../features/strategies/strategySeries";
+import { toChartLayerElement } from "../features/strategies/strategyVisualAdapter";
 import {
   filterMarketBarsForChartContext,
   marketBarsToCandles,
@@ -220,7 +221,7 @@ function getDefaultParameters(strategy: StrategyDefinition) {
 
 function getDefaultStrategyState(strategy: StrategyDefinition, index: number): StrategyWorkspaceState {
   return {
-    enabled: index === 0,
+    enabled: strategy.defaultEnabled ?? index === 0,
     showLayer: true,
     parameters: getDefaultParameters(strategy),
   };
@@ -257,6 +258,10 @@ function sanitizeParameterValue(parameter: StrategyParameterDefinition, value: u
     return typeof value === "string" && optionValues.includes(value) ? value : parameter.defaultValue;
   }
 
+  if (parameter.type === "color") {
+    return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : parameter.defaultValue;
+  }
+
   if (parameter.type === "number") {
     const numericValue = typeof value === "number" && Number.isFinite(value) ? value : Number(parameter.defaultValue);
     const minimumValue = Number(getNumberInputMinimum(parameter.key));
@@ -268,7 +273,7 @@ function sanitizeParameterValue(parameter: StrategyParameterDefinition, value: u
 }
 
 function isFractionalStrategyParameter(parameterKey: string) {
-  return ["supertrendFactor", "stopLossAtrMultiplier", "targetOneMultiplier", "targetTwoMultiplier", "targetThreeMultiplier", "trailingStopAtrMultiplier"].includes(
+  return ["supertrendFactor", "stopLossAtrMultiplier", "targetOneMultiplier", "targetTwoMultiplier", "targetThreeMultiplier", "trailingStopAtrMultiplier", "equalHighLowThreshold"].includes(
     parameterKey,
   );
 }
@@ -277,6 +282,7 @@ function getNumberInputMinimum(parameterKey: string) {
   if (parameterKey === "timezoneOffsetHours") return "-12";
   if (["sessionStartHour", "sessionStartMinute", "manualEndHour", "manualEndMinute", "extensionMultiplierOne", "extensionMultiplierTwo", "extensionMultiplierThree"].includes(parameterKey)) return "0";
   if (parameterKey === "volumeProfileRows") return "5";
+  if (parameterKey === "fairValueGapExtend") return "0";
 
   return isFractionalStrategyParameter(parameterKey) ? "0.1" : "1";
 }
@@ -289,6 +295,8 @@ function getNumberInputMaximum(parameterKey: string) {
   if (parameterKey === "openingRangeMinutes") return "240";
   if (parameterKey === "volumeProfileRows") return "50";
   if (parameterKey === "volumeProfileWidthPercent") return "100";
+  if (parameterKey === "equalHighLowThreshold") return "0.5";
+  if (["internalOrderBlockCount", "swingOrderBlockCount"].includes(parameterKey)) return "20";
   return String(Number.MAX_SAFE_INTEGER);
 }
 
@@ -396,14 +404,6 @@ function saveWorkspacePreferences(preferences: ChartWorkspacePreferences) {
   } catch {
     // 本地偏好保存失败不应影响图表工作台的主要交互。
   }
-}
-
-function toChartLayerElement(element: StrategyVisualElement): ChartLayerElement | null {
-  if (element.kind === "signal-marker" || element.kind === "price-line" || element.kind === "trend-line" || element.kind === "band") {
-    return element;
-  }
-
-  return null;
 }
 
 function formatLogTime(timestamp: number) {
@@ -717,6 +717,15 @@ function getStrategyLayerStatus(
     return { className: "hidden", label: "已隐藏" };
   }
 
+  if (strategy.key === "smart-money-concepts") {
+    if (result.output.metrics["Structure Ready"] === 0) {
+      return { className: "active", label: `预热中 ${barCount}/51` };
+    }
+    if (result.output.metrics["ATR Ready"] === 0) {
+      return { className: "active", label: `ATR 预热中 ${barCount}/200` };
+    }
+  }
+
   if (result.output.render.elements.length === 0) {
     return { className: "empty", label: "无图层" };
   }
@@ -864,6 +873,20 @@ export function ChartWorkspacePage() {
   const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(strategyMarketBars), [strategyMarketBars]);
   const renderedCandles = cachedCandles;
   const strategyInputBars = cachedStrategyBars;
+  const strategySeriesByTimeframe = useMemo(() => {
+    const dailyBars = marketBarsToStrategyBars(
+      readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "1d" }),
+    );
+    const weeklyBars = marketBarsToStrategyBars(
+      readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "1w" }),
+    );
+    return createStrategySeriesByTimeframe({
+      primaryBars: strategyInputBars,
+      primaryTimeframe: timeframe,
+      dailyBars,
+      weeklyBars,
+    });
+  }, [activeSymbol.dataSymbol, activeSymbol.market, cachedMarketBars, strategyInputBars, timeframe]);
   const strategyRuns = useMemo(
     () =>
       runChartStrategies({
@@ -875,8 +898,9 @@ export function ChartWorkspacePage() {
         market: activeSymbol.market,
         timeframe,
         bars: chartHasRenderableData ? strategyInputBars : [],
+        seriesByTimeframe: strategySeriesByTimeframe,
       }),
-    [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySettings, timeframe],
+    [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySeriesByTimeframe, strategySettings, timeframe],
   );
   const pluginStrategyRunSignature = useMemo(() => {
     const lastBar = strategyInputBars.at(-1);
@@ -907,19 +931,20 @@ export function ChartWorkspacePage() {
           market: activeSymbol.market,
           timeframe,
           bars: strategyInputBars,
+          seriesByTimeframe: strategySeriesByTimeframe,
           runMode: "backtest",
           enabled: strategySettings[strategy.key]?.enabled ?? false,
           parameters: strategySettings[strategy.key]?.parameters,
         }),
       }));
     void runPluginStrategies(requests);
-  }, [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, pluginStrategyRunSignature, runPluginStrategies, strategyInputBars, strategySettings, timeframe]);
+  }, [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, pluginStrategyRunSignature, runPluginStrategies, strategyInputBars, strategySeriesByTimeframe, strategySettings, timeframe]);
   const strategyLayers = useMemo<ChartLayer[]>(
     () =>
       strategyRuns.map(({ result, settings }) => ({
         ...result.output.render,
         enabled: result.output.render.enabled && settings.enabled && settings.showLayer,
-        elements: result.output.render.elements.map(toChartLayerElement).filter((element): element is ChartLayerElement => element !== null),
+        elements: result.output.render.elements.map(toChartLayerElement),
       })),
     [strategyRuns],
   );
@@ -2305,6 +2330,23 @@ export function ChartWorkspacePage() {
                           </option>
                         ))}
                       </select>
+                    </label>
+                  );
+                }
+
+                if (parameter.type === "color") {
+                  return (
+                    <label className="parameter-control parameter-color-control" htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`} key={parameter.key}>
+                      <span>{parameter.label}</span>
+                      <span className="parameter-color-field">
+                        <input
+                          id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
+                          onChange={(event) => updateStrategyParameter(activeConfigStrategyRun.strategy, parameter, event.currentTarget.value)}
+                          type="color"
+                          value={String(value)}
+                        />
+                        <code>{String(value).toUpperCase()}</code>
+                      </span>
                     </label>
                   );
                 }
