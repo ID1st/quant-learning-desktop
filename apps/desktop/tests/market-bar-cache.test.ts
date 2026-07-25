@@ -76,6 +76,9 @@ test("writeMarketBarCache stores sorted unique bars for one symbol and timeframe
 
 test("writeMarketBarCache can merge a sparse refresh without deleting cached history", () => {
   const database = createTestDatabase();
+  const firstDay = Date.UTC(2026, 6, 1);
+  const secondDay = Date.UTC(2026, 6, 2);
+  const thirdDay = Date.UTC(2026, 6, 3);
   const createBar = (timestamp: number, close: number): MarketDataBar => ({
     ...cacheKey,
     timestamp,
@@ -86,13 +89,67 @@ test("writeMarketBarCache can merge a sparse refresh without deleting cached his
     volume: 1_000,
     provider: "stock-sdk",
   });
-  writeMarketBarCache(cacheKey, [createBar(1, 100), createBar(2, 101), createBar(3, 102)], { database });
+  writeMarketBarCache(
+    cacheKey,
+    [createBar(firstDay, 100), createBar(secondDay, 101), createBar(thirdDay, 102)],
+    { database },
+  );
 
-  writeMarketBarCache(cacheKey, [createBar(3, 103)], { database, mergeExisting: true });
+  writeMarketBarCache(cacheKey, [createBar(thirdDay, 103)], { database, mergeExisting: true });
 
   assert.deepEqual(
     readMarketBarCache(cacheKey, { database }).map((item) => [item.timestamp, item.close]),
-    [[1, 100], [2, 101], [3, 103]],
+    [
+      [firstDay, 100],
+      [secondDay, 101],
+      [thirdDay, 103],
+    ],
+  );
+});
+
+test("writeMarketBarCache keeps one daily bar when providers timestamp the same trading day differently", () => {
+  const database = createTestDatabase();
+  const key = {
+    symbol: "09988.HK",
+    market: "HK" as const,
+    timeframe: "1d" as const,
+  };
+  const createBar = (
+    timestamp: number,
+    close: number,
+    provider: MarketDataBar["provider"],
+  ): MarketDataBar => ({
+    ...key,
+    timestamp,
+    open: close,
+    high: close,
+    low: close,
+    close,
+    volume: 1_000,
+    provider,
+  });
+
+  writeMarketBarCache(
+    key,
+    [
+      createBar(Date.UTC(2026, 6, 24), 109, "alphafeed-rest"),
+      createBar(Date.UTC(2026, 6, 25), 111, "alphafeed-rest"),
+    ],
+    { database },
+  );
+  const written = writeMarketBarCache(
+    key,
+    [createBar(Date.UTC(2026, 6, 24, 4), 110, "stock-sdk")],
+    { database, mergeExisting: true },
+  );
+
+  assert.equal(written.length, 2);
+  assert.deepEqual(
+    readMarketBarCache(key, { database }).map((bar) => [bar.provider, bar.close]),
+    [
+      ["stock-sdk", 110],
+      ["alphafeed-rest", 111],
+    ],
   );
 });
 

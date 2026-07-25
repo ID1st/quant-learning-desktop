@@ -64,6 +64,9 @@ const COLLECTION_PREFIX = "market-bars";
 const INDEX_COLLECTION_KEY = `${COLLECTION_PREFIX}:index`;
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
 const maximumHistoricalCacheGapMs = 180 * millisecondsPerDay;
+// Providers anchor one daily session between local midnight and market noon.
+// Keep the window below 24 hours so adjacent sessions remain distinct.
+const maximumDailyProviderTimestampSkewMs = 20 * 60 * 60 * 1000;
 
 function isHistoricalTimeframe(timeframe: Timeframe) {
   return timeframe === "1d" || timeframe === "1w";
@@ -235,13 +238,44 @@ function sanitizeMetadataList(value: unknown): MarketBarCacheMetadata[] | null {
 }
 
 function normalizeBars(bars: MarketDataBar[]) {
-  const byTimestamp = new Map<number, MarketDataBar>();
+  const byTimestamp = new Map<number, { bar: MarketDataBar; inputIndex: number }>();
 
-  for (const bar of bars) {
-    byTimestamp.set(bar.timestamp, bar);
+  bars.forEach((bar, inputIndex) => {
+    byTimestamp.set(bar.timestamp, { bar, inputIndex });
+  });
+
+  const sorted = Array.from(byTimestamp.values()).sort(
+    (left, right) => left.bar.timestamp - right.bar.timestamp,
+  );
+  if (sorted[0]?.bar.timeframe !== "1d") {
+    return sorted.map(({ bar }) => bar);
   }
 
-  return Array.from(byTimestamp.values()).sort((left, right) => left.timestamp - right.timestamp);
+  const dailyBars: Array<{
+    firstTimestamp: number;
+    selected: { bar: MarketDataBar; inputIndex: number };
+  }> = [];
+  for (const candidate of sorted) {
+    const currentDay = dailyBars[dailyBars.length - 1];
+    if (
+      currentDay &&
+      candidate.bar.timestamp - currentDay.firstTimestamp < maximumDailyProviderTimestampSkewMs
+    ) {
+      if (candidate.inputIndex > currentDay.selected.inputIndex) {
+        currentDay.selected = candidate;
+      }
+      continue;
+    }
+
+    dailyBars.push({
+      firstTimestamp: candidate.bar.timestamp,
+      selected: candidate,
+    });
+  }
+
+  return dailyBars
+    .map(({ selected }) => selected.bar)
+    .sort((left, right) => left.timestamp - right.timestamp);
 }
 
 function hasContinuousHistoricalCache(bars: readonly MarketDataBar[], timeframe: Timeframe) {
