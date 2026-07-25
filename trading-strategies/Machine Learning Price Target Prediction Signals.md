@@ -1,3 +1,4 @@
+//@version=6
 indicator("Machine Learning Price Target Prediction Signals [AlgoAlpha]", shorttitle = "AlgoAlpha - ML Price Targets", overlay=true, max_bars_back = 5000, precision = 5, max_boxes_count = 500)
 
 // ===========================================================================

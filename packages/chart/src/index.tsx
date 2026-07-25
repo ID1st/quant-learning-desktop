@@ -81,6 +81,8 @@ export type ChartLayerElement = ChartLayerVisualBase &
       price: number;
       direction: "up" | "down";
       tone: Extract<ChartLayerTone, "buy" | "sell" | "neutral">;
+      shape?: "triangle" | "label-up" | "label-down";
+      text?: string;
     }
   | {
       id: string;
@@ -125,12 +127,26 @@ export type ChartLayerElement = ChartLayerVisualBase &
     }
   );
 
+export interface ChartHudPanel {
+  id: string;
+  title: string;
+  valueHeading?: string;
+  placement: "top-right";
+  rows: Array<{
+    id: string;
+    label: string;
+    value: string;
+    tone?: "neutral" | "positive" | "negative" | "muted";
+  }>;
+}
+
 export interface ChartLayer {
   strategyId: string;
   strategyName: string;
   enabled: boolean;
   zIndex: number;
   elements: ChartLayerElement[];
+  hudPanels?: ChartHudPanel[];
 }
 
 export type ChartLayerSource = "strategy" | "indicator" | "drawing";
@@ -143,6 +159,7 @@ export interface ChartRenderLayer {
   visible: boolean;
   zIndex: number;
   elements: ChartLayerElement[];
+  hudPanels?: ChartHudPanel[];
 }
 
 export interface ChartViewportProps {
@@ -446,9 +463,9 @@ export function ChartViewport({
   }
 
   const chartTop = (34 / 520) * height;
-  const priceHeight = (338 / 520) * height;
-  const volumeTop = (410 / 520) * height;
-  const volumeHeight = (76 / 520) * height;
+  const priceHeight = ((showVolume ? 338 : 410) / 520) * height;
+  const volumeTop = ((showVolume ? 410 : 462) / 520) * height;
+  const volumeHeight = showVolume ? (76 / 520) * height : 0;
   const paddingX = (54 / 980) * width;
   const priceAxisWidth = (86 / 980) * width;
   const plotRight = width - priceAxisWidth;
@@ -699,6 +716,7 @@ export function ChartViewport({
       visible: true,
       zIndex: layer.zIndex,
       elements: layer.elements,
+      hudPanels: layer.hudPanels,
     })),
     ...layers,
   ]
@@ -890,6 +908,28 @@ export function ChartViewport({
             element.direction === "up"
               ? `${x},${y - 18} ${x - 8},${y - 3} ${x + 8},${y - 3}`
               : `${x},${y + 18} ${x - 8},${y + 3} ${x + 8},${y + 3}`;
+          const markerShape = element.shape ?? "triangle";
+
+          if (markerShape !== "triangle") {
+            const isUp = markerShape === "label-up";
+            const rectY = isUp ? y : y - 34;
+            const pointer = isUp
+              ? `${x},${y - 9} ${x - 7},${y} ${x + 7},${y}`
+              : `${x},${y + 9} ${x - 7},${y} ${x + 7},${y}`;
+            return (
+              <g
+                className={`strategy-signal-marker label ${element.tone}`}
+                data-element-id={element.id}
+                data-strategy-id={layer.id}
+                key={`${placement}-${layer.id}-${element.id}`}
+                style={{ opacity: element.opacity }}
+              >
+                <polygon points={pointer} style={{ fill: element.color }} />
+                <rect height="34" rx="5" style={{ fill: element.color }} width="34" x={x - 17} y={rectY} />
+                <text x={x} y={rectY + 22}>{element.text ?? (isUp ? "▲" : "▼")}</text>
+              </g>
+            );
+          }
 
           return (
             <g
@@ -1152,6 +1192,30 @@ export function ChartViewport({
           y={chartTop}
         />
       </svg>
+      {showStrategyLayers && (
+        <div className="chart-hud-stack">
+          {renderLayers.flatMap((layer) =>
+            (layer.hudPanels ?? []).map((panel) => (
+              <table aria-label={panel.title} className="chart-hud-panel" key={`${layer.id}-${panel.id}`}>
+                <thead>
+                  <tr>
+                    <th>{panel.title}</th>
+                    <th>{panel.valueHeading ?? "Value"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {panel.rows.map((row) => (
+                    <tr className={row.tone ?? "neutral"} key={row.id}>
+                      <th>{row.label}</th>
+                      <td>{row.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )),
+          )}
+        </div>
+      )}
     </section>
   );
 }

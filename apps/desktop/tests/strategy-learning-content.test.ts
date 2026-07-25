@@ -7,11 +7,25 @@ test("strategy learning content covers the built-in strategies and indicators", 
     "utorb",
     "trend-targets",
     "smart-money-concepts",
+    "machine-learning-price-targets",
     "sma",
     "ema",
     "boll",
   ]);
   assert.ok(strategyLearningEntries.every((entry) => entry.sections.length >= 3 && entry.risks.length > 0));
+});
+
+test("ML price target learning entry explains RBF training, warmup, and indicator boundary", () => {
+  const entry = strategyLearningEntries.find((item) => item.id === "machine-learning-price-targets");
+
+  assert.ok(entry);
+  assert.equal(entry.category, "strategy");
+  assert.deepEqual(entry.timeframes, ["实时 1 分钟"]);
+  assert.ok(entry.sections.some((section) => section.content.includes("RBF") && section.content.includes("8")));
+  assert.ok(entry.parameters.some((parameter) => parameter.description.includes("1,000")));
+  assert.ok(entry.chartOutputs.includes("右上角指标统计表"));
+  assert.ok(entry.risks.some((risk) => risk.includes("不生成订单") && risk.includes("PnL")));
+  assert.equal(entry.source?.license, "未声明软件许可证");
 });
 
 test("SMC learning entry explains its structure layers, warmup, and indicator boundary", () => {

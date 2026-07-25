@@ -6,6 +6,7 @@ import {
   buildChartStrategyLogItems,
   buildChartStrategySignalRows,
   formatChartStrategySignalName,
+  getRealtimeStrategyHistoryRequirement,
   runChartStrategies,
   type ChartStrategyWorkspaceState,
 } from "../src/features/strategies/chartStrategyRuntime.ts";
@@ -29,6 +30,36 @@ describe("chart strategy runtime", () => {
       formatChartStrategySignalName({ key: "example-plugin", name: "Example [LuxAlgo]" }),
       "Example [LuxAlgo]",
     );
+    assert.equal(
+      formatChartStrategySignalName({
+        key: "machine-learning-price-targets",
+        name: "Machine Learning Price Target Prediction Signals [AlgoAlpha]",
+      }),
+      "Machine Learning Price Target Prediction Signals",
+    );
+  });
+
+  it("uses the largest enabled realtime history requirement", () => {
+    const registry = createPresetStrategyRegistry();
+    const strategies = registry.list();
+    const disabled = Object.fromEntries(strategies.map((strategy) => [
+      strategy.key,
+      { enabled: false, showLayer: true, parameters: {} },
+    ]));
+
+    assert.deepEqual(getRealtimeStrategyHistoryRequirement(strategies, disabled), {
+      minimumBars: 0,
+      preferredBars: 2_500,
+      sessionCount: 5,
+    });
+    assert.deepEqual(getRealtimeStrategyHistoryRequirement(strategies, {
+      ...disabled,
+      "machine-learning-price-targets": { enabled: true, showLayer: true, parameters: {} },
+    }), {
+      minimumBars: 1_000,
+      preferredBars: 5_000,
+      sessionCount: 22,
+    });
   });
 
   it("runs UTORB and Trend Targets from the same normalized realtime bars", () => {
@@ -178,5 +209,27 @@ describe("chart strategy runtime", () => {
     assert.equal(firstRun?.result.input.parameters.targetThreeMultiplier, 1.5);
     assert.equal(secondRun?.result.input.parameters.targetThreeMultiplier, 3);
     assert.notDeepEqual(firstRun?.result.output.metrics, secondRun?.result.output.metrics);
+  });
+
+  it("passes the confirmed bar boundary into strategy input", () => {
+    const registry = createPresetStrategyRegistry();
+    const strategy = registry.get("machine-learning-price-targets");
+    assert.ok(strategy);
+    const confirmedThroughTimestamp = bars.at(-2)!.timestamp;
+    const settings = { enabled: true, showLayer: true, parameters: {} };
+
+    const [result] = runChartStrategies({
+      strategies: [strategy],
+      registry,
+      settingsByStrategyKey: { [strategy.key]: settings },
+      resolveDefaultSettings: () => settings,
+      symbol: "AAPL.US",
+      market: "US",
+      timeframe: "realtime",
+      bars,
+      confirmedThroughTimestamp,
+    });
+
+    assert.equal(result?.result.input.confirmedThroughTimestamp, confirmedThroughTimestamp);
   });
 });

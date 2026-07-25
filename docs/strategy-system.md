@@ -401,3 +401,11 @@ Required tests when implementation begins:
 - Chart overlays are data objects, not direct chart API calls.
 - New strategy modules can be added without changing chart, LongPort, or persistence core.
 - Built-in strategies and plugin strategies use the same interface.
+
+## 15. Machine Learning Price Targets
+
+- Stable preset key: `machine-learning-price-targets`; disabled by default and registered only for CN/HK/US `realtime`.
+- Uses confirmed one-minute OHLCV, a 1,000-bar feature warm-up, eight-dimensional RBF regression, historical TP/SL bands, candle styling, and a fixed chart HUD.
+- Declares an optional realtime history requirement so the chart requests 5,000 bars across 22 sessions only when the indicator is enabled.
+- Remains an indicator: it emits visual layers, statistics, signals, and alerts without fabricating orders or PnL.
+- See `docs/machine-learning-price-targets.md` for calculation, data, confirmation, visual, and attribution details.

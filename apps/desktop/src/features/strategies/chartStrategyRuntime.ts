@@ -41,6 +41,27 @@ export interface RunChartStrategiesOptions {
   readonly timeframe: Timeframe;
   readonly bars: Bar[];
   readonly seriesByTimeframe?: Partial<Record<Timeframe, readonly Bar[]>>;
+  readonly confirmedThroughTimestamp?: number;
+}
+
+export function getRealtimeStrategyHistoryRequirement(
+  strategies: readonly StrategyDefinition[],
+  settingsByStrategyKey: Record<string, ChartStrategyWorkspaceState>,
+) {
+  return strategies.reduce(
+    (requirement, strategy) => {
+      const enabled = settingsByStrategyKey[strategy.key]?.enabled ?? strategy.defaultEnabled ?? false;
+      const next = enabled ? strategy.realtimeHistoryRequirement : undefined;
+      return next
+        ? {
+            minimumBars: Math.max(requirement.minimumBars, next.minimumBars),
+            preferredBars: Math.max(requirement.preferredBars, next.preferredBars),
+            sessionCount: Math.max(requirement.sessionCount, next.sessionCount),
+          }
+        : requirement;
+    },
+    { minimumBars: 0, preferredBars: 2_500, sessionCount: 5 },
+  );
 }
 
 export function runChartStrategies(options: RunChartStrategiesOptions): ChartStrategyRunItem[] {
@@ -57,6 +78,7 @@ export function runChartStrategies(options: RunChartStrategiesOptions): ChartStr
             timeframe: options.timeframe,
             bars: options.bars,
             seriesByTimeframe: options.seriesByTimeframe,
+            confirmedThroughTimestamp: options.confirmedThroughTimestamp,
             runMode: "backtest",
             enabled: settings.enabled,
             parameters: settings.parameters,
@@ -120,9 +142,14 @@ export function buildChartStrategySignalRows(runs: readonly ChartStrategyRunItem
 }
 
 export function formatChartStrategySignalName(strategy: Pick<StrategyDefinition, "key" | "name">) {
-  return strategy.key === "smart-money-concepts"
-    ? strategy.name.replace(/\s*\[LuxAlgo\]$/, "")
-    : strategy.name;
+  if (strategy.key === "smart-money-concepts") {
+    return strategy.name.replace(/\s*\[LuxAlgo\]$/, "");
+  }
+  if (strategy.key === "machine-learning-price-targets") {
+    return strategy.name.replace(/\s*\[AlgoAlpha\]$/, "");
+  }
+
+  return strategy.name;
 }
 
 export function createFailedStrategyRunResult(

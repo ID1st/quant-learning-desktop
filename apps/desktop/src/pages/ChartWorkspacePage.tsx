@@ -15,6 +15,7 @@ import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 import {
   buildChartStrategyLogItems,
   buildChartStrategySignalRows,
+  getRealtimeStrategyHistoryRequirement,
   runChartStrategies,
   type ChartStrategyWorkspaceState,
 } from "../features/strategies/chartStrategyRuntime";
@@ -161,7 +162,6 @@ function readChartWatchlist() {
 const timeframes: Timeframe[] = ["realtime", "1d", "1w"];
 const realtimeRateLimitBackoffMs = 120_000;
 const enableAlphaFeedHistoricalIntradayBackfill = false;
-const realtimeHistoryBarCount = 2_500;
 const longPortRealtimeDelayWarningMs = 5 * 60_000;
 const strategyRegistry = createPresetStrategyRegistry();
 const presetStrategies = strategyRegistry.list();
@@ -273,7 +273,7 @@ function sanitizeParameterValue(parameter: StrategyParameterDefinition, value: u
 }
 
 function isFractionalStrategyParameter(parameterKey: string) {
-  return ["supertrendFactor", "stopLossAtrMultiplier", "targetOneMultiplier", "targetTwoMultiplier", "targetThreeMultiplier", "trailingStopAtrMultiplier", "equalHighLowThreshold"].includes(
+  return ["supertrendFactor", "bandwidth", "stopLossAtrMultiplier", "targetOneMultiplier", "targetTwoMultiplier", "targetThreeMultiplier", "trailingStopAtrMultiplier", "equalHighLowThreshold"].includes(
     parameterKey,
   );
 }
@@ -283,6 +283,7 @@ function getNumberInputMinimum(parameterKey: string) {
   if (["sessionStartHour", "sessionStartMinute", "manualEndHour", "manualEndMinute", "extensionMultiplierOne", "extensionMultiplierTwo", "extensionMultiplierThree"].includes(parameterKey)) return "0";
   if (parameterKey === "volumeProfileRows") return "5";
   if (parameterKey === "fairValueGapExtend") return "0";
+  if (parameterKey === "bandwidth") return "2";
 
   return isFractionalStrategyParameter(parameterKey) ? "0.1" : "1";
 }
@@ -769,6 +770,10 @@ export function ChartWorkspacePage() {
     chartStrategies.forEach((strategy) => registry.register(strategy));
     return registry;
   }, [chartStrategies]);
+  const realtimeHistoryRequirement = useMemo(
+    () => getRealtimeStrategyHistoryRequirement(chartStrategies, strategySettings),
+    [chartStrategies, strategySettings],
+  );
   useEffect(() => {
     initializeStudyStrategies(chartStrategies);
   }, [chartStrategies, initializeStudyStrategies]);
@@ -899,6 +904,10 @@ export function ChartWorkspacePage() {
         timeframe,
         bars: chartHasRenderableData ? strategyInputBars : [],
         seriesByTimeframe: strategySeriesByTimeframe,
+        confirmedThroughTimestamp:
+          timeframe === "realtime" && isMarketSessionOpen(activeSymbol.market)
+            ? Math.floor(Date.now() / 60_000) * 60_000 - 60_000
+            : undefined,
       }),
     [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySeriesByTimeframe, strategySettings, timeframe],
   );
@@ -1002,6 +1011,7 @@ export function ChartWorkspacePage() {
         currentBars,
         { symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "realtime" },
         snapshot,
+        realtimeHistoryRequirement.sessionCount,
       );
     }
 
@@ -1059,7 +1069,9 @@ export function ChartWorkspacePage() {
 
     const loadMarketDataHistory = async () => {
       const isRealtimeHistory = timeframe === "realtime";
-      const windowRange = isRealtimeHistory ? getIntradayHistoryWindow(activeSymbol.market) : null;
+      const windowRange = isRealtimeHistory
+        ? getIntradayHistoryWindow(activeSymbol.market, Date.now(), realtimeHistoryRequirement.sessionCount)
+        : null;
       const cacheTimeframe = getChartCacheTimeframe(timeframe);
       const initialCachedBars = readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe });
       const cacheMetadata = readMarketBarCacheSummary().entries.find((entry) =>
@@ -1122,7 +1134,7 @@ export function ChartWorkspacePage() {
           timeframe: isRealtimeHistory ? ("1m" as const) : timeframe,
           startTime: windowRange?.startTime,
           endTime: windowRange?.endTime,
-          count: isRealtimeHistory ? realtimeHistoryBarCount : timeframe === "1w" ? 260 : 600,
+          count: isRealtimeHistory ? realtimeHistoryRequirement.preferredBars : timeframe === "1w" ? 260 : 600,
         };
         const providerCapability = isRealtimeHistory ? "intradayBars" : "historicalBars";
         const result = await fetchChartBars({
@@ -1187,10 +1199,10 @@ export function ChartWorkspacePage() {
         const currentCachedBars = readMarketBarCache(cacheKey);
         const mergedBars = isRealtimeHistory
           ? mergeHistoricalRealtimeBarsWithLiveBars(resultBars, currentCachedBars, {
-              symbol: activeSymbol.dataSymbol,
-              market: activeSymbol.market,
-              timeframe: "realtime",
-            })
+            symbol: activeSymbol.dataSymbol,
+            market: activeSymbol.market,
+            timeframe: "realtime",
+            }, realtimeHistoryRequirement.sessionCount)
           : resultBars;
         const written = writeMarketBarCache(cacheKey, mergedBars, { mergeExisting: !isRealtimeHistory });
         setCachedMarketBars(written);
@@ -1242,7 +1254,14 @@ export function ChartWorkspacePage() {
     return () => {
       cancelled = true;
     };
-  }, [activeSymbol.dataSymbol, activeSymbol.market, marketDataProviderSettings.stockSdkPrimaryEnabled, timeframe]);
+  }, [
+    activeSymbol.dataSymbol,
+    activeSymbol.market,
+    marketDataProviderSettings.stockSdkPrimaryEnabled,
+    realtimeHistoryRequirement.preferredBars,
+    realtimeHistoryRequirement.sessionCount,
+    timeframe,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1275,7 +1294,9 @@ export function ChartWorkspacePage() {
 
         setWatchlistDataStatusByKey((current) => ({ ...current, [`${task.market}:${task.symbol}`]: "syncing" }));
         const isIntraday = task.timeframe === "realtime";
-        const historyWindow = isIntraday ? getIntradayHistoryWindow(task.market) : null;
+        const historyWindow = isIntraday
+          ? getIntradayHistoryWindow(task.market, Date.now(), realtimeHistoryRequirement.sessionCount)
+          : null;
 
         if (isIntraday ? !marketDataAccess.hasIntradaySource : !marketDataAccess.hasHistoricalSource) {
           setWatchlistDataStatusByKey((current) => ({
@@ -1294,7 +1315,7 @@ export function ChartWorkspacePage() {
             timeframe: isIntraday ? "1m" : task.timeframe,
             startTime: historyWindow?.startTime,
             endTime: historyWindow?.endTime,
-            count: isIntraday ? realtimeHistoryBarCount : task.timeframe === "1w" ? 260 : 600,
+            count: isIntraday ? realtimeHistoryRequirement.preferredBars : task.timeframe === "1w" ? 260 : 600,
           },
         });
 
@@ -1310,7 +1331,7 @@ export function ChartWorkspacePage() {
 
         const resultBars = gatewayBarsToMarketDataBars(result.data, isIntraday ? "realtime" : undefined);
         const nextBars = isIntraday
-          ? mergeHistoricalRealtimeBarsWithLiveBars(resultBars, cachedBars, cacheKey)
+          ? mergeHistoricalRealtimeBarsWithLiveBars(resultBars, cachedBars, cacheKey, realtimeHistoryRequirement.sessionCount)
           : resultBars;
         const written = writeMarketBarCache(cacheKey, nextBars, { mergeExisting: !isIntraday });
         setWatchlistDataStatusByKey((current) => ({
@@ -1325,7 +1346,14 @@ export function ChartWorkspacePage() {
     return () => {
       cancelled = true;
     };
-  }, [activeSymbol.dataSymbol, activeSymbol.market, marketDataProviderSettings.stockSdkPrimaryEnabled, watchlist]);
+  }, [
+    activeSymbol.dataSymbol,
+    activeSymbol.market,
+    marketDataProviderSettings.stockSdkPrimaryEnabled,
+    realtimeHistoryRequirement.preferredBars,
+    realtimeHistoryRequirement.sessionCount,
+    watchlist,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1335,7 +1363,7 @@ export function ChartWorkspacePage() {
     }
 
     const loadIntradayHistory = async () => {
-      const windowRange = getIntradayHistoryWindow(activeSymbol.market);
+      const windowRange = getIntradayHistoryWindow(activeSymbol.market, Date.now(), realtimeHistoryRequirement.sessionCount);
 
       try {
         const marketDataAccess = await createChartMarketDataAccess({
@@ -1362,7 +1390,7 @@ export function ChartWorkspacePage() {
             timeframe: "1m",
             startTime: windowRange.startTime,
             endTime: windowRange.endTime,
-            count: 10_000,
+            count: realtimeHistoryRequirement.preferredBars,
           },
           marketDataAccess,
         });
@@ -1427,7 +1455,13 @@ export function ChartWorkspacePage() {
     return () => {
       cancelled = true;
     };
-  }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
+  }, [
+    activeSymbol.dataSymbol,
+    activeSymbol.market,
+    realtimeHistoryRequirement.preferredBars,
+    realtimeHistoryRequirement.sessionCount,
+    timeframe,
+  ]);
 
   useEffect(() => {
     let timeoutId: number | undefined;
@@ -1651,6 +1685,7 @@ export function ChartWorkspacePage() {
     activeSymbol.name,
     currentRealtimeWatchlist,
     marketDataProviderSettings.stockSdkPrimaryEnabled,
+    realtimeHistoryRequirement.sessionCount,
     realtimePollIntervalMs,
     timeframe,
   ]);

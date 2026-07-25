@@ -124,7 +124,7 @@ function getSessionClose(parts: MarketDateParts, profile: MarketSessionProfile) 
   return zonedDateTimeToTimestamp(parts, profile, profile.closeHour, profile.closeMinute);
 }
 
-export function getIntradayHistoryWindow(market: Market, now = Date.now()): IntradayHistoryWindow {
+export function getIntradayHistoryWindow(market: Market, now = Date.now(), sessionCount = intradayWarmupSessionCount): IntradayHistoryWindow {
   const profile = getMarketSessionProfile(market);
   const today = getZonedDateParts(new Date(now), profile.timeZone);
   const todayIsWeekday = isWeekday(today);
@@ -133,7 +133,7 @@ export function getIntradayHistoryWindow(market: Market, now = Date.now()): Intr
   const isTodaySessionStarted = todayIsWeekday && now >= todayOpen;
   const isMarketOpen = todayIsWeekday && now >= todayOpen && now < todayClose;
   const latestSessionDate = isTodaySessionStarted ? today : findPreviousWeekday(today);
-  const startSessionDate = findPreviousWeekdays(latestSessionDate, intradayWarmupSessionCount - 1);
+  const startSessionDate = findPreviousWeekdays(latestSessionDate, Math.max(1, Math.floor(sessionCount)) - 1);
   const latestSessionClose = getSessionClose(latestSessionDate, profile);
   const endTime = sameMarketDate(latestSessionDate, today) && isMarketOpen ? now : latestSessionClose;
 

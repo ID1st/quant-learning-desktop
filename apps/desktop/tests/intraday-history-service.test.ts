@@ -17,6 +17,14 @@ test("getIntradayHistoryWindow includes five US sessions of warmup while market 
   assert.equal(isMarketSessionOpen("US", now), true);
 });
 
+test("getIntradayHistoryWindow accepts an expanded strategy warmup window", () => {
+  const now = Date.UTC(2026, 6, 2, 15, 0);
+  const window = getIntradayHistoryWindow("US", now, 22);
+
+  assert.equal(window.startTime, Date.UTC(2026, 5, 3, 13, 30));
+  assert.equal(window.endTime, now);
+});
+
 test("getIntradayHistoryWindow stops at close after a trading session ends", () => {
   const now = Date.UTC(2026, 6, 2, 22, 0); // 2026-07-02 18:00 New York
   const window = getIntradayHistoryWindow("US", now);

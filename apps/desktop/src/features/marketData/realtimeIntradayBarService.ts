@@ -67,6 +67,7 @@ export function mergeRealtimeSnapshotMinuteBar(
   currentBars: MarketDataBar[],
   key: MarketBarCacheKey,
   snapshot: MarketQuoteSnapshot,
+  sessionCount = 5,
 ): MarketDataBar[] {
   const timestamp = Math.floor(getTimestamp(snapshot) / minuteMs) * minuteMs;
   const price = snapshot.lastPrice;
@@ -107,6 +108,7 @@ export function mergeRealtimeSnapshotMinuteBar(
       minuteBar,
     ],
     key.market,
+    sessionCount,
   );
 }
 
@@ -114,6 +116,7 @@ export function mergeHistoricalRealtimeBarsWithLiveBars(
   historicalBars: MarketDataBar[],
   currentBars: MarketDataBar[],
   key: MarketBarCacheKey,
+  sessionCount = 5,
 ): MarketDataBar[] {
   const matchingHistory = historicalBars.filter((bar) => isMatchingRealtimeBar(bar, key));
   const earliestHistoricalTimestamp = matchingHistory.reduce((earliest, bar) => Math.min(earliest, bar.timestamp), Number.POSITIVE_INFINITY);
@@ -145,7 +148,7 @@ export function mergeHistoricalRealtimeBarsWithLiveBars(
       : liveBar);
   }
 
-  return retainRecentRealtimeSessions(Array.from(byTimestamp.values()), key.market);
+  return retainRecentRealtimeSessions(Array.from(byTimestamp.values()), key.market, sessionCount);
 }
 
 export function analyzeRealtimeHistoryGap(

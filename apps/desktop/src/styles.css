@@ -1853,6 +1853,7 @@ textarea:focus-visible {
 }
 
 .chart-viewport {
+  position: relative;
   display: grid;
   grid-template-rows: 30px 30px minmax(0, 1fr);
   height: 100%;
@@ -1928,6 +1929,57 @@ textarea:focus-visible {
   height: 100vh;
   overflow: hidden;
   background: #080d12;
+}
+
+.ml-price-targets-visual-qa {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #111621;
+}
+
+.ml-price-targets-visual-qa .chart-viewport {
+  grid-template-rows: minmax(0, 1fr);
+  background: #111621;
+}
+
+.ml-price-targets-visual-qa .chart-legend,
+.ml-price-targets-visual-qa .chart-interaction-toolbar {
+  display: none;
+}
+
+.ml-price-targets-visual-qa .chart-bg {
+  fill: #111621;
+}
+
+.ml-price-targets-visual-qa .chart-hud-stack {
+  top: 12px;
+  right: 190px;
+  width: 345px;
+}
+
+.ml-price-targets-visual-qa-title {
+  position: absolute;
+  top: 10px;
+  left: 20px;
+  z-index: 3;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.ml-price-targets-visual-qa-title strong {
+  color: #c9ced8;
+  font-family: var(--font-data);
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.ml-price-targets-visual-qa-title span {
+  color: #aeb4c0;
+  font-family: var(--font-data);
+  font-size: 17px;
 }
 
 .smc-visual-qa .chart-viewport {
@@ -2490,6 +2542,76 @@ textarea:focus-visible {
 
 .strategy-signal-marker.sell polygon {
   fill: #ff5f57;
+}
+
+.strategy-signal-marker.label rect {
+  stroke: rgba(255, 255, 255, 0.46);
+  stroke-width: 1;
+}
+
+.strategy-signal-marker.label text {
+  fill: #f5f8ff;
+  font-family: var(--font-data);
+  font-size: 13px;
+  font-weight: 900;
+  text-anchor: middle;
+}
+
+.chart-hud-stack {
+  position: absolute;
+  top: 68px;
+  right: 86px;
+  z-index: 4;
+  display: grid;
+  gap: 8px;
+  width: min(310px, calc(100% - 112px));
+  pointer-events: none;
+}
+
+.chart-hud-panel {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(8, 13, 20, 0.92);
+  color: #d7dee8;
+  font-family: var(--font-data);
+  font-size: 10px;
+}
+
+.chart-hud-panel th,
+.chart-hud-panel td {
+  border: 1px solid rgba(215, 222, 232, 0.72);
+  padding: 4px 6px;
+}
+
+.chart-hud-panel thead th {
+  color: #f5f8ff;
+  font-weight: 800;
+  text-align: center;
+}
+
+.chart-hud-panel tbody th {
+  width: 74%;
+  font-weight: 500;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.chart-hud-panel tbody td {
+  font-weight: 700;
+  text-align: center;
+}
+
+.chart-hud-panel tr.positive td {
+  background: rgba(0, 255, 187, 0.2);
+}
+
+.chart-hud-panel tr.negative td {
+  background: rgba(255, 17, 0, 0.2);
+}
+
+.chart-hud-panel tr.muted td {
+  background: rgba(143, 156, 175, 0.28);
+  color: #d3d9e2;
 }
 
 .chart-text-annotation {

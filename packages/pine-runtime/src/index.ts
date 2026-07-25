@@ -51,6 +51,31 @@ export function ema(series: readonly SeriesValue[], length: number): Array<numbe
   });
 }
 
+export function rma(series: readonly SeriesValue[], length: number): Array<number | null> {
+  const safeLength = Math.max(1, Math.floor(length));
+  const alpha = 1 / safeLength;
+  let previous: number | null = null;
+
+  return series.map((value, index) => {
+    if (!isValidNumber(value)) {
+      return null;
+    }
+
+    if (previous === null) {
+      const window = series.slice(index - safeLength + 1, index + 1);
+      if (window.length < safeLength || !window.every(isValidNumber)) {
+        return null;
+      }
+
+      previous = sum(window) / safeLength;
+      return previous;
+    }
+
+    previous = value * alpha + previous * (1 - alpha);
+    return previous;
+  });
+}
+
 export function wma(series: readonly SeriesValue[], length: number): Array<number | null> {
   const denominator = (length * (length + 1)) / 2;
 
@@ -61,6 +86,30 @@ export function wma(series: readonly SeriesValue[], length: number): Array<numbe
     }
 
     return window.reduce((total, value, windowIndex) => total + value * (windowIndex + 1), 0) / denominator;
+  });
+}
+
+export function hma(series: readonly SeriesValue[], length: number): Array<number | null> {
+  const safeLength = Math.max(1, Math.floor(length));
+  const halfLength = Math.max(1, Math.floor(safeLength / 2));
+  const rootLength = Math.max(1, Math.round(Math.sqrt(safeLength)));
+  const half = wma(series, halfLength);
+  const full = wma(series, safeLength);
+  const difference = series.map((_, index) =>
+    isValidNumber(half[index]) && isValidNumber(full[index])
+      ? 2 * half[index]! - full[index]!
+      : null,
+  );
+
+  return wma(difference, rootLength);
+}
+
+export function rollingSum(series: readonly SeriesValue[], length: number): Array<number | null> {
+  const safeLength = Math.max(1, Math.floor(length));
+
+  return series.map((_, index) => {
+    const window = series.slice(index - safeLength + 1, index + 1);
+    return window.length === safeLength && window.every(isValidNumber) ? sum(window) : null;
   });
 }
 
@@ -104,7 +153,107 @@ export function trueRange(bars: readonly OhlcBar[]): Array<number | null> {
 }
 
 export function atr(bars: readonly OhlcBar[], length: number): Array<number | null> {
-  return ema(trueRange(bars), length);
+  return rma(trueRange(bars), length);
+}
+
+export function rsi(series: readonly SeriesValue[], length: number): Array<number | null> {
+  const changes = series.map((value, index) => {
+    const previous = history(series, index, 1);
+    return isValidNumber(value) && isValidNumber(previous) ? value - previous : null;
+  });
+  const gains = changes.map((value) => isValidNumber(value) ? Math.max(value, 0) : null);
+  const losses = changes.map((value) => isValidNumber(value) ? Math.max(-value, 0) : null);
+  const averageGain = rma(gains, length);
+  const averageLoss = rma(losses, length);
+
+  return series.map((_, index) => {
+    const gain = averageGain[index];
+    const loss = averageLoss[index];
+    if (!isValidNumber(gain) || !isValidNumber(loss)) {
+      return null;
+    }
+    if (gain === 0 && loss === 0) {
+      return 50;
+    }
+    if (loss === 0) {
+      return 100;
+    }
+    if (gain === 0) {
+      return 0;
+    }
+
+    return 100 - 100 / (1 + gain / loss);
+  });
+}
+
+export interface SupertrendResult {
+  line: Array<number | null>;
+  direction: Array<1 | -1 | null>;
+}
+
+export function supertrend(bars: readonly OhlcBar[], factor: number, length: number): SupertrendResult {
+  const atrValues = atr(bars, length);
+  const line: Array<number | null> = [];
+  const direction: Array<1 | -1 | null> = [];
+  const upperBand: Array<number | null> = [];
+  const lowerBand: Array<number | null> = [];
+
+  bars.forEach((bar, index) => {
+    const volatility = atrValues[index];
+    if (!isValidNumber(volatility)) {
+      upperBand.push(null);
+      lowerBand.push(null);
+      line.push(null);
+      direction.push(null);
+      return;
+    }
+
+    const midpoint = (bar.high + bar.low) / 2;
+    const basicUpper = midpoint + factor * volatility;
+    const basicLower = midpoint - factor * volatility;
+    const previousUpper = upperBand[index - 1];
+    const previousLower = lowerBand[index - 1];
+    const previousClose = bars[index - 1]?.close;
+    const finalUpper =
+      !isValidNumber(previousUpper) || basicUpper < previousUpper || (isValidNumber(previousClose) && previousClose > previousUpper)
+        ? basicUpper
+        : previousUpper;
+    const finalLower =
+      !isValidNumber(previousLower) || basicLower > previousLower || (isValidNumber(previousClose) && previousClose < previousLower)
+        ? basicLower
+        : previousLower;
+    const previousLine = line[index - 1];
+    let nextDirection: 1 | -1;
+
+    if (!isValidNumber(previousLine) || !isValidNumber(previousUpper)) {
+      nextDirection = 1;
+    } else if (previousLine === previousUpper) {
+      nextDirection = bar.close > finalUpper ? -1 : 1;
+    } else {
+      nextDirection = bar.close < finalLower ? 1 : -1;
+    }
+
+    upperBand.push(finalUpper);
+    lowerBand.push(finalLower);
+    direction.push(nextDirection);
+    line.push(nextDirection === -1 ? finalLower : finalUpper);
+  });
+
+  return { line, direction };
+}
+
+export function barssince(condition: readonly boolean[]): Array<number | null> {
+  let elapsed: number | null = null;
+
+  return condition.map((value) => {
+    if (value) {
+      elapsed = 0;
+    } else if (elapsed !== null) {
+      elapsed += 1;
+    }
+
+    return elapsed;
+  });
 }
 
 export function crossover(left: readonly SeriesValue[], right: readonly SeriesValue[]): boolean[] {

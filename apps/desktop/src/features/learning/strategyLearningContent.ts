@@ -175,6 +175,48 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
     },
   },
   {
+    id: "machine-learning-price-targets",
+    category: "strategy",
+    title: "Machine Learning Price Targets",
+    subtitle: "以趋势段历史表现训练 RBF 核回归模型，估计下一段价格移动幅度，并在主图绘制目标区、风险区和确认信号。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["实时 1 分钟"],
+    placement: "主图叠加",
+    directoryLabel: "机器学习目标指标",
+    workspaceAction: { label: "在超级图表中配置", route: "chart" },
+    sections: [
+      {
+        title: "模型如何形成预测",
+        content: "指标在每次趋势方向切换时记录上一趋势段的最大有利移动，并使用价格位置、波动变化、二阶变化、成交量振荡、震荡度、RSI 与趋势方向共 8 个特征。RBF 核函数会按特征距离为历史样本分配权重，输出下一趋势段的预测移动比例。",
+      },
+      {
+        title: "趋势与图层",
+        content: "趋势可选择 EMA 50/200 交叉、HMA 93 斜率或 SuperTrend 3/10。有效预测会从确认 K 线收盘价绘制绿色目标区和红色风险区，并以大号上下箭头标记方向；交易状态同时用于蜡烛着色。",
+      },
+      {
+        title: "统计与提醒",
+        content: "右上角表格显示训练样本量、预测移动、历史成功率、建议风险收益比和当前状态。指标提供看涨、看跌、止盈命中与止损命中四类一次性提醒。",
+      },
+    ],
+    parameters: [
+      { name: "趋势模式", defaultValue: "EMA Cross (Fast Slow)", description: "可切换为 HMA Increasing/Decreasing 或 SuperTrend。" },
+      { name: "RBF 带宽", defaultValue: "5", description: "控制远距离训练样本的权重；源码允许的最小值为 2。" },
+      { name: "历史预热", defaultValue: "1,000 根", description: "少于 1,000 根已确认分钟 K 线时仅显示预热进度，不产生预测图层或信号。" },
+      { name: "颜色", defaultValue: "#00FFBB / #FF1100", description: "分别控制看涨目标、看跌风险、箭头和交易状态蜡烛的颜色。" },
+    ],
+    chartOutputs: ["绿色目标区 / 红色风险区", "上下方向标签", "交易状态蜡烛着色", "右上角指标统计表", "四类确认提醒"],
+    risks: [
+      "模型只从当前标的已有历史样本估计移动幅度；样本少、行情状态改变或成交量数据异常时，预测可靠性会下降。",
+      "本实现是指标：不生成订单、收益率或回测 PnL，目标区与风险区不构成投资建议。",
+      "信号只在 K 线收盘后确认，因此会晚于盘中首次穿越，但不会因未收盘价格变化而反复消失。",
+    ],
+    source: {
+      label: "Machine Learning Price Target Prediction Signals [AlgoAlpha]",
+      url: "https://www.tradingview.com/script/3MHPrjD5-Machine-Learning-Price-Target-Prediction-Signals-AlgoAlpha/",
+      license: "未声明软件许可证",
+    },
+  },
+  {
     id: "sma",
     category: "indicator",
     title: "SMA 简单移动平均线",

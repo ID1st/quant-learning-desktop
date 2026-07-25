@@ -1,8 +1,11 @@
 import { crossover, crossunder, ema, sma, wma } from "@quant/pine-runtime";
 import type { Market, Timeframe } from "@quant/shared";
+import { createMachineLearningPriceTargetsStrategyDefinition } from "./machineLearningPriceTargets.ts";
 import { createSmartMoneyConceptsStrategyDefinition } from "./smartMoneyConcepts.ts";
 
 export * from "./backtest.ts";
+export { createMachineLearningPriceTargetsStrategyDefinition } from "./machineLearningPriceTargets.ts";
+export { createMachineLearningPriceTargetsVisualFixture } from "./machineLearningPriceTargetsVisualFixture.ts";
 export { createSmcVisualFixture } from "./smartMoneyConceptsVisualFixture.ts";
 
 export interface Bar {
@@ -29,6 +32,7 @@ export interface StrategyInput {
   timeframe: Timeframe;
   bars: Bar[];
   seriesByTimeframe?: Partial<Record<Timeframe, readonly Bar[]>>;
+  confirmedThroughTimestamp?: number;
   parameters: Record<string, unknown>;
   runMode: "backtest" | "realtime";
   enabled?: boolean;
@@ -41,6 +45,7 @@ export interface StrategyRunRequest {
   timeframe: Timeframe;
   bars: Bar[];
   seriesByTimeframe?: Partial<Record<Timeframe, readonly Bar[]>>;
+  confirmedThroughTimestamp?: number;
   parameters?: Record<string, unknown>;
   runMode: "backtest" | "realtime";
   enabled?: boolean;
@@ -78,6 +83,8 @@ export interface StrategySignalMarker extends StrategyVisualBase {
   price: number;
   direction: "up" | "down";
   tone: "buy" | "sell" | "neutral";
+  shape?: "triangle" | "label-up" | "label-down";
+  text?: string;
 }
 
 export interface StrategyPriceLine extends StrategyVisualBase {
@@ -129,12 +136,26 @@ export type StrategyVisualElement =
   | StrategyLabel
   | StrategyCandleStyle;
 
+export interface StrategyHudPanel {
+  id: string;
+  title: string;
+  valueHeading?: string;
+  placement: "top-right";
+  rows: Array<{
+    id: string;
+    label: string;
+    value: string;
+    tone?: "neutral" | "positive" | "negative" | "muted";
+  }>;
+}
+
 export interface StrategyRenderOutput {
   strategyId: string;
   strategyName: string;
   enabled: boolean;
   zIndex: number;
   elements: StrategyVisualElement[];
+  hudPanels?: StrategyHudPanel[];
 }
 
 export interface StrategyOutput {
@@ -157,6 +178,11 @@ export interface StrategyDefinition {
   defaultEnabled?: boolean;
   supportedMarkets: Market[];
   supportedTimeframes: Timeframe[];
+  realtimeHistoryRequirement?: {
+    minimumBars: number;
+    preferredBars: number;
+    sessionCount: number;
+  };
   parameterSchema: StrategyParameterDefinition[];
   run(input: StrategyInput): StrategyOutput;
 }
@@ -886,6 +912,7 @@ export function createStrategyInput(strategy: StrategyDefinition, request: Strat
     timeframe: request.timeframe,
     bars: request.bars,
     seriesByTimeframe: request.seriesByTimeframe,
+    confirmedThroughTimestamp: request.confirmedThroughTimestamp,
     parameters: resolveStrategyParameters(strategy, request.parameters),
     runMode: request.runMode,
     enabled: request.enabled ?? strategy.defaultEnabled ?? true,
@@ -1956,6 +1983,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
   registry.register(utorbStrategy);
   registry.register(trendTargetsStrategy);
   registry.register(createSmartMoneyConceptsStrategyDefinition());
+  registry.register(createMachineLearningPriceTargetsStrategyDefinition());
 
   return registry;
 }
