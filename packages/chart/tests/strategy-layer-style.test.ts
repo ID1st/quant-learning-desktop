@@ -5,6 +5,7 @@ import {
   getChartHudRightOffset,
   getChartLabelPosition,
   getChartLineDasharray,
+  getSignalMarkerLabelWidth,
 } from "../src/strategyLayerStyle.ts";
 
 describe("strategy layer styles", () => {
@@ -37,5 +38,11 @@ describe("strategy layer styles", () => {
 
   it("keeps HUD panels left of the responsive price axis with a readable gap", () => {
     assert.equal(getChartHudRightOffset(), "calc(8.7755% + 32px)");
+  });
+
+  it("expands text signal markers beyond the icon-only width without growing unbounded", () => {
+    assert.equal(getSignalMarkerLabelWidth("▲"), 34);
+    assert.ok(getSignalMarkerLabelWidth("向上突破（高量）") > 90);
+    assert.equal(getSignalMarkerLabelWidth("A".repeat(100)), 220);
   });
 });

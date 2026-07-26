@@ -15,6 +15,18 @@ test("strategy learning content covers the built-in strategies and indicators", 
   assert.ok(strategyLearningEntries.every((entry) => entry.sections.length >= 3 && entry.risks.length > 0));
 });
 
+test("UTORB and Trend Targets learning entries link the audited originals and explain their reference layers", () => {
+  const utorb = strategyLearningEntries.find((entry) => entry.id === "utorb");
+  const trendTargets = strategyLearningEntries.find((entry) => entry.id === "trend-targets");
+
+  assert.equal(utorb?.source?.url, "https://www.tradingview.com/script/G4aoqFUF-Ultimate-Opening-Range-Breakout-LuxAlgo/");
+  assert.ok(utorb?.chartOutputs.includes("六段扩展区域"));
+  assert.ok(utorb?.chartOutputs.includes("ORB 命中率仪表盘"));
+  assert.equal(trendTargets?.source?.url, "https://www.tradingview.com/script/OXsSm5NV-Trend-Targets-AlgoAlpha/");
+  assert.ok(trendTargets?.chartOutputs.includes("趋势蜡烛着色"));
+  assert.ok(trendTargets?.chartOutputs.includes("入场 / 止损 / 三档目标投影"));
+});
+
 test("ML price target learning entry explains RBF training, warmup, and indicator boundary", () => {
   const entry = strategyLearningEntries.find((item) => item.id === "machine-learning-price-targets");
 

@@ -47,9 +47,11 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
     subtitle: "按指定时区逐日建立开盘区间，识别放量突破并跟踪扩展目标与 ATR 移动风险线。",
     markets: ["美股", "港股", "A股"],
     timeframes: ["分时", "1m", "5m", "15m", "30m"],
+    placement: "主图叠加",
+    workspaceAction: { label: "在超级图表中配置", route: "chart" },
     sections: [
       { title: "核心逻辑", content: "策略按固定 UTC 偏移识别每日开盘时段，可使用最高/最低价或蜡烛实体形成区间。会话结束后，收盘价首次上穿或下穿区间边界时生成方向信号，每个方向每天最多一次。" },
-      { title: "图表如何表达", content: "区间带和高低线只覆盖当前交易日；上下三档扩展可选择普通倍数或斐波那契；突破箭头同时标注相对 20 根均量的高量/低量，移动风险线随 ATR 单向收紧。" },
+      { title: "图表如何表达", content: "区间带、高低线及上下六段扩展区域会持续到所选绘制结束时间；最新目标标签和右上角仪表盘显示历史命中率。突破标签同时标注相对 20 根均量的高量/低量，移动风险线随 ATR 单向收紧。" },
       { title: "适合观察什么", content: "适合观察开盘后波动活跃、成交量充足的标的。它更适合作为研究框架，仍需结合市场环境、流动性和个人风险控制判断。" },
     ],
     parameters: [
@@ -59,9 +61,15 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
       { name: "结束绘制于", defaultValue: "纽约收盘", description: "也可选择伦敦收盘、手动时间或当日结束，均按策略固定时区解释。" },
       { name: "移动风险线", defaultValue: "ATR(14) × 2", description: "突破后按方向单向收紧，可在图表中显示并用于状态失效提示。" },
       { name: "成交量分布", defaultValue: "14 行 / 30%", description: "与原始 Pine Script 默认值一致；按开盘区间内的成交量桶显示价格分布和 POC。" },
+      { name: "命中率仪表盘", defaultValue: "开启", description: "汇总上下三档目标的命中次数、已追踪会话数和命中率。" },
     ],
-    chartOutputs: ["高量/低量突破箭头", "逐日开盘区间", "上下三档扩展", "成交量分布", "ATR 移动风险线"],
+    chartOutputs: ["高量/低量突破标签", "逐日开盘区间", "六段扩展区域", "命中率目标标签", "成交量分布", "ATR 移动风险线", "ORB 命中率仪表盘"],
     risks: ["突破后可能快速回落，不能把箭头视为确定交易建议。", "不同市场的开盘时段、跳空和流动性差异会影响结果。"],
+    source: {
+      label: "Ultimate Opening Range Breakout [LuxAlgo]",
+      url: "https://www.tradingview.com/script/G4aoqFUF-Ultimate-Opening-Range-Breakout-LuxAlgo/",
+      license: "未声明软件许可证",
+    },
   },
   {
     id: "trend-targets",
@@ -70,9 +78,11 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
     subtitle: "对 Supertrend 上下轨中点做 WMA/EMA 双重平滑，以斜率拐点生成趋势信号。",
     markets: ["美股", "港股", "A股"],
     timeframes: ["分时", "15m", "30m", "1h", "1d"],
+    placement: "主图叠加",
+    workspaceAction: { label: "在超级图表中配置", route: "chart" },
     sections: [
       { title: "核心逻辑", content: "策略先用 Wilder ATR 构造递推收紧的 Supertrend 上下轨，取轨道中点后依次计算 WMA 与 EMA。平滑线斜率由负转正时识别上行趋势，由正转负时识别下行趋势。" },
-      { title: "拒绝与目标", content: "K 线连续穿越当前趋势基准线超过确认次数后标记拒绝信号。最新趋势转变会按当根 K 线的 ATR 计算风险线，并从实际风险距离推导三档目标。" },
+      { title: "拒绝与目标", content: "K 线连续穿越当前趋势基准线超过确认次数后标记拒绝信号。最新趋势转变会按当根 K 线的 ATR 固定入场、止损和三档目标，并以趋势颜色同步着色基准线与蜡烛。" },
       { title: "适合观察什么", content: "适合用来研究趋势延续与回撤后的恢复。横盘或剧烈跳空阶段可能产生连续无效信号。" },
     ],
     parameters: [
@@ -80,9 +90,15 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
       { name: "双重平滑", defaultValue: "WMA 40 / EMA 14", description: "控制趋势基准线的平滑程度和拐点灵敏度。" },
       { name: "拒绝确认", defaultValue: "3", description: "连续穿越趋势线超过该次数后显示拒绝标记。" },
       { name: "风险线与目标", defaultValue: "ATR×5 / 0.5R、1R、1.5R", description: "风险线先确定实际风险距离，三档目标再按该风险距离计算。" },
+      { name: "趋势颜色", defaultValue: "#00FFBB / #FF1100", description: "分别控制上行、下行基准线、蜡烛、趋势转变和拒绝标记。" },
     ],
-    chartOutputs: ["上行/下行分段趋势基准线", "趋势转变箭头", "连续拒绝标记", "信号参考线", "目标 1 / 目标 2 / 目标 3", "风险线"],
+    chartOutputs: ["上行/下行分段趋势基准线", "趋势蜡烛着色", "趋势转变箭头", "连续拒绝标记", "入场 / 止损 / 三档目标投影"],
     risks: ["趋势指标有滞后性，不能避免突发消息或跳空风险。", "目标位是研究参考，不代表价格一定会触及。"],
+    source: {
+      label: "Trend Targets [AlgoAlpha]",
+      url: "https://www.tradingview.com/script/OXsSm5NV-Trend-Targets-AlgoAlpha/",
+      license: "未声明软件许可证",
+    },
   },
   {
     id: "smart-money-concepts",

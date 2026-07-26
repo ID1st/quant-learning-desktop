@@ -72,7 +72,7 @@ export interface StrategyVisualBase {
   color?: string;
   opacity?: number;
   lineStyle?: "solid" | "dashed" | "dotted";
-  textSize?: "tiny" | "small" | "normal";
+  textSize?: "tiny" | "small" | "normal" | "large";
   labelAnchor?: "above" | "below" | "center" | "right";
   extendRight?: boolean;
   placement?: "under-candles" | "over-candles";
@@ -987,6 +987,11 @@ function getStringParameter(parameters: Record<string, unknown>, key: string, fa
   return typeof value === "string" ? value : fallback;
 }
 
+function getColorParameter(parameters: Record<string, unknown>, key: string, fallback: string) {
+  const value = getStringParameter(parameters, key, fallback);
+  return /^#[\da-f]{6}$/i.test(value) ? value : fallback;
+}
+
 function wilderMovingAverage(values: readonly number[], period: number): Array<number | null> {
   const length = Math.max(1, Math.round(period));
   let previous: number | null = null;
@@ -1093,14 +1098,27 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   const sessionStartMinute = Math.min(59, Math.max(0, Math.round(getNumberParameter(input.parameters, "sessionStartMinute", 30))));
   const openingRangeMinutes = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "openingRangeMinutes", 30)));
   const sessionDays = getStringParameter(input.parameters, "sessionDays", "1234567").replace(/[^1-7]/g, "") || "1234567";
-  const timezoneMode = getStringParameter(input.parameters, "timezoneMode", "market") === "fixed-offset"
-    ? "fixed-offset"
-    : "market";
+  const timezoneMode = getStringParameter(input.parameters, "timezoneMode", "fixed-offset") === "market"
+    ? "market"
+    : "fixed-offset";
   const timezoneOffsetHours = Math.min(12, Math.max(-12, getNumberParameter(input.parameters, "timezoneOffsetHours", -5)));
   const sessionTimeZone = marketTimeZones[input.market];
   const rangeSource = getStringParameter(input.parameters, "rangeSource", "high-low") === "close" ? "close" : "high-low";
   const showTargets = getBooleanParameter(input.parameters, "showTargets", true);
   const showTargetLabels = getBooleanParameter(input.parameters, "showTargetLabels", true);
+  const bullColor = getColorParameter(input.parameters, "bullColor", "#089981");
+  const bearColor = getColorParameter(input.parameters, "bearColor", "#f23645");
+  const neutralColor = getColorParameter(input.parameters, "neutralColor", "#5b9cf6");
+  const backgroundTransparency = Math.min(100, Math.max(0, getNumberParameter(input.parameters, "backgroundTransparency", 85)));
+  const signalLabelSize = getStringParameter(input.parameters, "signalLabelSize", "small");
+  const signalTextSize: StrategyVisualBase["textSize"] =
+    signalLabelSize === "tiny" || signalLabelSize === "small" || signalLabelSize === "large"
+      ? signalLabelSize
+      : "normal";
+  const targetZoneOpacities = [5, 7.5, 2.5].map(
+    (transparencyOffset) =>
+      (100 - Math.min(100, Math.max(0, backgroundTransparency + transparencyOffset))) / 100,
+  );
   const extensionType = getStringParameter(input.parameters, "extensionType", "multiples") === "fibonacci" ? "fibonacci" : "multiples";
   const extensionMultipliers = extensionType === "fibonacci"
     ? [0.382, 0.618, 1]
@@ -1112,6 +1130,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   const showVolumeProfile = getBooleanParameter(input.parameters, "showVolumeProfile", true);
   const volumeProfileRows = Math.min(50, Math.max(5, Math.round(getPositiveNumberParameter(input.parameters, "volumeProfileRows", 14))));
   const volumeProfileWidthPercent = Math.min(100, Math.max(1, getPositiveNumberParameter(input.parameters, "volumeProfileWidthPercent", 30)));
+  const volumeProfileColor = getColorParameter(input.parameters, "volumeProfileColor", "#5b9cf6");
   const stopPlotting = getBooleanParameter(input.parameters, "stopPlotting", true);
   const plottingEndType = getStringParameter(input.parameters, "plottingEndType", "new-york-close");
   const manualEndHour = Math.min(23, Math.max(0, Math.round(getNumberParameter(input.parameters, "manualEndHour", 16))));
@@ -1127,6 +1146,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   const trailingStopAtrMultiplier = getPositiveNumberParameter(input.parameters, "trailingStopAtrMultiplier", 2);
   const trailingStopAtrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "trailingStopAtrPeriod", 14)));
   const showOptimizer = getBooleanParameter(input.parameters, "showOptimizer", false);
+  const showDashboard = getBooleanParameter(input.parameters, "showDashboard", true);
 
   if (!enabled) {
     return createPlaceholderOutput(strategy, false);
@@ -1256,6 +1276,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         kind: "trend-line",
         points: currentTrailPoints,
         tone: trailSegmentDirection > 0 ? "bullish" : "bearish",
+        color: trailSegmentDirection > 0 ? bullColor : bearColor,
       });
       trailSegmentIndex += 1;
     }
@@ -1275,8 +1296,8 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         id: `utorb-opening-range-high-${key}`,
         kind: "price-line",
         price: openingRangeHigh,
-        label: "开盘高点",
         tone: "range",
+        color: neutralColor,
         fromTimestamp: sessionStartTimestamp,
         toTimestamp: plottingEndTimestamp,
       },
@@ -1284,8 +1305,8 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         id: `utorb-opening-range-low-${key}`,
         kind: "price-line",
         price: openingRangeLow,
-        label: "开盘低点",
         tone: "range",
+        color: neutralColor,
         fromTimestamp: sessionStartTimestamp,
         toTimestamp: plottingEndTimestamp,
       },
@@ -1294,32 +1315,66 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         kind: "band",
         fromPrice: openingRangeLow,
         toPrice: openingRangeHigh,
-        label: "开盘区间",
         tone: "range",
+        fillColor: neutralColor,
+        borderColor: neutralColor,
+        opacity: (100 - backgroundTransparency) / 100,
         fromTimestamp: sessionStartTimestamp,
-        toTimestamp: sessionEndTimestamp,
+        toTimestamp: plottingEndTimestamp,
       },
     );
 
     if (showTargets) {
-      upper.forEach((price, index) => elements.push({
-        id: `utorb-target-up-${index + 1}-${key}`,
-        kind: "price-line",
-        price,
-        ...(showTargetLabels ? { label: `上方目标 ${index + 1}` } : {}),
-        tone: "target",
-        fromTimestamp: sessionStartTimestamp,
-        toTimestamp: plottingEndTimestamp,
-      }));
-      lower.forEach((price, index) => elements.push({
-        id: `utorb-target-down-${index + 1}-${key}`,
-        kind: "price-line",
-        price,
-        ...(showTargetLabels ? { label: `下方目标 ${index + 1}` } : {}),
-        tone: "target",
-        fromTimestamp: sessionStartTimestamp,
-        toTimestamp: plottingEndTimestamp,
-      }));
+      upper.forEach((price, index) => {
+        elements.push(
+          {
+            id: `utorb-target-zone-up-${index + 1}-${key}`,
+            kind: "band",
+            fromPrice: index === 0 ? openingRangeHigh : upper[index - 1],
+            toPrice: price,
+            tone: "target",
+            fillColor: bullColor,
+            borderColor: bullColor,
+            opacity: targetZoneOpacities[index],
+            fromTimestamp: sessionStartTimestamp,
+            toTimestamp: plottingEndTimestamp,
+          },
+          {
+            id: `utorb-target-up-${index + 1}-${key}`,
+            kind: "price-line",
+            price,
+            tone: "target",
+            color: bullColor,
+            fromTimestamp: sessionStartTimestamp,
+            toTimestamp: plottingEndTimestamp,
+          },
+        );
+      });
+      lower.forEach((price, index) => {
+        elements.push(
+          {
+            id: `utorb-target-zone-down-${index + 1}-${key}`,
+            kind: "band",
+            fromPrice: index === 0 ? openingRangeLow : lower[index - 1],
+            toPrice: price,
+            tone: "risk",
+            fillColor: bearColor,
+            borderColor: bearColor,
+            opacity: targetZoneOpacities[index],
+            fromTimestamp: sessionStartTimestamp,
+            toTimestamp: plottingEndTimestamp,
+          },
+          {
+            id: `utorb-target-down-${index + 1}-${key}`,
+            kind: "price-line",
+            price,
+            tone: "stop",
+            color: bearColor,
+            fromTimestamp: sessionStartTimestamp,
+            toTimestamp: plottingEndTimestamp,
+          },
+        );
+      });
     }
 
     lastSessionRendered = sessionKey;
@@ -1451,7 +1506,19 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         price: bar.close,
         label,
       });
-      elements.push({ id: `utorb-buy-${bar.timestamp}`, kind: "signal-marker", timestamp: bar.timestamp, price: bar.high, direction: "up", tone: "buy" });
+      elements.push({
+        id: `utorb-buy-${bar.timestamp}`,
+        kind: "signal-marker",
+        timestamp: bar.timestamp,
+        price: bar.high,
+        direction: "down",
+        tone: "buy",
+        shape: "label-down",
+        text: label,
+        textSize: signalTextSize,
+        color: bullColor,
+        placement: "over-candles",
+      });
       canSignalUp = false;
       if (activeDirection === 0) {
         activeDirection = 1;
@@ -1473,7 +1540,19 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         price: bar.close,
         label,
       });
-      elements.push({ id: `utorb-sell-${bar.timestamp}`, kind: "signal-marker", timestamp: bar.timestamp, price: bar.low, direction: "down", tone: "sell" });
+      elements.push({
+        id: `utorb-sell-${bar.timestamp}`,
+        kind: "signal-marker",
+        timestamp: bar.timestamp,
+        price: bar.low,
+        direction: "up",
+        tone: "sell",
+        shape: "label-up",
+        text: label,
+        textSize: signalTextSize,
+        color: bearColor,
+        placement: "over-candles",
+      });
       canSignalDown = false;
       if (activeDirection === 0) {
         activeDirection = -1;
@@ -1550,6 +1629,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   if (showVolumeProfile && latestVolumeProfile.size > 0 && sessionKey !== null) {
     const maximumVolume = Math.max(...latestVolumeProfile.values());
     const maximumWidth = openingRangeDuration * (volumeProfileWidthPercent / 100);
+    const profileEndTimestamp = bars.at(-1)!.timestamp;
     [...latestVolumeProfile.entries()].sort(([left], [right]) => left - right).forEach(([price, volume], index) => {
       const width = maximumWidth * (volume / Math.max(1, maximumVolume));
       elements.push({
@@ -1559,8 +1639,11 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         toPrice: price + latestTickSize / 2,
         label: volume === maximumVolume ? "POC" : undefined,
         tone: "range",
-        fromTimestamp: sessionEndTimestamp - width,
-        toTimestamp: sessionEndTimestamp,
+        fillColor: volumeProfileColor,
+        borderColor: volumeProfileColor,
+        opacity: volume === maximumVolume ? 0.72 : 0.42,
+        fromTimestamp: profileEndTimestamp - width,
+        toTimestamp: profileEndTimestamp,
       });
     });
   }
@@ -1573,6 +1656,73 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
     0,
   );
   const hitRate = (hits: number) => totalSessions > 0 ? (hits / totalSessions) * 100 : 0;
+  const latestSessionSuffix = sessionKey === null ? null : `-${sessionKey}`;
+  elements.forEach((element) => {
+    if (element.kind !== "price-line") return;
+    const isLatestSession = latestSessionSuffix !== null && element.id.endsWith(latestSessionSuffix);
+    if (!isLatestSession || !showTargetLabels) {
+      element.label = undefined;
+      return;
+    }
+    if (element.id.startsWith("utorb-opening-range-high-")) {
+      element.label = "开盘高点";
+      return;
+    }
+    if (element.id.startsWith("utorb-opening-range-low-")) {
+      element.label = "开盘低点";
+      return;
+    }
+    const targetMatch = /^utorb-target-(up|down)-([1-3])-/.exec(element.id);
+    if (!targetMatch) return;
+    const targetIndex = Number(targetMatch[2]) - 1;
+    const hits = targetMatch[1] === "up" ? targetHits.upper[targetIndex] : targetHits.lower[targetIndex];
+    element.label = `目标 ${targetIndex + 1} (${Math.round(hitRate(hits))}%)`;
+  });
+
+  const sessionEndLocalMinutes = (sessionStartMinutes + openingRangeMinutes) % (24 * 60);
+  const sessionLabel = [
+    String(sessionStartHour).padStart(2, "0"),
+    String(sessionStartMinute).padStart(2, "0"),
+    "-",
+    String(Math.floor(sessionEndLocalMinutes / 60)).padStart(2, "0"),
+    String(sessionEndLocalMinutes % 60).padStart(2, "0"),
+  ].join("");
+  const dashboardRows: StrategyHudPanel["rows"] = [
+    ...targetHits.upper.map((hits, index) => ({
+      id: `upper-target-${index + 1}`,
+      label: `多头目标${index + 1}`,
+      value: `${hits} / ${totalSessions} · ${Math.round(hitRate(hits))}%`,
+      tone: "positive" as const,
+    })),
+    ...targetHits.lower.map((hits, index) => ({
+      id: `lower-target-${index + 1}`,
+      label: `空头目标${index + 1}`,
+      value: `${hits} / ${totalSessions} · ${Math.round(hitRate(hits))}%`,
+      tone: "negative" as const,
+    })),
+    {
+      id: "tracked-sessions",
+      label: "已追踪",
+      value: `${totalSessions} · ${sessionLabel}`,
+      tone: "muted" as const,
+    },
+  ];
+  if (showTrailingStop) {
+    dashboardRows.push({
+      id: "trailing-profit",
+      label: "累计追踪利润",
+      value: totalTrailProfit.toFixed(2),
+      tone: totalTrailProfit >= 0 ? "positive" : "negative",
+    });
+  }
+  if (showOptimizer) {
+    dashboardRows.push({
+      id: "optimizer",
+      label: "最佳 ATR 倍数",
+      value: `${optimizerMultipliers[bestOptimizerIndex]} · ${optimizerProfits[bestOptimizerIndex].toFixed(2)}`,
+      tone: "neutral",
+    });
+  }
   const directionalSignalCount = signals.filter((signal) => signal.type === "buy" || signal.type === "sell").length;
 
   return {
@@ -1584,6 +1734,15 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       enabled,
       zIndex: 10,
       elements,
+      hudPanels: showDashboard
+        ? [{
+            id: "utorb-hit-rate",
+            title: "ORB 命中率",
+            valueHeading: "命中 / 总数 · 比率",
+            placement: "top-right",
+            rows: dashboardRows,
+          }]
+        : undefined,
     },
     metrics: {
       openingRangeHigh,
@@ -1637,6 +1796,8 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
   const targetTwoMultiplier = getPositiveNumberParameter(input.parameters, "targetTwoMultiplier", 1);
   const targetThreeMultiplier = getPositiveNumberParameter(input.parameters, "targetThreeMultiplier", 1.5);
   const showStopLoss = getBooleanParameter(input.parameters, "showStopLoss", true);
+  const bullColor = getColorParameter(input.parameters, "bullColor", "#00ffbb");
+  const bearColor = getColorParameter(input.parameters, "bearColor", "#ff1100");
 
   if (!enabled) {
     return createPlaceholderOutput(strategy, false);
@@ -1702,6 +1863,14 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
     if (turnedBullish) currentTrend = 1;
     if (turnedBearish) currentTrend = -1;
     trend.push(currentTrend);
+    elements.push({
+      id: `trend-targets-candle-${bar.timestamp}`,
+      kind: "candle-style",
+      timestamp: bar.timestamp,
+      color: currentTrend === 1 ? bullColor : bearColor,
+      opacity: 0.5,
+      placement: "over-candles",
+    });
 
     if (isSeriesNumber(value)) {
       const tone = currentTrend > 0 ? "bullish" : currentTrend < 0 ? "bearish" : "neutral";
@@ -1725,6 +1894,9 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         price: isSeriesNumber(value) ? value : bar.low,
         direction: "up",
         tone: "buy",
+        shape: "label-up",
+        color: bullColor,
+        placement: "over-candles",
       });
     } else if (previousTrend >= 0 && currentTrend < 0) {
       signals.push({ timestamp: bar.timestamp, type: "sell", price: bar.close, label: "向下趋势转变" });
@@ -1735,6 +1907,9 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         price: isSeriesNumber(value) ? value : bar.high,
         direction: "down",
         tone: "sell",
+        shape: "label-down",
+        color: bearColor,
+        placement: "over-candles",
       });
     }
 
@@ -1752,7 +1927,10 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         timestamp: bar.timestamp,
         price: value,
         direction: bullish ? "up" : "down",
-        tone: "neutral",
+        tone: bullish ? "buy" : "sell",
+        shape: "triangle",
+        color: bullish ? bullColor : bearColor,
+        placement: "over-candles",
       });
     }
   });
@@ -1764,6 +1942,8 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         kind: "trend-line",
         points: segment.points,
         tone: segment.tone,
+        color: segment.tone === "bullish" ? bullColor : bearColor,
+        opacity: 0.5,
       });
     }
   });
@@ -1828,14 +2008,18 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         fromPrice: Math.min(entryPrice, stopPrice),
         toPrice: Math.max(entryPrice, stopPrice),
         tone: "risk",
+        fillColor: bearColor,
+        borderColor: bearColor,
+        opacity: 0.05,
         fromTimestamp: projectionStart,
       },
       {
         id: "trend-targets-entry",
         kind: "price-line",
         price: entryPrice,
-        label: `信号参考 ▸ ${entryPrice.toFixed(2)}`,
+        label: `入场 ▸ ${entryPrice.toFixed(2)}`,
         tone: "neutral",
+        color: setupSide === "buy" ? bullColor : bearColor,
         fromTimestamp: projectionStart,
       },
       {
@@ -1844,6 +2028,9 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         fromPrice: Math.min(entryPrice, targetThree),
         toPrice: Math.max(entryPrice, targetThree),
         tone: "target",
+        fillColor: bullColor,
+        borderColor: bullColor,
+        opacity: 0.05,
         fromTimestamp: projectionStart,
       },
       {
@@ -1852,6 +2039,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         price: targetOne,
         label: `✓ 目标1 ▸ ${targetOne.toFixed(2)}`,
         tone: "target",
+        color: bullColor,
         fromTimestamp: projectionStart,
       },
       {
@@ -1860,6 +2048,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         price: targetTwo,
         label: `✓ 目标2 ▸ ${targetTwo.toFixed(2)}`,
         tone: "target",
+        color: bullColor,
         fromTimestamp: projectionStart,
       },
       {
@@ -1868,6 +2057,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         price: targetThree,
         label: `✓ 目标3 ▸ ${targetThree.toFixed(2)}`,
         tone: "target",
+        color: bullColor,
         fromTimestamp: projectionStart,
       },
     );
@@ -1879,6 +2069,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         price: stopPrice,
         label: `✕ 风险线 ▸ ${stopPrice.toFixed(2)}`,
         tone: "stop",
+        color: bearColor,
         fromTimestamp: projectionStart,
       });
     }
@@ -1973,11 +2164,11 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
         key: "timezoneMode",
         label: "时区模式",
         type: "select",
-        defaultValue: "market",
-        description: "默认跟随标的市场时区并自动处理夏令时；固定偏移用于复现旧参数。",
+        defaultValue: "fixed-offset",
+        description: "固定偏移与原 Pine 默认 UTC-5 一致；也可切换为市场时区并自动处理夏令时。",
         options: [
-          { label: "跟随市场（自动夏令时）", value: "market" },
           { label: "固定 UTC 偏移", value: "fixed-offset" },
+          { label: "跟随市场（自动夏令时）", value: "market" },
         ],
       },
       {
@@ -2017,9 +2208,26 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       { key: "extensionMultiplierOne", label: "扩展倍数 1", type: "number", defaultValue: 1 },
       { key: "extensionMultiplierTwo", label: "扩展倍数 2", type: "number", defaultValue: 2 },
       { key: "extensionMultiplierThree", label: "扩展倍数 3", type: "number", defaultValue: 3 },
+      { key: "bullColor", label: "多头颜色", type: "color", defaultValue: "#089981" },
+      { key: "bearColor", label: "空头颜色", type: "color", defaultValue: "#f23645" },
+      { key: "neutralColor", label: "区间颜色", type: "color", defaultValue: "#5b9cf6" },
+      { key: "backgroundTransparency", label: "区域透明度", type: "number", defaultValue: 85 },
+      {
+        key: "signalLabelSize",
+        label: "信号标签大小",
+        type: "select",
+        defaultValue: "small",
+        options: [
+          { label: "极小", value: "tiny" },
+          { label: "小", value: "small" },
+          { label: "中", value: "normal" },
+          { label: "大", value: "large" },
+        ],
+      },
       { key: "showVolumeProfile", label: "显示成交量分布", type: "boolean", defaultValue: true },
       { key: "volumeProfileRows", label: "成交量分布行数", type: "number", defaultValue: 14 },
       { key: "volumeProfileWidthPercent", label: "成交量分布宽度 (%)", type: "number", defaultValue: 30 },
+      { key: "volumeProfileColor", label: "成交量分布颜色", type: "color", defaultValue: "#5b9cf6" },
       { key: "stopPlotting", label: "限制绘制时长", type: "boolean", defaultValue: true },
       {
         key: "plottingEndType",
@@ -2039,6 +2247,7 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       { key: "trailingStopAtrMultiplier", label: "移动风险线 ATR 倍数", type: "number", defaultValue: 2 },
       { key: "trailingStopAtrPeriod", label: "移动风险线 ATR 周期", type: "number", defaultValue: 14 },
       { key: "showOptimizer", label: "计算风险线优化器", type: "boolean", defaultValue: false },
+      { key: "showDashboard", label: "显示命中率仪表盘", type: "boolean", defaultValue: true },
     ],
     run: (input) => runUtorbStrategy(utorbStrategy, input),
   };
@@ -2129,6 +2338,18 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
         label: "显示风险线",
         type: "boolean",
         defaultValue: true,
+      },
+      {
+        key: "bullColor",
+        label: "多头颜色",
+        type: "color",
+        defaultValue: "#00ffbb",
+      },
+      {
+        key: "bearColor",
+        label: "空头颜色",
+        type: "color",
+        defaultValue: "#ff1100",
       },
     ],
     run: (input) => runTrendTargetsStrategy(trendTargetsStrategy, input),

@@ -8,6 +8,10 @@ export function getChartHudRightOffset() {
   return `calc(${PRICE_AXIS_WIDTH_PERCENT} + ${HUD_PLOT_GAP})`;
 }
 
+export function getSignalMarkerLabelWidth(text: string) {
+  return Math.min(220, Math.max(34, Array.from(text).length * 12 + 18));
+}
+
 export function getChartLineDasharray(style: ChartLineStyle | undefined) {
   if (style === "dashed") {
     return "8 7";

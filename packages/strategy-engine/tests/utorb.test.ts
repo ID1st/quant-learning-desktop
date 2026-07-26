@@ -57,8 +57,9 @@ const twoSessionBars = [
 ];
 
 test("UTORB reproduces Pine sessions, resets daily, and emits one breakout per direction per session", () => {
-  const result = runUtorb(twoSessionBars);
+  const result = runUtorb(twoSessionBars, { signalLabelSize: "large" });
   const directionalSignals = result.output.signals.filter((signal) => signal.type === "buy" || signal.type === "sell");
+  const breakoutMarker = result.output.render.elements.find((element) => element.id === `utorb-buy-${Date.parse("2026-01-02T15:00:00Z")}`);
 
   assert.equal(result.output.metrics.totalSessions, 2);
   assert.deepEqual(directionalSignals.map((signal) => signal.type), ["buy", "sell", "buy"]);
@@ -68,6 +69,22 @@ test("UTORB reproduces Pine sessions, resets daily, and emits one breakout per d
     Date.parse("2026-01-03T15:00:00Z"),
   ]);
   assert.equal(directionalSignals[0]?.label, "向上突破（低量）");
+  assert.deepEqual(
+    breakoutMarker?.kind === "signal-marker"
+      ? {
+          shape: breakoutMarker.shape,
+          text: breakoutMarker.text,
+          textSize: breakoutMarker.textSize,
+          color: breakoutMarker.color,
+        }
+      : null,
+    {
+      shape: "label-down",
+      text: "向上突破（低量）",
+      textSize: "large",
+      color: "#089981",
+    },
+  );
   assert.equal(result.output.metrics.openingRangeHigh, 204);
   assert.equal(result.output.metrics.openingRangeLow, 198);
 });
@@ -118,15 +135,30 @@ test("UTORB uses the selected Asian market timezone without manual UTC offsets",
 test("UTORB plots the Pine opening range and all six extension levels for the latest session", () => {
   const result = runUtorb(twoSessionBars);
   const latestStart = Date.parse("2026-01-03T14:30:00Z");
+  const latestPlotEnd = Date.parse("2026-01-03T22:00:00Z");
   const latestLines = result.output.render.elements.filter(
     (element) => element.kind === "price-line" && element.fromTimestamp === latestStart,
+  );
+  const latestRangeBand = result.output.render.elements.find(
+    (element) => element.kind === "band" && element.id === `utorb-opening-range-${Date.UTC(2026, 0, 3)}`,
+  );
+  const latestTargetZones = result.output.render.elements.filter(
+    (element) => element.kind === "band" && element.id.startsWith("utorb-target-zone-") && element.fromTimestamp === latestStart,
   );
 
   assert.deepEqual(latestLines.filter((line) => line.kind === "price-line").map((line) => line.price).sort((a, b) => a - b), [
     180, 186, 192, 198, 204, 210, 216, 222,
   ]);
-  assert.ok(latestLines.every((line) => line.kind === "price-line" && line.toTimestamp === Date.parse("2026-01-03T22:00:00Z")));
-  assert.equal(result.output.render.elements.some((element) => element.kind === "band" && element.id.includes("opening-range")), true);
+  assert.ok(latestLines.every((line) => line.kind === "price-line" && line.toTimestamp === latestPlotEnd));
+  assert.equal(latestRangeBand?.kind === "band" ? latestRangeBand.toTimestamp : null, latestPlotEnd);
+  assert.equal(latestTargetZones.length, 6);
+  assert.ok(latestTargetZones.every((element) => element.kind === "band" && element.toTimestamp === latestPlotEnd));
+  assert.deepEqual(
+    latestTargetZones
+      .filter((element) => element.id.includes("zone-up"))
+      .map((element) => element.opacity),
+    [0.1, 0.075, 0.125],
+  );
 });
 
 test("UTORB honors candle-body range source and Fibonacci extensions", () => {
@@ -145,12 +177,21 @@ test("UTORB honors candle-body range source and Fibonacci extensions", () => {
 
 test("UTORB exposes Pine target hit rates, trailing stop, optimizer, and volume profile output", () => {
   const result = runUtorb(twoSessionBars);
+  const dashboard = result.output.render.hudPanels?.find((panel) => panel.id === "utorb-hit-rate");
+  const latestTimestamp = twoSessionBars.at(-1)!.timestamp;
+  const volumeProfile = result.output.render.elements.filter(
+    (element) => element.kind === "band" && element.id.startsWith("utorb-volume-profile"),
+  );
 
   assert.equal(result.output.metrics.upperTargetOneHits, 2);
   assert.equal(result.output.metrics.upperTargetOneHitRate, 100);
   assert.ok(Number.isFinite(result.output.metrics.bestTrailingStopMultiplier));
   assert.ok(result.output.render.elements.some((element) => element.kind === "trend-line" && element.id.startsWith("utorb-trail")));
-  assert.ok(result.output.render.elements.some((element) => element.kind === "band" && element.id.startsWith("utorb-volume-profile")));
+  assert.ok(volumeProfile.length > 0);
+  assert.ok(volumeProfile.every((element) => element.kind === "band" && element.toTimestamp === latestTimestamp));
+  assert.ok(dashboard);
+  assert.equal(dashboard.rows.length >= 7, true);
+  assert.equal(dashboard.rows.find((row) => row.id === "upper-target-1")?.value, "2 / 2 · 100%");
   assert.equal(result.output.alerts.some((alert) => alert.includes("最终向上目标")), false);
 
   const closeCrossResult = runUtorb([
@@ -208,9 +249,15 @@ test("UTORB exposes parameters corresponding to Pine inputs", () => {
     "extensionMultiplierOne",
     "extensionMultiplierTwo",
     "extensionMultiplierThree",
+    "bullColor",
+    "bearColor",
+    "neutralColor",
+    "backgroundTransparency",
+    "signalLabelSize",
     "showVolumeProfile",
     "volumeProfileRows",
     "volumeProfileWidthPercent",
+    "volumeProfileColor",
     "stopPlotting",
     "plottingEndType",
     "manualEndHour",
@@ -219,6 +266,7 @@ test("UTORB exposes parameters corresponding to Pine inputs", () => {
     "trailingStopAtrMultiplier",
     "trailingStopAtrPeriod",
     "showOptimizer",
+    "showDashboard",
   ]);
 });
 
@@ -243,7 +291,7 @@ test("UTORB defaults match the original Pine Script inputs", () => {
       sessionStartMinute: 30,
       openingRangeMinutes: 30,
       sessionDays: "1234567",
-      timezoneMode: "market",
+      timezoneMode: "fixed-offset",
       timezoneOffsetHours: -5,
       rangeSource: "high-low",
       trailingStopAtrMultiplier: 2,
@@ -273,12 +321,20 @@ test("UTORB defaults retain the original Pine detail layers", () => {
   const targetLines = result.output.render.elements.filter(
     (element) => element.kind === "price-line" && element.id.startsWith("utorb-target-"),
   );
+  const latestTargetLines = targetLines.filter(
+    (element) => element.kind === "price-line" && element.fromTimestamp === Date.parse("2026-01-03T14:30:00Z"),
+  );
+  const earlierTargetLines = targetLines.filter(
+    (element) => element.kind === "price-line" && element.fromTimestamp !== Date.parse("2026-01-03T14:30:00Z"),
+  );
 
   assert.equal(result.input.parameters.showVolumeProfile, true);
   assert.equal(result.input.parameters.showTargetLabels, true);
   assert.ok(targetLines.length > 0);
-  assert.ok(targetLines.every((line) => line.kind === "price-line" && line.label !== undefined));
+  assert.ok(latestTargetLines.every((line) => line.kind === "price-line" && line.label?.includes("%")));
+  assert.ok(earlierTargetLines.every((line) => line.kind === "price-line" && line.label === undefined));
   assert.equal(result.output.render.elements.some((element) => element.id.startsWith("utorb-volume-profile-")), true);
+  assert.equal(result.output.render.hudPanels?.some((panel) => panel.id === "utorb-hit-rate"), true);
 });
 
 test("UTORB disabled run keeps render layer disabled", () => {

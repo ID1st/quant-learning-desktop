@@ -62,6 +62,15 @@ test("Trend Targets reproduces the Pine Supertrend midpoint WMA/EMA baseline and
   assert.equal(result.output.metrics.stopPrice, 9);
   assert.equal(result.output.metrics.targetThree, 16.5);
   assert.equal(result.output.alerts.some((alert) => alert.includes("目标1")), false);
+  assert.equal(
+    result.output.render.elements.filter((element) => element.kind === "candle-style").length,
+    bars.length,
+  );
+  assert.ok(
+    result.output.render.elements
+      .filter((element) => element.kind === "candle-style")
+      .every((element) => element.kind === "candle-style" && element.opacity === 0.5),
+  );
 });
 
 test("Trend Targets emits Pine rejection markers only after the configured consecutive confirmation count", () => {
@@ -132,10 +141,44 @@ test("Trend Targets exposes the Pine parameters and projects only the latest set
     "targetTwoMultiplier",
     "targetThreeMultiplier",
     "showStopLoss",
+    "bullColor",
+    "bearColor",
   ]);
   assert.equal(projectedPriceLines.length, 5);
-  assert.equal(projectedPriceLines.some((element) => element.kind === "price-line" && element.label.startsWith("信号参考")), true);
+  assert.equal(projectedPriceLines.some((element) => element.kind === "price-line" && element.label.startsWith("入场")), true);
+  assert.equal(projectedPriceLines.find((element) => element.id === "trend-targets-entry")?.color, "#00ffbb");
   assert.equal(result.output.render.elements.filter((element) => element.kind === "band").length, 2);
+});
+
+test("Trend Targets applies the original Pine colors to trend, rejection, and projection layers", () => {
+  const bars = [10, 11, 12, 11, 10, 9, 10, 11, 12, 13, 14, 15].map((close, index) => bar(index * 15, close, 10));
+  const result = runTrendTargets(bars, {
+    confirmationCount: 1,
+    bullColor: "#12ab34",
+    bearColor: "#ab1234",
+  });
+  const coloredBaseline = result.output.render.elements.find(
+    (element) => element.kind === "trend-line",
+  );
+  const rejection = result.output.render.elements.find(
+    (element) => element.kind === "signal-marker" && element.id.startsWith("trend-targets-rejection"),
+  );
+
+  assert.equal(
+    coloredBaseline?.color !== undefined && ["#12ab34", "#ab1234"].includes(coloredBaseline.color),
+    true,
+  );
+  assert.equal(
+    result.output.render.elements.some(
+      (element) => element.kind === "candle-style" && ["#12ab34", "#ab1234"].includes(element.color),
+    ),
+    true,
+  );
+  assert.equal(rejection?.kind === "signal-marker" ? rejection.shape : undefined, "triangle");
+  assert.equal(
+    rejection?.kind === "signal-marker" ? rejection.color : undefined,
+    rejection?.kind === "signal-marker" && rejection.tone === "buy" ? "#12ab34" : "#ab1234",
+  );
 });
 
 test("Trend Targets hides the Pine setup projection when targets are disabled", () => {
