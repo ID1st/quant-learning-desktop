@@ -13,7 +13,7 @@ test("projected price labels use enough width for Chinese text without escaping 
     plotBottom: 470,
   });
 
-  assert.ok(layout.width >= 68);
+  assert.ok(layout.width >= 60);
   assert.ok(layout.x >= 42);
   assert.ok(layout.x + layout.width <= 898);
 });
@@ -39,5 +39,5 @@ test("projected price labels remain inside the visible vertical plot range", () 
   });
 
   assert.equal(topLayout.y, 22);
-  assert.equal(bottomLayout.y, 444);
+  assert.equal(bottomLayout.y, 448);
 });

@@ -2688,8 +2688,9 @@ textarea:focus-visible {
 .strategy-signal-marker.label text {
   fill: #f5f8ff;
   font-family: var(--font-data);
-  font-size: 13px;
-  font-weight: 900;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
   text-anchor: middle;
 }
 

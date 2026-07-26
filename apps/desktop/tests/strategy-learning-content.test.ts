@@ -21,7 +21,7 @@ test("UTORB and Trend Targets learning entries link the audited originals and ex
 
   assert.equal(utorb?.source?.url, "https://www.tradingview.com/script/G4aoqFUF-Ultimate-Opening-Range-Breakout-LuxAlgo/");
   assert.ok(utorb?.chartOutputs.includes("六段扩展区域"));
-  assert.ok(utorb?.chartOutputs.includes("ORB 命中率仪表盘"));
+  assert.equal(utorb?.chartOutputs.includes("ORB 命中率仪表盘"), false);
   assert.equal(trendTargets?.source?.url, "https://www.tradingview.com/script/OXsSm5NV-Trend-Targets-AlgoAlpha/");
   assert.ok(trendTargets?.chartOutputs.includes("趋势蜡烛着色"));
   assert.ok(trendTargets?.chartOutputs.includes("入场 / 止损 / 三档目标投影"));

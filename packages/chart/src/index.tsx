@@ -26,6 +26,7 @@ import {
   getChartHudRightOffset,
   getChartLabelPosition,
   getChartLineDasharray,
+  getChartTextSize,
   getSignalMarkerLabelWidth,
   type ChartLabelAnchor,
   type ChartLineStyle,
@@ -733,8 +734,6 @@ export function ChartViewport({
   ]
     .filter((layer) => layer.enabled && layer.visible)
     .sort((left, right) => left.zIndex - right.zIndex);
-  const textSize = (size: ChartLayerVisualBase["textSize"]) =>
-    size === "tiny" ? 10 : size === "small" ? 11 : size === "large" ? 14 : 12;
   const candleStyleByTimestamp = new Map<number, ChartLayerElement & { kind: "candle-style" }>();
   renderLayers.forEach((layer) => {
     [...layer.elements]
@@ -834,7 +833,7 @@ export function ChartViewport({
                 />
                 {projectedLabelLayout && (
                   <rect
-                    height={24}
+                    height={20}
                     rx={3}
                     style={element.color
                       ? {
@@ -853,12 +852,12 @@ export function ChartViewport({
                   <text
                     style={{
                       fill: element.color,
-                      fontSize: textSize(element.textSize),
+                      fontSize: getChartTextSize(element.textSize),
                       opacity: element.opacity,
                     }}
                     textAnchor={anchoredLabel?.textAnchor}
                     x={anchoredLabel?.x ?? (projectedLabelLayout ? projectedLabelLayout.x + projectedLabelLayout.width - 7 : bounds.x2 - 8)}
-                    y={anchoredLabel?.y ?? (projectedLabelLayout ? projectedLabelLayout.y + 16 : y - 6)}
+                    y={anchoredLabel?.y ?? (projectedLabelLayout ? projectedLabelLayout.y + 14 : y - 5)}
                   >
                     {element.label}
                   </text>
@@ -910,7 +909,7 @@ export function ChartViewport({
                 onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
                 style={{
                   fill: element.color,
-                  fontSize: textSize(element.textSize),
+                  fontSize: getChartTextSize(element.textSize),
                   opacity: element.opacity,
                 }}
                 textAnchor={anchor.textAnchor}
@@ -939,7 +938,7 @@ export function ChartViewport({
 
           if (markerShape !== "triangle") {
             const isUp = markerShape === "label-up";
-            const rectY = isUp ? y : y - 34;
+            const rectY = isUp ? y : y - 24;
             const markerText = element.text ?? (isUp ? "▲" : "▼");
             const markerWidth = getSignalMarkerLabelWidth(markerText);
             const pointer = isUp
@@ -954,8 +953,8 @@ export function ChartViewport({
                 style={{ opacity: element.opacity }}
               >
                 <polygon points={pointer} style={{ fill: element.color }} />
-                <rect height="34" rx="5" style={{ fill: element.color }} width={markerWidth} x={x - markerWidth / 2} y={rectY} />
-                <text x={x} y={rectY + 22}>{markerText}</text>
+                <rect height="24" rx="4" style={{ fill: element.color }} width={markerWidth} x={x - markerWidth / 2} y={rectY} />
+                <text style={{ fontSize: getChartTextSize(element.textSize) }} x={x} y={rectY + 16}>{markerText}</text>
               </g>
             );
           }

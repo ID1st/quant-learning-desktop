@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   getChartHudRightOffset,
+  getChartTextSize,
   getChartLabelPosition,
   getChartLineDasharray,
   getSignalMarkerLabelWidth,
@@ -41,8 +42,16 @@ describe("strategy layer styles", () => {
   });
 
   it("expands text signal markers beyond the icon-only width without growing unbounded", () => {
-    assert.equal(getSignalMarkerLabelWidth("▲"), 34);
-    assert.ok(getSignalMarkerLabelWidth("向上突破（高量）") > 90);
-    assert.equal(getSignalMarkerLabelWidth("A".repeat(100)), 220);
+    assert.equal(getSignalMarkerLabelWidth("▲"), 26);
+    assert.equal(getSignalMarkerLabelWidth("向上突破（高量）"), 84);
+    assert.equal(getSignalMarkerLabelWidth("A".repeat(100)), 180);
+  });
+
+  it("uses compact chart-layer typography by default", () => {
+    assert.equal(getChartTextSize(undefined), 10);
+    assert.equal(getChartTextSize("tiny"), 8);
+    assert.equal(getChartTextSize("small"), 9);
+    assert.equal(getChartTextSize("normal"), 10);
+    assert.equal(getChartTextSize("large"), 12);
   });
 });

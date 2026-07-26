@@ -1,5 +1,6 @@
 export type ChartLineStyle = "solid" | "dashed" | "dotted";
 export type ChartLabelAnchor = "above" | "below" | "center" | "right";
+export type ChartTextSize = "tiny" | "small" | "normal" | "large";
 
 const PRICE_AXIS_WIDTH_PERCENT = "8.7755%";
 const HUD_PLOT_GAP = "32px";
@@ -9,7 +10,14 @@ export function getChartHudRightOffset() {
 }
 
 export function getSignalMarkerLabelWidth(text: string) {
-  return Math.min(220, Math.max(34, Array.from(text).length * 12 + 18));
+  return Math.min(180, Math.max(26, Array.from(text).length * 9 + 12));
+}
+
+export function getChartTextSize(size: ChartTextSize | undefined) {
+  if (size === "tiny") return 8;
+  if (size === "small") return 9;
+  if (size === "large") return 12;
+  return 10;
 }
 
 export function getChartLineDasharray(style: ChartLineStyle | undefined) {

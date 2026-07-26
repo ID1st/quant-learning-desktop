@@ -177,7 +177,6 @@ test("UTORB honors candle-body range source and Fibonacci extensions", () => {
 
 test("UTORB exposes Pine target hit rates, trailing stop, optimizer, and volume profile output", () => {
   const result = runUtorb(twoSessionBars);
-  const dashboard = result.output.render.hudPanels?.find((panel) => panel.id === "utorb-hit-rate");
   const latestTimestamp = twoSessionBars.at(-1)!.timestamp;
   const volumeProfile = result.output.render.elements.filter(
     (element) => element.kind === "band" && element.id.startsWith("utorb-volume-profile"),
@@ -189,9 +188,7 @@ test("UTORB exposes Pine target hit rates, trailing stop, optimizer, and volume 
   assert.ok(result.output.render.elements.some((element) => element.kind === "trend-line" && element.id.startsWith("utorb-trail")));
   assert.ok(volumeProfile.length > 0);
   assert.ok(volumeProfile.every((element) => element.kind === "band" && element.toTimestamp === latestTimestamp));
-  assert.ok(dashboard);
-  assert.equal(dashboard.rows.length >= 7, true);
-  assert.equal(dashboard.rows.find((row) => row.id === "upper-target-1")?.value, "2 / 2 · 100%");
+  assert.equal(result.output.render.hudPanels, undefined);
   assert.equal(result.output.alerts.some((alert) => alert.includes("最终向上目标")), false);
 
   const closeCrossResult = runUtorb([
@@ -266,7 +263,6 @@ test("UTORB exposes parameters corresponding to Pine inputs", () => {
     "trailingStopAtrMultiplier",
     "trailingStopAtrPeriod",
     "showOptimizer",
-    "showDashboard",
   ]);
 });
 
@@ -334,7 +330,7 @@ test("UTORB defaults retain the original Pine detail layers", () => {
   assert.ok(latestTargetLines.every((line) => line.kind === "price-line" && line.label?.includes("%")));
   assert.ok(earlierTargetLines.every((line) => line.kind === "price-line" && line.label === undefined));
   assert.equal(result.output.render.elements.some((element) => element.id.startsWith("utorb-volume-profile-")), true);
-  assert.equal(result.output.render.hudPanels?.some((panel) => panel.id === "utorb-hit-rate"), true);
+  assert.equal(result.output.render.hudPanels, undefined);
 });
 
 test("UTORB disabled run keeps render layer disabled", () => {

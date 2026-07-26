@@ -1146,7 +1146,6 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   const trailingStopAtrMultiplier = getPositiveNumberParameter(input.parameters, "trailingStopAtrMultiplier", 2);
   const trailingStopAtrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "trailingStopAtrPeriod", 14)));
   const showOptimizer = getBooleanParameter(input.parameters, "showOptimizer", false);
-  const showDashboard = getBooleanParameter(input.parameters, "showDashboard", true);
 
   if (!enabled) {
     return createPlaceholderOutput(strategy, false);
@@ -1679,50 +1678,6 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
     element.label = `目标 ${targetIndex + 1} (${Math.round(hitRate(hits))}%)`;
   });
 
-  const sessionEndLocalMinutes = (sessionStartMinutes + openingRangeMinutes) % (24 * 60);
-  const sessionLabel = [
-    String(sessionStartHour).padStart(2, "0"),
-    String(sessionStartMinute).padStart(2, "0"),
-    "-",
-    String(Math.floor(sessionEndLocalMinutes / 60)).padStart(2, "0"),
-    String(sessionEndLocalMinutes % 60).padStart(2, "0"),
-  ].join("");
-  const dashboardRows: StrategyHudPanel["rows"] = [
-    ...targetHits.upper.map((hits, index) => ({
-      id: `upper-target-${index + 1}`,
-      label: `多头目标${index + 1}`,
-      value: `${hits} / ${totalSessions} · ${Math.round(hitRate(hits))}%`,
-      tone: "positive" as const,
-    })),
-    ...targetHits.lower.map((hits, index) => ({
-      id: `lower-target-${index + 1}`,
-      label: `空头目标${index + 1}`,
-      value: `${hits} / ${totalSessions} · ${Math.round(hitRate(hits))}%`,
-      tone: "negative" as const,
-    })),
-    {
-      id: "tracked-sessions",
-      label: "已追踪",
-      value: `${totalSessions} · ${sessionLabel}`,
-      tone: "muted" as const,
-    },
-  ];
-  if (showTrailingStop) {
-    dashboardRows.push({
-      id: "trailing-profit",
-      label: "累计追踪利润",
-      value: totalTrailProfit.toFixed(2),
-      tone: totalTrailProfit >= 0 ? "positive" : "negative",
-    });
-  }
-  if (showOptimizer) {
-    dashboardRows.push({
-      id: "optimizer",
-      label: "最佳 ATR 倍数",
-      value: `${optimizerMultipliers[bestOptimizerIndex]} · ${optimizerProfits[bestOptimizerIndex].toFixed(2)}`,
-      tone: "neutral",
-    });
-  }
   const directionalSignalCount = signals.filter((signal) => signal.type === "buy" || signal.type === "sell").length;
 
   return {
@@ -1734,15 +1689,6 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       enabled,
       zIndex: 10,
       elements,
-      hudPanels: showDashboard
-        ? [{
-            id: "utorb-hit-rate",
-            title: "ORB 命中率",
-            valueHeading: "命中 / 总数 · 比率",
-            placement: "top-right",
-            rows: dashboardRows,
-          }]
-        : undefined,
     },
     metrics: {
       openingRangeHigh,
@@ -2247,7 +2193,6 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       { key: "trailingStopAtrMultiplier", label: "移动风险线 ATR 倍数", type: "number", defaultValue: 2 },
       { key: "trailingStopAtrPeriod", label: "移动风险线 ATR 周期", type: "number", defaultValue: 14 },
       { key: "showOptimizer", label: "计算风险线优化器", type: "boolean", defaultValue: false },
-      { key: "showDashboard", label: "显示命中率仪表盘", type: "boolean", defaultValue: true },
     ],
     run: (input) => runUtorbStrategy(utorbStrategy, input),
   };
