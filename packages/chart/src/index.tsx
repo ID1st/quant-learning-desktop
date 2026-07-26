@@ -28,6 +28,7 @@ import {
   getChartLineDasharray,
   getChartTextSize,
   getSignalMarkerLabelWidth,
+  shouldExtendTimedElementToPlotRight,
   type ChartLabelAnchor,
   type ChartLineStyle,
 } from "./strategyLayerStyle.ts";
@@ -528,15 +529,21 @@ export function ChartViewport({
       typeof visibleEndTimestamp !== "number" || !Number.isFinite(visibleEndTimestamp)) return null;
     const hasFromTimestamp = typeof fromTimestamp === "number" && Number.isFinite(fromTimestamp);
     const hasToTimestamp = typeof toTimestamp === "number" && Number.isFinite(toTimestamp);
+    const safeToTimestamp = typeof toTimestamp === "number" ? toTimestamp : Number.NaN;
     if (hasToTimestamp && toTimestamp < visibleStartTimestamp) return null;
     if (hasFromTimestamp && fromTimestamp > visibleEndTimestamp) return null;
 
     const x1 = !hasFromTimestamp || fromTimestamp <= visibleStartTimestamp
       ? paddingX
       : timestampToX(fromTimestamp);
-    const x2 = extendRight || !hasToTimestamp || toTimestamp >= visibleEndTimestamp
+    const x2 = shouldExtendTimedElementToPlotRight({
+      extendRight,
+      hasToTimestamp,
+      toTimestamp: safeToTimestamp,
+      visibleEndTimestamp,
+    })
       ? plotRight
-      : timestampToX(toTimestamp);
+      : timestampToX(safeToTimestamp);
     if (x1 === null || x2 === null) return null;
     return { x1, x2: Math.max(x1 + 2, x2) };
   };

@@ -1947,6 +1947,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
 
   if (showTargets && latestSignalBar && riskRange > 0) {
     const projectionStart = latestSignalBar.timestamp;
+    const projectionEnd = bars.at(-1)!.timestamp;
     elements.push(
       {
         id: "trend-targets-risk-zone",
@@ -1958,6 +1959,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         borderColor: bearColor,
         opacity: 0.05,
         fromTimestamp: projectionStart,
+        toTimestamp: projectionEnd,
       },
       {
         id: "trend-targets-entry",
@@ -1967,6 +1969,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         tone: "neutral",
         color: setupSide === "buy" ? bullColor : bearColor,
         fromTimestamp: projectionStart,
+        toTimestamp: projectionEnd,
       },
       {
         id: "trend-targets-target-zone",
@@ -1978,6 +1981,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         borderColor: bullColor,
         opacity: 0.05,
         fromTimestamp: projectionStart,
+        toTimestamp: projectionEnd,
       },
       {
         id: "trend-targets-target-1",
@@ -1987,6 +1991,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         tone: "target",
         color: bullColor,
         fromTimestamp: projectionStart,
+        toTimestamp: projectionEnd,
       },
       {
         id: "trend-targets-target-2",
@@ -1996,6 +2001,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         tone: "target",
         color: bullColor,
         fromTimestamp: projectionStart,
+        toTimestamp: projectionEnd,
       },
       {
         id: "trend-targets-target-3",
@@ -2005,6 +2011,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         tone: "target",
         color: bullColor,
         fromTimestamp: projectionStart,
+        toTimestamp: projectionEnd,
       },
     );
 
@@ -2017,6 +2024,7 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         tone: "stop",
         color: bearColor,
         fromTimestamp: projectionStart,
+        toTimestamp: projectionEnd,
       });
     }
   }

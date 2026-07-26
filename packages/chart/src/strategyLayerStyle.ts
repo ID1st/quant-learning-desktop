@@ -20,6 +20,15 @@ export function getChartTextSize(size: ChartTextSize | undefined) {
   return 10;
 }
 
+export function shouldExtendTimedElementToPlotRight(input: {
+  extendRight: boolean;
+  hasToTimestamp: boolean;
+  toTimestamp: number;
+  visibleEndTimestamp: number;
+}) {
+  return input.extendRight || !input.hasToTimestamp || input.toTimestamp > input.visibleEndTimestamp;
+}
+
 export function getChartLineDasharray(style: ChartLineStyle | undefined) {
   if (style === "dashed") {
     return "8 7";

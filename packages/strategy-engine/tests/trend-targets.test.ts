@@ -127,6 +127,12 @@ test("Trend Targets exposes the Pine parameters and projects only the latest set
   const projectedPriceLines = result.output.render.elements.filter(
     (element) => element.kind === "price-line" && element.fromTimestamp === latestSignal?.timestamp,
   );
+  const projectedElements = result.output.render.elements.filter(
+    (element) =>
+      (element.kind === "price-line" || element.kind === "band") &&
+      element.fromTimestamp === latestSignal?.timestamp,
+  );
+  const latestBarTimestamp = bars.at(-1)?.timestamp;
 
   assert.deepEqual(parameterKeys, [
     "supertrendFactor",
@@ -148,6 +154,13 @@ test("Trend Targets exposes the Pine parameters and projects only the latest set
   assert.equal(projectedPriceLines.some((element) => element.kind === "price-line" && element.label.startsWith("入场")), true);
   assert.equal(projectedPriceLines.find((element) => element.id === "trend-targets-entry")?.color, "#00ffbb");
   assert.equal(result.output.render.elements.filter((element) => element.kind === "band").length, 2);
+  assert.ok(
+    projectedElements.every(
+      (element) =>
+        (element.kind === "price-line" || element.kind === "band") &&
+        element.toTimestamp === latestBarTimestamp,
+    ),
+  );
 });
 
 test("Trend Targets applies the original Pine colors to trend, rejection, and projection layers", () => {

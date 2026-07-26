@@ -7,6 +7,7 @@ import {
   getChartLabelPosition,
   getChartLineDasharray,
   getSignalMarkerLabelWidth,
+  shouldExtendTimedElementToPlotRight,
 } from "../src/strategyLayerStyle.ts";
 
 describe("strategy layer styles", () => {
@@ -53,5 +54,26 @@ describe("strategy layer styles", () => {
     assert.equal(getChartTextSize("small"), 9);
     assert.equal(getChartTextSize("normal"), 10);
     assert.equal(getChartTextSize("large"), 12);
+  });
+
+  it("stops a timed strategy line at the latest candle instead of the price axis", () => {
+    assert.equal(
+      shouldExtendTimedElementToPlotRight({
+        extendRight: false,
+        hasToTimestamp: true,
+        toTimestamp: 200,
+        visibleEndTimestamp: 200,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldExtendTimedElementToPlotRight({
+        extendRight: false,
+        hasToTimestamp: true,
+        toTimestamp: 201,
+        visibleEndTimestamp: 200,
+      }),
+      true,
+    );
   });
 });
