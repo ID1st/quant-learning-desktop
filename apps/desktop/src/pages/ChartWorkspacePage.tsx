@@ -15,6 +15,7 @@ import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 import {
   buildChartStrategyLogItems,
   buildChartStrategySignalRows,
+  getMlptChartNotice,
   getRealtimeStrategyHistoryRequirement,
   runChartStrategies,
   type ChartStrategyWorkspaceState,
@@ -76,6 +77,11 @@ import {
   type MarketDataRuntimeEvent,
 } from "../features/marketData/marketDataRuntimeStatus";
 import {
+  mergeMlptBarsByProviderPriority,
+  mlptMinimumHistoryBars,
+  mlptPreferredHistoryBars,
+} from "../features/marketData/mlptHistoricalBackfillService";
+import {
   builtInChartIndicatorDefinitions,
   createChartIndicatorLayers,
   createPluginIndicatorLayers,
@@ -86,6 +92,10 @@ import {
   type ChartIndicatorSettings,
 } from "../features/chartIndicators/chartIndicators";
 import { useChartStudySettingsStore } from "../features/chartWorkspace/chartStudySettingsStore";
+import {
+  createStrategyQuickMenuItems,
+  toggleStrategyFromQuickMenu,
+} from "../features/chartWorkspace/strategyQuickMenu";
 import { drawingsToLayer, readChartDrawings, writeChartDrawings, type ChartDrawing } from "../features/chartDrawings/chartDrawingStore";
 import {
   createChartDrawingCommandState,
@@ -106,7 +116,9 @@ import type {
 import {
   Bell,
   CheckCircle2,
+  CircleAlert,
   Crosshair,
+  ChevronDown,
   ChevronRight,
   ChevronUp,
   Eye,
@@ -125,6 +137,7 @@ import {
   Activity,
   LoaderCircle,
   Plus,
+  Power,
   Search,
   Trash2,
   X,
@@ -586,9 +599,18 @@ async function fetchChartBars(options: {
     readonly startTime?: number;
     readonly endTime?: number;
   };
+  readonly mlptHistory?: {
+    readonly targetBars: number;
+    readonly confirmedThroughTimestamp: number;
+    readonly knownTimestamps: readonly number[];
+  };
   readonly marketDataAccess: ChartMarketDataAccess;
 }): Promise<ChartBarsBatchResult> {
-  return options.marketDataAccess.fetchBars({ capability: options.capability, request: options.request });
+  return options.marketDataAccess.fetchBars({
+    capability: options.capability,
+    request: options.request,
+    mlptHistory: options.mlptHistory,
+  });
 }
 
 async function connectQuoteStreamForChart(options: {
@@ -774,6 +796,7 @@ export function ChartWorkspacePage() {
     () => getRealtimeStrategyHistoryRequirement(chartStrategies, strategySettings),
     [chartStrategies, strategySettings],
   );
+  const isMlptEnabled = strategySettings["machine-learning-price-targets"]?.enabled === true;
   useEffect(() => {
     initializeStudyStrategies(chartStrategies);
   }, [chartStrategies, initializeStudyStrategies]);
@@ -791,6 +814,7 @@ export function ChartWorkspacePage() {
   });
   const [watchlistDataStatusByKey, setWatchlistDataStatusByKey] = useState<Record<string, WatchlistDataStatus>>({});
   const [realtimeStatus, setRealtimeStatus] = useState("REST 轮询待命");
+  const [mlptHistoryStatus, setMlptHistoryStatus] = useState<string | null>(null);
   const [realtimeHealth, setRealtimeHealth] = useState<RealtimeProviderHealthView>(() =>
     createRealtimeHealthView("idle", "REST 轮询待命"),
   );
@@ -798,6 +822,7 @@ export function ChartWorkspacePage() {
   const quoteSnapshotsByKeyRef = useRef<Record<string, MarketQuoteSnapshot>>({});
   const [showSignals, setShowSignals] = useState(workspacePreferences.showSignals);
   const [showStrategyLayers, setShowStrategyLayers] = useState(workspacePreferences.showStrategyLayers);
+  const [isStrategyMenuOpen, setIsStrategyMenuOpen] = useState(false);
   const [isIndicatorSettingsOpen, setIsIndicatorSettingsOpen] = useState(false);
   const [showCrosshair, setShowCrosshair] = useState(workspacePreferences.showCrosshair);
   const [showGrid, setShowGrid] = useState(workspacePreferences.showGrid);
@@ -830,6 +855,32 @@ export function ChartWorkspacePage() {
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const [activeDrawingTool, setActiveDrawingTool] = useState<ChartDrawing["type"] | null>(null);
   const [pendingTrendPoint, setPendingTrendPoint] = useState<{ timestamp: number; price: number } | null>(null);
+  const strategyMenuRef = useRef<HTMLDivElement>(null);
+  const strategyMenuButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!isStrategyMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !strategyMenuRef.current?.contains(event.target)) {
+        setIsStrategyMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsStrategyMenuOpen(false);
+        strategyMenuButtonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isStrategyMenuOpen]);
   const recordMarketEvent = (kind: MarketDataRuntimeEvent["kind"], message: string, detail?: string) => {
     setDiagnosticTimeline((current) => appendMarketDataRuntimeEvent(current, { kind, timestamp: new Date().toISOString(), message, detail }));
   };
@@ -857,7 +908,9 @@ export function ChartWorkspacePage() {
     () => timeframe === "realtime" ? sampleIntradayBarsForRendering(displayedMarketBars) : displayedMarketBars,
     [displayedMarketBars, timeframe],
   );
-  const chartHasRenderableData = hasRenderableChartData(timeframe, chartRenderBars.length);
+  const chartHasRenderableData = hasRenderableChartData(timeframe, chartRenderBars.length, {
+    allowSparseIntraday: isMlptEnabled,
+  });
   const chartViewportLoadingState = !chartHasRenderableData
     ? {
         stage: chartLoadState.stage,
@@ -911,6 +964,7 @@ export function ChartWorkspacePage() {
       }),
     [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySeriesByTimeframe, strategySettings, timeframe],
   );
+  const mlptChartNotice = getMlptChartNotice(strategyRuns);
   const pluginStrategyRunSignature = useMemo(() => {
     const lastBar = strategyInputBars.at(-1);
     return JSON.stringify({
@@ -941,7 +995,7 @@ export function ChartWorkspacePage() {
           timeframe,
           bars: strategyInputBars,
           seriesByTimeframe: strategySeriesByTimeframe,
-          runMode: "backtest",
+          runMode: "realtime",
           enabled: strategySettings[strategy.key]?.enabled ?? false,
           parameters: strategySettings[strategy.key]?.parameters,
         }),
@@ -966,6 +1020,10 @@ export function ChartWorkspacePage() {
   const enabledStrategyCount = strategyRuns.filter(({ settings }) => settings.enabled).length;
   const totalSignalCount = strategyRuns.reduce((total, { result }) => total + result.output.signals.length, 0);
   const activeConfigStrategyRun = strategyRuns.find(({ strategy }) => strategy.key === activeConfigStrategyKey);
+  const strategyQuickMenuItems = useMemo(
+    () => createStrategyQuickMenuItems(chartStrategies, strategySettings),
+    [chartStrategies, strategySettings],
+  );
   const strategyLogTime = formatLogTime(Date.now());
   const strategyLogItems = buildChartStrategyLogItems(strategyRuns, { symbol: activeSymbol.symbol, timeframe });
   const signalRows = buildChartStrategySignalRows(strategyRuns);
@@ -1074,6 +1132,14 @@ export function ChartWorkspacePage() {
         : null;
       const cacheTimeframe = getChartCacheTimeframe(timeframe);
       const initialCachedBars = readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe });
+      const confirmedThroughTimestamp = Math.floor(Date.now() / 60_000) * 60_000 - 1;
+      const knownConfirmedTimestamps = initialCachedBars
+        .filter((bar) => bar.timestamp <= confirmedThroughTimestamp)
+        .map((bar) => bar.timestamp);
+      const needsMlptMinimumBackfill =
+        isRealtimeHistory &&
+        isMlptEnabled &&
+        knownConfirmedTimestamps.length < mlptMinimumHistoryBars;
       const cacheMetadata = readMarketBarCacheSummary().entries.find((entry) =>
         entry.symbol === activeSymbol.dataSymbol && entry.market === activeSymbol.market && entry.timeframe === cacheTimeframe,
       );
@@ -1140,6 +1206,13 @@ export function ChartWorkspacePage() {
         const result = await fetchChartBars({
           capability: providerCapability,
           request: barRequest,
+          mlptHistory: needsMlptMinimumBackfill
+            ? {
+                targetBars: mlptMinimumHistoryBars,
+                confirmedThroughTimestamp,
+                knownTimestamps: knownConfirmedTimestamps,
+              }
+            : undefined,
           marketDataAccess,
         });
 
@@ -1197,14 +1270,28 @@ export function ChartWorkspacePage() {
         const cacheTimeframe: Timeframe = isRealtimeHistory ? "realtime" : timeframe;
         const cacheKey = { symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe };
         const currentCachedBars = readMarketBarCache(cacheKey);
+        const prioritizedHistoryBars =
+          isRealtimeHistory && isMlptEnabled
+            ? mergeMlptBarsByProviderPriority([...currentCachedBars, ...resultBars])
+            : resultBars;
         const mergedBars = isRealtimeHistory
-          ? mergeHistoricalRealtimeBarsWithLiveBars(resultBars, currentCachedBars, {
+          ? mergeHistoricalRealtimeBarsWithLiveBars(prioritizedHistoryBars, currentCachedBars, {
             symbol: activeSymbol.dataSymbol,
             market: activeSymbol.market,
             timeframe: "realtime",
             }, realtimeHistoryRequirement.sessionCount)
           : resultBars;
-        const written = writeMarketBarCache(cacheKey, mergedBars, { mergeExisting: !isRealtimeHistory });
+        const written = writeMarketBarCache(cacheKey, mergedBars, {
+          mergeExisting: !isRealtimeHistory,
+          historicalCompletion: result.historicalCompletion
+            ? {
+                targetBars: result.historicalCompletion.targetBars,
+                confirmedBars: result.historicalCompletion.confirmedBars,
+                targetSatisfied: result.historicalCompletion.targetSatisfied,
+                stopReason: result.historicalCompletion.stopReason,
+              }
+            : undefined,
+        });
         setCachedMarketBars(written);
         setChartLoadState(createChartLoadState("layers", activeSymbol.symbol, timeframe, written.length));
         setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "ready" }));
@@ -1232,6 +1319,93 @@ export function ChartWorkspacePage() {
         });
         setRealtimeHealth(healthView);
         setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+        if (isRealtimeHistory && isMlptEnabled) {
+          const confirmedBars = written.filter((bar) => bar.timestamp <= confirmedThroughTimestamp).length;
+          const contributionText = result.historicalCompletion?.contributions
+            .map((item) => `${item.provider} ${item.bars}`)
+            .join(" + ");
+          setMlptHistoryStatus(
+            contributionText
+              ? `${contributionText}，MLPT 已有 ${confirmedBars} 根已确认分钟线`
+              : `MLPT 已有 ${confirmedBars} 根已确认分钟线`,
+          );
+
+          if (confirmedBars < mlptPreferredHistoryBars) {
+            const minimumCoverageStatus =
+              confirmedBars >= mlptMinimumHistoryBars
+                ? "MLPT 历史最低要求已满足"
+                : `MLPT 历史仍不足 ${confirmedBars}/${mlptMinimumHistoryBars}`;
+            setMlptHistoryStatus(`${minimumCoverageStatus}，后台补全 ${confirmedBars}/${mlptPreferredHistoryBars}`);
+            void fetchChartBars({
+              capability: "intradayBars",
+              request: {
+                ...barRequest,
+                timeframe: "1m",
+                count: mlptPreferredHistoryBars,
+              },
+              mlptHistory: {
+                targetBars: mlptPreferredHistoryBars,
+                confirmedThroughTimestamp,
+                knownTimestamps: written
+                  .filter((bar) => bar.timestamp <= confirmedThroughTimestamp)
+                  .map((bar) => bar.timestamp),
+              },
+              marketDataAccess,
+            }).then((backfillResult) => {
+              if (cancelled || !backfillResult.ok) return;
+              const backfillBars = gatewayBarsToMarketDataBars(backfillResult.data, "realtime");
+              const latestCachedBars = readMarketBarCache(cacheKey);
+              const prioritizedBars = mergeMlptBarsByProviderPriority([
+                ...latestCachedBars,
+                ...backfillBars,
+              ]);
+              const completedBars = mergeHistoricalRealtimeBarsWithLiveBars(
+                prioritizedBars,
+                latestCachedBars,
+                {
+                  symbol: activeSymbol.dataSymbol,
+                  market: activeSymbol.market,
+                  timeframe: "realtime",
+                },
+                realtimeHistoryRequirement.sessionCount,
+              );
+              const completed = writeMarketBarCache(cacheKey, completedBars, {
+                historicalCompletion: backfillResult.historicalCompletion
+                  ? {
+                      targetBars: backfillResult.historicalCompletion.targetBars,
+                      confirmedBars: backfillResult.historicalCompletion.confirmedBars,
+                      targetSatisfied: backfillResult.historicalCompletion.targetSatisfied,
+                      stopReason: backfillResult.historicalCompletion.stopReason,
+                    }
+                  : undefined,
+              });
+              setCachedMarketBars(completed);
+              const completedConfirmedBars = completed.filter(
+                (bar) => bar.timestamp <= confirmedThroughTimestamp,
+              ).length;
+              const completedContributions = backfillResult.historicalCompletion?.contributions
+                .map((item) => `${item.provider} ${item.bars}`)
+                .join(" + ");
+              setMlptHistoryStatus(
+                `${completedContributions ? `${completedContributions}，` : ""}MLPT 历史 ${completedConfirmedBars}/${mlptPreferredHistoryBars}`,
+              );
+              recordMarketEvent(
+                "sync-completed",
+                `${activeSymbol.symbol} MLPT 历史补全至 ${completedConfirmedBars} 根`,
+              );
+            }).catch(() => {
+              if (!cancelled) {
+                setMlptHistoryStatus(
+                  confirmedBars >= mlptMinimumHistoryBars
+                    ? `MLPT 历史最低要求已满足，暂未补全至 ${mlptPreferredHistoryBars} 根`
+                    : `MLPT 历史仍不足 ${confirmedBars}/${mlptMinimumHistoryBars}`,
+                );
+              }
+            });
+          }
+        } else {
+          setMlptHistoryStatus(null);
+        }
         window.requestAnimationFrame(() => {
           if (!cancelled) {
             setChartLoadState(createChartLoadState("ready", activeSymbol.symbol, timeframe, written.length));
@@ -1258,6 +1432,7 @@ export function ChartWorkspacePage() {
     activeSymbol.dataSymbol,
     activeSymbol.market,
     marketDataProviderSettings.stockSdkPrimaryEnabled,
+    isMlptEnabled,
     realtimeHistoryRequirement.preferredBars,
     realtimeHistoryRequirement.sessionCount,
     timeframe,
@@ -1949,10 +2124,73 @@ export function ChartWorkspacePage() {
         </div>
 
         <div className="chart-toggle-group">
-          <button className={smaIndicator.enabled ? "active" : ""} onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, enabled: !item.enabled }), builtInChartIndicatorDefinitions[0]))} type="button">
-            <LineChart size={16} />
-            <span>均线</span>
-          </button>
+          <div className="strategy-quick-menu" ref={strategyMenuRef}>
+            <button
+              aria-controls="chart-strategy-quick-menu"
+              aria-expanded={isStrategyMenuOpen}
+              aria-haspopup="dialog"
+              className={isStrategyMenuOpen ? "active strategy-quick-menu-trigger" : "strategy-quick-menu-trigger"}
+              onClick={() => setIsStrategyMenuOpen((value) => !value)}
+              ref={strategyMenuButtonRef}
+              type="button"
+            >
+              <Layers3 size={16} />
+              <span>策略</span>
+              <small>{enabledStrategyCount}</small>
+              <ChevronDown className={isStrategyMenuOpen ? "expanded" : ""} size={13} />
+            </button>
+
+            {isStrategyMenuOpen && (
+              <section
+                aria-label="策略快捷菜单"
+                className="strategy-quick-menu-panel"
+                id="chart-strategy-quick-menu"
+                role="dialog"
+              >
+                <header>
+                  <span>
+                    <strong>可用策略</strong>
+                    <small>{strategyQuickMenuItems.length} 个策略 · {enabledStrategyCount} 个已打开</small>
+                  </span>
+                </header>
+
+                <div className="strategy-quick-menu-list" role="list">
+                  {strategyQuickMenuItems.map((item) => (
+                    <div className={item.enabled ? "strategy-quick-menu-item active" : "strategy-quick-menu-item"} key={item.key} role="listitem">
+                      <span>
+                        <strong>{item.name}</strong>
+                        <small>{item.sourceType === "preset" ? "内置策略" : item.sourceType === "user" ? "用户策略" : "插件策略"}</small>
+                      </span>
+                      <div>
+                        <button
+                          aria-label={`${item.name} 打开`}
+                          aria-pressed={item.enabled}
+                          className={item.enabled ? "active" : ""}
+                          onClick={() => updateStrategyState(item.key, toggleStrategyFromQuickMenu)}
+                          type="button"
+                        >
+                          <Power size={13} />
+                          {item.enabled ? "已打开" : "打开"}
+                        </button>
+                        <button
+                          aria-label={`${item.name} 参数调整`}
+                          onClick={() => {
+                            setIsStrategyMenuOpen(false);
+                            setActiveConfigStrategyKey(item.key);
+                          }}
+                          title={item.hasParameters ? "调整策略参数" : "查看策略配置"}
+                          type="button"
+                        >
+                          <SlidersHorizontal size={13} />
+                          参数
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
           <button className={isIndicatorSettingsOpen ? "active" : ""} onClick={() => setIsIndicatorSettingsOpen((value) => !value)} type="button">
             <SlidersHorizontal size={16} />
             <span>指标</span>
@@ -2077,6 +2315,12 @@ export function ChartWorkspacePage() {
             layers={orderedExtraLayers}
             loadingState={chartViewportLoadingState}
           />
+          {mlptChartNotice && chartHasRenderableData && (
+            <div aria-live="polite" className="mlpt-chart-notice" role="status">
+              <CircleAlert aria-hidden="true" size={14} />
+              <span>{mlptChartNotice}</span>
+            </div>
+          )}
           {isIndicatorSettingsOpen && (
             <section className="chart-settings-popover indicator-settings-popover" aria-label="指标管理">
               <div className="chart-settings-heading"><strong>指标管理</strong><button onClick={() => setIsIndicatorSettingsOpen(false)} type="button">关闭</button></div>
@@ -2417,6 +2661,7 @@ export function ChartWorkspacePage() {
           <span className={getRealtimeHealthBadgeClass(realtimeHealth.status)}>{realtimeHealth.status}</span>
           <strong>{cachedCandles.length > 0 ? `${cachedCandles.length} 根K线` : "等待行情数据"}</strong>
           <em>{formatRealtimeHealthDetail(realtimeHealth)}</em>
+          {mlptHistoryStatus && !mlptChartNotice && <small role="status">{mlptHistoryStatus}</small>}
           <small>更新 {formatStatusClock(realtimeHealth.checkedAt)}</small>
           <button aria-label="打开数据诊断" onClick={() => void openDiagnostics()} title="数据诊断" type="button"><Activity size={14} />诊断</button>
         </div>

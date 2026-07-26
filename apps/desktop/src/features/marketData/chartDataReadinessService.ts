@@ -15,8 +15,16 @@ export function getMinimumRenderableBarCount(timeframe: Timeframe) {
   return 2;
 }
 
-export function hasRenderableChartData(timeframe: Timeframe, barCount: number) {
-  return barCount >= getMinimumRenderableBarCount(timeframe);
+export function hasRenderableChartData(
+  timeframe: Timeframe,
+  barCount: number,
+  options: { readonly allowSparseIntraday?: boolean } = {},
+) {
+  const minimumBars =
+    options.allowSparseIntraday && (timeframe === "realtime" || timeframe === "1m")
+      ? 2
+      : getMinimumRenderableBarCount(timeframe);
+  return barCount >= minimumBars;
 }
 
 export function createChartLoadState(

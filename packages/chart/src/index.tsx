@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type WheelEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+  type PointerEvent,
+  type WheelEvent,
+} from "react";
 import type { Market, Timeframe } from "@quant/shared";
 import {
   clampChartVisibleRange,
@@ -14,6 +23,7 @@ import {
 } from "./viewportMath.ts";
 import { getProjectedPriceLabelLayout } from "./priceLabelLayout.ts";
 import {
+  getChartHudRightOffset,
   getChartLabelPosition,
   getChartLineDasharray,
   type ChartLabelAnchor,
@@ -1193,7 +1203,10 @@ export function ChartViewport({
         />
       </svg>
       {showStrategyLayers && (
-        <div className="chart-hud-stack">
+        <div
+          className="chart-hud-stack"
+          style={{ "--chart-hud-right": getChartHudRightOffset() } as CSSProperties}
+        >
           {renderLayers.flatMap((layer) =>
             (layer.hudPanels ?? []).map((panel) => (
               <table aria-label={panel.title} className="chart-hud-panel" key={`${layer.id}-${panel.id}`}>

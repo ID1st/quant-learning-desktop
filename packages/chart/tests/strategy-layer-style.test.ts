@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { getChartLabelPosition, getChartLineDasharray } from "../src/strategyLayerStyle.ts";
+import {
+  getChartHudRightOffset,
+  getChartLabelPosition,
+  getChartLineDasharray,
+} from "../src/strategyLayerStyle.ts";
 
 describe("strategy layer styles", () => {
   it("maps solid, dashed and dotted lines to stable SVG strokes", () => {
@@ -29,5 +33,9 @@ describe("strategy layer styles", () => {
       y: 216,
       textAnchor: "end",
     });
+  });
+
+  it("keeps HUD panels left of the responsive price axis with a readable gap", () => {
+    assert.equal(getChartHudRightOffset(), "calc(8.7755% + 32px)");
   });
 });

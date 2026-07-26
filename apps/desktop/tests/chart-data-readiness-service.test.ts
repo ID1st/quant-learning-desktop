@@ -15,6 +15,8 @@ test("chart readiness keeps intraday protection without hiding valid short histo
   assert.equal(hasRenderableChartData("1d", 2), true);
   assert.equal(hasRenderableChartData("1w", 19), true);
   assert.equal(hasRenderableChartData("realtime", 19), false);
+  assert.equal(hasRenderableChartData("realtime", 2, { allowSparseIntraday: true }), true);
+  assert.equal(hasRenderableChartData("realtime", 1, { allowSparseIntraday: true }), false);
 });
 
 test("chart readiness creates a Chinese loading message for the current stage", () => {

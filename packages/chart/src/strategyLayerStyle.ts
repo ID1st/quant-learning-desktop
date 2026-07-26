@@ -1,6 +1,13 @@
 export type ChartLineStyle = "solid" | "dashed" | "dotted";
 export type ChartLabelAnchor = "above" | "below" | "center" | "right";
 
+const PRICE_AXIS_WIDTH_PERCENT = "8.7755%";
+const HUD_PLOT_GAP = "32px";
+
+export function getChartHudRightOffset() {
+  return `calc(${PRICE_AXIS_WIDTH_PERCENT} + ${HUD_PLOT_GAP})`;
+}
+
 export function getChartLineDasharray(style: ChartLineStyle | undefined) {
   if (style === "dashed") {
     return "8 7";
