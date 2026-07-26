@@ -188,6 +188,7 @@ test("UTORB exposes Pine target hit rates, trailing stop, optimizer, and volume 
   assert.ok(result.output.render.elements.some((element) => element.kind === "trend-line" && element.id.startsWith("utorb-trail")));
   assert.ok(volumeProfile.length > 0);
   assert.ok(volumeProfile.every((element) => element.kind === "band" && element.toTimestamp === latestTimestamp));
+  assert.ok(volumeProfile.every((element) => element.kind === "band" && element.opacity === 0.1));
   assert.equal(result.output.render.hudPanels, undefined);
   assert.equal(result.output.alerts.some((alert) => alert.includes("最终向上目标")), false);
 

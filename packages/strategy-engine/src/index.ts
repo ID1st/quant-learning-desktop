@@ -1640,7 +1640,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
         tone: "range",
         fillColor: volumeProfileColor,
         borderColor: volumeProfileColor,
-        opacity: volume === maximumVolume ? 0.72 : 0.42,
+        opacity: 0.1,
         fromTimestamp: profileEndTimestamp - width,
         toTimestamp: profileEndTimestamp,
       });

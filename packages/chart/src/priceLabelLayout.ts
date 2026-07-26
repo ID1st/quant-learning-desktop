@@ -12,12 +12,10 @@ export function getProjectedPriceLabelLayout(input: {
   readonly priceY: number;
   readonly plotLeft: number;
   readonly plotRight: number;
-  readonly plotTop: number;
-  readonly plotBottom: number;
 }): ProjectedPriceLabelLayout {
   const estimatedTextWidth = Array.from(input.label).reduce((total, character) => total + compactCharacterWidth(character), 0);
   const width = Math.min(110, Math.max(60, Math.ceil(estimatedTextWidth + 12)));
   const x = Math.max(input.plotLeft + 2, Math.min(input.lineEndX - width + 4, input.plotRight - width - 2));
-  const y = Math.max(input.plotTop + 2, Math.min(input.priceY - 11, input.plotBottom - 22));
+  const y = input.priceY - 11;
   return { width, x, y };
 }

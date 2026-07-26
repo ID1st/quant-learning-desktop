@@ -811,8 +811,6 @@ export function ChartViewport({
                 priceY: y,
                 plotLeft: paddingX,
                 plotRight,
-                plotTop: chartTop,
-                plotBottom: volumeTop - 4,
               })
               : null;
             const anchoredLabel = hasLabel && element.labelAnchor

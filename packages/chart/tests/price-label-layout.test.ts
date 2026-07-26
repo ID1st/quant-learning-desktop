@@ -9,8 +9,6 @@ test("projected price labels use enough width for Chinese text without escaping 
     priceY: 100,
     plotLeft: 40,
     plotRight: 900,
-    plotTop: 20,
-    plotBottom: 470,
   });
 
   assert.ok(layout.width >= 60);
@@ -18,26 +16,22 @@ test("projected price labels use enough width for Chinese text without escaping 
   assert.ok(layout.x + layout.width <= 898);
 });
 
-test("projected price labels remain inside the visible vertical plot range", () => {
+test("projected price labels keep their price position instead of pinning to plot edges", () => {
   const topLayout = getProjectedPriceLabelLayout({
     label: "目标 1",
     lineEndX: 880,
-    priceY: 22,
+    priceY: -43,
     plotLeft: 40,
     plotRight: 900,
-    plotTop: 20,
-    plotBottom: 470,
   });
   const bottomLayout = getProjectedPriceLabelLayout({
     label: "目标 1",
     lineEndX: 880,
-    priceY: 468,
+    priceY: 1007,
     plotLeft: 40,
     plotRight: 900,
-    plotTop: 20,
-    plotBottom: 470,
   });
 
-  assert.equal(topLayout.y, 22);
-  assert.equal(bottomLayout.y, 448);
+  assert.equal(topLayout.y, -54);
+  assert.equal(bottomLayout.y, 996);
 });
