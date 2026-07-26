@@ -14,6 +14,7 @@ test("projected price labels use enough width for Chinese text without escaping 
   assert.ok(layout.width >= 60);
   assert.ok(layout.x >= 42);
   assert.ok(layout.x + layout.width <= 898);
+  assert.equal(layout.lineEndX, layout.x);
 });
 
 test("projected price labels keep their price position instead of pinning to plot edges", () => {

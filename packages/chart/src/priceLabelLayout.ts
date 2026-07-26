@@ -1,4 +1,5 @@
 export interface ProjectedPriceLabelLayout {
+  readonly lineEndX: number;
   readonly width: number;
   readonly x: number;
   readonly y: number;
@@ -17,5 +18,5 @@ export function getProjectedPriceLabelLayout(input: {
   const width = Math.min(110, Math.max(60, Math.ceil(estimatedTextWidth + 12)));
   const x = Math.max(input.plotLeft + 2, Math.min(input.lineEndX - width + 4, input.plotRight - width - 2));
   const y = input.priceY - 11;
-  return { width, x, y };
+  return { lineEndX: x, width, x, y };
 }

@@ -832,7 +832,7 @@ export function ChartViewport({
                     strokeOpacity: element.opacity,
                   }}
                   x1={bounds.x1}
-                  x2={bounds.x2}
+                  x2={projectedLabelLayout?.lineEndX ?? bounds.x2}
                   y1={y}
                   y2={y}
                 />
