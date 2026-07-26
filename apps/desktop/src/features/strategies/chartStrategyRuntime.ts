@@ -1,8 +1,11 @@
 import {
+  createStrategyInput,
   runRegisteredStrategy,
   type Bar,
   type StrategyDefinition,
+  type StrategyOutput,
   type StrategyRegistry,
+  type StrategyRunRequest,
   type StrategyRunResult,
 } from "@quant/strategy-engine";
 import type { Market, Timeframe } from "@quant/shared";
@@ -44,6 +47,51 @@ export interface RunChartStrategiesOptions {
   readonly confirmedThroughTimestamp?: number;
 }
 
+const mlptOutputCache = new WeakMap<
+  StrategyDefinition,
+  { key: string; output: StrategyOutput }
+>();
+const hashBuffer = new ArrayBuffer(8);
+const hashView = new DataView(hashBuffer);
+
+function hashConfirmedBars(bars: readonly Bar[], confirmedThroughTimestamp?: number) {
+  let primaryHash = 2_166_136_261;
+  let secondaryHash = 3_332_511_465;
+  let count = 0;
+  for (const bar of bars) {
+    if (confirmedThroughTimestamp !== undefined && bar.timestamp > confirmedThroughTimestamp) {
+      continue;
+    }
+    count += 1;
+    for (const value of [bar.timestamp, bar.open, bar.high, bar.low, bar.close, bar.volume]) {
+      hashView.setFloat64(0, value);
+      for (let byte = 0; byte < 8; byte += 1) {
+        const valueByte = hashView.getUint8(byte);
+        primaryHash = Math.imul(primaryHash ^ valueByte, 16_777_619);
+        secondaryHash = Math.imul(secondaryHash ^ valueByte, 2_246_822_519);
+      }
+    }
+  }
+  return `${count}:${primaryHash >>> 0}:${secondaryHash >>> 0}`;
+}
+
+function createMlptCacheKey(
+  strategy: StrategyDefinition,
+  request: StrategyRunRequest,
+) {
+  const parameters = Object.entries(request.parameters ?? {}).sort(([left], [right]) => left.localeCompare(right));
+  return [
+    strategy.version,
+    request.symbol,
+    request.market,
+    request.timeframe,
+    request.enabled === false ? "disabled" : "enabled",
+    request.confirmedThroughTimestamp ?? "all",
+    hashConfirmedBars(request.bars, request.confirmedThroughTimestamp),
+    JSON.stringify(parameters),
+  ].join("|");
+}
+
 export function getRealtimeStrategyHistoryRequirement(
   strategies: readonly StrategyDefinition[],
   settingsByStrategyKey: Record<string, ChartStrategyWorkspaceState>,
@@ -64,33 +112,69 @@ export function getRealtimeStrategyHistoryRequirement(
   );
 }
 
+export function getMlptChartNotice(runs: readonly ChartStrategyRunItem[]) {
+  const mlptRun = runs.find(({ strategy, settings }) =>
+    strategy.key === "machine-learning-price-targets" && settings.enabled);
+  if (!mlptRun || mlptRun.result.output.metrics.modelReady === 1) {
+    return null;
+  }
+
+  const confirmedBarCount = Math.max(
+    0,
+    Math.floor(mlptRun.result.output.metrics.confirmedBarCount ?? 0),
+  );
+  const minimumBars = mlptRun.strategy.realtimeHistoryRequirement?.minimumBars ?? 1_000;
+  return confirmedBarCount < minimumBars
+    ? `MLPT 数据不足：已确认 ${confirmedBarCount} / ${minimumBars} 根分钟线，预测图层暂未加载`
+    : "MLPT 正在等待有效训练样本，预测图层暂未加载";
+}
+
 export function runChartStrategies(options: RunChartStrategiesOptions): ChartStrategyRunItem[] {
   return options.strategies.map((strategy, index) => {
     const settings = options.settingsByStrategyKey[strategy.key] ?? options.resolveDefaultSettings(strategy, index);
     let result: StrategyRunResult;
 
     try {
-      result = strategy.supportedTimeframes.includes(options.timeframe)
-        ? runRegisteredStrategy(options.registry, {
-            strategyKey: strategy.key,
-            symbol: options.symbol,
-            market: options.market,
-            timeframe: options.timeframe,
-            bars: options.bars,
-            seriesByTimeframe: options.seriesByTimeframe,
-            confirmedThroughTimestamp: options.confirmedThroughTimestamp,
-            runMode: "backtest",
-            enabled: settings.enabled,
-            parameters: settings.parameters,
-          })
-        : createFailedStrategyRunResult(
+      if (!strategy.supportedTimeframes.includes(options.timeframe)) {
+        result = createFailedStrategyRunResult(
+          strategy,
+          settings,
+          options.symbol,
+          options.market,
+          options.timeframe,
+          getUnsupportedTimeframeMessage(strategy, options.timeframe),
+        );
+      } else {
+        const request: StrategyRunRequest = {
+          strategyKey: strategy.key,
+          symbol: options.symbol,
+          market: options.market,
+          timeframe: options.timeframe,
+          bars: options.bars,
+          seriesByTimeframe: options.seriesByTimeframe,
+          confirmedThroughTimestamp: options.confirmedThroughTimestamp,
+          runMode: "realtime",
+          enabled: settings.enabled,
+          parameters: settings.parameters,
+        };
+        const cacheKey =
+          strategy.key === "machine-learning-price-targets" && settings.enabled
+            ? createMlptCacheKey(strategy, request)
+            : null;
+        const cached = cacheKey ? mlptOutputCache.get(strategy) : undefined;
+        if (cacheKey && cached?.key === cacheKey) {
+          result = {
             strategy,
-            settings,
-            options.symbol,
-            options.market,
-            options.timeframe,
-            getUnsupportedTimeframeMessage(strategy, options.timeframe),
-          );
+            input: createStrategyInput(strategy, request),
+            output: cached.output,
+          };
+        } else {
+          result = runRegisteredStrategy(options.registry, request);
+          if (cacheKey) {
+            mlptOutputCache.set(strategy, { key: cacheKey, output: result.output });
+          }
+        }
+      }
     } catch (error) {
       result = createFailedStrategyRunResult(
         strategy,
@@ -168,7 +252,7 @@ export function createFailedStrategyRunResult(
       timeframe,
       bars: [],
       parameters: settings.parameters,
-      runMode: "backtest",
+      runMode: "realtime",
       enabled: settings.enabled,
     },
     output: {

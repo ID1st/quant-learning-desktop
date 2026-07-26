@@ -8,6 +8,7 @@ import {
   type Bar,
 } from "../src/index.ts";
 import { createSmcVisualFixture } from "../src/smartMoneyConceptsVisualFixture.ts";
+import { smartMoneyConceptsTestSupport } from "../src/smartMoneyConcepts.ts";
 
 function makeWaveBars(count: number, timeframe: Timeframe = "realtime"): Bar[] {
   const interval =
@@ -34,6 +35,32 @@ function makeWaveBars(count: number, timeframe: Timeframe = "realtime"): Bar[] {
 }
 
 describe("Smart Money Concepts preset", () => {
+  it("matches the Pine leg state machine instead of requiring a symmetric pivot", () => {
+    const highs = [5, 20, 6, 10, 8, 7];
+    const lows = [0, 5, 1, 5, 6, 7];
+    const bars = highs.map((high, index): Bar => ({
+      timestamp: index,
+      open: (high + lows[index]!) / 2,
+      high,
+      low: lows[index]!,
+      close: (high + lows[index]!) / 2,
+      volume: 100,
+    }));
+
+    assert.deepEqual(
+      smartMoneyConceptsTestSupport.detectPivots(bars, 2).map((pivot) => ({
+        index: pivot.index,
+        confirmationIndex: pivot.confirmationIndex,
+        side: pivot.side,
+      })),
+      [
+        { index: 0, confirmationIndex: 2, side: "low" },
+        { index: 1, confirmationIndex: 3, side: "high" },
+        { index: 2, confirmationIndex: 4, side: "low" },
+        { index: 3, confirmationIndex: 5, side: "high" },
+      ],
+    );
+  });
   it("registers a disabled-by-default SMC indicator with visual color parameters", () => {
     const definition = createPresetStrategyRegistry().get("smart-money-concepts");
 

@@ -6,6 +6,7 @@ import {
   buildChartStrategyLogItems,
   buildChartStrategySignalRows,
   formatChartStrategySignalName,
+  getMlptChartNotice,
   getRealtimeStrategyHistoryRequirement,
   runChartStrategies,
   type ChartStrategyWorkspaceState,
@@ -21,6 +22,48 @@ const bars: Bar[] = [10, 11, 12, 11, 10, 9, 10, 11, 12, 13].map((close, index) =
 }));
 
 describe("chart strategy runtime", () => {
+  it("formats MLPT warm-up as a compact chart notice and hides it when ready", () => {
+    const strategy = createPresetStrategyRegistry().get("machine-learning-price-targets")!;
+    const createRun = (modelReady: number, confirmedBarCount: number) => ({
+      strategy,
+      settings: { enabled: true, showLayer: true, parameters: {} },
+      result: {
+        strategy,
+        input: {
+          symbol: "AAPL.US",
+          market: "US" as const,
+          timeframe: "realtime" as const,
+          bars: [],
+          parameters: {},
+        },
+        output: {
+          signals: [],
+          overlays: [],
+          render: {
+            strategyId: strategy.key,
+            strategyName: strategy.name,
+            enabled: true,
+            zIndex: 30,
+            elements: [],
+          },
+          metrics: { modelReady, confirmedBarCount },
+          logs: [],
+          alerts: [],
+        },
+      },
+    });
+
+    assert.equal(
+      getMlptChartNotice([createRun(0, 420)]),
+      "MLPT 数据不足：已确认 420 / 1000 根分钟线，预测图层暂未加载",
+    );
+    assert.equal(
+      getMlptChartNotice([createRun(0, 1_000)]),
+      "MLPT 正在等待有效训练样本，预测图层暂未加载",
+    );
+    assert.equal(getMlptChartNotice([createRun(1, 1_200)]), null);
+  });
+
   it("hides the LuxAlgo suffix only in SMC signal panel names", () => {
     assert.equal(
       formatChartStrategySignalName({ key: "smart-money-concepts", name: "Smart Money Concepts [LuxAlgo]" }),
@@ -83,7 +126,14 @@ describe("chart strategy runtime", () => {
       utorb: {
         enabled: true,
         showLayer: true,
-        parameters: { sessionStartHour: 8, sessionStartMinute: 30, openingRangeMinutes: 15, timezoneOffsetHours: -5, showTargets: true },
+        parameters: {
+          sessionStartHour: 8,
+          sessionStartMinute: 30,
+          openingRangeMinutes: 15,
+          timezoneMode: "fixed-offset",
+          timezoneOffsetHours: -5,
+          showTargets: true,
+        },
       },
       "trend-targets": {
         enabled: true,
@@ -231,5 +281,59 @@ describe("chart strategy runtime", () => {
     });
 
     assert.equal(result?.result.input.confirmedThroughTimestamp, confirmedThroughTimestamp);
+    assert.equal(result?.result.input.runMode, "realtime");
+  });
+
+  it("reuses MLPT output while only the unconfirmed candle changes", () => {
+    const registry = createPresetStrategyRegistry();
+    const baseStrategy = registry.get("machine-learning-price-targets");
+    assert.ok(baseStrategy);
+    let executionCount = 0;
+    const strategy = {
+      ...baseStrategy,
+      run(input: Parameters<typeof baseStrategy.run>[0]) {
+        executionCount += 1;
+        return baseStrategy.run(input);
+      },
+    };
+    registry.register(strategy);
+    const mlptBars = Array.from({ length: 1_200 }, (_, index): Bar => {
+      const close = 100 + Math.sin(index / 20) * 4 + index * 0.005;
+      return {
+        timestamp: Date.parse("2026-01-01T00:00:00Z") + index * 60_000,
+        open: close - 0.1,
+        high: close + 0.5,
+        low: close - 0.5,
+        close,
+        volume: 10_000,
+      };
+    });
+    const confirmedThroughTimestamp = mlptBars.at(-2)!.timestamp;
+    const settings = { enabled: true, showLayer: true, parameters: {} };
+    const run = (inputBars: Bar[]) => runChartStrategies({
+      strategies: [strategy],
+      registry,
+      settingsByStrategyKey: { [strategy.key]: settings },
+      resolveDefaultSettings: () => settings,
+      symbol: "AAPL.US",
+      market: "US",
+      timeframe: "realtime",
+      bars: inputBars,
+      confirmedThroughTimestamp,
+    })[0]!;
+
+    const first = run(mlptBars);
+    const changedOpenCandle = mlptBars.map((bar, index) =>
+      index === mlptBars.length - 1 ? { ...bar, close: bar.close + 20, high: bar.high + 20 } : bar);
+    const second = run(changedOpenCandle);
+
+    assert.equal(executionCount, 1);
+    assert.deepEqual(second.result.output, first.result.output);
+    assert.equal(second.result.input.bars, changedOpenCandle);
+
+    const correctedHistory = changedOpenCandle.map((bar, index) =>
+      index === 500 ? { ...bar, close: bar.close + 1 } : bar);
+    run(correctedHistory);
+    assert.equal(executionCount, 2);
   });
 });

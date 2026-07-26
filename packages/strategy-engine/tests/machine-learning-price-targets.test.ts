@@ -88,7 +88,7 @@ describe("Machine Learning Price Targets preset", () => {
     assert.equal(machineLearningPriceTargetsTestSupport.calculateRewardRisk(0.5), 1);
   });
 
-  it("prioritizes take profit when one confirmed candle touches both levels", () => {
+  it("uses the conservative stop when one confirmed candle touches both levels", () => {
     assert.equal(machineLearningPriceTargetsTestSupport.resolveTradeHit({
       direction: 1,
       targetPrice: 110,
@@ -96,7 +96,7 @@ describe("Machine Learning Price Targets preset", () => {
     }, {
       high: 111,
       low: 89,
-    }), "target");
+    }), "stop");
   });
 
   it("registers a disabled realtime-only indicator with its history requirement", () => {
@@ -114,14 +114,24 @@ describe("Machine Learning Price Targets preset", () => {
     });
   });
 
-  it("shows an explicit warm-up HUD before 1000 confirmed bars", () => {
+  it("keeps the full HUD hidden before 1000 confirmed bars", () => {
     const output = run(createWaveBars(999));
-    const hud = output.render.hudPanels?.[0];
 
     assert.equal(output.signals.length, 0);
     assert.equal(output.overlays.length, 0);
-    assert.equal(hud?.rows.find((row) => row.id === "training-size")?.value, "999 / 1000");
+    assert.equal(output.metrics.modelReady, 0);
+    assert.equal(output.metrics.confirmedBarCount, 999);
+    assert.deepEqual(output.render.hudPanels, []);
     assert.match(output.logs.join(" "), /预热/);
+  });
+
+  it("keeps the full HUD hidden while waiting for the first valid training sample", () => {
+    const output = run(createWaveBars(1_000));
+
+    assert.equal(output.metrics.modelReady, 0);
+    assert.equal(output.signals.length, 0);
+    assert.equal(output.metrics.trainingSampleCount, 0);
+    assert.deepEqual(output.render.hudPanels, []);
   });
 
   it("fails closed when the vendor provides no cumulative volume", () => {
@@ -137,10 +147,12 @@ describe("Machine Learning Price Targets preset", () => {
     const elementKinds = new Set(output.overlays.map((element) => element.kind));
 
     assert.ok((output.metrics.trainingSampleCount ?? 0) > 0);
+    assert.equal(output.metrics.modelReady, 1);
     assert.ok(elementKinds.has("candle-style"));
     assert.ok(elementKinds.has("band"));
     assert.ok(elementKinds.has("signal-marker"));
-    assert.equal(output.render.hudPanels?.[0]?.rows.length, 5);
+    assert.equal(output.render.hudPanels?.[0]?.rows.length, 6);
+    assert.ok(output.overlays.length <= 1_000);
     assert.ok(output.signals.some((signal) => signal.type === "buy"));
     assert.ok(output.signals.some((signal) => signal.type === "sell"));
   });

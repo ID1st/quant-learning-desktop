@@ -24,6 +24,8 @@ import type {
 const MINIMUM_BARS = 1_000;
 const MAX_HISTORY_BARS = 5_000;
 const MAX_BOXES = 500;
+const MINIMUM_TRAINING_SAMPLES = 1;
+const MAX_CANDLE_STYLES = 250;
 const NEUTRAL_CANDLE_COLOR = "#7B8190";
 
 type TrendMethod = "SuperTrend" | "HMA (Increasing or Decreasing)" | "EMA Cross (Fast Slow)";
@@ -65,8 +67,7 @@ function colorParameter(parameters: Record<string, unknown>, key: string, fallba
 }
 
 function normalizeRolling(series: readonly SeriesValue[], length: number) {
-  const minimum = lowest(series, length);
-  const maximum = highest(series, length);
+  const { minimum, maximum } = rollingExtrema(series, length);
 
   return series.map((value, index) => {
     const low = minimum[index];
@@ -76,6 +77,58 @@ function normalizeRolling(series: readonly SeriesValue[], length: number) {
     }
     return ((value - low) / (high - low)) * 100;
   });
+}
+
+function rollingExtrema(series: readonly SeriesValue[], length: number) {
+  const safeLength = Math.max(1, Math.floor(length));
+  const minimum: Array<number | null> = Array(series.length).fill(null);
+  const maximum: Array<number | null> = Array(series.length).fill(null);
+  const minimumDeque: number[] = [];
+  const maximumDeque: number[] = [];
+  let minimumHead = 0;
+  let maximumHead = 0;
+  let invalidCount = 0;
+
+  series.forEach((value, index) => {
+    if (!finite(value)) {
+      invalidCount += 1;
+    } else {
+      while (
+        minimumDeque.length > minimumHead &&
+        finite(series[minimumDeque.at(-1)!]) &&
+        series[minimumDeque.at(-1)!]! >= value
+      ) {
+        minimumDeque.pop();
+      }
+      while (
+        maximumDeque.length > maximumHead &&
+        finite(series[maximumDeque.at(-1)!]) &&
+        series[maximumDeque.at(-1)!]! <= value
+      ) {
+        maximumDeque.pop();
+      }
+      minimumDeque.push(index);
+      maximumDeque.push(index);
+    }
+
+    const expiredIndex = index - safeLength;
+    if (expiredIndex >= 0 && !finite(series[expiredIndex])) {
+      invalidCount -= 1;
+    }
+    while (minimumHead < minimumDeque.length && minimumDeque[minimumHead]! <= expiredIndex) {
+      minimumHead += 1;
+    }
+    while (maximumHead < maximumDeque.length && maximumDeque[maximumHead]! <= expiredIndex) {
+      maximumHead += 1;
+    }
+
+    if (index >= safeLength - 1 && invalidCount === 0) {
+      minimum[index] = series[minimumDeque[minimumHead]!] as number;
+      maximum[index] = series[maximumDeque[maximumHead]!] as number;
+    }
+  });
+
+  return { minimum, maximum };
 }
 
 function difference(left: readonly SeriesValue[], right: readonly SeriesValue[]) {
@@ -131,13 +184,13 @@ function resolveTradeHit(
   const targetHit = trade.direction === 1
     ? bar.high >= trade.targetPrice
     : bar.low <= trade.targetPrice;
-  if (targetHit) {
-    return "target" as const;
-  }
   const stopHit = trade.direction === 1
     ? bar.low <= trade.stopPrice
     : bar.high >= trade.stopPrice;
-  return stopHit ? "stop" as const : null;
+  if (stopHit) {
+    return "stop" as const;
+  }
+  return targetHit ? "target" as const : null;
 }
 
 function calculateFeatureSeries(
@@ -188,37 +241,46 @@ export const machineLearningPriceTargetsTestSupport = {
   calculateFeatureSeries,
   calculateRewardRisk,
   predictRbf,
+  rollingExtrema,
   resolveTradeHit,
 };
 
 function createHudPanel(input: {
+  modelStatus?: string;
   trainingSize: string;
   predictedMove: number | null;
   successRate: number | null;
   rewardRisk: number | null;
   inTrade: boolean;
 }): StrategyHudPanel {
+  const modelStatus = input.modelStatus ?? "不可用";
   const percent = (value: number | null) => finite(value) ? `${(value * 100).toFixed(2)}%` : "—";
   const decimal = (value: number | null) => finite(value) ? value.toFixed(2) : "—";
 
   return {
     id: "ml-price-target-metrics",
-    title: "Indicator Metrics",
-    valueHeading: "Value",
+    title: "MLPT 模型状态",
+    valueHeading: "当前值",
     placement: "top-right",
     rows: [
-      { id: "training-size", label: "Training Data Size", value: input.trainingSize },
-      { id: "predicted-move", label: "Predicted Move Size", value: percent(input.predictedMove) },
+      {
+        id: "model-status",
+        label: "模型状态",
+        value: modelStatus,
+        tone: modelStatus === "已就绪" ? "positive" : "muted",
+      },
+      { id: "training-size", label: "有效训练样本", value: input.trainingSize },
+      { id: "predicted-move", label: "预测波动", value: percent(input.predictedMove) },
       {
         id: "success-rate",
-        label: "Success Rate (When price moves more or equal to predicted amount)",
+        label: "历史达标率",
         value: percent(input.successRate),
       },
-      { id: "recommended-rr", label: "Recommended Reward/Risk Ratio", value: decimal(input.rewardRisk) },
+      { id: "recommended-rr", label: "建议盈亏比", value: decimal(input.rewardRisk) },
       {
         id: "in-trade",
-        label: "In Trade",
-        value: input.inTrade ? "Yes" : "No",
+        label: "模拟持仓",
+        value: input.inTrade ? "持仓中" : "空仓",
         tone: input.inTrade ? "positive" : "muted",
       },
     ],
@@ -229,6 +291,7 @@ function emptyOutput(
   enabled: boolean,
   logs: string[],
   hudPanel?: StrategyHudPanel,
+  metrics: Record<string, number> = {},
 ): StrategyOutput {
   return {
     signals: [],
@@ -239,9 +302,9 @@ function emptyOutput(
       enabled,
       zIndex: 30,
       elements: [],
-      hudPanels: enabled && hudPanel ? [hudPanel] : [],
+      hudPanels: enabled && hudPanel && metrics.modelReady === 1 ? [hudPanel] : [],
     },
-    metrics: {},
+    metrics,
     logs,
     alerts: [],
   };
@@ -267,12 +330,18 @@ export function runMachineLearningPriceTargets(
       true,
       [`Machine Learning Price Targets 预热中：${confirmedCount} / ${MINIMUM_BARS} 根已确认 K 线。`],
       createHudPanel({
+        modelStatus: "历史预热",
         trainingSize: `${confirmedCount} / ${MINIMUM_BARS}`,
         predictedMove: null,
         successRate: null,
         rewardRisk: null,
         inTrade: false,
       }),
+      {
+        modelReady: 0,
+        confirmedBarCount: confirmedCount,
+        trainingSampleCount: 0,
+      },
     );
   }
 
@@ -287,6 +356,11 @@ export function runMachineLearningPriceTargets(
         rewardRisk: null,
         inTrade: false,
       }),
+      {
+        modelReady: 0,
+        confirmedBarCount: confirmedCount,
+        trainingSampleCount: 0,
+      },
     );
   }
 
@@ -434,15 +508,47 @@ export function runMachineLearningPriceTargets(
       }
     }
 
-    candleStyles.push({
-      id: `ml-candle-${bar.timestamp}`,
-      kind: "candle-style",
-      timestamp: bar.timestamp,
-      color: activeTrade ? (activeTrade.direction === 1 ? bullishColor : bearishColor) : NEUTRAL_CANDLE_COLOR,
-      opacity: 1,
-      zIndex: 35,
-    });
+    if (index >= confirmedBars.length - MAX_CANDLE_STYLES) {
+      candleStyles.push({
+        id: `ml-candle-${bar.timestamp}`,
+        kind: "candle-style",
+        timestamp: bar.timestamp,
+        color: activeTrade
+          ? activeTrade.direction === 1
+            ? bullishColor
+            : bearishColor
+          : NEUTRAL_CANDLE_COLOR,
+        opacity: 1,
+        zIndex: 35,
+      });
+    }
   });
+
+  const validFeatureCount = confirmedBars.reduce(
+    (total, _bar, index) =>
+      total + (featureSeries.every((series) => finite(series[index])) ? 1 : 0),
+    0,
+  );
+  if (samples.length < MINIMUM_TRAINING_SAMPLES) {
+    return emptyOutput(
+      true,
+      [`MLPT 特征预热中：已有 ${confirmedCount} 根已确认 K 线，正在等待首个完整趋势训练样本。`],
+      createHudPanel({
+        modelStatus: "等待有效样本",
+        trainingSize: `${samples.length} / ${MINIMUM_TRAINING_SAMPLES}`,
+        predictedMove: null,
+        successRate: null,
+        rewardRisk: null,
+        inTrade: false,
+      }),
+      {
+        modelReady: 0,
+        confirmedBarCount: confirmedCount,
+        validFeatureCount,
+        trainingSampleCount: samples.length,
+      },
+    );
+  }
 
   const tradeElements = trades.slice(-Math.floor(MAX_BOXES / 2)).flatMap<StrategyVisualElement>((trade) => [
     {
@@ -492,6 +598,7 @@ export function runMachineLearningPriceTargets(
   const successRate = totalPredictions > 0 ? correctPredictions / totalPredictions : null;
   const rewardRisk = calculateRewardRisk(successRate);
   const hudPanel = createHudPanel({
+    modelStatus: "已就绪",
     trainingSize: String(samples.length),
     predictedMove: latestPrediction,
     successRate,
@@ -499,6 +606,9 @@ export function runMachineLearningPriceTargets(
     inTrade: activeTrade !== null,
   });
   const metrics: Record<string, number> = {
+    modelReady: 1,
+    confirmedBarCount: confirmedCount,
+    validFeatureCount,
     trainingSampleCount: samples.length,
     totalPredictions,
     correctPredictions,

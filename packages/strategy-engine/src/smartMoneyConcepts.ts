@@ -253,40 +253,38 @@ function computeCumulativeMeanRange(bars: readonly Bar[]) {
 
 function detectPivots(bars: readonly Bar[], size: number): PivotPoint[] {
   const pivots: PivotPoint[] = [];
-  for (let index = size; index + size < bars.length; index += 1) {
+  let leg: 0 | 1 = 0;
+
+  for (let confirmationIndex = size; confirmationIndex < bars.length; confirmationIndex += 1) {
+    const index = confirmationIndex - size;
     const candidate = bars[index];
-    let isHigh = true;
-    let isLow = true;
-    for (let cursor = index - size; cursor <= index + size; cursor += 1) {
-      if (cursor === index) {
-        continue;
-      }
-      isHigh = isHigh && candidate.high > bars[cursor].high;
-      isLow = isLow && candidate.low < bars[cursor].low;
+    const confirmationWindow = bars.slice(index + 1, confirmationIndex + 1);
+    const newLegHigh = confirmationWindow.every((bar) => candidate.high > bar.high);
+    const newLegLow = !newLegHigh && confirmationWindow.every((bar) => candidate.low < bar.low);
+    const nextLeg: 0 | 1 = newLegHigh ? 0 : newLegLow ? 1 : leg;
+
+    if (nextLeg === leg) {
+      continue;
     }
-    if (isHigh) {
-      pivots.push({
-        index,
-        confirmationIndex: index + size,
-        timestamp: candidate.timestamp,
-        price: candidate.high,
-        side: "high",
-        crossed: false,
-      });
-    }
-    if (isLow) {
-      pivots.push({
-        index,
-        confirmationIndex: index + size,
-        timestamp: candidate.timestamp,
-        price: candidate.low,
-        side: "low",
-        crossed: false,
-      });
-    }
+
+    leg = nextLeg;
+    const side = leg === 0 ? "high" : "low";
+    pivots.push({
+      index,
+      confirmationIndex,
+      timestamp: candidate.timestamp,
+      price: side === "high" ? candidate.high : candidate.low,
+      side,
+      crossed: false,
+    });
   }
-  return pivots.sort((left, right) => left.confirmationIndex - right.confirmationIndex);
+
+  return pivots;
 }
+
+export const smartMoneyConceptsTestSupport = {
+  detectPivots,
+};
 
 function pushCapped<T>(items: T[], item: T, limit = MAX_OBJECTS) {
   items.push(item);

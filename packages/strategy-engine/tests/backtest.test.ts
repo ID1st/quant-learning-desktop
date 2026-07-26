@@ -37,6 +37,40 @@ test("backtest uses the next bar open and reverses between long and short", () =
   assert.ok(Math.abs(result.summary.finalCapital - 1363.6363636363635) < 0.000001);
 });
 
+test("backtest honors explicit strategy actions without reversing on observational signals", () => {
+  const result = runStrategyBacktest({
+    bars: [bar(1, 100), bar(2, 100), bar(3, 90), bar(4, 110), bar(5, 120)],
+    signals: [
+      { timestamp: 1, type: "buy", backtestAction: "enter-long" },
+      { timestamp: 2, type: "sell", backtestAction: "none" },
+      { timestamp: 3, type: "exit", backtestAction: "exit-long" },
+    ],
+    settings: { initialCapital: 1_000, feeRate: 0, slippageRate: 0, allowShort: true },
+  });
+
+  assert.equal(result.trades.length, 1);
+  assert.equal(result.trades[0]?.direction, "long");
+  assert.equal(result.trades[0]?.entryTimestamp, 2);
+  assert.equal(result.trades[0]?.exitTimestamp, 4);
+  assert.equal(result.trades[0]?.exitSignalTimestamp, 3);
+});
+
+test("backtest does not reinterpret a disabled explicit short entry as a long exit", () => {
+  const result = runStrategyBacktest({
+    bars: [bar(1, 100), bar(2, 100), bar(3, 90), bar(4, 110), bar(5, 120)],
+    signals: [
+      { timestamp: 1, type: "buy", backtestAction: "enter-long" },
+      { timestamp: 2, type: "sell", backtestAction: "enter-short" },
+      { timestamp: 3, type: "exit", backtestAction: "exit-long" },
+    ],
+    settings: { initialCapital: 1_000, feeRate: 0, slippageRate: 0, allowShort: false },
+  });
+
+  assert.equal(result.trades.length, 1);
+  assert.equal(result.trades[0]?.direction, "long");
+  assert.equal(result.trades[0]?.exitTimestamp, 4);
+});
+
 test("backtest applies fees and slippage, and can disable short entries", () => {
   const result = runStrategyBacktest({
     bars: [bar(1, 100), bar(2, 100), bar(3, 110)],

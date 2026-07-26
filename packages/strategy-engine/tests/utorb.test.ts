@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createPresetStrategyRegistry, runRegisteredStrategy, type Bar } from "../src/index.ts";
+import { createPresetStrategyRegistry, runRegisteredStrategy, runStrategyBacktest, type Bar } from "../src/index.ts";
 
 function bar(timestamp: string, open: number, high: number, low: number, close: number, volume = 100): Bar {
   return { timestamp: Date.parse(timestamp), open, high, low, close, volume };
 }
 
-function runUtorb(bars: Bar[], parameters: Record<string, unknown> = {}) {
+function runUtorb(bars: Bar[], parameters: Record<string, unknown> = {}, market: "US" | "HK" | "CN" = "US") {
   const registry = createPresetStrategyRegistry();
   return runRegisteredStrategy(registry, {
     strategyKey: "utorb",
     symbol: "AAPL",
-    market: "US",
+    market,
     timeframe: "15m",
     runMode: "backtest",
     bars,
@@ -20,6 +20,7 @@ function runUtorb(bars: Bar[], parameters: Record<string, unknown> = {}) {
       sessionStartMinute: 30,
       openingRangeMinutes: 30,
       sessionDays: "1234567",
+      timezoneMode: "market",
       timezoneOffsetHours: -5,
       rangeSource: "high-low",
       showTargets: true,
@@ -69,6 +70,49 @@ test("UTORB reproduces Pine sessions, resets daily, and emits one breakout per d
   assert.equal(directionalSignals[0]?.label, "向上突破（低量）");
   assert.equal(result.output.metrics.openingRangeHigh, 204);
   assert.equal(result.output.metrics.openingRangeLow, 198);
+});
+
+test("UTORB marks secondary opposite breakouts as observational for backtests", () => {
+  const result = runUtorb(twoSessionBars.slice(0, 5));
+  const directionalSignals = result.output.signals.filter((signal) => signal.type === "buy" || signal.type === "sell");
+  const backtest = runStrategyBacktest({
+    bars: twoSessionBars.slice(0, 5),
+    signals: result.output.signals,
+    settings: { initialCapital: 1_000, feeRate: 0, slippageRate: 0, allowShort: true },
+  });
+
+  assert.deepEqual(directionalSignals.map((signal) => signal.backtestAction), ["enter-long", "none"]);
+  assert.equal(backtest.trades.length, 1);
+  assert.equal(backtest.trades[0]?.direction, "long");
+});
+
+test("UTORB follows New York daylight saving time in market timezone mode", () => {
+  const summerBars = [
+    bar("2026-07-07T13:30:00Z", 100, 102, 99, 101),
+    bar("2026-07-07T13:45:00Z", 101, 103, 100, 102),
+    bar("2026-07-07T14:00:00Z", 103, 108, 102, 104),
+  ];
+  const result = runUtorb(summerBars);
+
+  assert.equal(result.output.metrics.totalSessions, 1);
+  assert.equal(
+    result.output.signals.some((signal) => signal.type === "buy" && signal.timestamp === Date.parse("2026-07-07T14:00:00Z")),
+    true,
+  );
+});
+
+test("UTORB uses the selected Asian market timezone without manual UTC offsets", () => {
+  const asianBars = [
+    bar("2026-07-07T01:30:00Z", 100, 102, 99, 101),
+    bar("2026-07-07T01:45:00Z", 101, 103, 100, 102),
+    bar("2026-07-07T02:00:00Z", 103, 108, 102, 104),
+  ];
+
+  for (const market of ["HK", "CN"] as const) {
+    const result = runUtorb(asianBars, {}, market);
+    assert.equal(result.output.metrics.totalSessions, 1);
+    assert.equal(result.output.signals.some((signal) => signal.type === "buy"), true);
+  }
 });
 
 test("UTORB plots the Pine opening range and all six extension levels for the latest session", () => {
@@ -155,6 +199,7 @@ test("UTORB exposes parameters corresponding to Pine inputs", () => {
     "sessionStartMinute",
     "openingRangeMinutes",
     "sessionDays",
+    "timezoneMode",
     "timezoneOffsetHours",
     "rangeSource",
     "showTargets",
@@ -187,6 +232,7 @@ test("UTORB defaults match the original Pine Script inputs", () => {
       sessionStartMinute: defaults.sessionStartMinute,
       openingRangeMinutes: defaults.openingRangeMinutes,
       sessionDays: defaults.sessionDays,
+      timezoneMode: defaults.timezoneMode,
       timezoneOffsetHours: defaults.timezoneOffsetHours,
       rangeSource: defaults.rangeSource,
       trailingStopAtrMultiplier: defaults.trailingStopAtrMultiplier,
@@ -197,6 +243,7 @@ test("UTORB defaults match the original Pine Script inputs", () => {
       sessionStartMinute: 30,
       openingRangeMinutes: 30,
       sessionDays: "1234567",
+      timezoneMode: "market",
       timezoneOffsetHours: -5,
       rangeSource: "high-low",
       trailingStopAtrMultiplier: 2,

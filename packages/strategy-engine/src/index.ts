@@ -60,6 +60,7 @@ export interface StrategyRunResult {
 export interface StrategySignal {
   timestamp: number;
   type: "buy" | "sell" | "exit" | "alert";
+  backtestAction?: "enter-long" | "enter-short" | "exit-long" | "exit-short" | "none";
   price?: number;
   label?: string;
 }
@@ -927,7 +928,14 @@ export function runRegisteredStrategy(registry: StrategyRegistry, request: Strat
   }
 
   const input = createStrategyInput(strategy, request);
-  const output = strategy.run(input);
+  const executionInput =
+    input.confirmedThroughTimestamp === undefined
+      ? input
+      : {
+          ...input,
+          bars: input.bars.filter((bar) => bar.timestamp <= input.confirmedThroughTimestamp!),
+        };
+  const output = strategy.run(executionInput);
 
   return {
     strategy,
@@ -1012,13 +1020,84 @@ function isSeriesNumber(value: number | null | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+interface CalendarDate {
+  year: number;
+  month: number;
+  day: number;
+}
+
+const marketTimeZones: Record<Market, string> = {
+  US: "America/New_York",
+  HK: "Asia/Hong_Kong",
+  CN: "Asia/Shanghai",
+};
+const zonedDateFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function getZonedDateParts(timestamp: number, timeZone: string): CalendarDate & { hour: number; minute: number } {
+  let formatter = zonedDateFormatterCache.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    zonedDateFormatterCache.set(timeZone, formatter);
+  }
+  const parts = Object.fromEntries(
+    formatter.formatToParts(new Date(timestamp)).map((part) => [part.type, part.value]),
+  );
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+  };
+}
+
+function shiftCalendarDate(date: CalendarDate, days: number): CalendarDate {
+  const shifted = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  };
+}
+
+function calendarDateKey(date: CalendarDate) {
+  return Date.UTC(date.year, date.month - 1, date.day);
+}
+
+function zonedDateTimeToTimestamp(date: CalendarDate, hour: number, minute: number, timeZone: string) {
+  const desiredAsUtc = Date.UTC(date.year, date.month - 1, date.day, hour, minute);
+  let timestamp = desiredAsUtc;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const actual = getZonedDateParts(timestamp, timeZone);
+    const actualAsUtc = Date.UTC(actual.year, actual.month - 1, actual.day, actual.hour, actual.minute);
+    const correction = desiredAsUtc - actualAsUtc;
+    timestamp += correction;
+    if (correction === 0) {
+      break;
+    }
+  }
+  return timestamp;
+}
+
 function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): StrategyOutput {
   const enabled = input.enabled ?? true;
   const sessionStartHour = Math.min(23, Math.max(0, Math.round(getNumberParameter(input.parameters, "sessionStartHour", 9))));
   const sessionStartMinute = Math.min(59, Math.max(0, Math.round(getNumberParameter(input.parameters, "sessionStartMinute", 30))));
   const openingRangeMinutes = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "openingRangeMinutes", 30)));
   const sessionDays = getStringParameter(input.parameters, "sessionDays", "1234567").replace(/[^1-7]/g, "") || "1234567";
+  const timezoneMode = getStringParameter(input.parameters, "timezoneMode", "market") === "fixed-offset"
+    ? "fixed-offset"
+    : "market";
   const timezoneOffsetHours = Math.min(12, Math.max(-12, getNumberParameter(input.parameters, "timezoneOffsetHours", -5)));
+  const sessionTimeZone = marketTimeZones[input.market];
   const rangeSource = getStringParameter(input.parameters, "rangeSource", "high-low") === "close" ? "close" : "high-low";
   const showTargets = getBooleanParameter(input.parameters, "showTargets", true);
   const showTargetLabels = getBooleanParameter(input.parameters, "showTargetLabels", true);
@@ -1068,7 +1147,6 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   const signals: StrategySignal[] = [];
   const targetAlerts: string[] = [];
   const hour = 60 * 60 * 1000;
-  const day = 24 * hour;
   const timezoneOffset = timezoneOffsetHours * hour;
   const sessionStartMinutes = sessionStartHour * 60 + sessionStartMinute;
   const openingRangeDuration = openingRangeMinutes * 60 * 1000;
@@ -1104,26 +1182,70 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   let previousUpperTargetThree: number | null = null;
   let previousLowerTargetThree: number | null = null;
 
-  const getSessionWindow = (timestamp: number) => {
-    const localTimestamp = timestamp + timezoneOffset;
-    const currentDayStart = Math.floor(localTimestamp / day) * day;
+  const getSessionDate = (timestamp: number): CalendarDate => {
+    if (timezoneMode === "market") {
+      const { year, month, day: dayOfMonth } = getZonedDateParts(timestamp, sessionTimeZone);
+      return { year, month, day: dayOfMonth };
+    }
+    const local = new Date(timestamp + timezoneOffset);
+    return { year: local.getUTCFullYear(), month: local.getUTCMonth() + 1, day: local.getUTCDate() };
+  };
 
-    for (const dayStart of [currentDayStart, currentDayStart - day]) {
-      const start = dayStart + sessionStartMinutes * 60 * 1000;
+  const localDateTimeToTimestamp = (
+    date: CalendarDate,
+    localHour: number,
+    localMinute: number,
+    timeZone = sessionTimeZone,
+  ) =>
+    timezoneMode === "market"
+      ? zonedDateTimeToTimestamp(date, localHour, localMinute, timeZone)
+      : Date.UTC(date.year, date.month - 1, date.day, localHour, localMinute) - timezoneOffset;
+
+  const getPlotEndTimestamp = (date: CalendarDate, start: number) => {
+    let plotEnd: number;
+    if (timezoneMode === "market" && plottingEndType === "new-york-close") {
+      plotEnd = zonedDateTimeToTimestamp(date, 17, 0, "America/New_York");
+    } else if (timezoneMode === "market" && plottingEndType === "london-close") {
+      plotEnd = zonedDateTimeToTimestamp(date, 16, 30, "Europe/London");
+    } else {
+      plotEnd = localDateTimeToTimestamp(
+        date,
+        Math.floor(plottingEndMinutes / 60),
+        plottingEndMinutes % 60,
+      );
+    }
+    if (plotEnd <= start) {
+      const nextDate = shiftCalendarDate(date, 1);
+      if (timezoneMode === "market" && plottingEndType === "new-york-close") {
+        return zonedDateTimeToTimestamp(nextDate, 17, 0, "America/New_York");
+      }
+      if (timezoneMode === "market" && plottingEndType === "london-close") {
+        return zonedDateTimeToTimestamp(nextDate, 16, 30, "Europe/London");
+      }
+      return localDateTimeToTimestamp(
+        nextDate,
+        Math.floor(plottingEndMinutes / 60),
+        plottingEndMinutes % 60,
+      );
+    }
+    return plotEnd;
+  };
+
+  const getSessionWindow = (timestamp: number) => {
+    const currentDate = getSessionDate(timestamp);
+    for (const date of [currentDate, shiftCalendarDate(currentDate, -1)]) {
+      const start = localDateTimeToTimestamp(date, sessionStartHour, sessionStartMinute);
       const end = start + openingRangeDuration;
-      const pineDay = new Date(dayStart).getUTCDay() + 1;
-      if (sessionDays.includes(String(pineDay)) && localTimestamp >= start && localTimestamp < end) {
-        let plotEnd = dayStart + plottingEndMinutes * 60 * 1000;
-        if (plotEnd <= start) plotEnd += day;
+      const pineDay = new Date(calendarDateKey(date)).getUTCDay() + 1;
+      if (sessionDays.includes(String(pineDay)) && timestamp >= start && timestamp < end) {
         return {
-          key: dayStart,
-          start: start - timezoneOffset,
-          end: end - timezoneOffset,
-          plotEnd: plotEnd - timezoneOffset,
+          key: calendarDateKey(date),
+          start,
+          end,
+          plotEnd: getPlotEndTimestamp(date, start),
         };
       }
     }
-
     return null;
   };
 
@@ -1204,7 +1326,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   };
 
   bars.forEach((bar, index) => {
-    const localDayKey = Math.floor((bar.timestamp + timezoneOffset) / day) * day;
+    const localDayKey = calendarDateKey(getSessionDate(bar.timestamp));
     if (lastLocalDayKey !== null && localDayKey !== lastLocalDayKey) {
       if (previousInSession && sessionKey !== null && openingRangeHigh > openingRangeLow) {
         totalSessions += 1;
@@ -1322,7 +1444,13 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
 
     if (breakoutUp && canSignalUp) {
       const label = `向上突破${volumeSuffix}`;
-      signals.push({ timestamp: bar.timestamp, type: "buy", price: bar.close, label });
+      signals.push({
+        timestamp: bar.timestamp,
+        type: "buy",
+        backtestAction: activeDirection === 0 ? "enter-long" : "none",
+        price: bar.close,
+        label,
+      });
       elements.push({ id: `utorb-buy-${bar.timestamp}`, kind: "signal-marker", timestamp: bar.timestamp, price: bar.high, direction: "up", tone: "buy" });
       canSignalUp = false;
       if (activeDirection === 0) {
@@ -1338,7 +1466,13 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
 
     if (breakoutDown && canSignalDown) {
       const label = `向下突破${volumeSuffix}`;
-      signals.push({ timestamp: bar.timestamp, type: "sell", price: bar.close, label });
+      signals.push({
+        timestamp: bar.timestamp,
+        type: "sell",
+        backtestAction: activeDirection === 0 ? "enter-short" : "none",
+        price: bar.close,
+        label,
+      });
       elements.push({ id: `utorb-sell-${bar.timestamp}`, kind: "signal-marker", timestamp: bar.timestamp, price: bar.low, direction: "down", tone: "sell" });
       canSignalDown = false;
       if (activeDirection === 0) {
@@ -1364,8 +1498,15 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
 
       const stopped = activeDirection > 0 ? bar.close < trailStop : bar.close > trailStop;
       if (stopped || !displayAllowed) {
+        const exitBacktestAction = activeDirection > 0 ? "exit-long" : "exit-short";
         totalTrailProfit += activeDirection > 0 ? bar.close - entryPrice : entryPrice - bar.close;
-        signals.push({ timestamp: bar.timestamp, type: "exit", price: bar.close, label: "移动风险线失效" });
+        signals.push({
+          timestamp: bar.timestamp,
+          type: "exit",
+          backtestAction: exitBacktestAction,
+          price: bar.close,
+          label: "移动风险线失效",
+        });
         elements.push({
           id: `utorb-exit-${bar.timestamp}`,
           kind: "signal-marker",
@@ -1473,7 +1614,9 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       signalCount: directionalSignalCount,
     },
     logs: [
-      `UTORB 已按 UTC${timezoneOffsetHours >= 0 ? "+" : ""}${timezoneOffsetHours} 追踪 ${totalSessions} 个开盘区间。`,
+      timezoneMode === "market"
+        ? `UTORB 已按市场时区 ${sessionTimeZone} 追踪 ${totalSessions} 个开盘区间。`
+        : `UTORB 已按 UTC${timezoneOffsetHours >= 0 ? "+" : ""}${timezoneOffsetHours} 追踪 ${totalSessions} 个开盘区间。`,
       `最新区间 ${openingRangeLow.toFixed(2)} - ${openingRangeHigh.toFixed(2)}，生成 ${directionalSignalCount} 个突破信号。`,
     ],
     alerts: [...signals.map((signal) => signal.label ?? signal.type), ...targetAlerts],
@@ -1824,6 +1967,17 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
         options: [
           { label: "每天", value: "1234567" },
           { label: "周一至周五", value: "23456" },
+        ],
+      },
+      {
+        key: "timezoneMode",
+        label: "时区模式",
+        type: "select",
+        defaultValue: "market",
+        description: "默认跟随标的市场时区并自动处理夏令时；固定偏移用于复现旧参数。",
+        options: [
+          { label: "跟随市场（自动夏令时）", value: "market" },
+          { label: "固定 UTC 偏移", value: "fixed-offset" },
         ],
       },
       {

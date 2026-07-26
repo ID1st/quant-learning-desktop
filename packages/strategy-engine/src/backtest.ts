@@ -110,6 +110,12 @@ export function resolveBacktestSettings(settings: BacktestSettings = {}): Resolv
 }
 
 function getSignalDirection(signal: StrategySignal, allowShort: boolean): BacktestPositionDirection | null {
+  if (signal.backtestAction === "enter-long") {
+    return "long";
+  }
+  if (signal.backtestAction === "enter-short") {
+    return allowShort ? "short" : null;
+  }
   if (signal.type === "buy") {
     return "long";
   }
@@ -228,7 +234,27 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
         warnings.push("待成交信号对应的下一根 K 线价格无效，已忽略该次成交。");
       } else {
         const direction = getSignalDirection(pendingSignal, settings.allowShort);
-        if (pendingSignal.type === "exit" || (pendingSignal.type === "sell" && !settings.allowShort)) {
+        const exitDirection =
+          pendingSignal.backtestAction === "exit-long"
+            ? "long"
+            : pendingSignal.backtestAction === "exit-short"
+              ? "short"
+              : null;
+        const hasExplicitEntry =
+          pendingSignal.backtestAction === "enter-long" ||
+          pendingSignal.backtestAction === "enter-short";
+        if (pendingSignal.backtestAction === "none") {
+          // Observational signals remain visible without mutating the simulated position.
+        } else if (exitDirection) {
+          if (state.position?.direction === exitDirection) {
+            closePosition(bar, pendingSignal.timestamp);
+          }
+        } else if (hasExplicitEntry) {
+          if (direction && state.position?.direction !== direction) {
+            closePosition(bar, pendingSignal.timestamp);
+            openPosition(bar, direction, pendingSignal);
+          }
+        } else if (pendingSignal.type === "exit" || (pendingSignal.type === "sell" && !settings.allowShort)) {
           closePosition(bar, pendingSignal.timestamp);
         } else if (direction && state.position?.direction !== direction) {
           closePosition(bar, pendingSignal.timestamp);
@@ -241,7 +267,11 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
       pendingSignal = null;
     }
 
-    const directionalSignal = (signalsByTimestamp.get(bar.timestamp) ?? []).find((signal) => signal.type === "buy" || signal.type === "sell" || signal.type === "exit");
+    const directionalSignal = (signalsByTimestamp.get(bar.timestamp) ?? []).find(
+      (signal) =>
+        signal.backtestAction !== "none" &&
+        (signal.type === "buy" || signal.type === "sell" || signal.type === "exit"),
+    );
     if (directionalSignal) {
       if (index === bars.length - 1) {
         warnings.push("最后一根 K 线产生的信号没有下一根开盘价，已忽略。" );
