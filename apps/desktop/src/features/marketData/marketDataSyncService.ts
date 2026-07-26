@@ -355,7 +355,9 @@ export async function runInitialMarketDataSync(
   const provider = options.provider ?? "alphafeed";
   const now = options.now ?? (() => new Date());
   const delayMs = options.delayMs ?? 220;
-  const watchlist = createWatchlist(binding.markets);
+  const cachedWatchlist = readMarketWatchlistCache(database);
+  const watchlist = cachedWatchlist.length > 0 ? cachedWatchlist : createWatchlist(binding.markets);
+  const syncWatchlist = watchlist.filter((item) => binding.markets.includes(item.market));
   let quoteSnapshots: MarketQuoteSnapshot[] = [];
   let historicalBars: MarketDataBar[] = [];
   const startedAt = now().toISOString();
@@ -398,12 +400,12 @@ export async function runInitialMarketDataSync(
       }
 
       if (step.id === "quote-snapshot" && options.fetchQuoteSnapshot) {
-        quoteSnapshots = await options.fetchQuoteSnapshot(watchlist);
+        quoteSnapshots = await options.fetchQuoteSnapshot(syncWatchlist);
         writeQuoteSnapshots(database, quoteSnapshots);
       }
 
       if (step.id === "historical-candles" && options.fetchHistoricalBars) {
-        historicalBars = await options.fetchHistoricalBars(watchlist);
+        historicalBars = await options.fetchHistoricalBars(syncWatchlist);
         writeHistoricalBars(database, historicalBars);
       }
     } catch (error) {

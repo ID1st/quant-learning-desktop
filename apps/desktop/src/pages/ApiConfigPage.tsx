@@ -22,15 +22,14 @@ import {
   readAlphaFeedStreamBinding,
   readLongPortApiBinding,
   readSavedLongPortCredentials,
-  resolveAlphaFeedCredentials,
   resolveLongPortCredentials,
   saveAlphaFeedStreamConfig,
-  verifyAlphaFeedApiConfig,
   verifyLongPortApiConfig,
   type AlphaFeedApiForm,
   type AlphaFeedStreamForm,
   type LongPortApiForm,
 } from "../features/api/apiConfigService";
+import { verifySelectedBackupProvider } from "../features/api/apiConfigSubmissionService";
 import {
   apiProviderPriorityItems,
   formatApiProviderStatus,
@@ -205,6 +204,10 @@ export function ApiConfigPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (selectedProviderId !== "alphafeed-rest" && selectedProviderId !== "longbridge") {
+      return;
+    }
+
     setError("");
     setStatus("");
     setCompletedSteps([]);
@@ -212,8 +215,23 @@ export function ApiConfigPage() {
     setIsSubmitting(true);
 
     try {
-      const alphaFeedCredentials = await resolveAlphaFeedCredentials(alphaFeedForm);
-      const alphaFeedBinding = await verifyAlphaFeedApiConfig(alphaFeedCredentials);
+      const verification = await verifySelectedBackupProvider(
+        selectedProviderId,
+        {
+          alphaFeed: alphaFeedForm,
+          longPort: longPortForm,
+        },
+      );
+
+      if (verification.provider === "longbridge") {
+        setApiBound(true);
+        setStoredLongPortBinding(verification.binding);
+        setStatus("长桥备用源已验证并保存。");
+        return;
+      }
+
+      const alphaFeedCredentials = verification.credentials;
+      const alphaFeedBinding = verification.binding;
       const shouldBindLongPortFallback = isLongPortFormComplete(longPortForm);
       const longPortCredentials = shouldBindLongPortFallback
         ? await resolveLongPortCredentials(longPortForm)

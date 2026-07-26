@@ -10,6 +10,7 @@ import {
   readMarketDataSyncState,
   readMarketWatchlistCache,
   runInitialMarketDataSync,
+  writeMarketWatchlist,
   type MarketDataSyncState,
 } from "../src/features/marketData/marketDataSyncService.ts";
 
@@ -139,6 +140,39 @@ test("runInitialMarketDataSync stores completed sync state and default watchlist
   );
   assert.equal(aaplIntradayBars.length, 1);
   assert.equal(aaplIntradayBars[0]?.close, 286);
+});
+
+test("runInitialMarketDataSync preserves an existing user watchlist", async () => {
+  const database = createTestDatabase();
+  let syncedSymbols: string[] = [];
+  const existingWatchlist = [
+    { symbol: "NVDA.US", name: "NVIDIA", market: "US" as const, source: "user" as const },
+    { symbol: "MSFT.US", name: "Microsoft", market: "US" as const, source: "user" as const },
+    { symbol: "00700.HK", name: "腾讯控股", market: "HK" as const, source: "user" as const },
+  ];
+  writeMarketWatchlist(existingWatchlist, database);
+
+  const state = await runInitialMarketDataSync(
+    {
+      apiUrl: "https://example.invalid",
+      keyPreview: "key-****",
+      markets: ["US"],
+      verifiedAt: "2026-07-25T00:00:00.000Z",
+    },
+    {
+      database,
+      delayMs: 0,
+      fetchQuoteSnapshot: async (watchlist) => {
+        syncedSymbols = watchlist.map((item) => item.symbol);
+        return [];
+      },
+      now: () => new Date("2026-07-25T00:00:00.000Z"),
+    },
+  );
+
+  assert.equal(state.watchlistCount, existingWatchlist.length);
+  assert.deepEqual(readMarketWatchlistCache(database), existingWatchlist);
+  assert.deepEqual(syncedSymbols, ["NVDA.US", "MSFT.US"]);
 });
 
 test("readMarketDataSyncState falls back when stored sync data is malformed", () => {
