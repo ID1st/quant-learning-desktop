@@ -1,5 +1,6 @@
 import type { Market, Timeframe } from "@quant/shared";
 import type { AlphaFeedMarketDataBar } from "@quant/api-client";
+import type { MarketDataIpcHistoricalCompletion } from "../../electron/marketDataIpcContract.ts";
 import {
   readAlphaFeedStreamBinding,
   readSavedAlphaFeedCredentials,
@@ -89,6 +90,7 @@ export type ChartBarsBatchResult =
       readonly data: readonly GatewayMarketDataBar[];
       readonly health: MarketDataProviderHealthView;
       readonly triedProviders: readonly GatewayMarketDataProviderId[];
+      readonly historicalCompletion?: MarketDataIpcHistoricalCompletion;
     }
   | {
       readonly ok: false;
@@ -118,6 +120,11 @@ export interface ChartMarketDataAccess {
       readonly count?: number;
       readonly startTime?: number;
       readonly endTime?: number;
+    };
+    readonly mlptHistory?: {
+      readonly targetBars: number;
+      readonly confirmedThroughTimestamp: number;
+      readonly knownTimestamps: readonly number[];
     };
   }): Promise<ChartBarsBatchResult>;
   connectQuoteStream(items: readonly MarketWatchlistItem[], mode?: "watchlist" | "all-symbols"): Promise<MarketDataProviderHealthView | null>;
@@ -308,7 +315,13 @@ function createProviderNeutralChartMarketDataAccess(
       return toChartQuoteSnapshotBatchResult(result);
     },
     async fetchBars(options) {
-      const requestKey = JSON.stringify(["desktop", options.capability, options.request, stockSdkPrimaryEnabled]);
+      const requestKey = JSON.stringify([
+        "desktop",
+        options.capability,
+        options.request,
+        options.mlptHistory,
+        stockSdkPrimaryEnabled,
+      ]);
       const existing = inFlightChartBarRequests.get(requestKey);
       if (existing) return existing;
       const request = {
@@ -316,6 +329,7 @@ function createProviderNeutralChartMarketDataAccess(
         request: options.request,
         providerPolicy: {
           stockSdkPrimaryEnabled,
+          ...(options.mlptHistory ? { mlptHistory: options.mlptHistory } : {}),
         },
       };
       const pending = (options.capability === "intradayBars"
@@ -429,6 +443,7 @@ function toChartBarsBatchResult(result: QuantDesktopMarketDataResult<readonly Ga
     data: result.data,
     health: result.meta.health,
     triedProviders: result.meta.fallback.triedProviders,
+    historicalCompletion: result.meta.historicalCompletion,
   };
 }
 

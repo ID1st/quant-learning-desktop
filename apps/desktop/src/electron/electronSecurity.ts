@@ -140,6 +140,27 @@ export function assertMarketDataProviderPolicy(value: unknown) {
   if (value.alphaFeedStreamMode !== undefined && value.alphaFeedStreamMode !== "watchlist" && value.alphaFeedStreamMode !== "all-symbols") {
     throw new TypeError("providerPolicy.alphaFeedStreamMode is invalid.");
   }
+  if (value.mlptHistory !== undefined) {
+    assertRecord(value.mlptHistory, "providerPolicy.mlptHistory");
+    assertIntegerRange(value.mlptHistory.targetBars, "providerPolicy.mlptHistory.targetBars", 1, maxStrategyBars);
+    assertFiniteRange(
+      value.mlptHistory.confirmedThroughTimestamp,
+      "providerPolicy.mlptHistory.confirmedThroughTimestamp",
+      0,
+      Number.MAX_SAFE_INTEGER,
+    );
+    if (!Array.isArray(value.mlptHistory.knownTimestamps) || value.mlptHistory.knownTimestamps.length > maxStrategyBars) {
+      throw new TypeError(`providerPolicy.mlptHistory.knownTimestamps must contain at most ${maxStrategyBars} entries.`);
+    }
+    value.mlptHistory.knownTimestamps.forEach((timestamp, index) =>
+      assertFiniteRange(
+        timestamp,
+        `providerPolicy.mlptHistory.knownTimestamps[${index}]`,
+        0,
+        Number.MAX_SAFE_INTEGER,
+      ),
+    );
+  }
 }
 
 export function assertMarketDataSearchRequest(value: unknown) {

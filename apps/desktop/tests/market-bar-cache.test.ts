@@ -107,6 +107,54 @@ test("writeMarketBarCache can merge a sparse refresh without deleting cached his
   );
 });
 
+test("market bar cache metadata preserves MLPT coverage and contributing providers", () => {
+  const database = createTestDatabase();
+  const key = { symbol: "AAPL.US", market: "US" as const, timeframe: "realtime" as const };
+  writeMarketBarCache(
+    key,
+    [
+      {
+        ...key,
+        timestamp: 1_800_000_000_000,
+        open: 100,
+        high: 101,
+        low: 99,
+        close: 100,
+        volume: 100,
+        provider: "stock-sdk",
+      },
+      {
+        ...key,
+        timestamp: 1_800_000_060_000,
+        open: 100,
+        high: 101,
+        low: 99,
+        close: 100,
+        volume: 100,
+        provider: "longbridge",
+      },
+    ],
+    {
+      database,
+      historicalCompletion: {
+        targetBars: 5_000,
+        confirmedBars: 2,
+        targetSatisfied: false,
+        stopReason: "sources_exhausted",
+      },
+    },
+  );
+
+  const metadata = readMarketBarCacheSummary(database).entries[0];
+  assert.deepEqual(metadata?.providers, ["stock-sdk", "longbridge"]);
+  assert.deepEqual(metadata?.historicalCompletion, {
+    targetBars: 5_000,
+    confirmedBars: 2,
+    targetSatisfied: false,
+    stopReason: "sources_exhausted",
+  });
+});
+
 test("writeMarketBarCache keeps one daily bar when providers timestamp the same trading day differently", () => {
   const database = createTestDatabase();
   const key = {

@@ -28,6 +28,7 @@ export interface MarketBarCacheKey {
 
 export interface MarketBarCacheMetadata extends MarketBarCacheKey {
   provider: MarketDataProviderId;
+  providers?: MarketDataProviderId[];
   firstTimestamp: number;
   lastTimestamp: number;
   barCount: number;
@@ -36,6 +37,14 @@ export interface MarketBarCacheMetadata extends MarketBarCacheKey {
   updatedAt: string;
   upstream?: MarketDataUpstream;
   legacy?: boolean;
+  historicalCompletion?: MarketBarCacheHistoricalCompletion;
+}
+
+export interface MarketBarCacheHistoricalCompletion {
+  targetBars: number;
+  confirmedBars: number;
+  targetSatisfied: boolean;
+  stopReason: "target_reached" | "sources_exhausted";
 }
 
 export interface MarketBarCacheSummary {
@@ -48,6 +57,7 @@ export interface MarketBarCacheSummary {
 export interface WriteMarketBarCacheOptions {
   database?: LocalDatabase;
   mergeExisting?: boolean;
+  historicalCompletion?: MarketBarCacheHistoricalCompletion;
 }
 
 export interface ReadMarketBarCacheOptions {
@@ -197,6 +207,12 @@ function sanitizeMetadata(value: unknown): MarketBarCacheMetadata | null {
   const provider = sanitizeProvider(candidate.provider);
   const adjustment = sanitizeAdjustment(candidate.adjust);
   const legacy = isHistoricalTimeframe(timeframe ?? "1d") && adjustment === undefined;
+  const providers = Array.isArray(candidate.providers)
+    ? candidate.providers
+        .map(sanitizeProvider)
+        .filter((provider): provider is MarketDataProviderId => provider !== null)
+    : undefined;
+  const historicalCompletion = sanitizeHistoricalCompletion(candidate.historicalCompletion);
 
   if (
     !market ||
@@ -217,6 +233,7 @@ function sanitizeMetadata(value: unknown): MarketBarCacheMetadata | null {
     market,
     timeframe,
     provider,
+    ...(providers?.length ? { providers: Array.from(new Set(providers)) } : {}),
     ...(adjustment ? { adjust: adjustment } : {}),
     firstTimestamp: candidate.firstTimestamp,
     lastTimestamp: candidate.lastTimestamp,
@@ -226,6 +243,26 @@ function sanitizeMetadata(value: unknown): MarketBarCacheMetadata | null {
     updatedAt: candidate.updatedAt,
     upstream: sanitizeUpstream(candidate.upstream),
     ...(legacy ? { legacy: true } : {}),
+    ...(historicalCompletion ? { historicalCompletion } : {}),
+  };
+}
+
+function sanitizeHistoricalCompletion(value: unknown): MarketBarCacheHistoricalCompletion | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const candidate = value as Partial<MarketBarCacheHistoricalCompletion>;
+  if (
+    !isFiniteNumber(candidate.targetBars) ||
+    !isFiniteNumber(candidate.confirmedBars) ||
+    typeof candidate.targetSatisfied !== "boolean" ||
+    (candidate.stopReason !== "target_reached" && candidate.stopReason !== "sources_exhausted")
+  ) {
+    return undefined;
+  }
+  return {
+    targetBars: Math.max(1, Math.floor(candidate.targetBars)),
+    confirmedBars: Math.max(0, Math.floor(candidate.confirmedBars)),
+    targetSatisfied: candidate.targetSatisfied,
+    stopReason: candidate.stopReason,
   };
 }
 
@@ -356,18 +393,27 @@ function removeMetadata(database: LocalDatabase, key: MarketBarCacheKey) {
   );
 }
 
-function upsertMetadata(database: LocalDatabase, key: MarketBarCacheKey, bars: MarketDataBar[]) {
+function upsertMetadata(
+  database: LocalDatabase,
+  key: MarketBarCacheKey,
+  bars: MarketDataBar[],
+  historicalCompletion?: MarketBarCacheHistoricalCompletion,
+) {
   if (bars.length === 0) {
     removeMetadata(database, key);
     return;
   }
 
+  const existingMetadata = readMetadataIndex(database).find(
+    (entry) => createCollectionKey(entry) === createCollectionKey(key),
+  );
   const metadata: MarketBarCacheMetadata = {
     symbol: key.symbol,
     market: key.market,
     timeframe: key.timeframe,
     ...(getAdjustment(key) ? { adjust: getAdjustment(key) } : {}),
     provider: bars[0]?.provider ?? "alphafeed",
+    providers: Array.from(new Set(bars.map((bar) => bar.provider))),
     firstTimestamp: bars[0]?.timestamp ?? 0,
     lastTimestamp: bars[bars.length - 1]?.timestamp ?? 0,
     barCount: bars.length,
@@ -375,6 +421,9 @@ function upsertMetadata(database: LocalDatabase, key: MarketBarCacheKey, bars: M
     retentionDays: getDefaultMarketBarRetentionDays(key.timeframe),
     updatedAt: new Date().toISOString(),
     upstream: bars[0]?.upstream,
+    ...((historicalCompletion ?? existingMetadata?.historicalCompletion)
+      ? { historicalCompletion: historicalCompletion ?? existingMetadata?.historicalCompletion }
+      : {}),
   };
 
   writeMetadataIndex(database, [...readMetadataIndex(database).filter((entry) => createCollectionKey(entry) !== createCollectionKey(key)), metadata]);
@@ -398,7 +447,7 @@ export function writeMarketBarCache(key: MarketBarCacheKey, bars: MarketDataBar[
   );
 
   database.writeDocument(createCollectionKey(normalizedKey), STORAGE_VERSION, normalizedBars);
-  upsertMetadata(database, normalizedKey, normalizedBars);
+  upsertMetadata(database, normalizedKey, normalizedBars, options.historicalCompletion);
   return normalizedBars;
 }
 

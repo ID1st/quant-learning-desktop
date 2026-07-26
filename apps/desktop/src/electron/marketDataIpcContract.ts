@@ -51,6 +51,23 @@ export interface MarketDataIpcSuccessMeta {
   readonly health: MarketDataProviderHealthView;
   readonly fallback: MarketDataIpcProviderFallback;
   readonly servedAt: string;
+  readonly historicalCompletion?: MarketDataIpcHistoricalCompletion;
+}
+
+export interface MarketDataIpcHistoricalCompletion {
+  readonly purpose: "mlpt";
+  readonly targetBars: number;
+  readonly confirmedBars: number;
+  readonly targetSatisfied: boolean;
+  readonly contributions: readonly {
+    readonly provider: GatewayMarketDataProviderId;
+    readonly bars: number;
+  }[];
+  readonly failures: readonly {
+    readonly provider: GatewayMarketDataProviderId;
+    readonly reason: "request_failed";
+  }[];
+  readonly stopReason: "target_reached" | "sources_exhausted";
 }
 
 export type MarketDataIpcResult<T> =
@@ -85,6 +102,11 @@ export interface MarketDataIpcBarRequest {
   readonly capability: Extract<MarketDataProviderCapabilityKey, "historicalBars" | "intradayBars">;
   readonly providerPolicy?: {
     readonly stockSdkPrimaryEnabled?: boolean;
+    readonly mlptHistory?: {
+      readonly targetBars: number;
+      readonly confirmedThroughTimestamp: number;
+      readonly knownTimestamps: readonly number[];
+    };
   };
 }
 

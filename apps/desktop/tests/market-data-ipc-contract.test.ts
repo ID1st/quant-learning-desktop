@@ -207,6 +207,48 @@ test("market data IPC handlers do not use quote fallback for name searches", asy
   assert.equal(quoteCalls, 0);
 });
 
+test("market data IPC handlers keep Chinese and pinyin search available when LongBridge is the quote source", async () => {
+  const searchQueries: string[] = [];
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: {
+      ...createEmptyCredentialStore(),
+      readLongPortCredentials: () => ({
+        apiUrl: "https://longbridge.example.test",
+        appKey: "long-app-key",
+        appSecret: "long-app-secret",
+        accessToken: "long-access-token",
+      }),
+    },
+    stockSdkOperations: {
+      fetchQuoteSnapshot: async () => [],
+      fetchHistoricalBars: async () => [],
+      fetchIntradayBars: async () => [],
+      searchInstruments: async (query) => {
+        searchQueries.push(query);
+        return [{ code: "sh600519", name: "贵州茅台", market: "sh" }];
+      },
+    },
+  });
+
+  for (const query of ["贵州茅台", "gzmt"]) {
+    const result = await handlers.searchInstruments({
+      context: { source: "chart" },
+      query,
+      markets: ["CN"],
+      providerPolicy: { stockSdkPrimaryEnabled: false },
+    });
+
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.deepEqual(result.data, [
+        { provider: "stock-sdk", market: "CN", symbol: "600519.SH", name: "贵州茅台" },
+      ]);
+    }
+  }
+
+  assert.deepEqual(searchQueries, ["贵州茅台", "gzmt"]);
+});
+
 test("market data IPC handlers expose provider status from secure main-side provider registry", async () => {
   const handlers = createMarketDataIpcHandlers({
     credentialStore: createCredentialStoreWithFallbackCredentials(),

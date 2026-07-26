@@ -5,6 +5,7 @@ import {
   ALPHAFEED_DEFAULT_API_URL,
   fetchAlphaFeedHistoricalBars,
   fetchAlphaFeedIntradayBars,
+  getAlphaFeedHistoricalPagingCapability,
   fetchAlphaFeedQuoteSnapshots,
   normalizeAlphaFeedApiCredentials,
   verifyAlphaFeedApiCredentials,
@@ -277,4 +278,83 @@ describe("fetchAlphaFeedIntradayBars", () => {
     assert.equal(bars[0]?.close, 285);
     assert.equal(bars[0]?.amount, 0);
   });
+});
+
+it("keeps historical paging capability unknown until a bounded window is verified", async () => {
+  const credentials = {
+    apiUrl: "http://127.0.0.1:18081",
+    apiKey: "alpha-test-key",
+  };
+  assert.equal(getAlphaFeedHistoricalPagingCapability(credentials), "unknown");
+
+  await fetchAlphaFeedIntradayBars(
+    credentials,
+    {
+      symbol: "AAPL.US",
+      market: "US",
+      timeframe: "1m",
+      count: 2,
+      startTime: 1_800_000_000_000,
+      endTime: 1_800_000_060_000,
+    },
+    {
+      fetcher: async () =>
+        new Response(
+          JSON.stringify({
+            code: 0,
+            data: {
+              timestamp: [1_800_000_000_000, 1_800_000_060_000],
+              open: [10, 11],
+              high: [11, 12],
+              low: [9, 10],
+              close: [10.5, 11.5],
+              volume: [100, 200],
+              amount: [1_000, 2_000],
+            },
+          }),
+          { status: 200 },
+        ),
+    },
+  );
+
+  assert.equal(getAlphaFeedHistoricalPagingCapability(credentials), "supported");
+});
+
+it("marks a window contract unsupported and filters out-of-range rows", async () => {
+  const credentials = {
+    apiUrl: "http://127.0.0.1:18082",
+    apiKey: "alpha-test-key",
+  };
+  const bars = await fetchAlphaFeedIntradayBars(
+    credentials,
+    {
+      symbol: "AAPL.US",
+      market: "US",
+      timeframe: "1m",
+      count: 2,
+      startTime: 1_800_000_000_000,
+      endTime: 1_800_000_060_000,
+    },
+    {
+      fetcher: async () =>
+        new Response(
+          JSON.stringify({
+            code: 0,
+            data: {
+              timestamp: [1_799_999_940_000, 1_800_000_000_000],
+              open: [9, 10],
+              high: [10, 11],
+              low: [8, 9],
+              close: [9.5, 10.5],
+              volume: [100, 200],
+              amount: [1_000, 2_000],
+            },
+          }),
+          { status: 200 },
+        ),
+    },
+  );
+
+  assert.equal(getAlphaFeedHistoricalPagingCapability(credentials), "unsupported");
+  assert.deepEqual(bars.map((bar) => bar.timestamp), [1_800_000_000_000]);
 });

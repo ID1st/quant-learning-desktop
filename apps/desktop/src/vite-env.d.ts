@@ -137,6 +137,21 @@ interface QuantDesktopMarketDataSuccessMeta {
   readonly health: QuantDesktopMarketDataHealthView;
   readonly fallback: QuantDesktopMarketDataProviderFallback;
   readonly servedAt: string;
+  readonly historicalCompletion?: {
+    readonly purpose: "mlpt";
+    readonly targetBars: number;
+    readonly confirmedBars: number;
+    readonly targetSatisfied: boolean;
+    readonly contributions: readonly {
+      readonly provider: QuantDesktopGatewayProviderId;
+      readonly bars: number;
+    }[];
+    readonly failures: readonly {
+      readonly provider: QuantDesktopGatewayProviderId;
+      readonly reason: "request_failed";
+    }[];
+    readonly stopReason: "target_reached" | "sources_exhausted";
+  };
 }
 
 type QuantDesktopMarketDataResult<T> =
@@ -186,6 +201,11 @@ interface QuantDesktopMarketDataBridge {
     readonly request: QuantDesktopMarketDataBarRequest;
     readonly providerPolicy?: {
       readonly stockSdkPrimaryEnabled?: boolean;
+      readonly mlptHistory?: {
+        readonly targetBars: number;
+        readonly confirmedThroughTimestamp: number;
+        readonly knownTimestamps: readonly number[];
+      };
     };
   }): Promise<QuantDesktopMarketDataResult<readonly QuantDesktopMarketDataBar[]>>;
   searchInstruments(request: {

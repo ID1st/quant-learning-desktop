@@ -1,4 +1,4 @@
-import { Config, QuoteContext } from "longbridge";
+import { Config, NaiveDate, NaiveDatetime, QuoteContext, Time } from "longbridge";
 import type { Timeframe } from "@quant/shared";
 import {
   normalizeLongPortApiCredentials,
@@ -46,7 +46,7 @@ export type LongPortBridgeBarsResult =
       };
     };
 
-interface LongPortCandlestickLike {
+export interface LongPortCandlestickLike {
   close: { toString(): string };
   open: { toString(): string };
   low: { toString(): string };
@@ -72,6 +72,8 @@ const longPortPeriod = {
 const longPortNoAdjust = 0 as LongPortAdjustType;
 const longPortAllTradeSessions = 1 as LongPortTradeSessions;
 const maxLongPortCandlestickCount = 1_000;
+const maxLongPortHistoricalBarCount = 5_000;
+const longPortRateLimitRetryDelayMs = 200;
 
 function redactSecrets(message: string, credentials: LongPortApiCredentials) {
   return [credentials.appKey, credentials.appSecret, credentials.accessToken].reduce((currentMessage, secret) => {
@@ -150,6 +152,104 @@ function getDefaultLongPortBarCount(timeframe: Timeframe) {
 export function sanitizeLongPortCandlestickCount(timeframe: Timeframe, count?: number) {
   const requestedCount = typeof count === "number" && Number.isFinite(count) ? count : getDefaultLongPortBarCount(timeframe);
   return Math.max(1, Math.min(maxLongPortCandlestickCount, Math.round(requestedCount)));
+}
+
+interface CollectLongPortHistoricalCandlesticksOptions {
+  readonly count: number;
+  readonly startTime?: number;
+  readonly endTime?: number;
+  readonly fetchPage: (
+    cursorTimestamp: number | undefined,
+    count: number,
+  ) => Promise<readonly LongPortCandlestickLike[]>;
+  readonly wait?: (milliseconds: number) => Promise<void>;
+  readonly random?: () => number;
+}
+
+function isLongPortRateLimitError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  return message.includes("429") || message.includes("rate limit") || message.includes("too many requests");
+}
+
+export async function collectLongPortHistoricalCandlesticks(
+  options: CollectLongPortHistoricalCandlesticksOptions,
+): Promise<LongPortCandlestickLike[]> {
+  const targetCount = Math.max(1, Math.min(maxLongPortHistoricalBarCount, Math.round(options.count)));
+  const wait = options.wait ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  const random = options.random ?? Math.random;
+  const byTimestamp = new Map<number, LongPortCandlestickLike>();
+  const maximumPages = Math.min(8, Math.ceil(targetCount / maxLongPortCandlestickCount) + 2);
+  let cursorTimestamp = options.endTime;
+  let previousCursorTimestamp = Number.POSITIVE_INFINITY;
+
+  for (let pageIndex = 0; pageIndex < maximumPages && byTimestamp.size < targetCount; pageIndex += 1) {
+    let page: readonly LongPortCandlestickLike[];
+    try {
+      page = await options.fetchPage(
+        cursorTimestamp,
+        Math.min(maxLongPortCandlestickCount, targetCount - byTimestamp.size),
+      );
+    } catch (error) {
+      if (!isLongPortRateLimitError(error)) throw error;
+      await wait(longPortRateLimitRetryDelayMs + Math.round(random() * 250));
+      page = await options.fetchPage(
+        cursorTimestamp,
+        Math.min(maxLongPortCandlestickCount, targetCount - byTimestamp.size),
+      );
+    }
+
+    if (page.length === 0) break;
+    let earliestTimestamp = Number.POSITIVE_INFINITY;
+    for (const candlestick of page) {
+      const timestamp = candlestick.timestamp.getTime();
+      if (!Number.isFinite(timestamp)) continue;
+      earliestTimestamp = Math.min(earliestTimestamp, timestamp);
+      if (
+        (options.startTime === undefined || timestamp >= options.startTime) &&
+        (options.endTime === undefined || timestamp <= options.endTime)
+      ) {
+        byTimestamp.set(timestamp, candlestick);
+      }
+    }
+
+    if (
+      !Number.isFinite(earliestTimestamp) ||
+      earliestTimestamp >= previousCursorTimestamp ||
+      (options.startTime !== undefined && earliestTimestamp < options.startTime)
+    ) {
+      break;
+    }
+    previousCursorTimestamp = earliestTimestamp;
+    cursorTimestamp = earliestTimestamp - 1;
+  }
+
+  return Array.from(byTimestamp.values())
+    .sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime())
+    .slice(-targetCount);
+}
+
+function getLongPortMarketTimeZone(market: LongPortBarRequest["market"]) {
+  return market === "US" ? "America/New_York" : market === "HK" ? "Asia/Hong_Kong" : "Asia/Shanghai";
+}
+
+function toLongPortNaiveDatetime(timestamp: number, market: LongPortBarRequest["market"]) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: getLongPortMarketTimeZone(market),
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(new Date(timestamp));
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+
+  return new NaiveDatetime(
+    new NaiveDate(value("year"), value("month"), value("day")),
+    new Time(value("hour"), value("minute"), value("second")),
+  );
 }
 
 export function mapLongPortCandlesticksToBars(
@@ -261,14 +361,28 @@ export async function fetchLongPortHistoricalBarsWithSdk(
     }
 
     const quoteContext = createLongPortQuoteContext(credentials);
-    const count = sanitizeLongPortCandlestickCount(request.timeframe, request.count);
-    const candlesticks = await quoteContext.candlesticks(
-      symbol,
-      mapTimeframeToLongPortPeriod(request.timeframe),
-      count,
-      longPortNoAdjust,
-      longPortAllTradeSessions,
+    const requestedCount = Math.max(
+      1,
+      Math.min(
+        maxLongPortHistoricalBarCount,
+        Math.round(request.count ?? getDefaultLongPortBarCount(request.timeframe)),
+      ),
     );
+    const candlesticks = await collectLongPortHistoricalCandlesticks({
+      count: requestedCount,
+      startTime: request.startTime,
+      endTime: request.endTime,
+      fetchPage: (cursorTimestamp, count) =>
+        quoteContext.historyCandlesticksByOffset(
+          symbol,
+          mapTimeframeToLongPortPeriod(request.timeframe),
+          longPortNoAdjust,
+          false,
+          cursorTimestamp === undefined ? null : toLongPortNaiveDatetime(cursorTimestamp, request.market),
+          sanitizeLongPortCandlestickCount(request.timeframe, count),
+          longPortAllTradeSessions,
+        ),
+    });
 
     return {
       ok: true,

@@ -26,6 +26,7 @@ import {
 import {
   createMarketDataGateway,
   createMarketDataProviderRegistry,
+  type GatewayMarketDataBar,
   type GatewayMarketDataProvider,
   type GatewayMarketDataProviderId,
   type IntradayBarProvider,
@@ -44,6 +45,11 @@ import {
 } from "../features/marketData/stockSdkProviderOperations.ts";
 import { createYahooFinanceIntradayProvider } from "../features/marketData/yahooFinanceIntradayProvider.ts";
 import { createTencentFinanceBarsOperations } from "./tencentFinanceBars.ts";
+import {
+  fetchMlptHistoricalBackfill,
+  type MlptHistoricalBackfillSource,
+} from "../features/marketData/mlptHistoricalBackfillService.ts";
+import type { MarketDataIpcBarRequest } from "./marketDataIpcContract.ts";
 
 export interface MarketDataIpcHandlerDependencies {
   readonly credentialStore?: SecureCredentialStore;
@@ -51,6 +57,7 @@ export interface MarketDataIpcHandlerDependencies {
   readonly tencentFinanceBars?: StockSdkTencentBarsOperations;
   readonly yahooFinanceProvider?: IntradayBarProvider;
   readonly streamSession?: AlphaFeedStreamSession;
+  readonly mlptHistoricalSources?: readonly MlptHistoricalBackfillSource[];
 }
 
 export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDependencies = {}): MarketDataIpcHandlers {
@@ -61,8 +68,19 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
     tencentBars: dependencies.tencentFinanceBars ?? createTencentFinanceBarsOperations(),
   });
 
-  if (!credentialStore) {
+  if (!credentialStore && !dependencies.mlptHistoricalSources) {
     return shell;
+  }
+
+  if (!credentialStore) {
+    return {
+      ...shell,
+      async fetchIntradayBars(request) {
+        return request.providerPolicy?.mlptHistory
+          ? fetchMlptHistoricalBars(request, dependencies.mlptHistoricalSources ?? [])
+          : shell.fetchIntradayBars(request);
+      },
+    };
   }
 
   return {
@@ -117,6 +135,12 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
         stockSdkOperations,
         yahooFinanceProvider: dependencies.yahooFinanceProvider,
       });
+      if (request.providerPolicy?.mlptHistory) {
+        return fetchMlptHistoricalBars(
+          request,
+          dependencies.mlptHistoricalSources ?? createMlptHistoricalSources(providers),
+        );
+      }
       const gateway = createMarketDataGateway(
         createMarketDataProviderRegistry(providers),
         createIntradayBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true),
@@ -126,12 +150,11 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       return toIpcGatewayResult(result);
     },
     async searchInstruments(request) {
-      const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
-        credentialStore,
-        stockSdkOperations,
-        yahooFinanceProvider: dependencies.yahooFinanceProvider,
+      const searchProvider = createStockSdkGatewayProvider(stockSdkOperations, {
+        enabled: true,
+        delayLevel: "unknown",
       });
-      const gateway = createMarketDataGateway(createMarketDataProviderRegistry(providers), ["stock-sdk"]);
+      const gateway = createMarketDataGateway(createMarketDataProviderRegistry([searchProvider]), ["stock-sdk"]);
       const searchResult = await gateway.searchInstruments(request.query, request.markets);
       if (searchResult.ok) {
         return toIpcGatewayResult(searchResult);
@@ -215,6 +238,97 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       const result = await streamSession.disconnect();
 
       return toIpcStreamResult(result.state, result.health);
+    },
+  };
+}
+
+function createMlptHistoricalSources(
+  providers: readonly GatewayMarketDataProvider[],
+): readonly MlptHistoricalBackfillSource[] {
+  const providerById = new Map(providers.map((provider) => [provider.id, provider]));
+  return (["stock-sdk", "longbridge", "alphafeed-rest"] as const).flatMap((providerId) => {
+    const provider = providerById.get(providerId);
+    if (!provider || typeof (provider as IntradayBarProvider).fetchIntradayBars !== "function") return [];
+    const intradayProvider = provider as IntradayBarProvider;
+    return [{
+      provider: providerId,
+      fetchBars: (request: Parameters<IntradayBarProvider["fetchIntradayBars"]>[0]) =>
+        intradayProvider.fetchIntradayBars(request),
+      getHealth: () => provider.getHealth(),
+    }];
+  });
+}
+
+async function fetchMlptHistoricalBars(
+  request: Omit<MarketDataIpcBarRequest, "capability">,
+  sources: readonly MlptHistoricalBackfillSource[],
+) {
+  const completion = request.providerPolicy?.mlptHistory;
+  if (!completion) {
+    throw new Error("MLPT historical completion policy is required.");
+  }
+  const result = await fetchMlptHistoricalBackfill({
+    request: request.request,
+    targetBars: completion.targetBars,
+    confirmedThroughTimestamp: completion.confirmedThroughTimestamp,
+    knownTimestamps: completion.knownTimestamps,
+    sources,
+  });
+  const activeProvider = result.contributions[0]?.provider ?? result.triedProviders[0];
+  if (!activeProvider || result.bars.length === 0) {
+    return createProviderUnavailableResult<readonly GatewayMarketDataBar[]>(
+      "MLPT historical supplement did not return usable data.",
+    );
+  }
+  const activeSource = sources.find((source) => source.provider === activeProvider);
+  const health = await activeSource?.getHealth?.().catch(() => undefined) ??
+    createMlptHistoricalHealth(activeProvider, result.coverage.targetSatisfied);
+
+  return {
+    ok: true,
+    data: result.bars,
+    meta: {
+      provider: activeProvider,
+      health,
+      servedAt: new Date().toISOString(),
+      fallback: {
+        activeProvider,
+        fallbackFrom: result.triedProviders.find((provider) => provider !== activeProvider),
+        triedProviders: result.triedProviders,
+      },
+      historicalCompletion: {
+        purpose: "mlpt",
+        targetBars: result.coverage.targetBars,
+        confirmedBars: result.coverage.confirmedBars,
+        targetSatisfied: result.coverage.targetSatisfied,
+        contributions: result.contributions,
+        failures: result.failures,
+        stopReason: result.stopReason,
+      },
+    },
+  } as const;
+}
+
+function createMlptHistoricalHealth(
+  provider: MlptHistoricalBackfillSource["provider"],
+  targetSatisfied: boolean,
+): MarketDataProviderHealthView {
+  return {
+    provider,
+    status: targetSatisfied ? "healthy" : "degraded",
+    message: targetSatisfied
+      ? "MLPT historical coverage target reached."
+      : "MLPT historical sources returned partial coverage.",
+    checkedAt: new Date().toISOString(),
+    capability: {
+      realtimeQuote: provider !== "stock-sdk",
+      historicalBars: true,
+      intradayBars: true,
+      websocket: false,
+      batchQuote: true,
+      markets: ["US", "HK", "CN"],
+      timeframes: ["realtime", "1m"],
+      delayLevel: provider === "longbridge" ? "delayed" : "unknown",
     },
   };
 }

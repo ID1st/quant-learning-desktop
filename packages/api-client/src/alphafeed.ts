@@ -74,6 +74,20 @@ export interface AlphaFeedMarketDataBar {
   provider: "alphafeed";
 }
 
+export type AlphaFeedHistoricalPagingCapability = "unknown" | "supported" | "unsupported";
+
+const alphaFeedHistoricalPagingCapabilityByUrl = new Map<
+  string,
+  AlphaFeedHistoricalPagingCapability
+>();
+
+export function getAlphaFeedHistoricalPagingCapability(
+  input: AlphaFeedApiCredentials,
+): AlphaFeedHistoricalPagingCapability {
+  const credentials = normalizeAlphaFeedApiCredentials(input);
+  return alphaFeedHistoricalPagingCapabilityByUrl.get(credentials.apiUrl) ?? "unknown";
+}
+
 interface AlphaFeedQuoteResponse {
   data: AlphaFeedQuotePayload[];
 }
@@ -384,7 +398,7 @@ async function fetchAlphaFeedBars(
   }
 
   const payload = parseKlineResponse(await response.json());
-  return payload.data.timestamp.map((timestamp, index) => ({
+  const bars = payload.data.timestamp.map<AlphaFeedMarketDataBar>((timestamp, index) => ({
     symbol,
     market: request.market,
     timeframe: request.timeframe,
@@ -397,6 +411,31 @@ async function fetchAlphaFeedBars(
     amount: payload.data.amount[index],
     provider: "alphafeed",
   }));
+  if (
+    endpoint === "/v1/klines" &&
+    typeof request.startTime === "number" &&
+    typeof request.endTime === "number" &&
+    bars.length > 0
+  ) {
+    const isSorted = bars.every(
+      (bar, index) => index === 0 || bar.timestamp >= (bars[index - 1]?.timestamp ?? bar.timestamp),
+    );
+    const isBounded = bars.every(
+      (bar) => bar.timestamp >= request.startTime! && bar.timestamp <= request.endTime!,
+    );
+    alphaFeedHistoricalPagingCapabilityByUrl.set(
+      credentials.apiUrl,
+      isSorted && isBounded ? "supported" : "unsupported",
+    );
+  }
+
+  return bars
+    .filter(
+      (bar) =>
+        (request.startTime === undefined || bar.timestamp >= request.startTime) &&
+        (request.endTime === undefined || bar.timestamp <= request.endTime),
+    )
+    .sort((left, right) => left.timestamp - right.timestamp);
 }
 
 export function fetchAlphaFeedHistoricalBars(
