@@ -56,11 +56,9 @@ export function SmcVisualQaPage() {
         showCrosshair={false}
         showCurrentPriceLine
         showGrid={false}
-        showMovingAverage={false}
         showPriceLabels
         showSignals={false}
         showStrategyLayers
-        showVolume={false}
         strategyLayers={[smcLayer]}
       />
     </main>

@@ -1904,6 +1904,78 @@ textarea:focus-visible {
   color: #9af5d2;
 }
 
+.indicator-quick-menu {
+  width: min(420px, calc(100vw - 32px));
+  overflow: auto;
+}
+
+.indicator-convention-switch {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 1px;
+}
+
+.chart-toggle-group .indicator-convention-switch button {
+  height: 27px;
+  font-size: 11px;
+}
+
+.indicator-menu-group {
+  display: grid;
+  gap: 5px;
+}
+
+.indicator-menu-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px 2px;
+}
+
+.indicator-menu-group-heading strong {
+  color: #d9e2ed;
+  font-size: 11px;
+}
+
+.indicator-menu-group-heading span {
+  color: #65748a;
+  font-size: 10px;
+}
+
+.strategy-indicator-summary {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(73, 91, 112, 0.34);
+  border-radius: 8px;
+  background: rgba(15, 22, 31, 0.58);
+  padding: 12px;
+}
+
+.strategy-indicator-summary p {
+  margin: 0;
+  color: #d9e2ed;
+  font-size: 13px;
+}
+
+.strategy-indicator-summary small {
+  color: #7f8ca0;
+  line-height: 1.5;
+}
+
+.strategy-indicator-summary button {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(51, 112, 255, 0.5);
+  border-radius: 6px;
+  background: rgba(51, 112, 255, 0.12);
+  color: #cfe0ff;
+  cursor: pointer;
+  padding: 7px 10px;
+}
+
 .polling-interval-control {
   display: inline-flex;
   align-items: center;
@@ -2060,12 +2132,144 @@ textarea:focus-visible {
   cursor: ns-resize;
 }
 
+.chart-pane-stack {
+  display: grid;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chart-pane-stack > .chart-canvas,
+.chart-secondary-pane {
+  min-height: 0;
+}
+
+.chart-pane-separator {
+  position: relative;
+  z-index: 4;
+  cursor: row-resize;
+  touch-action: none;
+  background: rgba(45, 57, 72, 0.52);
+  border-block: 1px solid rgba(92, 111, 133, 0.28);
+}
+
+.chart-pane-separator::after {
+  content: "";
+  position: absolute;
+  inset: 2px 46%;
+  border-radius: 2px;
+  background: rgba(167, 181, 198, 0.58);
+}
+
+.chart-pane-separator:hover,
+.chart-pane-separator:focus-visible {
+  outline: none;
+  background: rgba(66, 199, 185, 0.3);
+}
+
+.chart-secondary-pane {
+  position: relative;
+  overflow: hidden;
+  background: #080d12;
+}
+
+.chart-secondary-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.chart-secondary-pane-title {
+  position: absolute;
+  inset: 5px 88px auto 10px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #8f9caf;
+  font: 11px/1.2 var(--font-data);
+  pointer-events: none;
+}
+
+.chart-secondary-pane-title strong {
+  color: #eef3fb;
+  font-size: 12px;
+}
+
+.chart-secondary-pane-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  pointer-events: auto;
+}
+
+.chart-secondary-pane-actions button {
+  border: 1px solid rgba(73, 91, 112, 0.48);
+  border-radius: 4px;
+  background: rgba(12, 18, 26, 0.88);
+  color: #b9c4d2;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+.chart-pane-line {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.chart-pane-reference line {
+  stroke: rgba(143, 156, 175, 0.45);
+  stroke-dasharray: 4 4;
+}
+
+.chart-pane-reference text {
+  fill: #718096;
+  font-size: 10px;
+  text-anchor: end;
+}
+
 .smc-visual-qa {
   position: relative;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
   background: #080d12;
+}
+
+.indicator-pane-visual-qa {
+  display: grid;
+  grid-template-rows: 42px minmax(0, 1fr);
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #080d12;
+}
+
+.indicator-pane-visual-qa-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid rgba(73, 91, 112, 0.4);
+  color: #d9e2ed;
+  padding: 6px 10px;
+}
+
+.indicator-pane-visual-qa-toolbar strong {
+  margin-right: auto;
+  font-size: 12px;
+}
+
+.indicator-pane-visual-qa-toolbar button {
+  border: 1px solid rgba(73, 91, 112, 0.5);
+  border-radius: 5px;
+  background: rgba(15, 22, 31, 0.8);
+  color: #b9c4d2;
+  cursor: pointer;
+  padding: 5px 8px;
 }
 
 .ml-price-targets-visual-qa {

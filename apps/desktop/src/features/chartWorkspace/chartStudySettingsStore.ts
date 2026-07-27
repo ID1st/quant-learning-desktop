@@ -4,7 +4,7 @@ import { appLocalDatabase, type LocalDatabase, type LocalDatabaseDriver } from "
 import type { ChartStrategyWorkspaceState } from "../strategies/chartStrategyRuntime.ts";
 
 const collection = "chart-study-settings";
-const storageVersion = 2;
+const storageVersion = 3;
 const legacyWorkspacePreferencesKey = "quant-learning.chart-workspace-preferences";
 
 export interface ChartStudyStrategyDefinition {
@@ -87,9 +87,12 @@ function readLegacySettings(legacyStorage?: Pick<LocalDatabaseDriver, "getItem">
   if (!raw) return null;
 
   try {
-    const value = JSON.parse(raw) as { strategies?: unknown; indicators?: unknown };
+    const value = JSON.parse(raw) as { strategies?: unknown; indicators?: unknown; showVolume?: unknown };
     const strategies = sanitizeStrategies(value.strategies);
-    const indicators = sanitizeIndicators(value.indicators);
+    const sanitizedIndicators = sanitizeIndicators(value.indicators);
+    const indicators = value.showVolume === true
+      ? enableLegacyVolume(sanitizedIndicators)
+      : sanitizedIndicators;
     return { strategies, indicators };
   } catch {
     return null;
@@ -181,6 +184,18 @@ function isSameStrategyState(left: ChartStrategyWorkspaceState, right: ChartStra
 
 function sanitizeIndicators(value: unknown): ChartIndicatorSettings {
   return sanitizeChartIndicatorSettings(value);
+}
+
+function enableLegacyVolume(settings: ChartIndicatorSettings): ChartIndicatorSettings {
+  const current = settings.instances.vol;
+  if (!current || current.enabled) return settings;
+  return {
+    ...settings,
+    instances: {
+      ...settings.instances,
+      vol: { ...current, enabled: true, available: true, visible: true },
+    },
+  };
 }
 
 export const useChartStudySettingsStore = createChartStudySettingsStore();

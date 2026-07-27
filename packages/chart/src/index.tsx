@@ -1,9 +1,11 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
   type WheelEvent,
@@ -22,6 +24,9 @@ import {
   type ChartVisibleRange,
 } from "./viewportMath.ts";
 import { getProjectedPriceLabelLayout } from "./priceLabelLayout.ts";
+import { clampSecondaryPaneRatio, getChartPaneGridTemplate } from "./paneLayout.ts";
+import { shouldRenderChartLayer } from "./layerVisibility.ts";
+import { getResponsiveSvgViewBoxHeight } from "./responsiveSvg.ts";
 import {
   getChartHudRightOffset,
   getChartLabelPosition,
@@ -45,6 +50,8 @@ export {
   zoomChartVisibleRange,
   type ChartVisibleRange,
 } from "./viewportMath.ts";
+export { clampSecondaryPaneRatio, getChartPaneGridTemplate } from "./paneLayout.ts";
+export { shouldRenderChartLayer } from "./layerVisibility.ts";
 
 export interface ChartContext {
   symbol: string;
@@ -114,6 +121,24 @@ export type ChartLayerElement = ChartLayerVisualBase &
     }
   | {
       id: string;
+      kind: "point-series";
+      points: Array<{ timestamp: number; price: number }>;
+      tone: ChartTrendTone;
+      radius?: number;
+    }
+  | {
+      id: string;
+      kind: "channel";
+      upper: Array<{ timestamp: number; price: number }>;
+      middle?: Array<{ timestamp: number; price: number }>;
+      lower: Array<{ timestamp: number; price: number }>;
+      upperTone?: ChartTrendTone;
+      middleTone?: ChartTrendTone;
+      lowerTone?: ChartTrendTone;
+      fillColor?: string;
+    }
+  | {
+      id: string;
       kind: "band";
       fromPrice: number;
       toPrice: number;
@@ -173,19 +198,55 @@ export interface ChartRenderLayer {
   zIndex: number;
   elements: ChartLayerElement[];
   hudPanels?: ChartHudPanel[];
+  legendValues?: Array<{ readonly label: string; readonly value: string; readonly color?: string }>;
+}
+
+export interface ChartPaneValuePoint {
+  readonly timestamp: number;
+  readonly value: number;
+  readonly tone?: "positive" | "negative" | "neutral";
+}
+
+export interface ChartPaneSeries {
+  readonly id: string;
+  readonly name: string;
+  readonly type: "line" | "histogram" | "columns";
+  readonly color: string;
+  readonly negativeColor?: string;
+  readonly values: readonly ChartPaneValuePoint[];
+}
+
+export interface ChartPaneReferenceLine {
+  readonly id: string;
+  readonly value: number;
+  readonly label?: string;
+  readonly color?: string;
+}
+
+export interface ChartPaneModel {
+  readonly id: string;
+  readonly name: string;
+  readonly parameterSummary: string;
+  readonly series: readonly ChartPaneSeries[];
+  readonly referenceLines?: readonly ChartPaneReferenceLine[];
+  readonly latestValues?: readonly { readonly label: string; readonly value: string; readonly color?: string }[];
+  readonly axis?: { readonly minimum?: number; readonly maximum?: number; readonly includeZero?: boolean };
 }
 
 export interface ChartViewportProps {
   context?: ChartContext;
   candles?: CandlePoint[];
   showSignals?: boolean;
-  showMovingAverage?: boolean;
   strategyLayers?: ChartLayer[];
   layers?: ChartRenderLayer[];
+  secondaryPane?: ChartPaneModel;
+  secondaryPaneRatio?: number;
+  onSecondaryPaneRatioChange?: (ratio: number) => void;
+  onSecondaryPaneSettings?: () => void;
+  onSecondaryPaneClose?: () => void;
   showStrategyLayers?: boolean;
   showCrosshair?: boolean;
   showGrid?: boolean;
-  showVolume?: boolean;
   showPriceLabels?: boolean;
   showCurrentPriceLine?: boolean;
   displayMode?: ChartDisplayMode;
@@ -210,7 +271,6 @@ export interface ChartViewportProps {
 interface ChartScaleDomain {
   minPrice: number;
   maxPrice: number;
-  maxVolume: number;
 }
 
 const defaultContext: ChartContext = {
@@ -245,14 +305,6 @@ function generateCandles(context: ChartContext): CandlePoint[] {
       volume,
       signal: index === 14 || index === 38 ? "buy" : index === 27 || index === 52 ? "sell" : undefined,
     };
-  });
-}
-
-function movingAverage(candles: CandlePoint[], windowSize: number) {
-  return candles.map((candle, index) => {
-    const start = Math.max(0, index - windowSize + 1);
-    const window = candles.slice(start, index + 1);
-    return window.reduce((total, item) => total + item.close, 0) / window.length;
   });
 }
 
@@ -317,7 +369,6 @@ function calculateScaleDomain(candles: CandlePoint[], range: ChartVisibleRange):
   const domainCandles = candles.slice(safeRange.start, safeRange.end);
   const highs = domainCandles.map((candle) => candle.high).filter(isFiniteNumber);
   const lows = domainCandles.map((candle) => candle.low).filter(isFiniteNumber);
-  const volumes = domainCandles.map((candle) => candle.volume).filter(isFiniteNumber);
   const closeFallbacks = domainCandles.map((candle) => candle.close).filter(isFiniteNumber);
   const fallbackPrice = closeFallbacks[closeFallbacks.length - 1] ?? 1;
   const maxPrice = Math.max(...highs);
@@ -329,21 +380,231 @@ function calculateScaleDomain(candles: CandlePoint[], range: ChartVisibleRange):
   return {
     minPrice: safeMinPrice - padding,
     maxPrice: safeMaxPrice + padding,
-    maxVolume: Math.max(1, ...volumes),
   };
+}
+
+interface SecondaryPaneCanvasProps {
+  readonly pane: ChartPaneModel;
+  readonly width: number;
+  readonly height: number;
+  readonly plotLeft: number;
+  readonly plotRight: number;
+  readonly candleWidth: number;
+  readonly hoverX: number | null;
+  readonly hoveredTimestamp?: number;
+  readonly showCrosshair: boolean;
+  readonly showGrid: boolean;
+  readonly showPriceLabels: boolean;
+  readonly timeTicks: readonly { readonly x: number; readonly label: string }[];
+  readonly timestampToX: (timestamp: number) => number | null;
+  readonly onMouseMove: (event: MouseEvent<SVGSVGElement>) => void;
+  readonly onMouseLeave: () => void;
+  readonly onWheel: (event: WheelEvent<SVGSVGElement>) => void;
+  readonly onPointerDown: (event: PointerEvent<SVGSVGElement>) => void;
+  readonly onPointerMove: (event: PointerEvent<SVGSVGElement>) => void;
+  readonly onPointerUp: (event: PointerEvent<SVGSVGElement>) => void;
+  readonly onSettings?: () => void;
+  readonly onClose?: () => void;
+}
+
+function useResponsiveSvgViewBoxSize(
+  fallbackWidth: number,
+  fallbackHeight: number,
+) {
+  const [canvas, setCanvas] = useState<SVGSVGElement | null>(null);
+  const [viewBoxSize, setViewBoxSize] = useState({
+    width: fallbackWidth,
+    height: fallbackHeight,
+  });
+  const canvasRef = useCallback((node: SVGSVGElement | null) => setCanvas(node), []);
+
+  useEffect(() => {
+    if (!canvas) {
+      return;
+    }
+
+    const updateSize = (width: number, height: number) => {
+      if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+        return;
+      }
+      setViewBoxSize((currentSize) =>
+        Math.abs(currentSize.width - width) < 0.1 && Math.abs(currentSize.height - height) < 0.1
+          ? currentSize
+          : { width, height },
+      );
+    };
+
+    const initialBounds = canvas.getBoundingClientRect();
+    updateSize(initialBounds.width, initialBounds.height);
+
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) {
+        updateSize(entry.contentRect.width, entry.contentRect.height);
+      }
+    });
+    observer.observe(canvas);
+
+    return () => observer.disconnect();
+  }, [canvas]);
+
+  return { canvasRef, ...viewBoxSize };
+}
+
+function SecondaryPaneCanvas({
+  pane,
+  width,
+  height,
+  plotLeft,
+  plotRight,
+  candleWidth,
+  hoverX,
+  hoveredTimestamp,
+  showCrosshair,
+  showGrid,
+  showPriceLabels,
+  timeTicks,
+  timestampToX,
+  onMouseMove,
+  onMouseLeave,
+  onWheel,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onSettings,
+  onClose,
+}: SecondaryPaneCanvasProps) {
+  const measuredSize = useResponsiveSvgViewBoxSize(width, height);
+  const viewBoxHeight = getResponsiveSvgViewBoxHeight({
+    cssHeight: measuredSize.height,
+    cssWidth: measuredSize.width,
+    fallbackHeight: height,
+    viewBoxWidth: width,
+  });
+  const plotTop = 34;
+  const plotBottom = viewBoxHeight - 28;
+  const visibleValues = pane.series.flatMap((series) =>
+    series.values.flatMap((point) => timestampToX(point.timestamp) === null ? [] : [point.value]),
+  );
+  const referenceValues = pane.referenceLines?.map((line) => line.value) ?? [];
+  const requestedMinimum = pane.axis?.minimum;
+  const requestedMaximum = pane.axis?.maximum;
+  const includeZero = pane.axis?.includeZero ?? pane.series.some((series) => series.type !== "line");
+  const rawMinimum = requestedMinimum ?? Math.min(...visibleValues, ...referenceValues, includeZero ? 0 : Number.POSITIVE_INFINITY);
+  const rawMaximum = requestedMaximum ?? Math.max(...visibleValues, ...referenceValues, includeZero ? 0 : Number.NEGATIVE_INFINITY);
+  const fallbackMinimum = Number.isFinite(rawMinimum) ? rawMinimum : 0;
+  const fallbackMaximum = Number.isFinite(rawMaximum) ? rawMaximum : 1;
+  const padding = requestedMinimum !== undefined && requestedMaximum !== undefined
+    ? 0
+    : Math.max((fallbackMaximum - fallbackMinimum) * 0.08, 0.01);
+  const minimum = requestedMinimum ?? fallbackMinimum - padding;
+  const maximum = requestedMaximum ?? fallbackMaximum + padding;
+  const range = Math.max(0.000001, maximum - minimum);
+  const valueToY = (value: number) => plotTop + ((maximum - value) / range) * (plotBottom - plotTop);
+  const zeroY = valueToY(Math.min(maximum, Math.max(minimum, 0)));
+  const axisTicks = Array.from({ length: 4 }, (_, index) => maximum - (range / 3) * index);
+  const hoveredValue = pane.series
+    .flatMap((series) => series.values)
+    .find((point) => point.timestamp === hoveredTimestamp)?.value;
+
+  return (
+    <div className="chart-secondary-pane">
+      <div className="chart-secondary-pane-title">
+        <strong>{pane.name}</strong>
+        <span>{pane.parameterSummary}</span>
+        {pane.latestValues?.map((item) => (
+          <span key={item.label} style={{ color: item.color }}>{item.label} {item.value}</span>
+        ))}
+        <span className="chart-secondary-pane-actions">
+          {onSettings && <button aria-label={`${pane.name} 参数`} onClick={onSettings} type="button">参数</button>}
+          {onClose && <button aria-label={`关闭 ${pane.name}`} onClick={onClose} type="button">关闭</button>}
+        </span>
+      </div>
+      <svg
+        className="chart-secondary-canvas"
+        ref={measuredSize.canvasRef}
+        onMouseLeave={onMouseLeave}
+        onMouseMove={onMouseMove}
+        onPointerCancel={onPointerUp}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onWheel={onWheel}
+        role="img"
+        viewBox={`0 0 ${width} ${viewBoxHeight}`}
+      >
+        <rect className="chart-bg" height={viewBoxHeight} width={width} />
+        {showGrid && Array.from({ length: 4 }, (_, index) => {
+          const y = plotTop + ((plotBottom - plotTop) / 3) * index;
+          return <line className="chart-grid-line" key={`secondary-h-${index}`} x1={plotLeft} x2={plotRight} y1={y} y2={y} />;
+        })}
+        {showGrid && Array.from({ length: 10 }, (_, index) => {
+          const x = plotLeft + ((plotRight - plotLeft) / 9) * index;
+          return <line className="chart-grid-line" key={`secondary-v-${index}`} x1={x} x2={x} y1={plotTop} y2={plotBottom} />;
+        })}
+        {pane.referenceLines?.map((line) => (
+          <g className="chart-pane-reference" key={line.id}>
+            <line style={{ stroke: line.color }} x1={plotLeft} x2={plotRight} y1={valueToY(line.value)} y2={valueToY(line.value)} />
+            {line.label && <text x={plotRight - 4} y={valueToY(line.value) - 4}>{line.label}</text>}
+          </g>
+        ))}
+        {pane.series.map((series) => {
+          const points = series.values.flatMap((point) => {
+            const x = timestampToX(point.timestamp);
+            return x === null || !Number.isFinite(point.value) ? [] : [{ x, y: valueToY(point.value), point }];
+          });
+          if (series.type === "line") {
+            return points.length < 2 ? null : (
+              <path className="chart-pane-line" d={createSmoothPath(points)} key={series.id} style={{ stroke: series.color }} />
+            );
+          }
+          return (
+            <g key={series.id}>
+              {points.map(({ x, y, point }) => {
+                const top = Math.min(y, zeroY);
+                const barHeight = Math.max(1, Math.abs(zeroY - y));
+                const fill = point.tone === "negative" ? series.negativeColor ?? series.color : series.color;
+                return <rect fill={fill} height={barHeight} key={`${series.id}-${point.timestamp}`} opacity=".76" width={Math.max(2, candleWidth)} x={x - candleWidth / 2} y={top} />;
+              })}
+            </g>
+          );
+        })}
+        {showPriceLabels && (
+          <g className="price-axis-labels">
+            {axisTicks.map((value) => <text key={value} x={plotRight + 10} y={valueToY(value) + 4}>{formatPrice(value)}</text>)}
+          </g>
+        )}
+        <g className="time-axis-labels">
+          {timeTicks.map((tick) => <text key={`${tick.label}-${tick.x}`} x={tick.x} y={viewBoxHeight - 8}>{tick.label}</text>)}
+        </g>
+        {showCrosshair && hoverX !== null && (
+          <g className="crosshair">
+            <line x1={hoverX} x2={hoverX} y1={plotTop} y2={plotBottom} />
+            {hoveredValue !== undefined && <line x1={plotLeft} x2={plotRight} y1={valueToY(hoveredValue)} y2={valueToY(hoveredValue)} />}
+          </g>
+        )}
+      </svg>
+    </div>
+  );
 }
 
 export function ChartViewport({
   candles: providedCandles,
   context = defaultContext,
   showSignals = true,
-  showMovingAverage = true,
   strategyLayers = [],
   layers = [],
+  secondaryPane,
+  secondaryPaneRatio = 0.26,
+  onSecondaryPaneRatioChange,
+  onSecondaryPaneSettings,
+  onSecondaryPaneClose,
   showStrategyLayers = true,
   showCrosshair = true,
   showGrid = true,
-  showVolume = true,
   showPriceLabels = true,
   showCurrentPriceLine = true,
   displayMode = "candlestick",
@@ -391,9 +652,10 @@ export function ChartViewport({
   const [isScalingPriceAxis, setIsScalingPriceAxis] = useState(false);
   const [priceScaleFactor, setPriceScaleFactor] = useState(1);
   const [pricePanOffset, setPricePanOffset] = useState(0);
-
-  const width = canvasWidth;
-  const height = canvasHeight;
+  const secondaryPanRef = useRef<{ pointerId: number; startX: number; startRange: ChartVisibleRange } | null>(null);
+  const measuredSize = useResponsiveSvgViewBoxSize(canvasWidth, canvasHeight);
+  const width = measuredSize.width;
+  const height = measuredSize.height;
   const hasCandles = candles.length > 0;
   const minimumInteractiveCandleCount = 12;
 
@@ -476,9 +738,8 @@ export function ChartViewport({
   }
 
   const chartTop = (34 / 520) * height;
-  const priceHeight = ((showVolume ? 338 : 410) / 520) * height;
-  const volumeTop = ((showVolume ? 410 : 462) / 520) * height;
-  const volumeHeight = showVolume ? (76 / 520) * height : 0;
+  const chartBottom = secondaryPane ? height - 10 : height - 34;
+  const priceHeight = Math.max(1, chartBottom - chartTop);
   const paddingX = (54 / 980) * width;
   const priceAxisWidth = (86 / 980) * width;
   const plotRight = width - priceAxisWidth;
@@ -491,16 +752,11 @@ export function ChartViewport({
   const pannedPriceRange = panChartPriceRange(scaledPriceRange.min, scaledPriceRange.max, pricePanOffset);
   const maxPrice = pannedPriceRange.max;
   const minPrice = pannedPriceRange.min;
-  const maxVolume = scaleDomain.maxVolume;
   const priceRange = Math.max(1, maxPrice - minPrice);
   const safeHoverIndex = hoverIndex === null ? null : Math.min(hoverIndex, candles.length - 1);
   const hoveredCandle = safeHoverIndex === null ? candles[candles.length - 1] : candles[safeHoverIndex];
 
   const priceToY = (price: number) => chartTop + ((maxPrice - price) / priceRange) * priceHeight;
-  const volumeToY = (volume: number) => {
-    const boundedVolume = Math.max(0, Math.min(volume, maxVolume));
-    return volumeTop + volumeHeight - (boundedVolume / maxVolume) * volumeHeight;
-  };
   const indexToX = (index: number) => paddingX + (index - safeVisibleRange.start) * candleGap + candleGap / 2;
   const timestampToX = (timestamp: number) => {
     const exactIndex = candles.findIndex((candle) => candle.timestamp === timestamp);
@@ -547,11 +803,13 @@ export function ChartViewport({
     if (x1 === null || x2 === null) return null;
     return { x1, x2: Math.max(x1 + 2, x2) };
   };
-  const maPoints = movingAverage(candles, 9)
-    .slice(safeVisibleRange.start, safeVisibleRange.end)
-    .map((price, offset) => ({ x: indexToX(safeVisibleRange.start + offset), y: priceToY(price) }));
-  const maPath = createSmoothPath(maPoints);
-  const chartDepthPath = maPath ? `${maPath} L ${plotRight} ${volumeTop - 26} L ${paddingX} ${volumeTop - 26} Z` : null;
+  const chartDepthPath = createSmoothPath(
+    visibleCandles.map((candle, offset) => ({
+      x: indexToX(safeVisibleRange.start + offset),
+      y: priceToY(candle.close),
+    })),
+  );
+  const closedChartDepthPath = chartDepthPath ? `${chartDepthPath} L ${plotRight} ${chartBottom} L ${paddingX} ${chartBottom} Z` : null;
   const closeLinePath = createSmoothPath(
     visibleCandles.map((candle, offset) => ({
       x: indexToX(safeVisibleRange.start + offset),
@@ -698,6 +956,22 @@ export function ChartViewport({
       setIsScalingPriceAxis(false);
     }
   };
+  const handleSecondaryPointerDown = (event: PointerEvent<SVGSVGElement>) => {
+    if (event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    secondaryPanRef.current = { pointerId: event.pointerId, startX: event.clientX, startRange: safeVisibleRange };
+  };
+  const handleSecondaryPointerMove = (event: PointerEvent<SVGSVGElement>) => {
+    const drag = secondaryPanRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const windowSize = Math.max(1, drag.startRange.end - drag.startRange.start);
+    const deltaBars = -((event.clientX - drag.startX) / Math.max(1, rect.width)) * windowSize;
+    setVisibleRange(panChartVisibleRange(drag.startRange, candles.length, deltaBars, getChartFuturePaddingBars(drag.startRange)));
+  };
+  const handleSecondaryPointerUp = (event: PointerEvent<SVGSVGElement>) => {
+    if (secondaryPanRef.current?.pointerId === event.pointerId) secondaryPanRef.current = null;
+  };
   const resetInteractionView = () => {
     const nextRange = createDefaultVisibleRange(candles.length, initialVisibleBars);
     setVisibleRange(nextRange);
@@ -711,6 +985,27 @@ export function ChartViewport({
     event.currentTarget.ownerSVGElement?.setPointerCapture(event.pointerId);
     onDrawingElementSelect?.(drawingId);
     dragStateRef.current = { mode: "drawing", pointerId: event.pointerId, drawingId, pointIndex };
+  };
+  const handlePaneSeparatorPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    const container = event.currentTarget.parentElement;
+    if (!container || !onSecondaryPaneRatioChange) return;
+    event.preventDefault();
+    const bounds = container.getBoundingClientRect();
+    const handleMove = (moveEvent: globalThis.PointerEvent) => {
+      onSecondaryPaneRatioChange(clampSecondaryPaneRatio((bounds.bottom - moveEvent.clientY) / Math.max(1, bounds.height)));
+    };
+    const handleUp = () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp, { once: true });
+  };
+  const handlePaneSeparatorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!onSecondaryPaneRatioChange || !["ArrowUp", "ArrowDown", "Home"].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === "Home") onSecondaryPaneRatioChange(0.26);
+    else onSecondaryPaneRatioChange(clampSecondaryPaneRatio(secondaryPaneRatio + (event.key === "ArrowUp" ? 0.02 : -0.02)));
   };
 
   if (!isFiniteNumber(maxPrice) || !isFiniteNumber(minPrice)) {
@@ -739,7 +1034,7 @@ export function ChartViewport({
     })),
     ...layers,
   ]
-    .filter((layer) => layer.enabled && layer.visible)
+    .filter((layer) => shouldRenderChartLayer(layer, showStrategyLayers))
     .sort((left, right) => left.zIndex - right.zIndex);
   const candleStyleByTimestamp = new Map<number, ChartLayerElement & { kind: "candle-style" }>();
   renderLayers.forEach((layer) => {
@@ -752,7 +1047,6 @@ export function ChartViewport({
       });
   });
   const renderChartLayers = (placement: "under-candles" | "over-candles") =>
-    showStrategyLayers &&
     renderLayers.flatMap((layer) =>
       [...layer.elements]
         .sort((left, right) => (left.zIndex ?? 0) - (right.zIndex ?? 0))
@@ -898,6 +1192,50 @@ export function ChartViewport({
             );
           }
 
+          if (element.kind === "point-series") {
+            return element.points
+              .filter((point) => isFiniteNumber(point.timestamp) && isFiniteNumber(point.price))
+              .flatMap((point) => {
+                const x = timestampToX(point.timestamp);
+                if (x === null) return [];
+                return [(
+                  <circle
+                    className={`indicator-point-series ${element.tone}`}
+                    cx={x}
+                    cy={priceToY(point.price)}
+                    key={`${placement}-${layer.id}-${element.id}-${point.timestamp}`}
+                    r={element.radius ?? 2}
+                    style={{ fill: element.color, opacity: element.opacity }}
+                  />
+                )];
+              });
+          }
+
+          if (element.kind === "channel") {
+            const toVisiblePoints = (points: readonly { timestamp: number; price: number }[]) =>
+              points
+                .filter((point) => isFiniteNumber(point.timestamp) && isFiniteNumber(point.price))
+                .map((point) => ({ x: timestampToX(point.timestamp), y: priceToY(point.price) }))
+                .filter((point): point is { x: number; y: number } => point.x !== null);
+            const upper = toVisiblePoints(element.upper);
+            const middle = toVisiblePoints(element.middle ?? []);
+            const lower = toVisiblePoints(element.lower);
+            if (upper.length < 2 || lower.length < 2) return null;
+            const fillPath = [
+              `M ${upper.map((point) => `${point.x} ${point.y}`).join(" L ")}`,
+              `L ${[...lower].reverse().map((point) => `${point.x} ${point.y}`).join(" L ")}`,
+              "Z",
+            ].join(" ");
+            return (
+              <g className="indicator-channel" key={`${placement}-${layer.id}-${element.id}`}>
+                {element.fillColor && <path d={fillPath} style={{ fill: element.fillColor, stroke: "none" }} />}
+                <path className={`strategy-trend-line ${element.upperTone ?? "bearish"}`} d={createSmoothPath(upper)} />
+                {middle.length >= 2 && <path className={`strategy-trend-line ${element.middleTone ?? "neutral"}`} d={createSmoothPath(middle)} />}
+                <path className={`strategy-trend-line ${element.lowerTone ?? "bullish"}`} d={createSmoothPath(lower)} />
+              </g>
+            );
+          }
+
           if (element.kind === "text") {
             const x = timestampToX(element.timestamp);
             if (x === null || !isFiniteNumber(element.price)) {
@@ -989,6 +1327,9 @@ export function ChartViewport({
         <span>V {Math.round(hoveredCandle.volume).toLocaleString("zh-CN")}</span>
         <span>{hoveredCandle.time}</span>
         <span>{safeVisibleRange.start + 1}-{safeVisibleRange.end} / {candles.length}</span>
+        {renderLayers.flatMap((layer) => layer.legendValues ?? []).map((item, index) => (
+          <span key={`${item.label}-${index}`} style={{ color: item.color }}>{item.label} {item.value}</span>
+        ))}
       </div>
 
       <div className="chart-interaction-toolbar" aria-label="图表缩放和平移">
@@ -1047,8 +1388,13 @@ export function ChartViewport({
         </button>
       </div>
 
+      <div
+        className="chart-pane-stack"
+        style={{ gridTemplateRows: getChartPaneGridTemplate(secondaryPane ? secondaryPaneRatio : undefined) }}
+      >
       <svg
         className={`chart-canvas${isPanning ? " panning" : ""}${isScalingPriceAxis ? " scaling-price-axis" : ""}`}
+        ref={measuredSize.canvasRef}
         onMouseLeave={() => setHoverIndex(null)}
         onMouseMove={handleMouseMove}
         onPointerCancel={handlePointerUp}
@@ -1075,10 +1421,10 @@ export function ChartViewport({
         {showGrid &&
           Array.from({ length: 10 }, (_, index) => {
             const x = paddingX + ((plotRight - paddingX) / 9) * index;
-            return <line className="chart-grid-line" key={`v-${index}`} x1={x} x2={x} y1={chartTop} y2={volumeTop + volumeHeight} />;
+            return <line className="chart-grid-line" key={`v-${index}`} x1={x} x2={x} y1={chartTop} y2={chartBottom} />;
           })}
 
-        {displayMode === "line" && chartDepthPath && <path className="chart-depth" d={chartDepthPath} />}
+        {displayMode === "line" && closedChartDepthPath && <path className="chart-depth" d={closedChartDepthPath} />}
 
         {renderChartLayers("under-candles")}
 
@@ -1096,9 +1442,8 @@ export function ChartViewport({
           const lowY = priceToY(candle.low);
           const bodyY = Math.min(openY, closeY);
           const bodyHeight = Math.max(3, Math.abs(openY - closeY));
-          const volumeY = volumeToY(candle.volume);
           const candleStyle =
-            !showStrategyLayers || candle.timestamp === undefined ? undefined : candleStyleByTimestamp.get(candle.timestamp);
+            candle.timestamp === undefined ? undefined : candleStyleByTimestamp.get(candle.timestamp);
 
           return (
             <g key={`${candle.timestamp}-${index}`}>
@@ -1123,16 +1468,6 @@ export function ChartViewport({
                   />
                 </>
               )}
-              {showVolume && (
-                <rect
-                  className={isUp ? "volume-bar up" : "volume-bar down"}
-                  height={volumeTop + volumeHeight - volumeY}
-                  rx="2"
-                  width={candleWidth}
-                  x={x - candleWidth / 2}
-                  y={volumeY}
-                />
-              )}
               {showSignals && candle.signal === "buy" && (
                 <g className="signal-marker buy">
                   <polygon points={`${x},${lowY + 24} ${x - 9},${lowY + 40} ${x + 9},${lowY + 40}`} />
@@ -1148,8 +1483,6 @@ export function ChartViewport({
         })}
 
         {renderChartLayers("over-candles")}
-
-        {showMovingAverage && <path className="moving-average" d={maPath} />}
 
         {showCurrentPriceLine && isLatestVisible && (
           <g className={`current-price-line ${latestPriceTone}`}>
@@ -1178,7 +1511,7 @@ export function ChartViewport({
           </g>
         )}
 
-        <g className="time-axis-labels">
+        {!secondaryPane && <g className="time-axis-labels">
           {timeTickOffsets.map((offset) => {
             const index = safeVisibleRange.start + offset;
             const candle = candles[index];
@@ -1188,16 +1521,16 @@ export function ChartViewport({
             }
 
             return (
-              <text key={`${candle.time}-${index}`} x={indexToX(index)} y={volumeTop + volumeHeight + 24}>
+              <text key={`${candle.time}-${index}`} x={indexToX(index)} y={height - 8}>
                 {candle.time}
               </text>
             );
           })}
-        </g>
+        </g>}
 
         {showCrosshair && hoverX !== null && (
           <g className="crosshair">
-            <line x1={hoverX} x2={hoverX} y1={chartTop} y2={showVolume ? volumeTop + volumeHeight : volumeTop - 26} />
+            <line x1={hoverX} x2={hoverX} y1={chartTop} y2={chartBottom} />
             <line x1={paddingX} x2={plotRight} y1={priceToY(hoveredCandle.close)} y2={priceToY(hoveredCandle.close)} />
             {showPriceLabels && (
               <>
@@ -1225,6 +1558,51 @@ export function ChartViewport({
           y={chartTop}
         />
       </svg>
+      {secondaryPane && (
+        <>
+          <div
+            aria-label="调整副图高度"
+            aria-orientation="horizontal"
+            aria-valuemax={45}
+            aria-valuemin={18}
+            aria-valuenow={Math.round(clampSecondaryPaneRatio(secondaryPaneRatio) * 100)}
+            className="chart-pane-separator"
+            onDoubleClick={() => onSecondaryPaneRatioChange?.(0.26)}
+            onKeyDown={handlePaneSeparatorKeyDown}
+            onPointerDown={handlePaneSeparatorPointerDown}
+            role="separator"
+            tabIndex={0}
+          />
+          <SecondaryPaneCanvas
+            candleWidth={candleWidth}
+            height={220}
+            hoveredTimestamp={hoveredCandle.timestamp}
+            hoverX={hoverX}
+            onClose={onSecondaryPaneClose}
+            onMouseLeave={() => setHoverIndex(null)}
+            onMouseMove={handleMouseMove}
+            onPointerDown={handleSecondaryPointerDown}
+            onPointerMove={handleSecondaryPointerMove}
+            onPointerUp={handleSecondaryPointerUp}
+            onSettings={onSecondaryPaneSettings}
+            onWheel={handleWheel}
+            pane={secondaryPane}
+            plotLeft={paddingX}
+            plotRight={plotRight}
+            showCrosshair={showCrosshair}
+            showGrid={showGrid}
+            showPriceLabels={showPriceLabels}
+            timeTicks={timeTickOffsets.flatMap((offset) => {
+              const index = safeVisibleRange.start + offset;
+              const candle = candles[index];
+              return candle ? [{ x: indexToX(index), label: candle.time }] : [];
+            })}
+            timestampToX={timestampToX}
+            width={width}
+          />
+        </>
+      )}
+      </div>
       {showStrategyLayers && (
         <div
           className="chart-hud-stack"

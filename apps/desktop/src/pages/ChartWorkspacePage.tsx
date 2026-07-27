@@ -83,15 +83,15 @@ import {
 } from "../features/marketData/mlptHistoricalBackfillService";
 import {
   builtInChartIndicatorDefinitions,
-  createChartIndicatorLayers,
-  createPluginIndicatorLayers,
-  defaultChartIndicatorSettings,
+  createChartIndicatorEvaluations,
   getIndicatorInstance,
-  sanitizeChartIndicatorSettings,
-  updateIndicatorInstance,
-  type ChartIndicatorSettings,
+  getIndicatorParameters,
+  resolveIndicatorConvention,
+  setIndicatorEnabled,
+  updateIndicatorParameter,
 } from "../features/chartIndicators/chartIndicators";
 import { useChartStudySettingsStore } from "../features/chartWorkspace/chartStudySettingsStore";
+import { IndicatorQuickMenu } from "../features/chartWorkspace/IndicatorQuickMenu";
 import {
   createStrategyQuickMenuItems,
   toggleStrategyFromQuickMenu,
@@ -183,19 +183,17 @@ const WORKSPACE_PREFERENCES_KEY = "quant-learning.chart-workspace-preferences";
 type StrategyWorkspaceState = ChartStrategyWorkspaceState;
 
 interface ChartWorkspacePreferences {
-  version: 5;
+  version: 6;
   showSignals: boolean;
   showStrategyLayers: boolean;
-  showMovingAverage: boolean;
   showCrosshair: boolean;
   showGrid: boolean;
-  showVolume: boolean;
+  secondaryPaneRatio: number;
   showPriceLabels: boolean;
   showCurrentPriceLine: boolean;
   intradayDisplayMode: ChartDisplayMode;
   realtimePollIntervalMs: number;
   strategies: Record<string, StrategyWorkspaceState>;
-  indicators: ChartIndicatorSettings;
 }
 
 type ChartBottomTab = "layers" | "signals" | "logs";
@@ -242,13 +240,12 @@ function getDefaultStrategyState(strategy: StrategyDefinition, index: number): S
 
 function createDefaultWorkspacePreferences(): ChartWorkspacePreferences {
   return {
-    version: 5,
+    version: 6,
     showSignals: true,
     showStrategyLayers: true,
-    showMovingAverage: true,
     showCrosshair: true,
     showGrid: true,
-    showVolume: true,
+    secondaryPaneRatio: 0.26,
     showPriceLabels: true,
     showCurrentPriceLine: true,
     intradayDisplayMode: "line",
@@ -257,7 +254,6 @@ function createDefaultWorkspacePreferences(): ChartWorkspacePreferences {
       settings[strategy.key] = getDefaultStrategyState(strategy, index);
       return settings;
     }, {}),
-    indicators: defaultChartIndicatorSettings,
   };
 }
 
@@ -369,10 +365,9 @@ function readWorkspacePreferences(): ChartWorkspacePreferences {
         showSignals: typeof parsed.showSignals === "boolean" ? parsed.showSignals : defaultPreferences.showSignals,
         showStrategyLayers:
           typeof parsed.showStrategyLayers === "boolean" ? parsed.showStrategyLayers : defaultPreferences.showStrategyLayers,
-        showMovingAverage: typeof parsed.showMovingAverage === "boolean" ? parsed.showMovingAverage : defaultPreferences.showMovingAverage,
         showCrosshair: defaultPreferences.showCrosshair,
         showGrid: defaultPreferences.showGrid,
-        showVolume: defaultPreferences.showVolume,
+        secondaryPaneRatio: defaultPreferences.secondaryPaneRatio,
         showPriceLabels: defaultPreferences.showPriceLabels,
         showCurrentPriceLine: defaultPreferences.showCurrentPriceLine,
         intradayDisplayMode: defaultPreferences.intradayDisplayMode,
@@ -381,19 +376,20 @@ function readWorkspacePreferences(): ChartWorkspacePreferences {
       };
     }
 
-    if (parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4 && parsed.version !== 5) {
+    if (parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4 && parsed.version !== 5 && parsed.version !== 6) {
       return defaultPreferences;
     }
 
     return {
-      version: 5,
+      version: 6,
       showSignals: typeof parsed.showSignals === "boolean" ? parsed.showSignals : defaultPreferences.showSignals,
       showStrategyLayers:
         typeof parsed.showStrategyLayers === "boolean" ? parsed.showStrategyLayers : defaultPreferences.showStrategyLayers,
-      showMovingAverage: typeof parsed.showMovingAverage === "boolean" ? parsed.showMovingAverage : defaultPreferences.showMovingAverage,
       showCrosshair: typeof parsed.showCrosshair === "boolean" ? parsed.showCrosshair : defaultPreferences.showCrosshair,
       showGrid: typeof parsed.showGrid === "boolean" ? parsed.showGrid : defaultPreferences.showGrid,
-      showVolume: typeof parsed.showVolume === "boolean" ? parsed.showVolume : defaultPreferences.showVolume,
+      secondaryPaneRatio: typeof parsed.secondaryPaneRatio === "number"
+        ? Math.min(0.45, Math.max(0.18, parsed.secondaryPaneRatio))
+        : defaultPreferences.secondaryPaneRatio,
       showPriceLabels: typeof parsed.showPriceLabels === "boolean" ? parsed.showPriceLabels : defaultPreferences.showPriceLabels,
       showCurrentPriceLine:
         typeof parsed.showCurrentPriceLine === "boolean" ? parsed.showCurrentPriceLine : defaultPreferences.showCurrentPriceLine,
@@ -403,9 +399,6 @@ function readWorkspacePreferences(): ChartWorkspacePreferences {
         settings[strategy.key] = normalizeStrategyState(strategy, index, parsed.strategies?.[strategy.key]);
         return settings;
       }, {}),
-      indicators: parsed.showMovingAverage === false
-        ? updateIndicatorInstance(sanitizeChartIndicatorSettings(parsed.indicators), "sma", (current) => ({ ...current, enabled: false }), builtInChartIndicatorDefinitions[0])
-        : sanitizeChartIndicatorSettings(parsed.indicators),
     };
   } catch {
     return defaultPreferences;
@@ -769,9 +762,6 @@ export function ChartWorkspacePage() {
   const initializeStudyStrategies = useChartStudySettingsStore((state) => state.initializeStrategies);
   const updateStudyStrategy = useChartStudySettingsStore((state) => state.updateStrategy);
   const updateIndicatorSettings = useChartStudySettingsStore((state) => state.updateIndicators);
-  const smaIndicator = getIndicatorInstance(indicatorSettings, "sma", builtInChartIndicatorDefinitions[0]);
-  const emaIndicator = getIndicatorInstance(indicatorSettings, "ema", builtInChartIndicatorDefinitions[1]);
-  const bollIndicator = getIndicatorInstance(indicatorSettings, "boll", builtInChartIndicatorDefinitions[2]);
   useEffect(() => {
     void refreshPluginRuntime();
   }, [refreshPluginRuntime]);
@@ -823,10 +813,10 @@ export function ChartWorkspacePage() {
   const [showSignals, setShowSignals] = useState(workspacePreferences.showSignals);
   const [showStrategyLayers, setShowStrategyLayers] = useState(workspacePreferences.showStrategyLayers);
   const [isStrategyMenuOpen, setIsStrategyMenuOpen] = useState(false);
-  const [isIndicatorSettingsOpen, setIsIndicatorSettingsOpen] = useState(false);
+  const [activeIndicatorConfigId, setActiveIndicatorConfigId] = useState<string | null>(null);
   const [showCrosshair, setShowCrosshair] = useState(workspacePreferences.showCrosshair);
   const [showGrid, setShowGrid] = useState(workspacePreferences.showGrid);
-  const [showVolume, setShowVolume] = useState(workspacePreferences.showVolume);
+  const [secondaryPaneRatio, setSecondaryPaneRatio] = useState(workspacePreferences.secondaryPaneRatio);
   const [showPriceLabels, setShowPriceLabels] = useState(workspacePreferences.showPriceLabels);
   const [showCurrentPriceLine, setShowCurrentPriceLine] = useState(workspacePreferences.showCurrentPriceLine);
   const [intradayDisplayMode, setIntradayDisplayMode] = useState<ChartDisplayMode>(workspacePreferences.intradayDisplayMode);
@@ -923,9 +913,31 @@ export function ChartWorkspacePage() {
     [watchlist],
   );
   const cachedCandles = useMemo(() => marketBarsToCandles(chartRenderBars), [chartRenderBars]);
-  const indicatorLayers = useMemo(
-    () => [...createChartIndicatorLayers(cachedCandles, indicatorSettings), ...createPluginIndicatorLayers(cachedCandles, pluginIndicators, indicatorSettings)],
-    [cachedCandles, indicatorSettings, pluginIndicators],
+  const allIndicatorDefinitions = useMemo(
+    () => [...builtInChartIndicatorDefinitions, ...pluginIndicators],
+    [pluginIndicators],
+  );
+  const indicatorConvention = resolveIndicatorConvention(indicatorSettings.conventionMode, activeSymbol.market);
+  const indicatorEvaluations = useMemo(
+    () => createChartIndicatorEvaluations(
+      cachedCandles,
+      indicatorSettings,
+      indicatorConvention,
+      allIndicatorDefinitions,
+    ),
+    [allIndicatorDefinitions, cachedCandles, indicatorConvention, indicatorSettings],
+  );
+  const overlayIndicatorEvaluations = useMemo(
+    () => indicatorEvaluations.filter(
+      (evaluation): evaluation is Extract<(typeof indicatorEvaluations)[number], { placement: "overlay" }> =>
+        evaluation.placement === "overlay",
+    ),
+    [indicatorEvaluations],
+  );
+  const indicatorLayers = useMemo(() => overlayIndicatorEvaluations.map((evaluation) => evaluation.layer), [overlayIndicatorEvaluations]);
+  const secondaryIndicatorEvaluation = indicatorEvaluations.find(
+    (evaluation): evaluation is Extract<(typeof indicatorEvaluations)[number], { placement: "pane" }> =>
+      evaluation.placement === "pane" && evaluation.visible,
   );
   const drawingLayer = useMemo(() => drawingsToLayer(drawings), [drawings]);
   const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(strategyMarketBars), [strategyMarketBars]);
@@ -1044,7 +1056,6 @@ export function ChartWorkspacePage() {
   const resetChartView = () => {
     setShowCrosshair(true);
     setShowGrid(true);
-    setShowVolume(true);
     setShowPriceLabels(true);
     setShowCurrentPriceLine(true);
     setChartResetViewKey((value) => value + 1);
@@ -1867,19 +1878,17 @@ export function ChartWorkspacePage() {
 
   useEffect(() => {
     const preferences: ChartWorkspacePreferences = {
-      version: 5,
+      version: 6,
       showSignals,
       showStrategyLayers,
-      showMovingAverage: smaIndicator.enabled,
       showCrosshair,
       showGrid,
-      showVolume,
+      secondaryPaneRatio,
       showPriceLabels,
       showCurrentPriceLine,
       intradayDisplayMode,
       realtimePollIntervalMs,
       strategies: strategySettings,
-      indicators: indicatorSettings,
     };
 
     saveWorkspacePreferences(preferences);
@@ -1889,11 +1898,10 @@ export function ChartWorkspacePage() {
     showCrosshair,
     showCurrentPriceLine,
     showGrid,
-    indicatorSettings,
+    secondaryPaneRatio,
     showPriceLabels,
     showSignals,
     showStrategyLayers,
-    showVolume,
     strategySettings,
   ]);
 
@@ -2191,10 +2199,13 @@ export function ChartWorkspacePage() {
               </section>
             )}
           </div>
-          <button className={isIndicatorSettingsOpen ? "active" : ""} onClick={() => setIsIndicatorSettingsOpen((value) => !value)} type="button">
-            <SlidersHorizontal size={16} />
-            <span>指标</span>
-          </button>
+          <IndicatorQuickMenu
+            definitions={allIndicatorDefinitions}
+            market={activeSymbol.market}
+            onOpenParameters={setActiveIndicatorConfigId}
+            settings={indicatorSettings}
+            updateSettings={updateIndicatorSettings}
+          />
           <button className={showSignals ? "active" : ""} onClick={() => setShowSignals((value) => !value)} type="button">
             <Gauge size={16} />
             <span>信号</span>
@@ -2299,11 +2310,20 @@ export function ChartWorkspacePage() {
             showCrosshair={showCrosshair}
             showCurrentPriceLine={showCurrentPriceLine}
             showGrid={showGrid}
-            showMovingAverage={false}
             showPriceLabels={showPriceLabels}
             showSignals={showSignals}
             showStrategyLayers={canShowStrategyLayers}
-            showVolume={showVolume}
+            secondaryPane={secondaryIndicatorEvaluation?.pane}
+            secondaryPaneRatio={secondaryPaneRatio}
+            onSecondaryPaneRatioChange={setSecondaryPaneRatio}
+            onSecondaryPaneClose={() => {
+              if (secondaryIndicatorEvaluation) {
+                updateIndicatorSettings((current) => setIndicatorEnabled(current, secondaryIndicatorEvaluation.id, false, allIndicatorDefinitions));
+              }
+            }}
+            onSecondaryPaneSettings={() => {
+              if (secondaryIndicatorEvaluation) setActiveIndicatorConfigId(secondaryIndicatorEvaluation.id);
+            }}
             resetViewKey={chartResetViewKey}
             focusLatestKey={chartFocusLatestKey}
             lockPriceScale={isPriceScaleLocked}
@@ -2321,21 +2341,42 @@ export function ChartWorkspacePage() {
               <span>{mlptChartNotice}</span>
             </div>
           )}
-          {isIndicatorSettingsOpen && (
-            <section className="chart-settings-popover indicator-settings-popover" aria-label="指标管理">
-              <div className="chart-settings-heading"><strong>指标管理</strong><button onClick={() => setIsIndicatorSettingsOpen(false)} type="button">关闭</button></div>
-              <label className="parameter-toggle"><span><strong>均线</strong><small>显示趋势均线</small></span><input checked={smaIndicator.enabled} onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, enabled: event.currentTarget.checked }), builtInChartIndicatorDefinitions[0]))} type="checkbox" /></label>
-              <div className="indicator-lifecycle-actions"><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, visible: !item.visible }), builtInChartIndicatorDefinitions[0]))} type="button">{smaIndicator.visible ? "隐藏" : "显示"}</button><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, available: false, enabled: false }), builtInChartIndicatorDefinitions[0]))} type="button">移除</button>{!smaIndicator.available && <button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, available: true, enabled: true, visible: true }), builtInChartIndicatorDefinitions[0]))} type="button">添加均线</button>}</div>
-              <label><span>均线周期</span><input min="2" max="240" onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "sma", (item) => ({ ...item, parameters: { ...item.parameters, window: Number(event.currentTarget.value) || 9 } }), builtInChartIndicatorDefinitions[0]))} type="number" value={Number(smaIndicator.parameters.window)} /></label>
-              <label className="parameter-toggle"><span><strong>指数均线</strong><small>显示 EMA 趋势线</small></span><input checked={emaIndicator.enabled} onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "ema", (item) => ({ ...item, enabled: event.currentTarget.checked }), builtInChartIndicatorDefinitions[1]))} type="checkbox" /></label>
-              <div className="indicator-lifecycle-actions"><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "ema", (item) => ({ ...item, visible: !item.visible }), builtInChartIndicatorDefinitions[1]))} type="button">{emaIndicator.visible ? "隐藏" : "显示"}</button><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "ema", (item) => ({ ...item, available: false, enabled: false }), builtInChartIndicatorDefinitions[1]))} type="button">移除</button>{!emaIndicator.available && <button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "ema", (item) => ({ ...item, available: true, enabled: true, visible: true }), builtInChartIndicatorDefinitions[1]))} type="button">添加 EMA</button>}</div>
-              <label><span>EMA 周期</span><input min="2" max="240" onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "ema", (item) => ({ ...item, parameters: { ...item.parameters, window: Number(event.currentTarget.value) || 20 } }), builtInChartIndicatorDefinitions[1]))} type="number" value={Number(emaIndicator.parameters.window)} /></label>
-              <label className="parameter-toggle"><span><strong>布林带</strong><small>显示波动区间</small></span><input checked={bollIndicator.enabled} onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, enabled: event.currentTarget.checked }), builtInChartIndicatorDefinitions[2]))} type="checkbox" /></label>
-              <div className="indicator-lifecycle-actions"><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, visible: !item.visible }), builtInChartIndicatorDefinitions[2]))} type="button">{bollIndicator.visible ? "隐藏" : "显示"}</button><button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, available: false, enabled: false }), builtInChartIndicatorDefinitions[2]))} type="button">移除</button>{!bollIndicator.available && <button onClick={() => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, available: true, enabled: true, visible: true }), builtInChartIndicatorDefinitions[2]))} type="button">添加布林带</button>}</div>
-              <label><span>布林周期</span><input min="2" max="240" onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, parameters: { ...item.parameters, window: Number(event.currentTarget.value) || 20 } }), builtInChartIndicatorDefinitions[2]))} type="number" value={Number(bollIndicator.parameters.window)} /></label>
-              <label><span>标准差倍数</span><input min="0.1" max="6" step="0.1" onChange={(event) => updateIndicatorSettings((current) => updateIndicatorInstance(current, "boll", (item) => ({ ...item, parameters: { ...item.parameters, multiplier: Number(event.currentTarget.value) || 2 } }), builtInChartIndicatorDefinitions[2]))} type="number" value={Number(bollIndicator.parameters.multiplier)} /></label>
-            </section>
-          )}
+          {activeIndicatorConfigId && (() => {
+            const definition = allIndicatorDefinitions.find((item) => item.id === activeIndicatorConfigId);
+            if (!definition) return null;
+            const instance = getIndicatorInstance(indicatorSettings, definition.id, definition);
+            const parameters = getIndicatorParameters(instance, indicatorConvention);
+            return (
+              <section className="chart-settings-popover indicator-settings-popover" aria-label={`${definition.name} 参数`}>
+                <div className="chart-settings-heading">
+                  <span><strong>{definition.name} 参数</strong><small>{indicatorConvention === "a-share" ? "A 股口径" : "跨市场口径"}</small></span>
+                  <button onClick={() => setActiveIndicatorConfigId(null)} type="button">关闭</button>
+                </div>
+                {definition.parameters.map((parameter) => (
+                  <label key={parameter.key}>
+                    <span>{parameter.label}</span>
+                    <input
+                      max={parameter.maximum}
+                      min={parameter.minimum}
+                      onChange={(event) => updateIndicatorSettings((current) =>
+                        updateIndicatorParameter(current, definition.id, indicatorConvention, parameter.key, Number(event.currentTarget.value), definition))}
+                      step={parameter.step}
+                      type="number"
+                      value={Number(parameters[parameter.key])}
+                    />
+                  </label>
+                ))}
+                <label className="parameter-toggle">
+                  <span><strong>指标状态</strong><small>{definition.placement === "pane" ? "副图单选" : "主图可多选"}</small></span>
+                  <input
+                    checked={instance.enabled}
+                    onChange={(event) => updateIndicatorSettings((current) => setIndicatorEnabled(current, definition.id, event.currentTarget.checked, allIndicatorDefinitions))}
+                    type="checkbox"
+                  />
+                </label>
+              </section>
+            );
+          })()}
           {isChartSettingsOpen && (
             <section className="chart-settings-popover" aria-label="图表设置">
               <div className="chart-settings-heading">
@@ -2347,10 +2388,6 @@ export function ChartWorkspacePage() {
               <label>
                 <span>网格</span>
                 <input checked={showGrid} onChange={(event) => setShowGrid(event.currentTarget.checked)} type="checkbox" />
-              </label>
-              <label>
-                <span>成交量</span>
-                <input checked={showVolume} onChange={(event) => setShowVolume(event.currentTarget.checked)} type="checkbox" />
               </label>
               <label>
                 <span>十字光标</span>
@@ -2733,10 +2770,6 @@ export function ChartWorkspacePage() {
                   <span><strong>K 线 / 价格<em className="strategy-source-badge system">基础图层</em></strong><small>主图价格序列</small></span>
                   <div className="layer-actions"><button className="active" disabled type="button">显示</button></div>
                 </div>
-                <div className={showVolume ? "layer-item active" : "layer-item"}>
-                  <span><strong>成交量<em className="strategy-source-badge system">基础图层</em></strong><small>{showVolume ? "已显示" : "已隐藏"}</small></span>
-                  <div className="layer-actions"><button aria-pressed={showVolume} className={showVolume ? "active" : ""} onClick={() => setShowVolume((value) => !value)} type="button">{showVolume ? "隐藏" : "显示"}</button></div>
-                </div>
                 {strategyRuns.map(({ strategy, settings, result }) => {
                   const layerStatus = getStrategyLayerStatus(strategy, settings, result, timeframe, strategyInputBars.length);
                   const isLayerVisible = settings.enabled && canShowStrategyLayers && settings.showLayer && layerStatus.className === "active";
@@ -2779,12 +2812,31 @@ export function ChartWorkspacePage() {
                     </div>
                   );
                 })}
-                {indicatorLayers.map((layer) => (
-                  <div className="layer-item active" key={layer.id}>
-                    <span><strong>{layer.name}<em className="strategy-source-badge plugin">指标</em></strong><small>{layer.elements.length} 个渲染元素</small></span>
-                    <div className="layer-actions"><button onClick={() => setIsIndicatorSettingsOpen(true)} type="button"><SlidersHorizontal size={13} />参数</button><button onClick={() => moveLayer(layer.id, -1)} title="上移图层" type="button">上移</button><button onClick={() => moveLayer(layer.id, 1)} title="下移图层" type="button">下移</button></div>
+                {overlayIndicatorEvaluations.map((evaluation) => (
+                  <div className="layer-item active" key={evaluation.layer.id}>
+                    <span><strong>{evaluation.layer.name}<em className="strategy-source-badge plugin">指标</em></strong><small>{evaluation.layer.elements.length} 个渲染元素</small></span>
+                    <div className="layer-actions">
+                      {allIndicatorDefinitions.some((definition) => definition.id === evaluation.id && definition.parameters.length > 0) && (
+                        <button onClick={() => setActiveIndicatorConfigId(evaluation.id)} type="button"><SlidersHorizontal size={13} />参数</button>
+                      )}
+                      <button onClick={() => updateIndicatorSettings((current) => setIndicatorEnabled(current, evaluation.id, false, allIndicatorDefinitions))} type="button">关闭</button>
+                      <button onClick={() => moveLayer(evaluation.layer.id, -1)} title="上移图层" type="button">上移</button>
+                      <button onClick={() => moveLayer(evaluation.layer.id, 1)} title="下移图层" type="button">下移</button>
+                    </div>
                   </div>
                 ))}
+                {secondaryIndicatorEvaluation && (
+                  <div className="layer-item active">
+                    <span>
+                      <strong>{secondaryIndicatorEvaluation.pane.name}<em className="strategy-source-badge plugin">副图指标</em></strong>
+                      <small>{secondaryIndicatorEvaluation.pane.parameterSummary} · 独立纵轴</small>
+                    </span>
+                    <div className="layer-actions">
+                      <button onClick={() => setActiveIndicatorConfigId(secondaryIndicatorEvaluation.id)} type="button"><SlidersHorizontal size={13} />参数</button>
+                      <button onClick={() => updateIndicatorSettings((current) => setIndicatorEnabled(current, secondaryIndicatorEvaluation.id, false, allIndicatorDefinitions))} type="button">关闭</button>
+                    </div>
+                  </div>
+                )}
                 {drawings.map((drawing) => (
                   <div className={selectedDrawingId === drawing.id ? "layer-item active" : "layer-item"} key={drawing.id} onClick={() => setSelectedDrawingId((current) => current === drawing.id ? null : drawing.id)}>
                     <span><strong>{drawing.type === "trend-line" ? "趋势线" : drawing.type === "horizontal-line" ? "水平线" : "文字标注"}<em className="strategy-source-badge user">绘图</em></strong><small>{drawing.visible ? "显示中" : "已隐藏"}</small></span>

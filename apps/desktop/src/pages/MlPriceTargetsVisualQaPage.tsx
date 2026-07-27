@@ -47,11 +47,9 @@ export function MlPriceTargetsVisualQaPage() {
         showCrosshair={false}
         showCurrentPriceLine
         showGrid={false}
-        showMovingAverage={false}
         showPriceLabels
         showSignals={false}
         showStrategyLayers
-        showVolume={false}
         strategyLayers={[fixtureLayer]}
       />
     </main>

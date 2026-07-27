@@ -8,7 +8,7 @@ test("strategy learning content covers the built-in strategies and indicators", 
     "trend-targets",
     "smart-money-concepts",
     "machine-learning-price-targets",
-    "sma",
+    "ma",
     "ema",
     "boll",
   ]);

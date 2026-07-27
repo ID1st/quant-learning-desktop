@@ -15,7 +15,8 @@ import type { Market, Timeframe } from "@quant/shared";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
 import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 import { useChartStudySettingsStore } from "../features/chartWorkspace/chartStudySettingsStore";
-import { builtInChartIndicatorDefinitions, getIndicatorInstance, updateIndicatorInstance } from "../features/chartIndicators/chartIndicators";
+import { builtInChartIndicatorDefinitions, getIndicatorInstance } from "../features/chartIndicators/chartIndicators";
+import { useAppStore } from "../state/appStore";
 import { useToastStore } from "../features/feedback/toastStore";
 import { marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
 import { readMarketBarCache, readMarketBarCacheSummary } from "../features/marketData/marketBarCacheService";
@@ -136,6 +137,7 @@ function formatBacktestDate(value: string) {
 }
 
 export function StrategyManagementPage() {
+  const navigate = useAppStore((state) => state.navigate);
   const pluginStrategies = usePluginRuntimeStore((state) => state.strategies);
   const refreshPluginRuntime = usePluginRuntimeStore((state) => state.refresh);
   useEffect(() => {
@@ -151,10 +153,9 @@ export function StrategyManagementPage() {
   const studyIndicatorSettings = useChartStudySettingsStore((state) => state.indicators);
   const initializeStudyStrategies = useChartStudySettingsStore((state) => state.initializeStrategies);
   const updateStudyStrategy = useChartStudySettingsStore((state) => state.updateStrategy);
-  const updateStudyIndicators = useChartStudySettingsStore((state) => state.updateIndicators);
-  const smaIndicator = getIndicatorInstance(studyIndicatorSettings, "sma", builtInChartIndicatorDefinitions[0]);
-  const emaIndicator = getIndicatorInstance(studyIndicatorSettings, "ema", builtInChartIndicatorDefinitions[1]);
-  const bollIndicator = getIndicatorInstance(studyIndicatorSettings, "boll", builtInChartIndicatorDefinitions[2]);
+  const enabledIndicatorNames = builtInChartIndicatorDefinitions
+    .filter((definition) => getIndicatorInstance(studyIndicatorSettings, definition.id, definition).enabled)
+    .map((definition) => definition.name);
   useEffect(() => {
     initializeStudyStrategies(strategies);
   }, [initializeStudyStrategies, strategies]);
@@ -1084,74 +1085,13 @@ export function StrategyManagementPage() {
               <LineChart size={18} />
               <h3>图表指标</h3>
             </div>
-            <div className="parameter-grid">
-              <label>
-                <span>均线</span>
-                <input
-                  checked={smaIndicator.enabled}
-                  onChange={(event) => updateStudyIndicators((current) => ({
-                    ...current,
-                    ...updateIndicatorInstance(current, "sma", (item) => ({ ...item, enabled: event.currentTarget.checked }), builtInChartIndicatorDefinitions[0]),
-                  }))}
-                  type="checkbox"
-                />
-                <small>与超级图表同步</small>
-              </label>
-              <label>
-                <span>均线周期</span>
-                <input
-                  max="240"
-                  min="2"
-                  onChange={(event) => updateStudyIndicators((current) => ({
-                    ...current,
-                    ...updateIndicatorInstance(current, "sma", (item) => ({ ...item, parameters: { ...item.parameters, window: Number(event.currentTarget.value) || 9 } }), builtInChartIndicatorDefinitions[0]),
-                  }))}
-                  type="number"
-                  value={Number(smaIndicator.parameters.window)}
-                />
-                <small>SMA 参数</small>
-              </label>
-              <label>
-                <span>布林带</span>
-                <input
-                  checked={bollIndicator.enabled}
-                  onChange={(event) => updateStudyIndicators((current) => ({
-                    ...current,
-                    ...updateIndicatorInstance(current, "boll", (item) => ({ ...item, enabled: event.currentTarget.checked }), builtInChartIndicatorDefinitions[2]),
-                  }))}
-                  type="checkbox"
-                />
-                <small>与超级图表同步</small>
-              </label>
-              <label>
-                <span>布林周期</span>
-                <input
-                  max="240"
-                  min="2"
-                  onChange={(event) => updateStudyIndicators((current) => ({
-                    ...current,
-                    ...updateIndicatorInstance(current, "boll", (item) => ({ ...item, parameters: { ...item.parameters, window: Number(event.currentTarget.value) || 20 } }), builtInChartIndicatorDefinitions[2]),
-                  }))}
-                  type="number"
-                  value={Number(bollIndicator.parameters.window)}
-                />
-                <small>布林带窗口</small>
-              </label>
-              <label>
-                <span>布林倍数</span>
-                <input
-                  max="6"
-                  min="0.1"
-                  onChange={(event) => updateStudyIndicators((current) => ({
-                    ...current,
-                    ...updateIndicatorInstance(current, "boll", (item) => ({ ...item, parameters: { ...item.parameters, multiplier: Number(event.currentTarget.value) || 2 } }), builtInChartIndicatorDefinitions[2]),
-                  }))}
-                  step="0.1"
-                  type="number"
-                  value={Number(bollIndicator.parameters.multiplier)}
-                />
-                <small>标准差系数</small>
-              </label>
+            <div className="strategy-indicator-summary">
+              <p>{enabledIndicatorNames.length > 0 ? `当前已启用：${enabledIndicatorNames.join("、")}` : "当前未启用任何技术指标。"}</p>
+              <small>指标启停、市场口径和参数统一在超级图表中管理，避免多个配置入口产生分叉。</small>
+              <button onClick={() => navigate("chart")} type="button">
+                前往超级图表管理
+                <ChevronRight size={14} />
+              </button>
             </div>
           </section>
 

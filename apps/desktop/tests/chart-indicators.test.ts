@@ -2,27 +2,71 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   builtInChartIndicatorDefinitions,
-  createChartIndicatorLayers,
+  createChartIndicatorEvaluations,
   createChartIndicatorRegistry,
-  createPluginIndicatorLayers,
   defaultChartIndicatorSettings,
+  getIndicatorInstance,
+  resolveIndicatorConvention,
+  sanitizeChartIndicatorSettings,
+  setIndicatorEnabled,
   updateIndicatorInstance,
 } from "../src/features/chartIndicators/chartIndicators.ts";
 
-test("indicator layers honor available enabled and visible lifecycle states", () => {
-  const candles = Array.from({ length: 24 }, (_, index) => ({ time: String(index), timestamp: index, open: 100 + index, high: 101 + index, low: 99 + index, close: 100 + index, volume: 1 }));
-  const layers = createChartIndicatorLayers(candles, updateIndicatorInstance(defaultChartIndicatorSettings, "boll", (current) => ({ ...current, enabled: true, visible: false }), builtInChartIndicatorDefinitions[2]));
-  assert.equal(layers.length, 2);
-  assert.equal(layers.find((layer) => layer.id === "indicator-boll")?.visible, false);
-  assert.equal(createChartIndicatorLayers(candles, updateIndicatorInstance(defaultChartIndicatorSettings, "sma", (current) => ({ ...current, available: false }), builtInChartIndicatorDefinitions[0])).length, 0);
+test("new users start with every indicator disabled", () => {
+  assert.equal(
+    builtInChartIndicatorDefinitions.every((definition) =>
+      getIndicatorInstance(defaultChartIndicatorSettings, definition.id, definition).enabled === false),
+    true,
+  );
 });
 
-test("indicator instances render SMA, EMA and BOLL through the same registry model", () => {
+test("the registry contains all main and secondary indicators in menu order", () => {
+  assert.deepEqual(
+    builtInChartIndicatorDefinitions.map((definition) => [definition.id, definition.placement]),
+    [
+      ["ma", "overlay"],
+      ["boll", "overlay"],
+      ["ema", "overlay"],
+      ["bbi", "overlay"],
+      ["ene", "overlay"],
+      ["sar", "overlay"],
+      ["mavol", "pane"],
+      ["macd", "pane"],
+      ["vol", "pane"],
+      ["kdj", "pane"],
+      ["rsi", "pane"],
+      ["wr", "pane"],
+      ["cci", "pane"],
+    ],
+  );
+});
+
+test("main indicators support multi-select while secondary indicators are mutually exclusive", () => {
+  let settings = setIndicatorEnabled(defaultChartIndicatorSettings, "ma", true);
+  settings = setIndicatorEnabled(settings, "boll", true);
+  settings = setIndicatorEnabled(settings, "macd", true);
+  settings = setIndicatorEnabled(settings, "rsi", true);
+
+  assert.equal(getIndicatorInstance(settings, "ma").enabled, true);
+  assert.equal(getIndicatorInstance(settings, "boll").enabled, true);
+  assert.equal(getIndicatorInstance(settings, "macd").enabled, false);
+  assert.equal(getIndicatorInstance(settings, "rsi").enabled, true);
+});
+
+test("Auto convention resolves CN to A-share and HK/US to cross-market", () => {
+  assert.equal(resolveIndicatorConvention("auto", "CN"), "a-share");
+  assert.equal(resolveIndicatorConvention("auto", "HK"), "cross-market");
+  assert.equal(resolveIndicatorConvention("auto", "US"), "cross-market");
+  assert.equal(resolveIndicatorConvention("a-share", "US"), "a-share");
+});
+
+test("indicator evaluations honor enabled and visible lifecycle states", () => {
   const candles = Array.from({ length: 24 }, (_, index) => ({ time: String(index), timestamp: index, open: 100 + index, high: 101 + index, low: 99 + index, close: 100 + index, volume: 1 }));
-  const settings = updateIndicatorInstance(defaultChartIndicatorSettings, "ema", (current) => ({ ...current, enabled: true, parameters: { ...current.parameters, window: 6 } }), builtInChartIndicatorDefinitions[1]);
-  const layers = createChartIndicatorLayers(candles, settings);
-  assert.deepEqual(layers.map((layer) => layer.id), ["indicator-sma", "indicator-ema"]);
-  assert.equal(layers[1]?.elements[0]?.points?.length, candles.length);
+  const settings = updateIndicatorInstance(setIndicatorEnabled(defaultChartIndicatorSettings, "boll", true), "boll", (current) => ({ ...current, visible: false }), builtInChartIndicatorDefinitions[1]);
+  const evaluations = createChartIndicatorEvaluations(candles, settings, "cross-market");
+  assert.equal(evaluations.length, 1);
+  assert.equal(evaluations[0]?.placement, "overlay");
+  assert.equal(evaluations[0]?.visible, false);
 });
 
 test("indicator registry exposes a plugin-safe registration boundary", () => {
@@ -32,7 +76,7 @@ test("indicator registry exposes a plugin-safe registration boundary", () => {
   assert.throws(() => registry.register({ id: "plugin-test", name: "重复", parameters: [], evaluate: () => null }), /重复指标注册/);
 });
 
-test("plugin indicator layers use declared defaults and isolate evaluation failures", () => {
+test("legacy plugins without placement remain compatible as overlays and failures stay isolated", () => {
   const candles = [{ time: "1", timestamp: 1, open: 100, high: 101, low: 99, close: 100, volume: 1 }];
   const definitions = [
     {
@@ -43,9 +87,42 @@ test("plugin indicator layers use declared defaults and isolate evaluation failu
     },
     { id: "com.quant.indicator.sample:broken", name: "Broken", parameters: [], evaluate: () => { throw new Error("broken"); } },
   ];
-  const pluginSettings = updateIndicatorInstance(defaultChartIndicatorSettings, "com.quant.indicator.sample:line", (current) => ({ ...current, enabled: true, parameters: { ...current.parameters, window: 13 } }), definitions[0]);
-  const layers = createPluginIndicatorLayers(candles, definitions, pluginSettings);
+  const pluginSettings = updateIndicatorInstance(defaultChartIndicatorSettings, "com.quant.indicator.sample:line", (current) => ({
+    ...current,
+    enabled: true,
+    parametersByConvention: {
+      "a-share": { window: 13 },
+      "cross-market": { window: 13 },
+    },
+  }), definitions[0]);
+  const evaluations = createChartIndicatorEvaluations(candles, pluginSettings, "cross-market", definitions);
 
-  assert.deepEqual(layers.map((layer) => layer.id), ["plugin-line"]);
-  assert.equal(layers[0]?.name, "13");
+  assert.deepEqual(evaluations.map((evaluation) => evaluation.placement), ["overlay"]);
+  assert.equal(evaluations[0]?.placement === "overlay" ? evaluations[0].layer.name : "", "13");
+});
+
+test("plugin panes participate in secondary exclusivity and keep persisted settings", () => {
+  const pluginPane = {
+    id: "com.quant.indicator.sample:pane",
+    name: "Plugin Pane",
+    placement: "pane" as const,
+    parameters: [{ key: "period", label: "周期", type: "number" as const, defaultValue: 8 }],
+    evaluate: () => null,
+  };
+  const definitions = [...builtInChartIndicatorDefinitions, pluginPane];
+  let settings = setIndicatorEnabled(defaultChartIndicatorSettings, "vol", true, definitions);
+  settings = setIndicatorEnabled(settings, pluginPane.id, true, definitions);
+  settings = updateIndicatorInstance(settings, pluginPane.id, (current) => ({
+    ...current,
+    parametersByConvention: {
+      "a-share": { period: 13 },
+      "cross-market": { period: 21 },
+    },
+  }), pluginPane);
+
+  const restored = sanitizeChartIndicatorSettings(settings);
+  assert.equal(getIndicatorInstance(restored, "vol").enabled, false);
+  assert.equal(getIndicatorInstance(restored, pluginPane.id, pluginPane).enabled, true);
+  assert.equal(getIndicatorInstance(restored, pluginPane.id, pluginPane).parametersByConvention["a-share"].period, 13);
+  assert.equal(getIndicatorInstance(restored, pluginPane.id, pluginPane).parametersByConvention["cross-market"].period, 21);
 });
