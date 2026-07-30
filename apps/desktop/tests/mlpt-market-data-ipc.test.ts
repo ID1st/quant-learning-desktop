@@ -8,10 +8,7 @@ import type { MlptHistoricalBackfillSource } from "../src/features/marketData/ml
 const minute = 60_000;
 const endTime = Date.UTC(2026, 6, 24, 20, 0);
 
-function bars(
-  provider: GatewayMarketDataBar["provider"],
-  count: number,
-): GatewayMarketDataBar[] {
+function bars(provider: GatewayMarketDataBar["provider"], count: number): GatewayMarketDataBar[] {
   return Array.from({ length: count }, (_, index) => ({
     provider,
     market: "US",
@@ -71,7 +68,10 @@ test("MLPT intraday IPC keeps Stock SDK first and reports source contributions",
 
   assert.equal(result.ok, true);
   assert.deepEqual(calls, ["stock-sdk", "longbridge"]);
-  assert.deepEqual(result.ok ? result.meta.fallback.triedProviders : [], ["stock-sdk", "longbridge"]);
+  assert.deepEqual(result.ok ? result.meta.fallback.triedProviders : [], [
+    "stock-sdk",
+    "longbridge",
+  ]);
   assert.deepEqual(result.ok ? result.meta.historicalCompletion?.contributions : [], [
     { provider: "stock-sdk", bars: 600 },
     { provider: "longbridge", bars: 400 },

@@ -2,17 +2,17 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Timeframe } from "@quant/shared";
 
-import {
-  createPresetStrategyRegistry,
-  runRegisteredStrategy,
-  type Bar,
-} from "../src/index.ts";
+import { createPresetStrategyRegistry, runRegisteredStrategy, type Bar } from "../src/index.ts";
 import { createSmcVisualFixture } from "../src/smartMoneyConceptsVisualFixture.ts";
 import { smartMoneyConceptsTestSupport } from "../src/smartMoneyConcepts.ts";
 
 function makeWaveBars(count: number, timeframe: Timeframe = "realtime"): Bar[] {
   const interval =
-    timeframe === "1w" ? 7 * 24 * 60 * 60 * 1_000 : timeframe === "1d" ? 24 * 60 * 60 * 1_000 : 60_000;
+    timeframe === "1w"
+      ? 7 * 24 * 60 * 60 * 1_000
+      : timeframe === "1d"
+        ? 24 * 60 * 60 * 1_000
+        : 60_000;
   const start = Date.UTC(2024, 0, 1);
 
   return Array.from({ length: count }, (_, index) => {
@@ -68,39 +68,50 @@ describe("Smart Money Concepts preset", () => {
     assert.equal(definition.strategyType, "indicator");
     assert.equal(definition.defaultEnabled, false);
     assert.deepEqual(definition.supportedMarkets, ["CN", "HK", "US"]);
-    assert.deepEqual(definition.supportedTimeframes, ["realtime", "1m", "5m", "15m", "30m", "1h", "1d", "1w"]);
-    assert.equal(definition.parameterSchema.some((parameter) => parameter.type === "color"), true);
+    assert.deepEqual(definition.supportedTimeframes, [
+      "realtime",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "1d",
+      "1w",
+    ]);
+    assert.equal(
+      definition.parameterSchema.some((parameter) => parameter.type === "color"),
+      true,
+    );
     const parameterKeys = definition.parameterSchema.map((parameter) => parameter.key);
-    for (const key of
-      [
-        "mode",
-        "style",
-        "showInternalStructure",
-        "showSwingStructure",
-        "showInternalOrderBlocks",
-        "showSwingOrderBlocks",
-        "showEqualHighLow",
-        "showFairValueGaps",
-        "showDailyLevels",
-        "showWeeklyLevels",
-        "showMonthlyLevels",
-        "showPremiumDiscountZones",
-      ]) {
+    for (const key of [
+      "mode",
+      "style",
+      "showInternalStructure",
+      "showSwingStructure",
+      "showInternalOrderBlocks",
+      "showSwingOrderBlocks",
+      "showEqualHighLow",
+      "showFairValueGaps",
+      "showDailyLevels",
+      "showWeeklyLevels",
+      "showMonthlyLevels",
+      "showPremiumDiscountZones",
+    ]) {
       assert.ok(parameterKeys.includes(key), `missing SMC parameter: ${key}`);
     }
   });
 
   it("keeps the documented structure and ATR warm-up semantics", () => {
     const output = runRegisteredStrategy(createPresetStrategyRegistry(), {
-        strategyKey: "smart-money-concepts",
-        symbol: "CN:000001",
-        market: "CN",
-        timeframe: "realtime",
-        bars: makeWaveBars(40),
-        runMode: "realtime",
-        enabled: true,
-        parameters: {},
-      }).output;
+      strategyKey: "smart-money-concepts",
+      symbol: "CN:000001",
+      market: "CN",
+      timeframe: "realtime",
+      bars: makeWaveBars(40),
+      runMode: "realtime",
+      enabled: true,
+      parameters: {},
+    }).output;
 
     assert.equal(output.metrics["Structure Ready"], 0);
     assert.equal(output.metrics["ATR Ready"], 0);
@@ -110,22 +121,22 @@ describe("Smart Money Concepts preset", () => {
 
   it("emits anchored SMC overlays without fabricating trades or PnL", () => {
     const output = runRegisteredStrategy(createPresetStrategyRegistry(), {
-        strategyKey: "smart-money-concepts",
-        symbol: "US:SPY",
-        market: "US",
-        timeframe: "realtime",
-        bars: makeWaveBars(260),
-        runMode: "realtime",
-        enabled: true,
-        parameters: {
-          swingLength: 10,
-          showSwingOrderBlocks: true,
-          showFairValueGaps: true,
-          showPremiumDiscountZones: true,
-          showTrendCandles: true,
-          showSwingPoints: true,
-        },
-      }).output;
+      strategyKey: "smart-money-concepts",
+      symbol: "US:SPY",
+      market: "US",
+      timeframe: "realtime",
+      bars: makeWaveBars(260),
+      runMode: "realtime",
+      enabled: true,
+      parameters: {
+        swingLength: 10,
+        showSwingOrderBlocks: true,
+        showFairValueGaps: true,
+        showPremiumDiscountZones: true,
+        showTrendCandles: true,
+        showSwingPoints: true,
+      },
+    }).output;
 
     assert.equal(output.metrics["Structure Ready"], 1);
     assert.equal(output.metrics["ATR Ready"], 1);
@@ -134,7 +145,10 @@ describe("Smart Money Concepts preset", () => {
     assert.ok(output.overlays.some((element) => element.kind === "band"));
     assert.ok(output.overlays.some((element) => element.kind === "candle-style"));
     assert.ok(output.signals.every((signal) => signal.type === "alert"));
-    assert.equal(Object.keys(output.metrics).some((label) => /pnl|return|win rate/i.test(label)), false);
+    assert.equal(
+      Object.keys(output.metrics).some((label) => /pnl|return|win rate/i.test(label)),
+      false,
+    );
   });
 
   it("uses only confirmed higher-timeframe bars for previous levels", () => {
@@ -146,20 +160,20 @@ describe("Smart Money Concepts preset", () => {
     }));
 
     const output = runRegisteredStrategy(createPresetStrategyRegistry(), {
-        strategyKey: "smart-money-concepts",
-        symbol: "HK:00700",
-        market: "HK",
-        timeframe: "realtime",
-        bars: intradayBars,
-        seriesByTimeframe: {
-          "1d": dailyBars,
-        },
-        runMode: "realtime",
-        enabled: true,
-        parameters: {
-          showDailyLevels: true,
-        },
-      }).output;
+      strategyKey: "smart-money-concepts",
+      symbol: "HK:00700",
+      market: "HK",
+      timeframe: "realtime",
+      bars: intradayBars,
+      seriesByTimeframe: {
+        "1d": dailyBars,
+      },
+      runMode: "realtime",
+      enabled: true,
+      parameters: {
+        showDailyLevels: true,
+      },
+    }).output;
 
     const levelLabels = output.overlays
       .filter((element) => element.kind === "price-line")
@@ -173,15 +187,15 @@ describe("Smart Money Concepts preset", () => {
 
   it("returns no visuals or events when explicitly disabled", () => {
     const output = runRegisteredStrategy(createPresetStrategyRegistry(), {
-        strategyKey: "smart-money-concepts",
-        symbol: "US:SPY",
-        market: "US",
-        timeframe: "realtime",
-        bars: makeWaveBars(260),
-        runMode: "realtime",
-        enabled: false,
-        parameters: {},
-      }).output;
+      strategyKey: "smart-money-concepts",
+      symbol: "US:SPY",
+      market: "US",
+      timeframe: "realtime",
+      bars: makeWaveBars(260),
+      runMode: "realtime",
+      enabled: false,
+      parameters: {},
+    }).output;
 
     assert.deepEqual(output.overlays, []);
     assert.deepEqual(output.signals, []);

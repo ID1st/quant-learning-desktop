@@ -96,7 +96,9 @@ export interface AlphaFeedRestGatewayProviderOperations {
 }
 
 export interface AlphaFeedWebSocketGatewayProviderOperations {
-  connectStream(items: readonly MarketDataProviderRequestItem[]): Promise<LegacyStreamControlResult>;
+  connectStream(
+    items: readonly MarketDataProviderRequestItem[],
+  ): Promise<LegacyStreamControlResult>;
   readStreamSnapshot(): Promise<LegacyStreamSnapshotResult>;
   disconnectStream(): Promise<LegacyStreamControlResult>;
 }
@@ -107,7 +109,16 @@ export interface LongBridgeGatewayProviderOperations {
 }
 
 const allMarkets: readonly Market[] = ["US", "HK", "CN"];
-const quoteAndBarTimeframes: readonly Timeframe[] = ["realtime", "1m", "5m", "15m", "30m", "1h", "1d", "1w"];
+const quoteAndBarTimeframes: readonly Timeframe[] = [
+  "realtime",
+  "1m",
+  "5m",
+  "15m",
+  "30m",
+  "1h",
+  "1d",
+  "1w",
+];
 const visibleChartTimeframes: readonly Timeframe[] = ["realtime", "1d", "1w"];
 
 const alphaFeedRestCapability: MarketDataProviderCapability = {
@@ -151,7 +162,12 @@ const longBridgeCapability: MarketDataProviderCapability = {
 export function createAlphaFeedRestGatewayProvider(
   operations: AlphaFeedRestGatewayProviderOperations,
 ): RealtimeQuoteProvider & HistoricalBarProvider & IntradayBarProvider {
-  const health = createCompatibilityHealthStore("alphafeed-rest", "AlphaFeed REST", alphaFeedRestCapability, "healthy");
+  const health = createCompatibilityHealthStore(
+    "alphafeed-rest",
+    "AlphaFeed REST",
+    alphaFeedRestCapability,
+    "healthy",
+  );
 
   return {
     id: "alphafeed-rest",
@@ -190,21 +206,49 @@ export function createAlphaFeedWebSocketGatewayProvider(
     getHealth: health.read,
     async fetchQuoteSnapshot() {
       const result = await operations.readStreamSnapshot();
-      health.update(mapLegacyHealth(result.health, "alphafeed-websocket", alphaFeedWebSocketCapability, result.state));
+      health.update(
+        mapLegacyHealth(
+          result.health,
+          "alphafeed-websocket",
+          alphaFeedWebSocketCapability,
+          result.state,
+        ),
+      );
       return result.snapshots.map((snapshot) => mapQuoteSnapshot(snapshot, "alphafeed-websocket"));
     },
     async connectStream(items) {
       const result = await operations.connectStream(items);
-      health.update(mapLegacyHealth(result.health, "alphafeed-websocket", alphaFeedWebSocketCapability, result.state));
+      health.update(
+        mapLegacyHealth(
+          result.health,
+          "alphafeed-websocket",
+          alphaFeedWebSocketCapability,
+          result.state,
+        ),
+      );
     },
     async readStreamSnapshot() {
       const result = await operations.readStreamSnapshot();
-      health.update(mapLegacyHealth(result.health, "alphafeed-websocket", alphaFeedWebSocketCapability, result.state));
+      health.update(
+        mapLegacyHealth(
+          result.health,
+          "alphafeed-websocket",
+          alphaFeedWebSocketCapability,
+          result.state,
+        ),
+      );
       return result.snapshots.map((snapshot) => mapQuoteSnapshot(snapshot, "alphafeed-websocket"));
     },
     async disconnectStream() {
       const result = await operations.disconnectStream();
-      health.update(mapLegacyHealth(result.health, "alphafeed-websocket", alphaFeedWebSocketCapability, result.state));
+      health.update(
+        mapLegacyHealth(
+          result.health,
+          "alphafeed-websocket",
+          alphaFeedWebSocketCapability,
+          result.state,
+        ),
+      );
     },
   };
 }
@@ -212,7 +256,12 @@ export function createAlphaFeedWebSocketGatewayProvider(
 export function createLongBridgeGatewayProvider(
   operations: LongBridgeGatewayProviderOperations,
 ): RealtimeQuoteProvider & HistoricalBarProvider & IntradayBarProvider {
-  const health = createCompatibilityHealthStore("longbridge", "LongBridge", longBridgeCapability, "delayed");
+  const health = createCompatibilityHealthStore(
+    "longbridge",
+    "LongBridge",
+    longBridgeCapability,
+    "delayed",
+  );
 
   return {
     id: "longbridge",
@@ -264,12 +313,20 @@ function mapQuoteResult(
   delayLevel: MarketDataProviderDelayLevel = "realtime",
 ) {
   if (!result.ok) {
-    updateFailedResultHealth(result.error.message, result.error.health, provider, health, delayLevel);
+    updateFailedResultHealth(
+      result.error.message,
+      result.error.health,
+      provider,
+      health,
+      delayLevel,
+    );
     throw new Error(result.error.message);
   }
 
   if (result.health) {
-    health.update(mapLegacyHealth(result.health, provider, healthCapability(health), undefined, delayLevel));
+    health.update(
+      mapLegacyHealth(result.health, provider, healthCapability(health), undefined, delayLevel),
+    );
   }
 
   return result.snapshots.map((snapshot) => mapQuoteSnapshot(snapshot, provider, delayLevel));
@@ -282,12 +339,20 @@ function mapBarsResult(
   delayLevel: MarketDataProviderDelayLevel = "realtime",
 ) {
   if (!result.ok) {
-    updateFailedResultHealth(result.error.message, result.error.health, provider, health, delayLevel);
+    updateFailedResultHealth(
+      result.error.message,
+      result.error.health,
+      provider,
+      health,
+      delayLevel,
+    );
     throw new Error(result.error.message);
   }
 
   if (result.health) {
-    health.update(mapLegacyHealth(result.health, provider, healthCapability(health), undefined, delayLevel));
+    health.update(
+      mapLegacyHealth(result.health, provider, healthCapability(health), undefined, delayLevel),
+    );
   }
 
   return result.bars.map((bar) => mapMarketDataBar(bar, provider, delayLevel));

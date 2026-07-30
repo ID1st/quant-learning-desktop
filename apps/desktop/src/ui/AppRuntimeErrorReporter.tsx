@@ -16,8 +16,10 @@ export function AppRuntimeErrorReporter() {
         durationMs: 4200,
       });
     };
-    const handleWindowError = (event: ErrorEvent) => reportError("window-error", event.error ?? event.message);
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => reportError("unhandled-rejection", event.reason);
+    const handleWindowError = (event: ErrorEvent) =>
+      reportError("window-error", event.error ?? event.message);
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) =>
+      reportError("unhandled-rejection", event.reason);
 
     window.addEventListener("error", handleWindowError);
     window.addEventListener("unhandledrejection", handleUnhandledRejection);

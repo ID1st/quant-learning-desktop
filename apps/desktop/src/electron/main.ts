@@ -9,7 +9,10 @@ import { registerPluginIpcHandlers } from "./pluginIpc";
 import { createPluginManager } from "./pluginManager";
 import { createPluginIpcHandlers } from "./pluginIpcContract";
 import { createPluginRuntimeHost } from "./pluginRuntimeHost";
-import { createMainSecureCredentialStore, registerSecureCredentialIpcHandlers } from "./secureCredentialIpc";
+import {
+  createMainSecureCredentialStore,
+  registerSecureCredentialIpcHandlers,
+} from "./secureCredentialIpc";
 import {
   createDesktopRendererSecurityPolicy,
   isTrustedRendererUrl,
@@ -33,10 +36,7 @@ function configureAuthLifecycle(manager: AuthSessionManager): () => void {
       Date.parse(state.session.entitlementEndsAt),
       Date.parse(state.session.offlineUntil),
     );
-    const delay = Math.min(
-      Math.max(deadline - Date.now() + 250, 250),
-      2_147_000_000,
-    );
+    const delay = Math.min(Math.max(deadline - Date.now() + 250, 250), 2_147_000_000);
     expiryTimer = setTimeout(() => {
       void manager.revalidate();
     }, delay);
@@ -90,10 +90,12 @@ export function createMainWindowConfig(): DesktopWindowOptions {
 export function createMainWindow(securityPolicy?: DesktopRendererSecurityPolicy): BrowserWindow {
   const windowConfig = createMainWindowConfig();
   const rendererDevServer = process.env.ELECTRON_RENDERER_URL;
-  const resolvedSecurityPolicy = securityPolicy ?? createDesktopRendererSecurityPolicy({
-    rendererEntry: windowConfig.rendererEntry,
-    rendererDevServerUrl: rendererDevServer,
-  });
+  const resolvedSecurityPolicy =
+    securityPolicy ??
+    createDesktopRendererSecurityPolicy({
+      rendererEntry: windowConfig.rendererEntry,
+      rendererDevServerUrl: rendererDevServer,
+    });
   const mainWindow = new BrowserWindow({
     title: windowConfig.title,
     width: windowConfig.width,
@@ -133,10 +135,7 @@ void app.whenReady().then(async () => {
   });
   const credentialStore = createMainSecureCredentialStore();
   const authManager = await createMainAuthSessionManager();
-  const disposeAuthIpc = registerAuthIpcHandlers(
-    securityPolicy,
-    authManager,
-  );
+  const disposeAuthIpc = registerAuthIpcHandlers(securityPolicy, authManager);
   const disposeAuthLifecycle = configureAuthLifecycle(authManager);
   const marketBarCacheRepository = await createDuckDbMarketBarRepository(
     join(app.getPath("userData"), "data", "market-cache.duckdb"),
@@ -148,9 +147,16 @@ void app.whenReady().then(async () => {
   registerMarketDataIpcHandlers(securityPolicy, createMarketDataIpcHandlers({ credentialStore }));
   registerProviderDataIpcHandlers(securityPolicy);
   registerSecureCredentialIpcHandlers(securityPolicy, credentialStore);
-  const pluginManager = createPluginManager({ pluginsDirectory: join(app.getPath("userData"), "plugins") });
+  const pluginManager = createPluginManager({
+    pluginsDirectory: join(app.getPath("userData"), "plugins"),
+  });
   const pluginRuntime = createPluginRuntimeHost({ manager: pluginManager });
-  registerPluginIpcHandlers(securityPolicy, pluginManager, undefined, createPluginIpcHandlers(pluginManager, pluginRuntime));
+  registerPluginIpcHandlers(
+    securityPolicy,
+    pluginManager,
+    undefined,
+    createPluginIpcHandlers(pluginManager, pluginRuntime),
+  );
   app.once("before-quit", () => {
     disposeAuthLifecycle();
     disposeAuthIpc();

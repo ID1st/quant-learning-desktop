@@ -16,7 +16,10 @@ export interface HistoricalCoverageRequirement {
 }
 
 export interface MlptHistoricalBackfillSource {
-  readonly provider: Extract<GatewayMarketDataProviderId, "stock-sdk" | "longbridge" | "alphafeed-rest">;
+  readonly provider: Extract<
+    GatewayMarketDataProviderId,
+    "stock-sdk" | "longbridge" | "alphafeed-rest"
+  >;
   fetchBars(request: MarketDataBarRequest): Promise<readonly GatewayMarketDataBar[]>;
   getHealth?(): Promise<MarketDataProviderHealthView>;
 }

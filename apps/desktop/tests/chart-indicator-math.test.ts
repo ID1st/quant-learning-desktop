@@ -16,7 +16,10 @@ import {
   calculateWr,
 } from "../src/features/chartIndicators/indicatorMath.ts";
 
-function candlesFromCloses(closes: readonly number[], volumes: readonly number[] = []): CandlePoint[] {
+function candlesFromCloses(
+  closes: readonly number[],
+  volumes: readonly number[] = [],
+): CandlePoint[] {
   return closes.map((close, index) => ({
     time: String(index),
     timestamp: index,
@@ -35,7 +38,10 @@ function assertFiniteSeries(series: readonly { value: number }[]) {
 test("MA, BOLL, BBI and ENE wait for complete windows", () => {
   const candles = candlesFromCloses(Array.from({ length: 24 }, (_, index) => index + 1));
 
-  assert.deepEqual(calculateMa(candles, 5).map((point) => point.timestamp), Array.from({ length: 20 }, (_, index) => index + 4));
+  assert.deepEqual(
+    calculateMa(candles, 5).map((point) => point.timestamp),
+    Array.from({ length: 20 }, (_, index) => index + 4),
+  );
   assert.equal(calculateMa(candles, 5)[0]?.value, 3);
   assert.equal(calculateBoll(candles, 20, 2)[0]?.timestamp, 19);
   assert.equal(calculateBbi(candles)[0]?.timestamp, 23);
@@ -46,8 +52,14 @@ test("EMA uses the first complete SMA window as its seed", () => {
   const candles = candlesFromCloses([1, 2, 3, 4, 5, 6]);
   const result = calculateEma(candles, 3);
 
-  assert.deepEqual(result.map((point) => point.timestamp), [2, 3, 4, 5]);
-  assert.deepEqual(result.map((point) => point.value), [2, 3, 4, 5]);
+  assert.deepEqual(
+    result.map((point) => point.timestamp),
+    [2, 3, 4, 5],
+  );
+  assert.deepEqual(
+    result.map((point) => point.value),
+    [2, 3, 4, 5],
+  );
 });
 
 test("BOLL uses population deviation and ENE applies asymmetric bands", () => {
@@ -91,7 +103,12 @@ test("MACD shares DIF and DEA while A-share doubles only the histogram", () => {
 });
 
 test("KDJ starts K and D at 50 and stays neutral on zero amplitude", () => {
-  const flat = candlesFromCloses(Array.from({ length: 12 }, () => 10)).map((candle) => ({ ...candle, open: 10, high: 10, low: 10 }));
+  const flat = candlesFromCloses(Array.from({ length: 12 }, () => 10)).map((candle) => ({
+    ...candle,
+    open: 10,
+    high: 10,
+    low: 10,
+  }));
   const result = calculateKdj(flat, 9, 3, 3);
 
   assert.equal(result[0]?.timestamp, 8);
@@ -105,7 +122,10 @@ test("KDJ starts K and D at 50 and stays neutral on zero amplitude", () => {
 
 test("RSI returns neutral 50 for flat data and 100 for zero-loss rises", () => {
   const flat = calculateRsi(candlesFromCloses(Array.from({ length: 30 }, () => 10)), 14);
-  const rising = calculateRsi(candlesFromCloses(Array.from({ length: 30 }, (_, index) => index + 1)), 14);
+  const rising = calculateRsi(
+    candlesFromCloses(Array.from({ length: 30 }, (_, index) => index + 1)),
+    14,
+  );
 
   assert.equal(flat[0]?.timestamp, 14);
   assert.equal(flat[0]?.value, 50);
@@ -115,7 +135,12 @@ test("RSI returns neutral 50 for flat data and 100 for zero-loss rises", () => {
 });
 
 test("WR and CCI use stable neutral values on flat data", () => {
-  const flat = candlesFromCloses(Array.from({ length: 30 }, () => 10)).map((candle) => ({ ...candle, open: 10, high: 10, low: 10 }));
+  const flat = candlesFromCloses(Array.from({ length: 30 }, () => 10)).map((candle) => ({
+    ...candle,
+    open: 10,
+    high: 10,
+    low: 10,
+  }));
   const wr = calculateWr(flat, 14);
   const cci = calculateCci(flat, 14, 0.015);
 
@@ -126,7 +151,18 @@ test("WR and CCI use stable neutral values on flat data", () => {
 });
 
 test("all calculations ignore non-finite output opportunities", () => {
-  const malformed = candlesFromCloses([1, 2, Number.NaN, 4, Number.POSITIVE_INFINITY, 6, 7, 8, 9, 10]);
+  const malformed = candlesFromCloses([
+    1,
+    2,
+    Number.NaN,
+    4,
+    Number.POSITIVE_INFINITY,
+    6,
+    7,
+    8,
+    9,
+    10,
+  ]);
   const values = [
     ...calculateMa(malformed, 3),
     ...calculateEma(malformed, 3),

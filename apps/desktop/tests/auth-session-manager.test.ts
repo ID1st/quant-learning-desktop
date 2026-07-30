@@ -70,17 +70,13 @@ function createStore() {
   };
   const crypto: AuthTokenCrypto = {
     isEncryptionAvailable: () => true,
-    encrypt: async (value) =>
-      Buffer.from(value, "utf8").toString("base64"),
-    decrypt: async (value) =>
-      Buffer.from(value, "base64").toString("utf8"),
+    encrypt: async (value) => Buffer.from(value, "utf8").toString("base64"),
+    decrypt: async (value) => Buffer.from(value, "base64").toString("utf8"),
   };
   return createAuthTokenStore(persistence, crypto);
 }
 
-function createClient(
-  overrides: Partial<CloudAuthClient>,
-): CloudAuthClient {
+function createClient(overrides: Partial<CloudAuthClient>): CloudAuthClient {
   const notImplemented = async (): Promise<never> => {
     throw new Error("unexpected client call");
   };
@@ -226,10 +222,7 @@ test("concurrent bootstrap and lifecycle revalidation share one refresh", async 
   assert.equal(bootstrapResult.ok, true);
   assert.equal(revalidationResult.ok, true);
   assert.equal(refreshCalls, 1);
-  assert.equal(
-    revalidationResult.ok && revalidationResult.data.phase,
-    "AUTHENTICATED_ONLINE",
-  );
+  assert.equal(revalidationResult.ok && revalidationResult.data.phase, "AUTHENTICATED_ONLINE");
 });
 
 test("concurrent authenticated revalidations share one rotating refresh token", async () => {
@@ -256,10 +249,7 @@ test("concurrent authenticated revalidations share one rotating refresh token", 
         return onlineBundle;
       },
       getSession: async () => {
-        throw new CloudAuthClientError(
-          "SESSION_REVOKED",
-          "access token expired",
-        );
+        throw new CloudAuthClientError("SESSION_REVOKED", "access token expired");
       },
     }),
     store,
@@ -275,10 +265,7 @@ test("concurrent authenticated revalidations share one rotating refresh token", 
   assert.equal(refreshCalls, 2);
   assert.deepEqual(secondResult, firstResult);
   assert.equal(firstResult.ok, true);
-  assert.equal(
-    firstResult.ok && firstResult.data.phase,
-    "AUTHENTICATED_ONLINE",
-  );
+  assert.equal(firstResult.ok && firstResult.data.phase, "AUTHENTICATED_ONLINE");
 });
 
 test("logout supersedes an in-flight revalidation result", async () => {
@@ -305,10 +292,7 @@ test("logout supersedes an in-flight revalidation result", async () => {
         return onlineBundle;
       },
       getSession: async () => {
-        throw new CloudAuthClientError(
-          "SESSION_REVOKED",
-          "access token expired",
-        );
+        throw new CloudAuthClientError("SESSION_REVOKED", "access token expired");
       },
       logout: async () => ({ signedOut: true }),
     }),
@@ -340,10 +324,7 @@ test("bootstrap falls back to a signed lease only for network failures", async (
   const manager = createManager(
     createClient({
       refreshSession: async () => {
-        throw new CloudAuthClientError(
-          "NETWORK_UNAVAILABLE",
-          "network unavailable",
-        );
+        throw new CloudAuthClientError("NETWORK_UNAVAILABLE", "network unavailable");
       },
     }),
     store,
@@ -369,10 +350,7 @@ test("an online session moves to its signed offline lease when the network drops
     createClient({
       refreshSession: async () => onlineBundle,
       getSession: async () => {
-        throw new CloudAuthClientError(
-          "NETWORK_UNAVAILABLE",
-          "network unavailable",
-        );
+        throw new CloudAuthClientError("NETWORK_UNAVAILABLE", "network unavailable");
       },
     }),
     store,
@@ -421,10 +399,7 @@ test("offline revalidation enters the entitlement-expired phase at the qualifica
     createClient({
       refreshSession: async () => expiringBundle,
       getSession: async () => {
-        throw new CloudAuthClientError(
-          "NETWORK_UNAVAILABLE",
-          "network unavailable",
-        );
+        throw new CloudAuthClientError("NETWORK_UNAVAILABLE", "network unavailable");
       },
     }),
     store,
@@ -457,10 +432,7 @@ test("revalidation refreshes when the short-lived access token has expired", asy
         return onlineBundle;
       },
       getSession: async () => {
-        throw new CloudAuthClientError(
-          "SESSION_REVOKED",
-          "access token expired",
-        );
+        throw new CloudAuthClientError("SESSION_REVOKED", "access token expired");
       },
     }),
     store,
@@ -498,9 +470,7 @@ test("login challenge remains in the manager and is consumed during invite redem
     data: { kind: "INVITE_REQUIRED" },
   });
   assert.equal(
-    JSON.stringify(await manager.getSnapshot()).includes(
-      "main-process-only-challenge",
-    ),
+    JSON.stringify(await manager.getSnapshot()).includes("main-process-only-challenge"),
     false,
   );
 
@@ -537,10 +507,7 @@ test("lifecycle revalidation preserves an unfinished invite challenge", async ()
   });
 
   assert.equal(revalidation.ok, true);
-  assert.equal(
-    revalidation.ok && revalidation.data.phase,
-    "INVITE_REQUIRED",
-  );
+  assert.equal(revalidation.ok && revalidation.data.phase, "INVITE_REQUIRED");
   assert.equal(observedChallenge, "focus-safe-login-challenge");
   assert.equal(redemption.ok, true);
 });

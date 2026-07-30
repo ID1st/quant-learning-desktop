@@ -23,36 +23,20 @@ test("login challenges are short-lived and reject tampering", () => {
     new Date("2026-07-28T00:00:00.000Z"),
   );
 
-  assert.deepEqual(
-    verifyLoginChallenge(
-      token,
-      secret,
-      new Date("2026-07-28T00:09:59.000Z"),
-    ),
-    {
-      userId: "user-1",
-      email: "learner@example.com",
-      authVersion: 0,
-      reason: "INVITE_REQUIRED",
-      expiresAt: "2026-07-28T00:10:00.000Z",
-    },
-  );
+  assert.deepEqual(verifyLoginChallenge(token, secret, new Date("2026-07-28T00:09:59.000Z")), {
+    userId: "user-1",
+    email: "learner@example.com",
+    authVersion: 0,
+    reason: "INVITE_REQUIRED",
+    expiresAt: "2026-07-28T00:10:00.000Z",
+  });
   assert.throws(
     () =>
-      verifyLoginChallenge(
-        `${token.slice(0, -1)}x`,
-        secret,
-        new Date("2026-07-28T00:01:00.000Z"),
-      ),
+      verifyLoginChallenge(`${token.slice(0, -1)}x`, secret, new Date("2026-07-28T00:01:00.000Z")),
     /invalid/i,
   );
   assert.throws(
-    () =>
-      verifyLoginChallenge(
-        token,
-        secret,
-        new Date("2026-07-28T00:10:01.000Z"),
-      ),
+    () => verifyLoginChallenge(token, secret, new Date("2026-07-28T00:10:01.000Z")),
     /expired/i,
   );
 });
@@ -80,29 +64,17 @@ test("offline leases are verifiable with only the public key", () => {
     privateKeyPem,
   );
 
-  assert.deepEqual(
-    verifyOfflineLease(
-      lease,
-      publicKeyPem,
-      new Date("2026-07-28T12:00:00.000Z"),
-    ),
-    {
-      userId: "user-1",
-      email: "learner@example.com",
-      deviceId: "device-123",
-      entitlementDurationDays: 30,
-      entitlementEndsAt: "2026-08-27T00:00:00.000Z",
-      offlineUntil: "2026-07-29T00:00:00.000Z",
-      issuedAt: "2026-07-28T00:00:00.000Z",
-    },
-  );
+  assert.deepEqual(verifyOfflineLease(lease, publicKeyPem, new Date("2026-07-28T12:00:00.000Z")), {
+    userId: "user-1",
+    email: "learner@example.com",
+    deviceId: "device-123",
+    entitlementDurationDays: 30,
+    entitlementEndsAt: "2026-08-27T00:00:00.000Z",
+    offlineUntil: "2026-07-29T00:00:00.000Z",
+    issuedAt: "2026-07-28T00:00:00.000Z",
+  });
   assert.throws(
-    () =>
-      verifyOfflineLease(
-        lease,
-        publicKeyPem,
-        new Date("2026-07-29T00:00:00.001Z"),
-      ),
+    () => verifyOfflineLease(lease, publicKeyPem, new Date("2026-07-29T00:00:00.001Z")),
     /expired/i,
   );
 });
@@ -123,9 +95,7 @@ test("offline lease key validation accepts only a matching Ed25519 pair", () => 
     type: "spki",
   }) as string;
 
-  assert.doesNotThrow(() =>
-    validateOfflineLeaseKeyPair(privateKeyPem, publicKeyPem),
-  );
+  assert.doesNotThrow(() => validateOfflineLeaseKeyPair(privateKeyPem, publicKeyPem));
   assert.throws(
     () => validateOfflineLeaseKeyPair("not-a-private-key", publicKeyPem),
     /private key/i,
@@ -149,8 +119,5 @@ test("offline lease key validation rejects non-Ed25519 keys", () => {
     type: "spki",
   }) as string;
 
-  assert.throws(
-    () => validateOfflineLeaseKeyPair(privateKeyPem, publicKeyPem),
-    /Ed25519/i,
-  );
+  assert.throws(() => validateOfflineLeaseKeyPair(privateKeyPem, publicKeyPem), /Ed25519/i);
 });

@@ -113,7 +113,10 @@ textarea:focus-visible {
   color: var(--text-secondary);
   cursor: pointer;
   padding: 0;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
 }
 
 .app-sidebar button.active,
@@ -520,8 +523,7 @@ textarea:focus-visible {
   min-height: 100vh;
   background:
     linear-gradient(135deg, rgba(51, 112, 255, 0.14), transparent 34%),
-    linear-gradient(225deg, rgba(33, 192, 139, 0.08), transparent 30%),
-    #090d14;
+    linear-gradient(225deg, rgba(33, 192, 139, 0.08), transparent 30%), #090d14;
 }
 
 .login-page {
@@ -1369,7 +1371,10 @@ textarea:focus-visible {
   cursor: pointer;
   padding: 10px 8px;
   text-align: left;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
 }
 
 .provider-navigation-list button:hover {
@@ -1551,7 +1556,10 @@ textarea:focus-visible {
   color: #fff;
   cursor: pointer;
   font-weight: 800;
-  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
 }
 
 .today-primary-action {
@@ -2844,7 +2852,9 @@ textarea:focus-visible {
 }
 
 @keyframes chart-loading-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .chart-bg {
@@ -3246,9 +3256,26 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
-.indicator-lifecycle-actions { display: flex; flex-wrap: wrap; gap: 5px; }
-.indicator-lifecycle-actions button { min-height: 24px; border: 1px solid rgba(73, 91, 112, 0.45); border-radius: 5px; background: rgba(12, 18, 26, 0.78); color: #b9c4d2; cursor: pointer; font-size: 11px; font-weight: 800; padding: 0 7px; }
-.indicator-lifecycle-actions button:hover { border-color: rgba(66, 223, 173, 0.5); color: #f5f8ff; }
+.indicator-lifecycle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.indicator-lifecycle-actions button {
+  min-height: 24px;
+  border: 1px solid rgba(73, 91, 112, 0.45);
+  border-radius: 5px;
+  background: rgba(12, 18, 26, 0.78);
+  color: #b9c4d2;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 0 7px;
+}
+.indicator-lifecycle-actions button:hover {
+  border-color: rgba(66, 223, 173, 0.5);
+  color: #f5f8ff;
+}
 
 .chart-settings-reset {
   justify-self: start;
@@ -3561,13 +3588,33 @@ textarea:focus-visible {
   min-width: 0;
 }
 
-.instrument-search-results strong { color: #f5f8ff; }
-.instrument-search-results small { color: #8f9caf; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.instrument-search-results button { height: 28px; flex: 0 0 auto; }
-.instrument-search-results button:disabled { border-color: rgba(73, 91, 112, 0.4); color: #718096; cursor: default; }
-.spin { animation: chart-spin 0.9s linear infinite; }
+.instrument-search-results strong {
+  color: #f5f8ff;
+}
+.instrument-search-results small {
+  color: #8f9caf;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.instrument-search-results button {
+  height: 28px;
+  flex: 0 0 auto;
+}
+.instrument-search-results button:disabled {
+  border-color: rgba(73, 91, 112, 0.4);
+  color: #718096;
+  cursor: default;
+}
+.spin {
+  animation: chart-spin 0.9s linear infinite;
+}
 
-@keyframes chart-spin { to { transform: rotate(360deg); } }
+@keyframes chart-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .watchlist-items button {
   display: grid;
@@ -4054,15 +4101,58 @@ textarea:focus-visible {
   padding: 12px;
 }
 
-.chart-diagnostics-drawer section { display: grid; gap: 7px; }
-.chart-diagnostics-drawer p { margin: 0; color: #8f9caf; font-size: 11px; font-weight: 800; }
-.chart-diagnostics-drawer section > small { color: #9eabbc; font-size: 12px; line-height: 1.5; }
-.diagnostic-provider-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; border-top: 1px solid rgba(73, 91, 112, 0.24); padding-top: 7px; }
-.diagnostic-provider-row span { display: grid; gap: 3px; min-width: 0; }
-.diagnostic-provider-row strong { color: #e6edf6; font-size: 12px; }
-.diagnostic-provider-row small { overflow: hidden; color: #8f9caf; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.diagnostic-timeline-row { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 8px; border-top: 1px solid rgba(73, 91, 112, 0.24); color: #aeb9c8; font-size: 11px; padding-top: 6px; }
-.diagnostic-timeline-row time { color: #718096; font-family: var(--font-data); }
+.chart-diagnostics-drawer section {
+  display: grid;
+  gap: 7px;
+}
+.chart-diagnostics-drawer p {
+  margin: 0;
+  color: #8f9caf;
+  font-size: 11px;
+  font-weight: 800;
+}
+.chart-diagnostics-drawer section > small {
+  color: #9eabbc;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.diagnostic-provider-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid rgba(73, 91, 112, 0.24);
+  padding-top: 7px;
+}
+.diagnostic-provider-row span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.diagnostic-provider-row strong {
+  color: #e6edf6;
+  font-size: 12px;
+}
+.diagnostic-provider-row small {
+  overflow: hidden;
+  color: #8f9caf;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.diagnostic-timeline-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 8px;
+  border-top: 1px solid rgba(73, 91, 112, 0.24);
+  color: #aeb9c8;
+  font-size: 11px;
+  padding-top: 6px;
+}
+.diagnostic-timeline-row time {
+  color: #718096;
+  font-family: var(--font-data);
+}
 
 .bottom-status-strip em,
 .bottom-status-strip small {
@@ -4912,7 +5002,11 @@ textarea:focus-visible {
   outline: none;
   background: rgba(8, 13, 20, 0.64);
   color: #d9e2ea;
-  font: 12px/1.65 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font:
+    12px/1.65 "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
   padding: 12px;
 }
 
@@ -6176,8 +6270,7 @@ textarea:focus-visible {
   border: 1px dashed rgba(66, 223, 173, 0.42);
   border-radius: 8px;
   background:
-    linear-gradient(135deg, rgba(66, 223, 173, 0.08), transparent 42%),
-    rgba(8, 13, 20, 0.48);
+    linear-gradient(135deg, rgba(66, 223, 173, 0.08), transparent 42%), rgba(8, 13, 20, 0.48);
   padding: 22px;
   text-align: center;
 }
@@ -6380,7 +6473,11 @@ textarea:focus-visible {
   outline: none;
   background: rgba(8, 13, 20, 0.64);
   color: #d9e2ea;
-  font: 12px/1.65 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font:
+    12px/1.65 "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
   padding: 12px;
 }
 

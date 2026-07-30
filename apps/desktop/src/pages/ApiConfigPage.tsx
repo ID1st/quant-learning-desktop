@@ -37,7 +37,10 @@ import {
   type ApiProviderPriorityItem,
 } from "../features/api/apiProviderPriorityConfig";
 import { useAuthStore } from "../features/auth/authStore";
-import { initialMarketDataSyncSteps, runInitialMarketDataSync } from "../features/marketData/marketDataSyncService";
+import {
+  initialMarketDataSyncSteps,
+  runInitialMarketDataSync,
+} from "../features/marketData/marketDataSyncService";
 import {
   readMarketDataProviderSettings,
   writeMarketDataProviderSettings,
@@ -128,7 +131,12 @@ function CredentialManagement({
         <button className="secondary-auth-action" onClick={onReplace} type="button">
           修改 / 替换
         </button>
-        <button className="credential-delete-action" disabled={isDeleting} onClick={onDelete} type="button">
+        <button
+          className="credential-delete-action"
+          disabled={isDeleting}
+          onClick={onDelete}
+          type="button"
+        >
           {isDeleting ? "删除中..." : "删除凭据"}
         </button>
       </div>
@@ -137,11 +145,20 @@ function CredentialManagement({
 }
 
 export function ApiConfigPage() {
-  const [storedAlphaFeedBinding, setStoredAlphaFeedBinding] = useState(() => readAlphaFeedApiBinding());
-  const [storedAlphaFeedStreamBinding, setStoredAlphaFeedStreamBinding] = useState(() => readAlphaFeedStreamBinding());
-  const [storedLongPortBinding, setStoredLongPortBinding] = useState(() => readLongPortApiBinding());
-  const [marketDataProviderSettings, setMarketDataProviderSettings] = useState(() => readMarketDataProviderSettings());
-  const [selectedProviderId, setSelectedProviderId] = useState<ApiProviderPriorityItem["id"]>("stock-sdk");
+  const [storedAlphaFeedBinding, setStoredAlphaFeedBinding] = useState(() =>
+    readAlphaFeedApiBinding(),
+  );
+  const [storedAlphaFeedStreamBinding, setStoredAlphaFeedStreamBinding] = useState(() =>
+    readAlphaFeedStreamBinding(),
+  );
+  const [storedLongPortBinding, setStoredLongPortBinding] = useState(() =>
+    readLongPortApiBinding(),
+  );
+  const [marketDataProviderSettings, setMarketDataProviderSettings] = useState(() =>
+    readMarketDataProviderSettings(),
+  );
+  const [selectedProviderId, setSelectedProviderId] =
+    useState<ApiProviderPriorityItem["id"]>("stock-sdk");
   const [alphaFeedForm, setAlphaFeedForm] = useState<AlphaFeedApiForm>({
     ...defaultAlphaFeedForm,
     apiUrl: storedAlphaFeedBinding?.apiUrl ?? defaultAlphaFeedForm.apiUrl,
@@ -166,12 +183,16 @@ export function ApiConfigPage() {
   );
   const [error, setError] = useState("");
   const [streamStatus, setStreamStatus] = useState(
-    storedAlphaFeedStreamBinding ? "AlphaFeed WebSocket 会员通道已预留，行情网关可在后续阶段接入。" : "",
+    storedAlphaFeedStreamBinding
+      ? "AlphaFeed WebSocket 会员通道已预留，行情网关可在后续阶段接入。"
+      : "",
   );
   const [streamError, setStreamError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingStream, setIsSavingStream] = useState(false);
-  const [deletingProvider, setDeletingProvider] = useState<ApiProviderPriorityItem["id"] | null>(null);
+  const [deletingProvider, setDeletingProvider] = useState<ApiProviderPriorityItem["id"] | null>(
+    null,
+  );
   const setApiBound = useAuthStore((state) => state.setApiBound);
   const navigate = useAppStore((state) => state.navigate);
   const hasDesktopBridge = Boolean(window.quantDesktop?.alphaFeed);
@@ -187,7 +208,10 @@ export function ApiConfigPage() {
   };
 
   const updateAlphaFeedStreamField = (field: keyof AlphaFeedStreamForm, value: string) => {
-    setAlphaFeedStreamForm((current) => ({ ...current, [field]: field === "mode" && value === "all-symbols" ? "all-symbols" : value }));
+    setAlphaFeedStreamForm((current) => ({
+      ...current,
+      [field]: field === "mode" && value === "all-symbols" ? "all-symbols" : value,
+    }));
   };
 
   const updateLongPortField = (field: keyof LongPortApiForm, value: string) => {
@@ -215,13 +239,10 @@ export function ApiConfigPage() {
     setIsSubmitting(true);
 
     try {
-      const verification = await verifySelectedBackupProvider(
-        selectedProviderId,
-        {
-          alphaFeed: alphaFeedForm,
-          longPort: longPortForm,
-        },
-      );
+      const verification = await verifySelectedBackupProvider(selectedProviderId, {
+        alphaFeed: alphaFeedForm,
+        longPort: longPortForm,
+      });
 
       if (verification.provider === "longbridge") {
         setApiBound(true);
@@ -237,7 +258,9 @@ export function ApiConfigPage() {
         ? await resolveLongPortCredentials(longPortForm)
         : await readSavedLongPortCredentials().catch(() => null);
       const longPortBinding =
-        shouldBindLongPortFallback && longPortCredentials ? await verifyLongPortApiConfig(longPortCredentials) : storedLongPortBinding;
+        shouldBindLongPortFallback && longPortCredentials
+          ? await verifyLongPortApiConfig(longPortCredentials)
+          : storedLongPortBinding;
       const canUseLongPortFallback = Boolean(longPortBinding && longPortCredentials);
       let marketDataSyncWarning = "";
 
@@ -252,14 +275,20 @@ export function ApiConfigPage() {
           provider: "alphafeed",
           fallbackProvider: canUseLongPortFallback ? "longport" : undefined,
           fetchQuoteSnapshot: async (watchlist) => {
-            const alphaResult = await window.quantDesktop?.alphaFeed?.fetchQuoteSnapshot(alphaFeedCredentials, watchlist);
+            const alphaResult = await window.quantDesktop?.alphaFeed?.fetchQuoteSnapshot(
+              alphaFeedCredentials,
+              watchlist,
+            );
 
             if (alphaResult?.ok) {
               return alphaResult.snapshots;
             }
 
             if (canUseLongPortFallback && longPortCredentials) {
-              const fallbackResult = await window.quantDesktop?.longPort?.fetchQuoteSnapshot(longPortCredentials, watchlist);
+              const fallbackResult = await window.quantDesktop?.longPort?.fetchQuoteSnapshot(
+                longPortCredentials,
+                watchlist,
+              );
               if (fallbackResult?.ok) {
                 return fallbackResult.snapshots;
               }
@@ -287,12 +316,15 @@ export function ApiConfigPage() {
             const results = await Promise.allSettled(
               requests.map(async ({ item, timeframe, mode }) => {
                 if (mode === "intraday") {
-                  const result = await window.quantDesktop?.alphaFeed?.fetchIntradayBars(alphaFeedCredentials, {
-                    symbol: item.symbol,
-                    market: item.market,
-                    timeframe,
-                    count: initialBarCountByTimeframe[timeframe] ?? 240,
-                  });
+                  const result = await window.quantDesktop?.alphaFeed?.fetchIntradayBars(
+                    alphaFeedCredentials,
+                    {
+                      symbol: item.symbol,
+                      market: item.market,
+                      timeframe,
+                      count: initialBarCountByTimeframe[timeframe] ?? 240,
+                    },
+                  );
 
                   if (!result) {
                     throw new Error("AlphaFeed 分钟 K 线同步需要桌面安全桥，请在桌面应用中运行。");
@@ -305,13 +337,16 @@ export function ApiConfigPage() {
                   return result.bars;
                 }
 
-                const result = await window.quantDesktop?.alphaFeed?.fetchHistoricalBars(alphaFeedCredentials, {
-                  symbol: item.symbol,
-                  market: item.market,
-                  timeframe,
-                  count: initialBarCountByTimeframe[timeframe] ?? 240,
-                  adjust: "forward",
-                });
+                const result = await window.quantDesktop?.alphaFeed?.fetchHistoricalBars(
+                  alphaFeedCredentials,
+                  {
+                    symbol: item.symbol,
+                    market: item.market,
+                    timeframe,
+                    count: initialBarCountByTimeframe[timeframe] ?? 240,
+                    adjust: "forward",
+                  },
+                );
 
                 if (!result) {
                   throw new Error("AlphaFeed K 线同步需要桌面安全桥，请在桌面应用中运行。");
@@ -326,12 +361,23 @@ export function ApiConfigPage() {
             );
             const failures = results
               .map((result, index) => ({ result, request: requests[index] }))
-              .filter((entry): entry is { result: PromiseRejectedResult; request: (typeof requests)[number] } => entry.result.status === "rejected");
-            const bars = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
-            const blockingFailures = failures.filter(
-              ({ result, request }) => request.mode === "historical" || !isAlphaFeedPermissionError(getRejectedMessage(result)),
+              .filter(
+                (
+                  entry,
+                ): entry is { result: PromiseRejectedResult; request: (typeof requests)[number] } =>
+                  entry.result.status === "rejected",
+              );
+            const bars = results.flatMap((result) =>
+              result.status === "fulfilled" ? result.value : [],
             );
-            const recoverableFailures = failures.filter((failure) => !blockingFailures.includes(failure));
+            const blockingFailures = failures.filter(
+              ({ result, request }) =>
+                request.mode === "historical" ||
+                !isAlphaFeedPermissionError(getRejectedMessage(result)),
+            );
+            const recoverableFailures = failures.filter(
+              (failure) => !blockingFailures.includes(failure),
+            );
 
             if (blockingFailures.length > 0) {
               const sampleFailures = blockingFailures
@@ -345,15 +391,29 @@ export function ApiConfigPage() {
             }
 
             const failedRequestKeys = new Set(
-              failures.map(({ request }) => `${request.item.market}:${request.item.symbol}:${request.timeframe}`),
+              failures.map(
+                ({ request }) =>
+                  `${request.item.market}:${request.item.symbol}:${request.timeframe}`,
+              ),
             );
             const emptyRequests = requests.filter(
               (request) =>
-                !failedRequestKeys.has(`${request.item.market}:${request.item.symbol}:${request.timeframe}`) &&
-                !bars.some((bar) => bar.symbol === request.item.symbol && bar.market === request.item.market && bar.timeframe === request.timeframe),
+                !failedRequestKeys.has(
+                  `${request.item.market}:${request.item.symbol}:${request.timeframe}`,
+                ) &&
+                !bars.some(
+                  (bar) =>
+                    bar.symbol === request.item.symbol &&
+                    bar.market === request.item.market &&
+                    bar.timeframe === request.timeframe,
+                ),
             );
-            const blockingEmptyRequests = emptyRequests.filter((request) => request.mode === "historical");
-            const recoverableEmptyRequests = emptyRequests.filter((request) => request.mode === "intraday");
+            const blockingEmptyRequests = emptyRequests.filter(
+              (request) => request.mode === "historical",
+            );
+            const recoverableEmptyRequests = emptyRequests.filter(
+              (request) => request.mode === "intraday",
+            );
 
             if (blockingEmptyRequests.length > 0 || bars.length === 0) {
               throw new Error(
@@ -365,8 +425,12 @@ export function ApiConfigPage() {
             }
 
             const warningItems = [
-              ...recoverableFailures.map(({ request }) => `${request.item.symbol} ${request.timeframe} 无权限`),
-              ...recoverableEmptyRequests.map((request) => `${request.item.symbol} ${request.timeframe} 暂无数据`),
+              ...recoverableFailures.map(
+                ({ request }) => `${request.item.symbol} ${request.timeframe} 无权限`,
+              ),
+              ...recoverableEmptyRequests.map(
+                (request) => `${request.item.symbol} ${request.timeframe} 暂无数据`,
+              ),
             ];
 
             if (warningItems.length > 0) {
@@ -376,7 +440,9 @@ export function ApiConfigPage() {
             return bars.flat();
           },
           onUpdate: (state) => {
-            const completed = state.steps.filter((step) => step.status === "completed").map((step) => step.id);
+            const completed = state.steps
+              .filter((step) => step.status === "completed")
+              .map((step) => step.id);
             const running = state.steps.find((step) => step.status === "running");
 
             setCompletedSteps(completed);
@@ -390,7 +456,9 @@ export function ApiConfigPage() {
       setStoredLongPortBinding(longPortBinding ?? null);
       setStatus(
         marketDataSyncWarning ||
-          (canUseLongPortFallback ? "备用数据源已绑定：AlphaFeed REST 与长桥均可用。" : "备用数据源已绑定：AlphaFeed REST 可用。"),
+          (canUseLongPortFallback
+            ? "备用数据源已绑定：AlphaFeed REST 与长桥均可用。"
+            : "备用数据源已绑定：AlphaFeed REST 可用。"),
       );
       if (!marketDataSyncWarning) {
         window.setTimeout(() => navigate("chart"), 420);
@@ -416,7 +484,9 @@ export function ApiConfigPage() {
           : "AlphaFeed WebSocket 关注列表通道已预留。后续行情网关会在可用时优先使用该通道。",
       );
     } catch (nextError) {
-      setStreamError(nextError instanceof Error ? nextError.message : "AlphaFeed WebSocket 通道保存失败。");
+      setStreamError(
+        nextError instanceof Error ? nextError.message : "AlphaFeed WebSocket 通道保存失败。",
+      );
     } finally {
       setIsSavingStream(false);
     }
@@ -428,7 +498,10 @@ export function ApiConfigPage() {
     setStreamError("");
 
     if (providerId === "alphafeed-rest") {
-      setAlphaFeedForm({ apiUrl: storedAlphaFeedBinding?.apiUrl ?? defaultAlphaFeedForm.apiUrl, apiKey: "" });
+      setAlphaFeedForm({
+        apiUrl: storedAlphaFeedBinding?.apiUrl ?? defaultAlphaFeedForm.apiUrl,
+        apiKey: "",
+      });
       setStatus("请输入新的 AlphaFeed API Key 后验证保存；现有密钥不会显示。");
     } else if (providerId === "alphafeed-websocket") {
       setAlphaFeedStreamForm({
@@ -438,13 +511,25 @@ export function ApiConfigPage() {
       });
       setStreamStatus("请输入新的 WebSocket API Key 后保存；现有密钥不会显示。");
     } else if (providerId === "longbridge") {
-      setLongPortForm({ apiUrl: storedLongPortBinding?.apiUrl ?? defaultLongPortForm.apiUrl, appKey: "", appSecret: "", accessToken: "" });
+      setLongPortForm({
+        apiUrl: storedLongPortBinding?.apiUrl ?? defaultLongPortForm.apiUrl,
+        appKey: "",
+        appSecret: "",
+        accessToken: "",
+      });
       setStatus("请输入新的长桥凭据后验证保存；现有凭据不会显示。");
     }
   };
 
-  const handleDeleteProvider = async (providerId: "alphafeed-rest" | "alphafeed-websocket" | "longbridge") => {
-    const providerName = providerId === "alphafeed-rest" ? "AlphaFeed REST" : providerId === "alphafeed-websocket" ? "AlphaFeed WebSocket" : "长桥";
+  const handleDeleteProvider = async (
+    providerId: "alphafeed-rest" | "alphafeed-websocket" | "longbridge",
+  ) => {
+    const providerName =
+      providerId === "alphafeed-rest"
+        ? "AlphaFeed REST"
+        : providerId === "alphafeed-websocket"
+          ? "AlphaFeed WebSocket"
+          : "长桥";
     if (!window.confirm(`确定删除 ${providerName} 的已保存凭据吗？删除后需要重新填写并验证。`)) {
       return;
     }
@@ -470,7 +555,8 @@ export function ApiConfigPage() {
         setStatus("长桥凭据已删除。");
       }
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : `${providerName} 凭据删除失败。`;
+      const message =
+        nextError instanceof Error ? nextError.message : `${providerName} 凭据删除失败。`;
       if (providerId === "alphafeed-websocket") {
         setStreamError(message);
       } else {
@@ -487,7 +573,8 @@ export function ApiConfigPage() {
         <p>行情数据源</p>
         <h1>主行情源优先，备用源兜底</h1>
         <span>
-          Stock SDK 已作为主行情源启用；实时快照与证券搜索由官方 SDK 提供，历史 K 线与分时由桌面主进程的腾讯财经路由补强。AlphaFeed 与长桥保留为备用数据源。
+          Stock SDK 已作为主行情源启用；实时快照与证券搜索由官方 SDK 提供，历史 K
+          线与分时由桌面主进程的腾讯财经路由补强。AlphaFeed 与长桥保留为备用数据源。
         </span>
       </header>
 
@@ -516,23 +603,35 @@ export function ApiConfigPage() {
                       <strong>{provider.name}</strong>
                       <small>{provider.role === "primary" ? "主行情源" : "备用数据源"}</small>
                     </span>
-                    <em className={`provider-status-pill ${providerStatus}`}>{formatApiProviderStatus(providerStatus)}</em>
+                    <em className={`provider-status-pill ${providerStatus}`}>
+                      {formatApiProviderStatus(providerStatus)}
+                    </em>
                   </button>
                 </li>
               );
             })}
           </ol>
-          <p className="provider-navigation-note">数据源优先级由行情网关统一执行。配置页面只管理连接信息与可用状态。</p>
+          <p className="provider-navigation-note">
+            数据源优先级由行情网关统一执行。配置页面只管理连接信息与可用状态。
+          </p>
         </aside>
 
-        <form className="module-card api-config-form data-source-config-panel" onSubmit={handleSubmit}>
-          <details className={`api-provider-section primary-provider ${selectedProviderId === "stock-sdk" ? "selected" : ""}`} open>
+        <form
+          className="module-card api-config-form data-source-config-panel"
+          onSubmit={handleSubmit}
+        >
+          <details
+            className={`api-provider-section primary-provider ${selectedProviderId === "stock-sdk" ? "selected" : ""}`}
+            open
+          >
             <summary>
               <div className="module-card-header">
                 <ServerCog size={20} />
                 <div>
                   <h2>Stock SDK 主行情源</h2>
-                  <p>桌面版已接入主行情源适配器；该源不需要用户填写凭据，所有请求都由行情网关统一调度。</p>
+                  <p>
+                    桌面版已接入主行情源适配器；该源不需要用户填写凭据，所有请求都由行情网关统一调度。
+                  </p>
                 </div>
               </div>
             </summary>
@@ -543,7 +642,8 @@ export function ApiConfigPage() {
                 <strong>Stock SDK · 腾讯财经历史路由</strong>
               </div>
               <p>
-                已负责 A股、港股、美股的实时快照、历史 K 线与分时数据。历史数据使用腾讯财经补强；遇到网络、限频或无数据时会自动降级到备用数据源。
+                已负责 A股、港股、美股的实时快照、历史 K
+                线与分时数据。历史数据使用腾讯财经补强；遇到网络、限频或无数据时会自动降级到备用数据源。
               </p>
               <div className="provider-badge-row">
                 {apiProviderPriorityItems[0]?.capabilityBadges.map((badge) => (
@@ -558,7 +658,9 @@ export function ApiConfigPage() {
                 />
                 <span>
                   <strong>启用 Stock SDK 主行情源</strong>
-                  <small>开启后图表优先尝试 Stock SDK；不可用、限频或无数据时自动降级到备用数据源。</small>
+                  <small>
+                    开启后图表优先尝试 Stock SDK；不可用、限频或无数据时自动降级到备用数据源。
+                  </small>
                 </span>
               </label>
             </div>
@@ -566,7 +668,10 @@ export function ApiConfigPage() {
 
           <div className="api-section-label">备用数据源</div>
 
-          <details className={`api-provider-section ${selectedProviderId === "alphafeed-rest" ? "selected" : ""}`} open={selectedProviderId === "alphafeed-rest"}>
+          <details
+            className={`api-provider-section ${selectedProviderId === "alphafeed-rest" ? "selected" : ""}`}
+            open={selectedProviderId === "alphafeed-rest"}
+          >
             <summary>
               <div className="module-card-header">
                 <DatabaseZap size={20} />
@@ -617,7 +722,10 @@ export function ApiConfigPage() {
             </div>
           </details>
 
-          <details className={`api-provider-section ${selectedProviderId === "alphafeed-websocket" ? "selected" : ""}`} open={selectedProviderId === "alphafeed-websocket"}>
+          <details
+            className={`api-provider-section ${selectedProviderId === "alphafeed-websocket" ? "selected" : ""}`}
+            open={selectedProviderId === "alphafeed-websocket"}
+          >
             <summary>
               <div className="module-card-header">
                 <RadioTower size={20} />
@@ -687,13 +795,21 @@ export function ApiConfigPage() {
               )}
               {streamError && <div className="auth-message error">{streamError}</div>}
               {streamStatus && <div className="auth-message success">{streamStatus}</div>}
-              <button className="secondary-auth-action" disabled={isSavingStream || !hasDesktopBridge} onClick={handleSaveAlphaFeedStream} type="button">
+              <button
+                className="secondary-auth-action"
+                disabled={isSavingStream || !hasDesktopBridge}
+                onClick={handleSaveAlphaFeedStream}
+                type="button"
+              >
                 {isSavingStream ? "保存中..." : "保存 WebSocket 备用通道"}
               </button>
             </div>
           </details>
 
-          <details className={`api-provider-section ${selectedProviderId === "longbridge" ? "selected" : ""}`} open={selectedProviderId === "longbridge"}>
+          <details
+            className={`api-provider-section ${selectedProviderId === "longbridge" ? "selected" : ""}`}
+            open={selectedProviderId === "longbridge"}
+          >
             <summary>
               <div className="module-card-header">
                 <ShieldCheck size={20} />
@@ -771,7 +887,11 @@ export function ApiConfigPage() {
             </div>
           </details>
 
-          {!hasDesktopBridge && <div className="auth-message error">备用数据源的凭据验证和初始同步需要桌面安全桥，请在桌面应用中运行。</div>}
+          {!hasDesktopBridge && (
+            <div className="auth-message error">
+              备用数据源的凭据验证和初始同步需要桌面安全桥，请在桌面应用中运行。
+            </div>
+          )}
           {error && <div className="auth-message error">{error}</div>}
           {status && <div className="auth-message success">{status}</div>}
 
@@ -784,7 +904,11 @@ export function ApiConfigPage() {
             disabled={isSubmitting || !hasDesktopBridge}
             type="submit"
           >
-            {isSubmitting ? "验证中..." : selectedProviderId === "longbridge" ? "验证并保存长桥备用源" : "验证并保存备用数据源"}
+            {isSubmitting
+              ? "验证中..."
+              : selectedProviderId === "longbridge"
+                ? "验证并保存长桥备用源"
+                : "验证并保存备用数据源"}
           </button>
         </form>
 
@@ -818,7 +942,9 @@ export function ApiConfigPage() {
                       ))}
                     </div>
                   </div>
-                  <em className={`provider-status-pill ${providerStatus}`}>{formatApiProviderStatus(providerStatus)}</em>
+                  <em className={`provider-status-pill ${providerStatus}`}>
+                    {formatApiProviderStatus(providerStatus)}
+                  </em>
                 </li>
               );
             })}
@@ -827,7 +953,9 @@ export function ApiConfigPage() {
           <div className="binding-summary">
             <span>AlphaFeed REST</span>
             <strong>{storedAlphaFeedBinding ? "已配置" : "未配置"}</strong>
-            {storedAlphaFeedBinding && <small>API Key：{storedAlphaFeedBinding.apiKeyPreview}</small>}
+            {storedAlphaFeedBinding && (
+              <small>API Key：{storedAlphaFeedBinding.apiKeyPreview}</small>
+            )}
           </div>
 
           <div className="binding-summary">
@@ -835,7 +963,8 @@ export function ApiConfigPage() {
             <strong>{storedAlphaFeedStreamBinding ? "已预留" : "未预留"}</strong>
             {storedAlphaFeedStreamBinding && (
               <small>
-                {storedAlphaFeedStreamBinding.mode === "all-symbols" ? "全标的流" : "关注列表流"} · API Key：
+                {storedAlphaFeedStreamBinding.mode === "all-symbols" ? "全标的流" : "关注列表流"} ·
+                API Key：
                 {storedAlphaFeedStreamBinding.apiKeyPreview}
               </small>
             )}
@@ -857,7 +986,16 @@ export function ApiConfigPage() {
             </div>
             <ol className="sync-step-list">
               {initialMarketDataSyncSteps.map((step) => (
-                <li className={completedSteps.includes(step.id) ? "completed" : runningStep === step.id ? "running" : ""} key={step.id}>
+                <li
+                  className={
+                    completedSteps.includes(step.id)
+                      ? "completed"
+                      : runningStep === step.id
+                        ? "running"
+                        : ""
+                  }
+                  key={step.id}
+                >
                   <CheckCircle2 size={17} />
                   <span>{step.label}</span>
                 </li>
@@ -866,7 +1004,8 @@ export function ApiConfigPage() {
           </div>
 
           <p className="security-note">
-            API Key、Secret 与 Access Token 只通过桌面安全桥加密保存；普通本地缓存只保存脱敏摘要、供应商状态和行情缓存。
+            API Key、Secret 与 Access Token
+            只通过桌面安全桥加密保存；普通本地缓存只保存脱敏摘要、供应商状态和行情缓存。
           </p>
         </aside>
       </div>

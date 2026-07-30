@@ -1,11 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  chmod,
-  mkdir,
-  readFile,
-  rename,
-  writeFile,
-} from "node:fs/promises";
+import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 interface DeviceIdentityDocument {

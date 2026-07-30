@@ -42,7 +42,10 @@ export function createChartWatchlistWarmupPlan(
   const unique = Array.from(new Map(watchlist.map((item) => [getSymbolKey(item), item])).values());
 
   return unique
-    .sort((left, right) => Number(getSymbolKey(right) === activeKey) - Number(getSymbolKey(left) === activeKey))
+    .sort(
+      (left, right) =>
+        Number(getSymbolKey(right) === activeKey) - Number(getSymbolKey(left) === activeKey),
+    )
     .flatMap((item) =>
       warmupTimeframes.map((timeframe) => ({
         ...item,
@@ -52,7 +55,11 @@ export function createChartWatchlistWarmupPlan(
     );
 }
 
-export function isChartWarmupCacheFresh(timeframe: Timeframe, updatedAt: string | undefined, now = Date.now()) {
+export function isChartWarmupCacheFresh(
+  timeframe: Timeframe,
+  updatedAt: string | undefined,
+  now = Date.now(),
+) {
   if (!updatedAt) return false;
   const updatedAtMs = Date.parse(updatedAt);
   return Number.isFinite(updatedAtMs) && now - updatedAtMs <= cacheMaxAgeMs[timeframe];

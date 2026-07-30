@@ -1,11 +1,7 @@
 import { loadInviteCliConfig } from "../config.ts";
 import { createDatabasePool } from "../db/pool.ts";
 import { PgInviteBatchRepository } from "../repositories/pgInviteBatchRepository.ts";
-import {
-  assertRootInviteExportAccess,
-  assertUuid,
-  readRequiredOption,
-} from "./cliSupport.ts";
+import { assertRootInviteExportAccess, assertUuid, readRequiredOption } from "./cliSupport.ts";
 
 async function main(): Promise<void> {
   assertRootInviteExportAccess();
@@ -15,10 +11,7 @@ async function main(): Promise<void> {
   const pool = createDatabasePool(config.databaseUrl);
 
   try {
-    const status = await new PgInviteBatchRepository(pool).revokeBatch(
-      batchId,
-      new Date(),
-    );
+    const status = await new PgInviteBatchRepository(pool).revokeBatch(batchId, new Date());
     if (!status) {
       throw new Error("invite batch was not found");
     }

@@ -33,9 +33,7 @@ test("batch creation persists only digests and writes plaintext to a restricted 
   assert.equal(persisted.length, 1);
   assert.equal(persisted[0]?.codes.length, 3);
   assert.equal(
-    persisted[0]?.codes.every(
-      (code) => Buffer.isBuffer(code.codeDigest) && !("plaintext" in code),
-    ),
+    persisted[0]?.codes.every((code) => Buffer.isBuffer(code.codeDigest) && !("plaintext" in code)),
     true,
   );
 

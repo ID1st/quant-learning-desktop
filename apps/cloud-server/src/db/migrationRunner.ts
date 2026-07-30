@@ -71,9 +71,7 @@ export async function readPostgresMigrations(directory: string) {
   return migrations;
 }
 
-export async function runPostgresMigrations(
-  options: RunPostgresMigrationsOptions,
-) {
+export async function runPostgresMigrations(options: RunPostgresMigrationsOptions) {
   const migrations = await readPostgresMigrations(options.directory);
   await options.client.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -86,9 +84,7 @@ export async function runPostgresMigrations(
         CHECK (checksum ~ '^[0-9a-f]{64}$')
     )
   `);
-  await options.client.query(
-    "SELECT pg_advisory_lock(hashtext('quant-auth-schema-migrations'))",
-  );
+  await options.client.query("SELECT pg_advisory_lock(hashtext('quant-auth-schema-migrations'))");
 
   const appliedNow: PostgresMigration[] = [];
   try {
@@ -96,9 +92,7 @@ export async function runPostgresMigrations(
       version: number;
       name: string;
       checksum: string;
-    }>(
-      "SELECT version, name, checksum FROM schema_migrations ORDER BY version",
-    );
+    }>("SELECT version, name, checksum FROM schema_migrations ORDER BY version");
     const applied = new Map(
       result.rows.map((row) => [
         Number(row.version),

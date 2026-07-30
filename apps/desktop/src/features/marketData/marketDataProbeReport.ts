@@ -25,12 +25,20 @@ export function classifyMarketDataProbeFailure(error: unknown): MarketDataProbeF
   const normalized = message.toLowerCase();
 
   if (/(?:http\s*)?429|rate.?limit|请求受限/.test(normalized)) return "rate-limited";
-  if (/unauthori[sz]ed|permission|auth(?:entication)? failed|权限不足|认证失败/.test(normalized)) return "unauthorized";
-  if (/discontinuous .*?(?:series|history)|历史数据断层/.test(normalized)) return "discontinuous-history";
-  if (/(?:partial|incomplete) .*?(?:series|history)|历史数据不足/.test(normalized)) return "insufficient-history";
-  if (/no usable|received 0|no data|empty (?:response|result)|暂无数据/.test(normalized)) return "no-data";
-  if (/invalid (?:ohlc|bar|price)|inconsistent ohlc|行情数据异常/.test(normalized)) return "invalid-data";
-  if (/fetch failed|network|timed? out|timeout|econn|enotfound|http 5\d\d|请求失败/.test(normalized)) return "network";
+  if (/unauthori[sz]ed|permission|auth(?:entication)? failed|权限不足|认证失败/.test(normalized))
+    return "unauthorized";
+  if (/discontinuous .*?(?:series|history)|历史数据断层/.test(normalized))
+    return "discontinuous-history";
+  if (/(?:partial|incomplete) .*?(?:series|history)|历史数据不足/.test(normalized))
+    return "insufficient-history";
+  if (/no usable|received 0|no data|empty (?:response|result)|暂无数据/.test(normalized))
+    return "no-data";
+  if (/invalid (?:ohlc|bar|price)|inconsistent ohlc|行情数据异常/.test(normalized))
+    return "invalid-data";
+  if (
+    /fetch failed|network|timed? out|timeout|econn|enotfound|http 5\d\d|请求失败/.test(normalized)
+  )
+    return "network";
   return "unknown";
 }
 
@@ -68,7 +76,8 @@ export function evaluateMarketDataProbeSeries(
     const previous = timestamps[index] ?? timestamp;
     return Math.max(largest, (timestamp - previous) / 86_400_000);
   }, 0);
-  const maximumGapDays = timeframe === "1d" ? 14 : timeframe === "1w" ? 35 : Number.POSITIVE_INFINITY;
+  const maximumGapDays =
+    timeframe === "1d" ? 14 : timeframe === "1w" ? 35 : Number.POSITIVE_INFINITY;
 
   if (largestGapDays > maximumGapDays) {
     return { status: "discontinuous", rows: timestamps.length, minimumRows, largestGapDays };

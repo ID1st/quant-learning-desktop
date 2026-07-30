@@ -1,8 +1,4 @@
-import Fastify, {
-  type FastifyInstance,
-  type FastifyReply,
-  type FastifyRequest,
-} from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import type { Pool } from "pg";
@@ -138,10 +134,8 @@ function deviceContext(request: FastifyRequest): DeviceContext {
   const rawDeviceId = request.headers["x-device-id"];
   const rawDeviceLabel = request.headers["x-device-label"];
   return {
-    deviceId: Array.isArray(rawDeviceId) ? rawDeviceId[0] ?? "" : rawDeviceId ?? "",
-    deviceLabel: Array.isArray(rawDeviceLabel)
-      ? rawDeviceLabel[0] ?? ""
-      : rawDeviceLabel ?? "",
+    deviceId: Array.isArray(rawDeviceId) ? (rawDeviceId[0] ?? "") : (rawDeviceId ?? ""),
+    deviceLabel: Array.isArray(rawDeviceLabel) ? (rawDeviceLabel[0] ?? "") : (rawDeviceLabel ?? ""),
   };
 }
 
@@ -149,11 +143,7 @@ function readBearerToken(request: FastifyRequest): string {
   const authorization = request.headers.authorization ?? "";
   const match = /^Bearer ([A-Za-z0-9_-]{32,256})$/.exec(authorization);
   if (!match) {
-    throw new AuthDomainError(
-      "SESSION_REVOKED",
-      "Authentication is required",
-      401,
-    );
+    throw new AuthDomainError("SESSION_REVOKED", "Authentication is required", 401);
   }
   return match[1]!;
 }
@@ -166,10 +156,7 @@ export async function buildAuthServer(
   config: CloudAuthConfig,
   pool: Pool,
 ): Promise<FastifyInstance> {
-  validateOfflineLeaseKeyPair(
-    config.offlineLeasePrivateKeyPem,
-    config.offlineLeasePublicKeyPem,
-  );
+  validateOfflineLeaseKeyPair(config.offlineLeasePrivateKeyPem, config.offlineLeasePublicKeyPem);
 
   const server = Fastify({
     // The container is reachable only through the host-loopback Nginx proxy.
@@ -215,18 +202,11 @@ export async function buildAuthServer(
         error: {
           code: error.code,
           message: error.message,
-          ...(error.retryAfterSeconds
-            ? { retryAfterSeconds: error.retryAfterSeconds }
-            : {}),
+          ...(error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
         },
       });
     }
-    if (
-      error &&
-      typeof error === "object" &&
-      "statusCode" in error &&
-      error.statusCode === 429
-    ) {
+    if (error && typeof error === "object" && "statusCode" in error && error.statusCode === 429) {
       const retryAfterHeader = reply.getHeader("retry-after");
       return reply.status(429).send({
         error: {
@@ -236,12 +216,7 @@ export async function buildAuthServer(
         },
       });
     }
-    if (
-      error &&
-      typeof error === "object" &&
-      "validation" in error &&
-      error.validation
-    ) {
+    if (error && typeof error === "object" && "validation" in error && error.validation) {
       return reply.status(400).send({
         error: {
           code: "ACCESS_DENIED",
@@ -264,12 +239,9 @@ export async function buildAuthServer(
     }
 
     const errorRecord =
-      error && typeof error === "object"
-        ? (error as Record<string, unknown>)
-        : null;
+      error && typeof error === "object" ? (error as Record<string, unknown>) : null;
     const errorCode =
-      typeof errorRecord?.code === "string" &&
-      /^[A-Za-z0-9_.-]{1,40}$/.test(errorRecord.code)
+      typeof errorRecord?.code === "string" && /^[A-Za-z0-9_.-]{1,40}$/.test(errorRecord.code)
         ? errorRecord.code
         : "UNKNOWN";
     request.log.error(
@@ -287,12 +259,10 @@ export async function buildAuthServer(
     });
   });
 
-  const readinessHandler = async (
-    _request: FastifyRequest,
-    reply: FastifyReply,
-  ) => {
+  const readinessHandler = async (_request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const result = await pool.query<{ migrated: boolean }>(`
+      const result = await pool.query<{ migrated: boolean }>(
+        `
         SELECT
           to_regclass('public.users') IS NOT NULL
           AND to_regclass('public.invite_batches') IS NOT NULL
@@ -308,7 +278,9 @@ export async function buildAuthServer(
             FROM schema_migrations
           ) = $1
           AS migrated
-      `, [latestPostgresMigrationVersion]);
+      `,
+        [latestPostgresMigrationVersion],
+      );
       if (result.rows[0]?.migrated !== true) {
         return reply.status(503).send({ status: "unavailable" });
       }
@@ -330,10 +302,7 @@ export async function buildAuthServer(
     },
     async (request) =>
       success(
-        await authService.requestRegistrationCode(
-          request.body.email,
-          requestContext(request),
-        ),
+        await authService.requestRegistrationCode(request.body.email, requestContext(request)),
       ),
   );
 
@@ -343,10 +312,7 @@ export async function buildAuthServer(
       schema: { body: registrationBodySchema },
       config: { rateLimit: { max: 5, timeWindow: "10 minutes" } },
     },
-    async (request) =>
-      success(
-        await authService.register(request.body, requestContext(request)),
-      ),
+    async (request) => success(await authService.register(request.body, requestContext(request))),
   );
 
   server.post<{ Body: LoginBody }>(
@@ -357,11 +323,7 @@ export async function buildAuthServer(
     },
     async (request) =>
       success(
-        await authService.login(
-          request.body,
-          deviceContext(request),
-          requestContext(request),
-        ),
+        await authService.login(request.body, deviceContext(request), requestContext(request)),
       ),
   );
 
@@ -428,15 +390,8 @@ export async function buildAuthServer(
       ),
   );
 
-  server.delete(
-    "/v1/auth/sessions/current",
-    async (request) =>
-      success(
-        await authService.logout(
-          readBearerToken(request),
-          requestContext(request),
-        ),
-      ),
+  server.delete("/v1/auth/sessions/current", async (request) =>
+    success(await authService.logout(readBearerToken(request), requestContext(request))),
   );
 
   server.post<{ Body: EmailBody }>(
@@ -446,12 +401,7 @@ export async function buildAuthServer(
       config: { rateLimit: { max: 3, timeWindow: "1 minute" } },
     },
     async (request) =>
-      success(
-        await authService.requestPasswordReset(
-          request.body.email,
-          requestContext(request),
-        ),
-      ),
+      success(await authService.requestPasswordReset(request.body.email, requestContext(request))),
   );
 
   server.post<{ Body: RegistrationBody }>(
@@ -461,21 +411,11 @@ export async function buildAuthServer(
       config: { rateLimit: { max: 5, timeWindow: "10 minutes" } },
     },
     async (request) =>
-      success(
-        await authService.resetPassword(
-          request.body,
-          requestContext(request),
-        ),
-      ),
+      success(await authService.resetPassword(request.body, requestContext(request))),
   );
 
   server.get("/v1/auth/session", async (request) =>
-    success(
-      await authService.getSession(
-        readBearerToken(request),
-        requestContext(request),
-      ),
-    ),
+    success(await authService.getSession(readBearerToken(request), requestContext(request))),
   );
 
   return server;

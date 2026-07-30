@@ -56,7 +56,9 @@ export interface LongPortMarketDataBar {
 }
 
 export interface LongPortVerificationOptions {
-  probe: (credentials: NormalizedLongPortApiCredentials) => Promise<LongPortVerificationProbeResult | void>;
+  probe: (
+    credentials: NormalizedLongPortApiCredentials,
+  ) => Promise<LongPortVerificationProbeResult | void>;
   now?: () => Date;
 }
 
@@ -102,7 +104,9 @@ export function createLongPortSecretPreview(value: string) {
   return `${normalized.slice(0, 4)}****${normalized.slice(-4)}`;
 }
 
-export function normalizeLongPortApiCredentials(input: LongPortApiCredentials): NormalizedLongPortApiCredentials {
+export function normalizeLongPortApiCredentials(
+  input: LongPortApiCredentials,
+): NormalizedLongPortApiCredentials {
   return {
     apiUrl: ensureHttpUrl(input.apiUrl.trim() || LONGPORT_DEFAULT_HTTP_URL),
     appKey: ensureCredential("App Key", input.appKey),

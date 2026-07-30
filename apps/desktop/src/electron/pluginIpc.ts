@@ -1,5 +1,9 @@
 import { dialog, ipcMain } from "electron";
-import { createPluginIpcHandlers, pluginIpcChannels, type PluginIpcHandlers } from "./pluginIpcContract.ts";
+import {
+  createPluginIpcHandlers,
+  pluginIpcChannels,
+  type PluginIpcHandlers,
+} from "./pluginIpcContract.ts";
 import type { PluginManager } from "./pluginManager.ts";
 import { createPluginRuntimeHost } from "./pluginRuntimeHost.ts";
 import {
@@ -19,7 +23,10 @@ export function registerPluginIpcHandlers(
   securityPolicy: DesktopRendererSecurityPolicy,
   manager: PluginManager,
   directoryPicker: PluginDirectoryPicker = createElectronPluginDirectoryPicker(),
-  handlers: PluginIpcHandlers = createPluginIpcHandlers(manager, createPluginRuntimeHost({ manager })),
+  handlers: PluginIpcHandlers = createPluginIpcHandlers(
+    manager,
+    createPluginRuntimeHost({ manager }),
+  ),
 ) {
   ipcMain.handle(pluginIpcChannels.list, (event) => {
     assertTrustedIpcSender(event, securityPolicy);
@@ -30,7 +37,10 @@ export function registerPluginIpcHandlers(
     const directory = await directoryPicker.pickDirectory();
     return directory
       ? handlers.installFromDirectory(directory)
-      : { ok: false as const, error: { code: "PLUGIN_OPERATION_FAILED" as const, message: "已取消选择插件目录。" } };
+      : {
+          ok: false as const,
+          error: { code: "PLUGIN_OPERATION_FAILED" as const, message: "已取消选择插件目录。" },
+        };
   });
   ipcMain.handle(pluginIpcChannels.setEnabled, (event, pluginId: unknown, enabled: unknown) => {
     assertTrustedIpcSender(event, securityPolicy);
@@ -38,12 +48,15 @@ export function registerPluginIpcHandlers(
     assertBoolean(enabled, "enabled");
     return handlers.setEnabled(pluginId, enabled);
   });
-  ipcMain.handle(pluginIpcChannels.reportRuntimeFailure, (event, pluginId: unknown, message: unknown) => {
-    assertTrustedIpcSender(event, securityPolicy);
-    assertPluginId(pluginId);
-    assertBoundedString(message, "message", { maxLength: 800 });
-    return handlers.reportRuntimeFailure(pluginId, message);
-  });
+  ipcMain.handle(
+    pluginIpcChannels.reportRuntimeFailure,
+    (event, pluginId: unknown, message: unknown) => {
+      assertTrustedIpcSender(event, securityPolicy);
+      assertPluginId(pluginId);
+      assertBoundedString(message, "message", { maxLength: 800 });
+      return handlers.reportRuntimeFailure(pluginId, message);
+    },
+  );
   ipcMain.handle(pluginIpcChannels.uninstall, (event, pluginId: unknown) => {
     assertTrustedIpcSender(event, securityPolicy);
     assertPluginId(pluginId);
@@ -53,14 +66,17 @@ export function registerPluginIpcHandlers(
     assertTrustedIpcSender(event, securityPolicy);
     return handlers.getRuntimeSnapshot();
   });
-  ipcMain.handle(pluginIpcChannels.runStrategy, (event, pluginId: unknown, key: unknown, input: unknown) => {
-    assertTrustedIpcSender(event, securityPolicy);
-    assertPluginId(pluginId);
-    assertBoundedString(key, "key", { maxLength: 200 });
-    if (!key.startsWith(`${pluginId}:`)) throw new TypeError("key must belong to pluginId.");
-    assertPluginStrategyInput(input);
-    return handlers.runStrategy(pluginId, key, input);
-  });
+  ipcMain.handle(
+    pluginIpcChannels.runStrategy,
+    (event, pluginId: unknown, key: unknown, input: unknown) => {
+      assertTrustedIpcSender(event, securityPolicy);
+      assertPluginId(pluginId);
+      assertBoundedString(key, "key", { maxLength: 200 });
+      if (!key.startsWith(`${pluginId}:`)) throw new TypeError("key must belong to pluginId.");
+      assertPluginStrategyInput(input);
+      return handlers.runStrategy(pluginId, key, input);
+    },
+  );
 }
 
 function createElectronPluginDirectoryPicker(): PluginDirectoryPicker {
@@ -70,7 +86,7 @@ function createElectronPluginDirectoryPicker(): PluginDirectoryPicker {
         title: "选择插件目录",
         properties: ["openDirectory"],
       });
-      return result.canceled ? null : result.filePaths[0] ?? null;
+      return result.canceled ? null : (result.filePaths[0] ?? null);
     },
   };
 }

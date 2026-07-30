@@ -4,28 +4,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const npmExecutable =
-  process.platform === "win32"
-    ? process.env.ComSpec || "cmd.exe"
-    : "npm";
+const npmExecutable = process.platform === "win32" ? process.env.ComSpec || "cmd.exe" : "npm";
 const npmArguments =
   process.platform === "win32"
-    ? [
-        "/d",
-        "/s",
-        "/c",
-        "npm.cmd run build:electron -w @quant/desktop",
-      ]
+    ? ["/d", "/s", "/c", "npm.cmd run build:electron -w @quant/desktop"]
     : ["run", "build:electron", "-w", "@quant/desktop"];
-const build = spawnSync(
-  npmExecutable,
-  npmArguments,
-  {
-    cwd: root,
-    env: { ...process.env, VITE_AUTH_VISUAL_QA: "true" },
-    stdio: "inherit",
-  },
-);
+const build = spawnSync(npmExecutable, npmArguments, {
+  cwd: root,
+  env: { ...process.env, VITE_AUTH_VISUAL_QA: "true" },
+  stdio: "inherit",
+});
 if (build.status !== 0) {
   throw new Error("Electron auth visual smoke build failed");
 }
@@ -36,19 +24,10 @@ const electron = path.join(
   "dist",
   process.platform === "win32" ? "electron.exe" : "electron",
 );
-const entry = path.join(
-  root,
-  "apps",
-  "desktop",
-  "out",
-  "main",
-  "authVisualSmoke.js",
-);
+const entry = path.join(root, "apps", "desktop", "out", "main", "authVisualSmoke.js");
 
 if (!existsSync(electron) || !existsSync(entry)) {
-  throw new Error(
-    "Electron auth visual smoke prerequisites are missing.",
-  );
+  throw new Error("Electron auth visual smoke prerequisites are missing.");
 }
 
 const child = spawn(electron, [entry], {

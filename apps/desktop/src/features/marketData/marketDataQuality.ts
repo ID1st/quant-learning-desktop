@@ -9,11 +9,7 @@ export interface MarketDataOhlcv {
 }
 
 export type MarketDataQualityIssue =
-  | "invalid-timestamp"
-  | "invalid-price"
-  | "invalid-volume"
-  | "invalid-amount"
-  | "inconsistent-ohlc";
+  "invalid-timestamp" | "invalid-price" | "invalid-volume" | "invalid-amount" | "inconsistent-ohlc";
 
 export interface MarketDataQualityReport<T extends MarketDataOhlcv> {
   readonly validBars: readonly T[];
@@ -31,10 +27,21 @@ const emptyIssues: Readonly<Record<MarketDataQualityIssue, number>> = {
 
 export function getMarketDataQualityIssue(bar: MarketDataOhlcv): MarketDataQualityIssue | null {
   if (!Number.isFinite(bar.timestamp) || bar.timestamp <= 0) return "invalid-timestamp";
-  if (![bar.open, bar.high, bar.low, bar.close].every((value) => Number.isFinite(value) && value > 0)) return "invalid-price";
+  if (
+    ![bar.open, bar.high, bar.low, bar.close].every((value) => Number.isFinite(value) && value > 0)
+  )
+    return "invalid-price";
   if (!Number.isFinite(bar.volume) || bar.volume < 0) return "invalid-volume";
-  if (bar.amount !== undefined && (!Number.isFinite(bar.amount) || bar.amount < 0)) return "invalid-amount";
-  if (bar.high < bar.low || bar.high < bar.open || bar.high < bar.close || bar.low > bar.open || bar.low > bar.close) return "inconsistent-ohlc";
+  if (bar.amount !== undefined && (!Number.isFinite(bar.amount) || bar.amount < 0))
+    return "invalid-amount";
+  if (
+    bar.high < bar.low ||
+    bar.high < bar.open ||
+    bar.high < bar.close ||
+    bar.low > bar.open ||
+    bar.low > bar.close
+  )
+    return "inconsistent-ohlc";
   return null;
 }
 
@@ -42,7 +49,9 @@ export function isMarketDataBarQualityValid(bar: MarketDataOhlcv) {
   return getMarketDataQualityIssue(bar) === null;
 }
 
-export function inspectMarketDataBars<T extends MarketDataOhlcv>(bars: readonly T[]): MarketDataQualityReport<T> {
+export function inspectMarketDataBars<T extends MarketDataOhlcv>(
+  bars: readonly T[],
+): MarketDataQualityReport<T> {
   const issues = { ...emptyIssues };
   const validBars: T[] = [];
 

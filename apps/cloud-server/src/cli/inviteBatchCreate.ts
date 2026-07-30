@@ -13,10 +13,7 @@ async function main(): Promise<void> {
   const pool = createDatabasePool(config.databaseUrl);
 
   try {
-    await cleanupExpiredInviteExports(
-      config.inviteExportDirectory,
-      new Date(),
-    );
+    await cleanupExpiredInviteExports(config.inviteExportDirectory, new Date());
     const result = await createInviteBatchExport({
       argumentsList: process.argv.slice(2),
       createdBy: process.env.SUDO_USER?.trim() || "root",

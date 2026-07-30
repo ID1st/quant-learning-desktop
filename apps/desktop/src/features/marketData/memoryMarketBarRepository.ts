@@ -29,9 +29,8 @@ function cacheIdentity(key: MarketBarCacheKey) {
 export function createMemoryMarketBarRepository(): MarketBarCacheRepository {
   const barsByKey = new Map<string, MarketDataBar[]>();
   const metadataByKey = new Map<string, MarketBarCacheMetadata>();
-  let legacyMigrationState: Awaited<
-    ReturnType<MarketBarCacheRepository["legacyMigrationState"]>
-  > = { status: "pending" };
+  let legacyMigrationState: Awaited<ReturnType<MarketBarCacheRepository["legacyMigrationState"]>> =
+    { status: "pending" };
 
   async function write(
     key: MarketBarCacheKey,
@@ -40,9 +39,7 @@ export function createMemoryMarketBarRepository(): MarketBarCacheRepository {
   ) {
     const normalizedKey = normalizeMarketBarCacheKey(key);
     const identity = cacheIdentity(normalizedKey);
-    const candidates = options.mergeExisting
-      ? [...(barsByKey.get(identity) ?? []), ...bars]
-      : bars;
+    const candidates = options.mergeExisting ? [...(barsByKey.get(identity) ?? []), ...bars] : bars;
     const normalizedBars = normalizeMarketDataBars(
       candidates.filter(
         (bar) =>
@@ -58,9 +55,7 @@ export function createMemoryMarketBarRepository(): MarketBarCacheRepository {
       return [];
     }
 
-    const providers = Array.from(
-      new Set(normalizedBars.map((bar) => bar.provider)),
-    );
+    const providers = Array.from(new Set(normalizedBars.map((bar) => bar.provider)));
     const existingMetadata = metadataByKey.get(identity);
     const historicalCompletion =
       options.historicalCompletion ?? existingMetadata?.historicalCompletion;
@@ -73,15 +68,10 @@ export function createMemoryMarketBarRepository(): MarketBarCacheRepository {
       firstTimestamp: storedBars[0]!.timestamp,
       lastTimestamp: storedBars.at(-1)!.timestamp,
       barCount: storedBars.length,
-      estimatedBytes: new TextEncoder().encode(JSON.stringify(storedBars))
-        .byteLength,
-      retentionDays: getDefaultMarketBarRetentionDays(
-        normalizedKey.timeframe,
-      ),
+      estimatedBytes: new TextEncoder().encode(JSON.stringify(storedBars)).byteLength,
+      retentionDays: getDefaultMarketBarRetentionDays(normalizedKey.timeframe),
       updatedAt: new Date().toISOString(),
-      ...(storedBars[0]!.upstream
-        ? { upstream: storedBars[0]!.upstream }
-        : {}),
+      ...(storedBars[0]!.upstream ? { upstream: storedBars[0]!.upstream } : {}),
       ...(historicalCompletion ? { historicalCompletion } : {}),
     });
     return storedBars.map((bar) => ({ ...bar }));
@@ -97,13 +87,9 @@ export function createMemoryMarketBarRepository(): MarketBarCacheRepository {
     return {
       entries,
       totalBarCount: entries.reduce((total, entry) => total + entry.barCount, 0),
-      totalEstimatedBytes: entries.reduce(
-        (total, entry) => total + entry.estimatedBytes,
-        0,
-      ),
+      totalEstimatedBytes: entries.reduce((total, entry) => total + entry.estimatedBytes, 0),
       updatedAt: entries.reduce<string | undefined>(
-        (latest, entry) =>
-          !latest || entry.updatedAt > latest ? entry.updatedAt : latest,
+        (latest, entry) => (!latest || entry.updatedAt > latest ? entry.updatedAt : latest),
         undefined,
       ),
     };

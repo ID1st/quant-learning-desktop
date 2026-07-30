@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { LocalDatabase, createMemoryStorageDriver } from "../src/features/persistence/localDatabase.ts";
+import {
+  LocalDatabase,
+  createMemoryStorageDriver,
+} from "../src/features/persistence/localDatabase.ts";
 import {
   readMarketBarCache,
   type MarketDataBar,
@@ -310,6 +313,12 @@ test("runInitialMarketDataSync stores failed state when historical bar sync fail
 
   const storedState = readMarketDataSyncState(database);
   assert.equal(storedState?.status, "failed");
-  assert.equal(storedState?.steps.find((step) => step.id === "historical-candles")?.status, "failed");
-  assert.equal(storedState?.steps.find((step) => step.id === "historical-candles")?.message, "no kline permission");
+  assert.equal(
+    storedState?.steps.find((step) => step.id === "historical-candles")?.status,
+    "failed",
+  );
+  assert.equal(
+    storedState?.steps.find((step) => step.id === "historical-candles")?.message,
+    "no kline permission",
+  );
 });

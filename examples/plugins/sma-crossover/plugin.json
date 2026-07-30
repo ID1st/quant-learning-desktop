@@ -8,12 +8,6 @@
     "app": ">=0.1.0",
     "pluginApi": ">=0.1.0"
   },
-  "permissions": [
-    "market-data:read",
-    "strategy:run",
-    "chart:overlay"
-  ],
-  "capabilities": [
-    "strategy"
-  ]
+  "permissions": ["market-data:read", "strategy:run", "chart:overlay"],
+  "capabilities": ["strategy"]
 }

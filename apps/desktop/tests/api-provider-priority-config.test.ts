@@ -14,7 +14,10 @@ describe("api provider priority config", () => {
       ["stock-sdk", "alphafeed-rest", "alphafeed-websocket", "longbridge"],
     );
     assert.equal(apiProviderPriorityItems[0]?.role, "primary");
-    assert.equal(apiProviderPriorityItems.slice(1).every((item) => item.role === "fallback"), true);
+    assert.equal(
+      apiProviderPriorityItems.slice(1).every((item) => item.role === "fallback"),
+      true,
+    );
   });
 
   it("reports provider configuration status from stored bindings", () => {

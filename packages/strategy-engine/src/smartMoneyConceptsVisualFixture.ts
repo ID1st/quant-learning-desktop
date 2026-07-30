@@ -26,7 +26,10 @@ export function createSmcVisualFixture(): Bar[] {
     for (let offset = 1; offset <= segmentLength; offset += 1) {
       const index = bars.length;
       const progress = offset / segmentLength;
-      const close = from + (to - from) * progress + (offset === segmentLength ? 0 : Math.sin(offset / 2) * 0.18);
+      const close =
+        from +
+        (to - from) * progress +
+        (offset === segmentLength ? 0 : Math.sin(offset / 2) * 0.18);
       const open = bars[index - 1].close;
       const endpointHighWick = offset === segmentLength && to > from ? 0.9 : 0.55;
       const endpointLowWick = offset === segmentLength && to < from ? 0.9 : 0.55;

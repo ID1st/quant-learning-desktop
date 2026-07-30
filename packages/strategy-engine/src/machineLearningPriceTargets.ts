@@ -56,14 +56,21 @@ function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function numberParameter(parameters: Record<string, unknown>, key: string, fallback: number, minimum = 1) {
+function numberParameter(
+  parameters: Record<string, unknown>,
+  key: string,
+  fallback: number,
+  minimum = 1,
+) {
   const value = parameters[key];
   return finite(value) ? Math.max(minimum, value) : fallback;
 }
 
 function colorParameter(parameters: Record<string, unknown>, key: string, fallback: string) {
   const value = parameters[key];
-  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : fallback;
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)
+    ? value.toUpperCase()
+    : fallback;
 }
 
 function normalizeRolling(series: readonly SeriesValue[], length: number) {
@@ -132,24 +139,35 @@ function rollingExtrema(series: readonly SeriesValue[], length: number) {
 }
 
 function difference(left: readonly SeriesValue[], right: readonly SeriesValue[]) {
-  return left.map((value, index) => finite(value) && finite(right[index]) ? value - right[index]! : null);
+  return left.map((value, index) =>
+    finite(value) && finite(right[index]) ? value - right[index]! : null,
+  );
 }
 
 function divide(left: readonly SeriesValue[], right: readonly SeriesValue[], multiplier = 1) {
   return left.map((value, index) => {
     const divisor = right[index];
-    return finite(value) && finite(divisor) && divisor !== 0 ? (value / divisor) * multiplier : null;
+    return finite(value) && finite(divisor) && divisor !== 0
+      ? (value / divisor) * multiplier
+      : null;
   });
 }
 
-function featureAt(index: number, series: ReadonlyArray<readonly (number | null)[]>): FeatureVector | null {
+function featureAt(
+  index: number,
+  series: ReadonlyArray<readonly (number | null)[]>,
+): FeatureVector | null {
   const values = series.map((entry) => entry[index]);
   return values.length === 8 && values.every(finite)
     ? { values: values as FeatureVector["values"] }
     : null;
 }
 
-function predictRbf(samples: readonly TrainingSample[], current: FeatureVector | null, bandwidth: number) {
+function predictRbf(
+  samples: readonly TrainingSample[],
+  current: FeatureVector | null,
+  bandwidth: number,
+) {
   if (!current || samples.length === 0) {
     return null;
   }
@@ -181,16 +199,13 @@ function resolveTradeHit(
   trade: Pick<VisualTrade, "direction" | "targetPrice" | "stopPrice">,
   bar: Pick<Bar, "high" | "low">,
 ) {
-  const targetHit = trade.direction === 1
-    ? bar.high >= trade.targetPrice
-    : bar.low <= trade.targetPrice;
-  const stopHit = trade.direction === 1
-    ? bar.low <= trade.stopPrice
-    : bar.high >= trade.stopPrice;
+  const targetHit =
+    trade.direction === 1 ? bar.high >= trade.targetPrice : bar.low <= trade.targetPrice;
+  const stopHit = trade.direction === 1 ? bar.low <= trade.stopPrice : bar.high >= trade.stopPrice;
   if (stopHit) {
     return "stop" as const;
   }
-  return targetHit ? "target" as const : null;
+  return targetHit ? ("target" as const) : null;
 }
 
 function calculateFeatureSeries(
@@ -205,9 +220,11 @@ function calculateFeatureSeries(
   const highest14 = highest(highs, 14);
   const lowest14 = lowest(lows, 14);
   const dumpFromHigh = highest14.map((value, index) =>
-    finite(value) && value !== 0 ? (value - closes[index]!) / value : null);
+    finite(value) && value !== 0 ? (value - closes[index]!) / value : null,
+  );
   const pumpFromLow = lowest14.map((value, index) =>
-    finite(value) && value !== 0 ? (closes[index]! - value) / value : null);
+    finite(value) && value !== 0 ? (closes[index]! - value) / value : null,
+  );
   const feature1 = rsi(dumpFromHigh, 14);
   const feature2 = rsi(pumpFromLow, 14);
 
@@ -225,9 +242,10 @@ function calculateFeatureSeries(
   const tr = trueRange(bars);
   const trSum = rollingSum(tr, 14);
   const feature6 = trSum.map((value, index) => {
-    const range = finite(highest14[index]) && finite(lowest14[index])
-      ? highest14[index]! - lowest14[index]!
-      : null;
+    const range =
+      finite(highest14[index]) && finite(lowest14[index])
+        ? highest14[index]! - lowest14[index]!
+        : null;
     return finite(value) && finite(range) && range > 0
       ? (100 * Math.log10(value / range)) / Math.log10(14)
       : null;
@@ -254,8 +272,8 @@ function createHudPanel(input: {
   inTrade: boolean;
 }): StrategyHudPanel {
   const modelStatus = input.modelStatus ?? "不可用";
-  const percent = (value: number | null) => finite(value) ? `${(value * 100).toFixed(2)}%` : "—";
-  const decimal = (value: number | null) => finite(value) ? value.toFixed(2) : "—";
+  const percent = (value: number | null) => (finite(value) ? `${(value * 100).toFixed(2)}%` : "—");
+  const decimal = (value: number | null) => (finite(value) ? value.toFixed(2) : "—");
 
   return {
     id: "ml-price-target-metrics",
@@ -320,7 +338,11 @@ export function runMachineLearningPriceTargets(
   }
 
   const confirmedBars = [...input.bars]
-    .filter((bar) => input.confirmedThroughTimestamp === undefined || bar.timestamp <= input.confirmedThroughTimestamp)
+    .filter(
+      (bar) =>
+        input.confirmedThroughTimestamp === undefined ||
+        bar.timestamp <= input.confirmedThroughTimestamp,
+    )
     .sort((left, right) => left.timestamp - right.timestamp)
     .slice(-MAX_HISTORY_BARS);
   const confirmedCount = confirmedBars.length;
@@ -328,7 +350,9 @@ export function runMachineLearningPriceTargets(
   if (confirmedCount < MINIMUM_BARS) {
     return emptyOutput(
       true,
-      [`Machine Learning Price Targets 预热中：${confirmedCount} / ${MINIMUM_BARS} 根已确认 K 线。`],
+      [
+        `Machine Learning Price Targets 预热中：${confirmedCount} / ${MINIMUM_BARS} 根已确认 K 线。`,
+      ],
       createHudPanel({
         modelStatus: "历史预热",
         trainingSize: `${confirmedCount} / ${MINIMUM_BARS}`,
@@ -370,7 +394,9 @@ export function runMachineLearningPriceTargets(
   const fastEmaLength = Math.round(numberParameter(input.parameters, "fastEmaLength", 50));
   const slowEmaLength = Math.round(numberParameter(input.parameters, "slowEmaLength", 200));
   const supertrendFactor = numberParameter(input.parameters, "supertrendFactor", 3, 0.1);
-  const supertrendAtrLength = Math.round(numberParameter(input.parameters, "supertrendAtrLength", 10));
+  const supertrendAtrLength = Math.round(
+    numberParameter(input.parameters, "supertrendAtrLength", 10),
+  );
   const bandwidth = numberParameter(input.parameters, "bandwidth", 5, 2);
   const hideNaPredictions = input.parameters.hideNaPredictions !== false;
   const bullishColor = colorParameter(input.parameters, "bullishColor", "#00FFBB");
@@ -385,11 +411,19 @@ export function runMachineLearningPriceTargets(
       return direction === null ? null : direction === -1 ? 1 : -1;
     }
     if (method === "HMA (Increasing or Decreasing)") {
-      return finite(hull[index]) && finite(hull[index - 1]) ? (hull[index]! > hull[index - 1]! ? 1 : -1) : null;
+      return finite(hull[index]) && finite(hull[index - 1])
+        ? hull[index]! > hull[index - 1]!
+          ? 1
+          : -1
+        : null;
     }
-    return finite(fastEma[index]) && finite(slowEma[index]) ? (fastEma[index]! > slowEma[index]! ? 1 : -1) : null;
+    return finite(fastEma[index]) && finite(slowEma[index])
+      ? fastEma[index]! > slowEma[index]!
+        ? 1
+        : -1
+      : null;
   });
-  const scaledTrend = trend.map((value) => value === null ? null : value === 1 ? 1 : 0);
+  const scaledTrend = trend.map((value) => (value === null ? null : value === 1 ? 1 : 0));
   const featureSeries = calculateFeatureSeries(confirmedBars, scaledTrend);
   const atr14 = atr(confirmedBars, 14);
 
@@ -411,14 +445,17 @@ export function runMachineLearningPriceTargets(
   confirmedBars.forEach((bar, index) => {
     const direction = trend[index];
     const previousDirection = trend[index - 1];
-    const crossed = direction !== null && previousDirection !== null && direction !== previousDirection;
+    const crossed =
+      direction !== null && previousDirection !== null && direction !== previousDirection;
 
     if (crossed) {
       if (segmentStart >= 0 && previousDirection !== null) {
         const startPrice = confirmedBars[segmentStart]!.close;
-        const previousMove = Math.abs(previousDirection === 1
-          ? (segmentHigh - startPrice) / startPrice
-          : (segmentLow - startPrice) / startPrice);
+        const previousMove = Math.abs(
+          previousDirection === 1
+            ? (segmentHigh - startPrice) / startPrice
+            : (segmentLow - startPrice) / startPrice,
+        );
         const previousFeatures = featureAt(segmentStart, featureSeries);
         if (previousFeatures && finite(previousMove)) {
           samples.unshift({ features: previousFeatures, target: previousMove });
@@ -442,16 +479,16 @@ export function runMachineLearningPriceTargets(
       const successRate = totalPredictions > 0 ? correctPredictions / totalPredictions : null;
       const rewardRisk = calculateRewardRisk(successRate);
       const prediction = latestPrediction;
-      const canCreateSignal = finite(prediction) && finite(rewardRisk)
-        && (!hideNaPredictions || prediction !== null);
+      const canCreateSignal =
+        finite(prediction) && finite(rewardRisk) && (!hideNaPredictions || prediction !== null);
 
       if (canCreateSignal && direction !== null) {
-        const targetPrice = direction === 1
-          ? bar.close + bar.close * prediction
-          : bar.close - bar.close * prediction;
-        const stopPrice = direction === 1
-          ? bar.close - bar.close * prediction / rewardRisk
-          : bar.close + bar.close * prediction / rewardRisk;
+        const targetPrice =
+          direction === 1 ? bar.close + bar.close * prediction : bar.close - bar.close * prediction;
+        const stopPrice =
+          direction === 1
+            ? bar.close - (bar.close * prediction) / rewardRisk
+            : bar.close + (bar.close * prediction) / rewardRisk;
         const markerOffset = atr14[index] ?? 0;
         const markerPrice = direction === 1 ? stopPrice - markerOffset : stopPrice + markerOffset;
 
@@ -474,7 +511,11 @@ export function runMachineLearningPriceTargets(
             price: bar.close,
             label: direction === 1 ? "Bullish Signal" : "Bearish Signal",
           });
-          alerts.push(direction === 1 ? "New bullish trend signal detected" : "New bearish trend signal detected");
+          alerts.push(
+            direction === 1
+              ? "New bullish trend signal detected"
+              : "New bearish trend signal detected",
+          );
         }
       }
 
@@ -503,7 +544,9 @@ export function runMachineLearningPriceTargets(
           price: hitTarget ? activeTrade.targetPrice : activeTrade.stopPrice,
           label: hitTarget ? "Take Profit Hit" : "Stop Loss Hit",
         });
-        alerts.push(hitTarget ? "Take profit level has been reached" : "Stop loss level has been reached");
+        alerts.push(
+          hitTarget ? "Take profit level has been reached" : "Stop loss level has been reached",
+        );
         activeTrade = null;
       }
     }
@@ -550,50 +593,52 @@ export function runMachineLearningPriceTargets(
     );
   }
 
-  const tradeElements = trades.slice(-Math.floor(MAX_BOXES / 2)).flatMap<StrategyVisualElement>((trade) => [
-    {
-      id: `ml-target-${trade.id}`,
-      kind: "band",
-      fromPrice: trade.entryPrice,
-      toPrice: trade.targetPrice,
-      tone: "target",
-      fromTimestamp: trade.entryTimestamp,
-      toTimestamp: trade.endTimestamp,
-      fillColor: bullishColor,
-      borderColor: bullishColor,
-      opacity: 0.2,
-      placement: "under-candles",
-      zIndex: 12,
-    },
-    {
-      id: `ml-risk-${trade.id}`,
-      kind: "band",
-      fromPrice: trade.entryPrice,
-      toPrice: trade.stopPrice,
-      tone: "risk",
-      fromTimestamp: trade.entryTimestamp,
-      toTimestamp: trade.endTimestamp,
-      fillColor: bearishColor,
-      borderColor: bearishColor,
-      opacity: 0.2,
-      placement: "under-candles",
-      zIndex: 13,
-    },
-    {
-      id: `ml-entry-${trade.id}`,
-      kind: "signal-marker",
-      timestamp: trade.entryTimestamp,
-      price: trade.markerPrice,
-      direction: trade.direction === 1 ? "up" : "down",
-      tone: trade.direction === 1 ? "buy" : "sell",
-      shape: trade.direction === 1 ? "label-up" : "label-down",
-      text: trade.direction === 1 ? "▲" : "▼",
-      color: trade.direction === 1 ? bullishColor : bearishColor,
-      opacity: 1,
-      placement: "over-candles",
-      zIndex: 50,
-    },
-  ]);
+  const tradeElements = trades
+    .slice(-Math.floor(MAX_BOXES / 2))
+    .flatMap<StrategyVisualElement>((trade) => [
+      {
+        id: `ml-target-${trade.id}`,
+        kind: "band",
+        fromPrice: trade.entryPrice,
+        toPrice: trade.targetPrice,
+        tone: "target",
+        fromTimestamp: trade.entryTimestamp,
+        toTimestamp: trade.endTimestamp,
+        fillColor: bullishColor,
+        borderColor: bullishColor,
+        opacity: 0.2,
+        placement: "under-candles",
+        zIndex: 12,
+      },
+      {
+        id: `ml-risk-${trade.id}`,
+        kind: "band",
+        fromPrice: trade.entryPrice,
+        toPrice: trade.stopPrice,
+        tone: "risk",
+        fromTimestamp: trade.entryTimestamp,
+        toTimestamp: trade.endTimestamp,
+        fillColor: bearishColor,
+        borderColor: bearishColor,
+        opacity: 0.2,
+        placement: "under-candles",
+        zIndex: 13,
+      },
+      {
+        id: `ml-entry-${trade.id}`,
+        kind: "signal-marker",
+        timestamp: trade.entryTimestamp,
+        price: trade.markerPrice,
+        direction: trade.direction === 1 ? "up" : "down",
+        tone: trade.direction === 1 ? "buy" : "sell",
+        shape: trade.direction === 1 ? "label-up" : "label-down",
+        text: trade.direction === 1 ? "▲" : "▼",
+        color: trade.direction === 1 ? bullishColor : bearishColor,
+        opacity: 1,
+        placement: "over-candles",
+        zIndex: 50,
+      },
+    ]);
   const overlays = [...tradeElements, ...candleStyles];
   const successRate = totalPredictions > 0 ? correctPredictions / totalPredictions : null;
   const rewardRisk = calculateRewardRisk(successRate);
@@ -632,7 +677,9 @@ export function runMachineLearningPriceTargets(
     metrics,
     logs: [
       `Machine Learning Price Targets 已使用 ${confirmedCount} 根已确认 K 线，训练样本 ${samples.length} 个。`,
-      finite(latestPrediction) ? `当前预测波动 ${(latestPrediction * 100).toFixed(2)}%。` : "当前尚无有效预测。",
+      finite(latestPrediction)
+        ? `当前预测波动 ${(latestPrediction * 100).toFixed(2)}%。`
+        : "当前尚无有效预测。",
     ],
     alerts,
   };
@@ -643,7 +690,8 @@ export function createMachineLearningPriceTargetsStrategyDefinition(): StrategyD
     key: "machine-learning-price-targets",
     name: "Machine Learning Price Target Prediction Signals [AlgoAlpha]",
     version: "1.0.0",
-    description: "使用八维市场特征与 RBF 核回归估计趋势段价格移动，并绘制确认后的目标、风险和统计图层。",
+    description:
+      "使用八维市场特征与 RBF 核回归估计趋势段价格移动，并绘制确认后的目标、风险和统计图层。",
     sourceType: "preset",
     sourceFile: "trading-strategies/Machine Learning Price Target Prediction Signals.md",
     strategyType: "indicator",
@@ -671,7 +719,12 @@ export function createMachineLearningPriceTargetsStrategyDefinition(): StrategyD
       { key: "fastEmaLength", label: "快速 EMA", type: "number", defaultValue: 50 },
       { key: "slowEmaLength", label: "慢速 EMA", type: "number", defaultValue: 200 },
       { key: "supertrendFactor", label: "SuperTrend 系数", type: "number", defaultValue: 3 },
-      { key: "supertrendAtrLength", label: "SuperTrend ATR 长度", type: "number", defaultValue: 10 },
+      {
+        key: "supertrendAtrLength",
+        label: "SuperTrend ATR 长度",
+        type: "number",
+        defaultValue: 10,
+      },
       { key: "bandwidth", label: "RBF 带宽", type: "number", defaultValue: 5 },
       { key: "hideNaPredictions", label: "隐藏无效预测", type: "boolean", defaultValue: true },
       { key: "bullishColor", label: "看涨颜色", type: "color", defaultValue: "#00FFBB" },

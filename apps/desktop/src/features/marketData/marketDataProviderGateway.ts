@@ -14,7 +14,8 @@ export type MarketDataProviderHealthStatus =
 
 export type MarketDataProviderDelayLevel = "realtime" | "delayed" | "unknown";
 
-export type MarketDataUpstream = "tencent" | "eastmoney" | "alphafeed" | "longbridge" | "yahoo-finance";
+export type MarketDataUpstream =
+  "tencent" | "eastmoney" | "alphafeed" | "longbridge" | "yahoo-finance";
 
 export interface MarketDataProviderRateLimit {
   readonly requests: number;
@@ -121,7 +122,9 @@ export interface MarketDataProvider {
 }
 
 export interface RealtimeQuoteProvider extends MarketDataProvider {
-  fetchQuoteSnapshot(items: readonly MarketDataProviderRequestItem[]): Promise<readonly GatewayMarketQuoteSnapshot[]>;
+  fetchQuoteSnapshot(
+    items: readonly MarketDataProviderRequestItem[],
+  ): Promise<readonly GatewayMarketQuoteSnapshot[]>;
 }
 
 export interface HistoricalBarProvider extends MarketDataProvider {
@@ -133,7 +136,10 @@ export interface IntradayBarProvider extends MarketDataProvider {
 }
 
 export interface InstrumentSearchProvider extends MarketDataProvider {
-  searchInstruments(query: string, markets?: readonly Market[]): Promise<readonly MarketInstrument[]>;
+  searchInstruments(
+    query: string,
+    markets?: readonly Market[],
+  ): Promise<readonly MarketInstrument[]>;
 }
 
 export interface StreamingQuoteProvider extends MarketDataProvider {
@@ -153,7 +159,9 @@ export interface MarketDataProviderRegistry {
   register(provider: GatewayMarketDataProvider): void;
   get(providerId: GatewayMarketDataProviderId): GatewayMarketDataProvider | undefined;
   list(): readonly GatewayMarketDataProvider[];
-  listByCapability(capability: MarketDataProviderCapabilityKey): readonly GatewayMarketDataProvider[];
+  listByCapability(
+    capability: MarketDataProviderCapabilityKey,
+  ): readonly GatewayMarketDataProvider[];
 }
 
 export interface MarketDataGatewayError {
@@ -182,9 +190,16 @@ export interface MarketDataGateway {
   fetchQuoteSnapshot(
     items: readonly MarketDataProviderRequestItem[],
   ): Promise<MarketDataGatewayResult<readonly GatewayMarketQuoteSnapshot[]>>;
-  fetchHistoricalBars(request: MarketDataBarRequest): Promise<MarketDataGatewayResult<readonly GatewayMarketDataBar[]>>;
-  fetchIntradayBars(request: MarketDataBarRequest): Promise<MarketDataGatewayResult<readonly GatewayMarketDataBar[]>>;
-  searchInstruments(query: string, markets?: readonly Market[]): Promise<MarketDataGatewayResult<readonly MarketInstrument[]>>;
+  fetchHistoricalBars(
+    request: MarketDataBarRequest,
+  ): Promise<MarketDataGatewayResult<readonly GatewayMarketDataBar[]>>;
+  fetchIntradayBars(
+    request: MarketDataBarRequest,
+  ): Promise<MarketDataGatewayResult<readonly GatewayMarketDataBar[]>>;
+  searchInstruments(
+    query: string,
+    markets?: readonly Market[],
+  ): Promise<MarketDataGatewayResult<readonly MarketInstrument[]>>;
 }
 
 export interface MarketDataGatewayOptions {
@@ -192,7 +207,11 @@ export interface MarketDataGatewayOptions {
   readonly healthTimeoutMs?: number;
 }
 
-const usableHealthStatuses = new Set<MarketDataProviderHealthStatus>(["healthy", "degraded", "delayed"]);
+const usableHealthStatuses = new Set<MarketDataProviderHealthStatus>([
+  "healthy",
+  "degraded",
+  "delayed",
+]);
 const defaultRequestTimeoutMs = 10_000;
 const defaultHealthTimeoutMs = 3_000;
 
@@ -204,7 +223,10 @@ function resolveTimeout(value: number | undefined, fallback: number) {
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new MarketDataProviderTimeoutError(message)), timeoutMs);
+    const timeout = setTimeout(
+      () => reject(new MarketDataProviderTimeoutError(message)),
+      timeoutMs,
+    );
     promise.then(
       (value) => {
         clearTimeout(timeout);
@@ -279,7 +301,9 @@ export function createMarketDataGateway(
   const requestTimeoutMs = resolveTimeout(options.requestTimeoutMs, defaultRequestTimeoutMs);
   const healthTimeoutMs = resolveTimeout(options.healthTimeoutMs, defaultHealthTimeoutMs);
   const orderProviders = (providers: readonly GatewayMarketDataProvider[]) =>
-    [...providers].sort((left, right) => getPriority(priority, left.id) - getPriority(priority, right.id));
+    [...providers].sort(
+      (left, right) => getPriority(priority, left.id) - getPriority(priority, right.id),
+    );
 
   const runWithFallback = async <Data>(
     capability: MarketDataProviderCapabilityKey,
@@ -302,7 +326,8 @@ export function createMarketDataGateway(
           `${provider.displayName} health check timed out after ${healthTimeoutMs} ms`,
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : `${provider.displayName} health check failed`;
+        const message =
+          error instanceof Error ? error.message : `${provider.displayName} health check failed`;
         health = createUnavailableHealth(provider, message);
         healthViews.push(health);
         lastError = {
@@ -360,12 +385,14 @@ export function createMarketDataGateway(
           `${provider.displayName} health check timed out after ${healthTimeoutMs} ms`,
         ).catch(() => health);
         healthViews[healthViews.length - 1] = latestHealth;
-        const timeoutMessage = error instanceof MarketDataProviderTimeoutError ? error.message : null;
+        const timeoutMessage =
+          error instanceof MarketDataProviderTimeoutError ? error.message : null;
         lastError = {
           code: "PROVIDER_UNAVAILABLE",
           // Health stores the provider-specific, sanitized failure reason. Keep it
           // through the neutral gateway so the renderer can explain a fallback.
-          message: timeoutMessage ?? (latestHealth.message || `${provider.displayName} request failed`),
+          message:
+            timeoutMessage ?? (latestHealth.message || `${provider.displayName} request failed`),
           provider: provider.id,
           cause: error,
         };
@@ -387,37 +414,49 @@ export function createMarketDataGateway(
 
   return {
     fetchQuoteSnapshot: (items) =>
-      runWithFallback<readonly GatewayMarketQuoteSnapshot[]>("realtimeQuote", (provider) => {
-        if (!hasRealtimeQuoteProvider(provider)) {
-          throw new Error(`Provider ${provider.id} does not implement fetchQuoteSnapshot.`);
-        }
-        return provider.fetchQuoteSnapshot(items);
-      }, undefined, (provider) =>
-        items.every(
-          (item) =>
-            provider.capability.markets.includes(item.market) &&
-            provider.capability.timeframes.includes("realtime"),
-        ),
+      runWithFallback<readonly GatewayMarketQuoteSnapshot[]>(
+        "realtimeQuote",
+        (provider) => {
+          if (!hasRealtimeQuoteProvider(provider)) {
+            throw new Error(`Provider ${provider.id} does not implement fetchQuoteSnapshot.`);
+          }
+          return provider.fetchQuoteSnapshot(items);
+        },
+        undefined,
+        (provider) =>
+          items.every(
+            (item) =>
+              provider.capability.markets.includes(item.market) &&
+              provider.capability.timeframes.includes("realtime"),
+          ),
       ),
     fetchHistoricalBars: (request) =>
-      runWithFallback<readonly GatewayMarketDataBar[]>("historicalBars", (provider) => {
-        if (!hasHistoricalBarProvider(provider)) {
-          throw new Error(`Provider ${provider.id} does not implement fetchHistoricalBars.`);
-        }
-        return provider.fetchHistoricalBars(request);
-      }, hasBars, (provider) =>
-        provider.capability.markets.includes(request.market) &&
-        provider.capability.timeframes.includes(request.timeframe),
+      runWithFallback<readonly GatewayMarketDataBar[]>(
+        "historicalBars",
+        (provider) => {
+          if (!hasHistoricalBarProvider(provider)) {
+            throw new Error(`Provider ${provider.id} does not implement fetchHistoricalBars.`);
+          }
+          return provider.fetchHistoricalBars(request);
+        },
+        hasBars,
+        (provider) =>
+          provider.capability.markets.includes(request.market) &&
+          provider.capability.timeframes.includes(request.timeframe),
       ),
     fetchIntradayBars: (request) =>
-      runWithFallback<readonly GatewayMarketDataBar[]>("intradayBars", (provider) => {
-        if (!hasIntradayBarProvider(provider)) {
-          throw new Error(`Provider ${provider.id} does not implement fetchIntradayBars.`);
-        }
-        return provider.fetchIntradayBars(request);
-      }, hasBars, (provider) =>
-        provider.capability.markets.includes(request.market) &&
-        provider.capability.timeframes.includes(request.timeframe),
+      runWithFallback<readonly GatewayMarketDataBar[]>(
+        "intradayBars",
+        (provider) => {
+          if (!hasIntradayBarProvider(provider)) {
+            throw new Error(`Provider ${provider.id} does not implement fetchIntradayBars.`);
+          }
+          return provider.fetchIntradayBars(request);
+        },
+        hasBars,
+        (provider) =>
+          provider.capability.markets.includes(request.market) &&
+          provider.capability.timeframes.includes(request.timeframe),
       ),
     searchInstruments: (query, markets) =>
       runWithFallback<readonly MarketInstrument[]>(
@@ -438,24 +477,35 @@ function hasBars(bars: readonly GatewayMarketDataBar[]) {
   return bars.length > 0;
 }
 
-function getPriority(priority: readonly GatewayMarketDataProviderId[], providerId: GatewayMarketDataProviderId) {
+function getPriority(
+  priority: readonly GatewayMarketDataProviderId[],
+  providerId: GatewayMarketDataProviderId,
+) {
   const index = priority.indexOf(providerId);
 
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
-function hasRealtimeQuoteProvider(provider: GatewayMarketDataProvider): provider is RealtimeQuoteProvider {
+function hasRealtimeQuoteProvider(
+  provider: GatewayMarketDataProvider,
+): provider is RealtimeQuoteProvider {
   return typeof (provider as RealtimeQuoteProvider).fetchQuoteSnapshot === "function";
 }
 
-function hasInstrumentSearchProvider(provider: GatewayMarketDataProvider): provider is InstrumentSearchProvider {
+function hasInstrumentSearchProvider(
+  provider: GatewayMarketDataProvider,
+): provider is InstrumentSearchProvider {
   return typeof (provider as InstrumentSearchProvider).searchInstruments === "function";
 }
 
-function hasHistoricalBarProvider(provider: GatewayMarketDataProvider): provider is HistoricalBarProvider {
+function hasHistoricalBarProvider(
+  provider: GatewayMarketDataProvider,
+): provider is HistoricalBarProvider {
   return typeof (provider as HistoricalBarProvider).fetchHistoricalBars === "function";
 }
 
-function hasIntradayBarProvider(provider: GatewayMarketDataProvider): provider is IntradayBarProvider {
+function hasIntradayBarProvider(
+  provider: GatewayMarketDataProvider,
+): provider is IntradayBarProvider {
   return typeof (provider as IntradayBarProvider).fetchIntradayBars === "function";
 }

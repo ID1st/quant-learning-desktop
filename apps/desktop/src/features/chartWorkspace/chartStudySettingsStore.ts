@@ -1,6 +1,14 @@
 import { create } from "zustand";
-import { defaultChartIndicatorSettings, sanitizeChartIndicatorSettings, type ChartIndicatorSettings } from "../chartIndicators/chartIndicators.ts";
-import { appLocalDatabase, type LocalDatabase, type LocalDatabaseDriver } from "../persistence/localDatabase.ts";
+import {
+  defaultChartIndicatorSettings,
+  sanitizeChartIndicatorSettings,
+  type ChartIndicatorSettings,
+} from "../chartIndicators/chartIndicators.ts";
+import {
+  appLocalDatabase,
+  type LocalDatabase,
+  type LocalDatabaseDriver,
+} from "../persistence/localDatabase.ts";
 import type { ChartStrategyWorkspaceState } from "../strategies/chartStrategyRuntime.ts";
 
 const collection = "chart-study-settings";
@@ -22,7 +30,10 @@ export interface ChartStudySettingsStore {
   strategies: Record<string, ChartStrategyWorkspaceState>;
   indicators: ChartIndicatorSettings;
   initializeStrategies(strategies: readonly ChartStudyStrategyDefinition[]): void;
-  updateStrategy(strategyKey: string, update: (current: ChartStrategyWorkspaceState) => ChartStrategyWorkspaceState): void;
+  updateStrategy(
+    strategyKey: string,
+    update: (current: ChartStrategyWorkspaceState) => ChartStrategyWorkspaceState,
+  ): void;
   updateIndicators(update: (current: ChartIndicatorSettings) => ChartIndicatorSettings): void;
 }
 
@@ -48,7 +59,10 @@ export function createChartStudySettingsStore(options: ChartStudySettingsStoreOp
       const current = get().strategies[strategyKey];
       if (!current) return;
       const next = update(current);
-      const strategies = { ...get().strategies, [strategyKey]: sanitizeStrategyState(next, current) };
+      const strategies = {
+        ...get().strategies,
+        [strategyKey]: sanitizeStrategyState(next, current),
+      };
       set({ strategies });
       writeSettings(database, { strategies, indicators: get().indicators });
     },
@@ -65,7 +79,10 @@ function getLegacyStorage(): Pick<LocalDatabaseDriver, "getItem"> | undefined {
   return window.localStorage;
 }
 
-function readInitialSettings(database: LocalDatabase, legacyStorage?: Pick<LocalDatabaseDriver, "getItem">): StoredChartStudySettings {
+function readInitialSettings(
+  database: LocalDatabase,
+  legacyStorage?: Pick<LocalDatabaseDriver, "getItem">,
+): StoredChartStudySettings {
   const stored = database.readDocument<StoredChartStudySettings | null>(collection, {
     version: storageVersion,
     fallback: null,
@@ -82,17 +99,22 @@ function readInitialSettings(database: LocalDatabase, legacyStorage?: Pick<Local
   return { strategies: {}, indicators: defaultChartIndicatorSettings };
 }
 
-function readLegacySettings(legacyStorage?: Pick<LocalDatabaseDriver, "getItem">): StoredChartStudySettings | null {
+function readLegacySettings(
+  legacyStorage?: Pick<LocalDatabaseDriver, "getItem">,
+): StoredChartStudySettings | null {
   const raw = legacyStorage?.getItem(legacyWorkspacePreferencesKey);
   if (!raw) return null;
 
   try {
-    const value = JSON.parse(raw) as { strategies?: unknown; indicators?: unknown; showVolume?: unknown };
+    const value = JSON.parse(raw) as {
+      strategies?: unknown;
+      indicators?: unknown;
+      showVolume?: unknown;
+    };
     const strategies = sanitizeStrategies(value.strategies);
     const sanitizedIndicators = sanitizeIndicators(value.indicators);
-    const indicators = value.showVolume === true
-      ? enableLegacyVolume(sanitizedIndicators)
-      : sanitizedIndicators;
+    const indicators =
+      value.showVolume === true ? enableLegacyVolume(sanitizedIndicators) : sanitizedIndicators;
     return { strategies, indicators };
   } catch {
     return null;
@@ -118,12 +140,22 @@ function sanitizeStrategies(value: unknown): Record<string, ChartStrategyWorkspa
     Object.entries(value).flatMap(([key, state]) => {
       if (!key || !state || typeof state !== "object" || Array.isArray(state)) return [];
       const parsed = state as Partial<ChartStrategyWorkspaceState>;
-      if (!parsed.parameters || typeof parsed.parameters !== "object" || Array.isArray(parsed.parameters)) return [];
-      return [[key, {
-        enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : false,
-        showLayer: typeof parsed.showLayer === "boolean" ? parsed.showLayer : true,
-        parameters: { ...parsed.parameters },
-      }]];
+      if (
+        !parsed.parameters ||
+        typeof parsed.parameters !== "object" ||
+        Array.isArray(parsed.parameters)
+      )
+        return [];
+      return [
+        [
+          key,
+          {
+            enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : false,
+            showLayer: typeof parsed.showLayer === "boolean" ? parsed.showLayer : true,
+            parameters: { ...parsed.parameters },
+          },
+        ],
+      ];
     }),
   );
 }
@@ -138,7 +170,9 @@ function mergeStrategySettings(
   definitions.forEach((definition, index) => {
     const fallback = createDefaultStrategyState(definition, index);
     const existing = current[definition.key];
-    const next = existing ? normalizeStrategyForDefinition(existing, definition, fallback) : fallback;
+    const next = existing
+      ? normalizeStrategyForDefinition(existing, definition, fallback)
+      : fallback;
     if (!existing || !isSameStrategyState(existing, next)) changed = true;
     strategies[definition.key] = next;
   });
@@ -146,11 +180,16 @@ function mergeStrategySettings(
   return changed ? strategies : current;
 }
 
-function createDefaultStrategyState(definition: ChartStudyStrategyDefinition, index: number): ChartStrategyWorkspaceState {
+function createDefaultStrategyState(
+  definition: ChartStudyStrategyDefinition,
+  index: number,
+): ChartStrategyWorkspaceState {
   return {
     enabled: definition.defaultEnabled ?? index === 0,
     showLayer: true,
-    parameters: Object.fromEntries(definition.parameterSchema.map((parameter) => [parameter.key, parameter.defaultValue])),
+    parameters: Object.fromEntries(
+      definition.parameterSchema.map((parameter) => [parameter.key, parameter.defaultValue]),
+    ),
   };
 }
 
@@ -163,23 +202,37 @@ function normalizeStrategyForDefinition(
     enabled: state.enabled,
     showLayer: state.showLayer,
     parameters: Object.fromEntries(
-      definition.parameterSchema.map((parameter) => [parameter.key, state.parameters[parameter.key] ?? fallback.parameters[parameter.key]]),
+      definition.parameterSchema.map((parameter) => [
+        parameter.key,
+        state.parameters[parameter.key] ?? fallback.parameters[parameter.key],
+      ]),
     ),
   };
 }
 
-function sanitizeStrategyState(value: ChartStrategyWorkspaceState, fallback: ChartStrategyWorkspaceState): ChartStrategyWorkspaceState {
+function sanitizeStrategyState(
+  value: ChartStrategyWorkspaceState,
+  fallback: ChartStrategyWorkspaceState,
+): ChartStrategyWorkspaceState {
   return {
     enabled: typeof value.enabled === "boolean" ? value.enabled : fallback.enabled,
     showLayer: typeof value.showLayer === "boolean" ? value.showLayer : fallback.showLayer,
-    parameters: value.parameters && typeof value.parameters === "object" ? { ...value.parameters } : fallback.parameters,
+    parameters:
+      value.parameters && typeof value.parameters === "object"
+        ? { ...value.parameters }
+        : fallback.parameters,
   };
 }
 
-function isSameStrategyState(left: ChartStrategyWorkspaceState, right: ChartStrategyWorkspaceState) {
-  return left.enabled === right.enabled &&
+function isSameStrategyState(
+  left: ChartStrategyWorkspaceState,
+  right: ChartStrategyWorkspaceState,
+) {
+  return (
+    left.enabled === right.enabled &&
     left.showLayer === right.showLayer &&
-    JSON.stringify(left.parameters) === JSON.stringify(right.parameters);
+    JSON.stringify(left.parameters) === JSON.stringify(right.parameters)
+  );
 }
 
 function sanitizeIndicators(value: unknown): ChartIndicatorSettings {

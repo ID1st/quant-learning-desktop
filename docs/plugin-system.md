@@ -46,14 +46,8 @@ Example manifest shape:
     "app": ">=0.1.0",
     "pluginApi": ">=0.1.0"
   },
-  "permissions": [
-    "market-data:read",
-    "strategy:run",
-    "file:export"
-  ],
-  "capabilities": [
-    "strategy"
-  ]
+  "permissions": ["market-data:read", "strategy:run", "file:export"],
+  "capabilities": ["strategy"]
 }
 ```
 

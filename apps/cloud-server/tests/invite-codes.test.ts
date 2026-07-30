@@ -8,9 +8,7 @@ import {
 } from "../src/security/inviteCodes.ts";
 
 test("generated invite codes are unique, human-readable and normalize to 18 symbols", () => {
-  const codes = new Set(
-    Array.from({ length: 500 }, () => generateInviteCode()),
-  );
+  const codes = new Set(Array.from({ length: 500 }, () => generateInviteCode()));
 
   assert.equal(codes.size, 500);
   for (const code of codes) {
@@ -20,10 +18,7 @@ test("generated invite codes are unique, human-readable and normalize to 18 symb
 });
 
 test("normalization ignores separators but rejects unexpected characters", () => {
-  assert.equal(
-    normalizeInviteCode(" qld-abcd2 efgh3-ijkm4 "),
-    "QLDABCD2EFGH3IJKM4",
-  );
+  assert.equal(normalizeInviteCode(" qld-abcd2 efgh3-ijkm4 "), "QLDABCD2EFGH3IJKM4");
   assert.throws(() => normalizeInviteCode("QLD-ABCD2-💥-EFGH3"), /format/i);
   assert.throws(() => normalizeInviteCode("QUANT2026"), /format/i);
 });

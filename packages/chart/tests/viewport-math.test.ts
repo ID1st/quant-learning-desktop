@@ -31,20 +31,35 @@ test("chart pan keeps the current window size and stops at the left edge", () =>
 });
 
 test("chart pan can reserve a right-side future area after the latest candle", () => {
-  assert.deepEqual(panChartVisibleRange({ start: 80, end: 100 }, 100, 25, 30), { start: 105, end: 125 });
-  assert.deepEqual(panChartVisibleRange({ start: 80, end: 100 }, 100, 80, 30), { start: 110, end: 130 });
+  assert.deepEqual(panChartVisibleRange({ start: 80, end: 100 }, 100, 25, 30), {
+    start: 105,
+    end: 125,
+  });
+  assert.deepEqual(panChartVisibleRange({ start: 80, end: 100 }, 100, 80, 30), {
+    start: 110,
+    end: 130,
+  });
 });
 
 test("chart data updates keep the latest window pinned without changing its size", () => {
-  assert.deepEqual(syncChartVisibleRangeForDataUpdate({ start: 40, end: 100 }, 100, 101), { start: 41, end: 101 });
+  assert.deepEqual(syncChartVisibleRangeForDataUpdate({ start: 40, end: 100 }, 100, 101), {
+    start: 41,
+    end: 101,
+  });
 });
 
 test("chart data updates preserve historical viewing window", () => {
-  assert.deepEqual(syncChartVisibleRangeForDataUpdate({ start: 20, end: 80 }, 100, 101), { start: 20, end: 80 });
+  assert.deepEqual(syncChartVisibleRangeForDataUpdate({ start: 20, end: 80 }, 100, 101), {
+    start: 20,
+    end: 80,
+  });
 });
 
 test("chart data updates preserve a user-selected right-side future area", () => {
-  assert.deepEqual(syncChartVisibleRangeForDataUpdate({ start: 105, end: 125 }, 100, 101, 30), { start: 106, end: 126 });
+  assert.deepEqual(syncChartVisibleRangeForDataUpdate({ start: 105, end: 125 }, 100, 101, 30), {
+    start: 106,
+    end: 126,
+  });
 });
 
 test("chart initializes a full default viewport after sparse cache becomes usable", () => {

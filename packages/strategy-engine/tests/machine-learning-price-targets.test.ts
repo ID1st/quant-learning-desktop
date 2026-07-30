@@ -45,8 +45,11 @@ function run(bars: Bar[], confirmedThroughTimestamp?: number) {
 describe("Machine Learning Price Targets preset", () => {
   it("calculates all eight source-aligned feature series", () => {
     const bars = createWaveBars(1_200);
-    const scaledTrend = bars.map((_, index) => index % 180 < 90 ? 1 : 0);
-    const features = machineLearningPriceTargetsTestSupport.calculateFeatureSeries(bars, scaledTrend);
+    const scaledTrend = bars.map((_, index) => (index % 180 < 90 ? 1 : 0));
+    const features = machineLearningPriceTargetsTestSupport.calculateFeatureSeries(
+      bars,
+      scaledTrend,
+    );
 
     assert.equal(features.length, 8);
     assert.equal(features[7], scaledTrend);
@@ -56,14 +59,16 @@ describe("Machine Learning Price Targets preset", () => {
     const volatility = sma(ranges, 40);
     const volatilityMean = ema(volatility, 20);
     const volatilityChange = volatility.map((value, index) =>
-      value !== null && volatilityMean[index] !== null ? value - volatilityMean[index]! : null);
+      value !== null && volatilityMean[index] !== null ? value - volatilityMean[index]! : null,
+    );
     const acceleration = ema(volatilityChange, 10);
     const secondDerivative = volatilityChange.map((value, index) =>
-      value !== null && acceleration[index] !== null ? value - acceleration[index]! : null);
+      value !== null && acceleration[index] !== null ? value - acceleration[index]! : null,
+    );
     const normalizedLatest = (series: readonly (number | null)[]) => {
       const low = lowest(series, 1_000).at(-1)!;
       const high = highest(series, 1_000).at(-1)!;
-      return (series.at(-1)! - low) / (high - low) * 100;
+      return ((series.at(-1)! - low) / (high - low)) * 100;
     };
 
     assert.ok(Math.abs(features[2]!.at(-1)! - normalizedLatest(volatilityChange)) < 1e-12);
@@ -71,13 +76,26 @@ describe("Machine Learning Price Targets preset", () => {
   });
 
   it("uses Euclidean RBF weights and rejects invalid reward/risk boundaries", () => {
-    const feature = (value: number) => ({ values: Array(8).fill(value) as [
-      number, number, number, number, number, number, number, number,
-    ] });
-    const predicted = machineLearningPriceTargetsTestSupport.predictRbf([
-      { features: feature(0), target: 0.1 },
-      { features: feature(1), target: 0.3 },
-    ], feature(0), 2);
+    const feature = (value: number) => ({
+      values: Array(8).fill(value) as [
+        number,
+        number,
+        number,
+        number,
+        number,
+        number,
+        number,
+        number,
+      ],
+    });
+    const predicted = machineLearningPriceTargetsTestSupport.predictRbf(
+      [
+        { features: feature(0), target: 0.1 },
+        { features: feature(1), target: 0.3 },
+      ],
+      feature(0),
+      2,
+    );
     const distantWeight = Math.exp(-2);
     const expected = (0.1 + distantWeight * 0.3) / (1 + distantWeight);
 
@@ -89,14 +107,20 @@ describe("Machine Learning Price Targets preset", () => {
   });
 
   it("uses the conservative stop when one confirmed candle touches both levels", () => {
-    assert.equal(machineLearningPriceTargetsTestSupport.resolveTradeHit({
-      direction: 1,
-      targetPrice: 110,
-      stopPrice: 90,
-    }, {
-      high: 111,
-      low: 89,
-    }), "stop");
+    assert.equal(
+      machineLearningPriceTargetsTestSupport.resolveTradeHit(
+        {
+          direction: 1,
+          targetPrice: 110,
+          stopPrice: 90,
+        },
+        {
+          high: 111,
+          low: 89,
+        },
+      ),
+      "stop",
+    );
   });
 
   it("registers a disabled realtime-only indicator with its history requirement", () => {

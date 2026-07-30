@@ -1,18 +1,26 @@
 import type { Market } from "@quant/shared";
 import type { MarketQuoteSnapshot } from "./marketDataSyncService.ts";
 import type { MarketDataBar, MarketBarCacheKey } from "./marketBarCacheService.ts";
-import { isHistoricalMarketDataProviderId, isLiveMarketDataProviderId } from "./marketDataProviderIds.ts";
+import {
+  isHistoricalMarketDataProviderId,
+  isLiveMarketDataProviderId,
+} from "./marketDataProviderIds.ts";
 
 const minuteMs = 60_000;
 
 function getTimestamp(snapshot: MarketQuoteSnapshot) {
   const quoteTime = Date.parse(snapshot.quoteTime);
   const receivedAt = Date.parse(snapshot.receivedAt);
-  return Number.isFinite(quoteTime) ? quoteTime : Number.isFinite(receivedAt) ? receivedAt : Date.now();
+  return Number.isFinite(quoteTime)
+    ? quoteTime
+    : Number.isFinite(receivedAt)
+      ? receivedAt
+      : Date.now();
 }
 
 function getMarketDateKey(timestamp: number, market: Market) {
-  const timeZone = market === "US" ? "America/New_York" : market === "HK" ? "Asia/Hong_Kong" : "Asia/Shanghai";
+  const timeZone =
+    market === "US" ? "America/New_York" : market === "HK" ? "Asia/Hong_Kong" : "Asia/Shanghai";
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -52,13 +60,21 @@ function cumulativeSnapshotValueToMinuteValue(
 
   return cumulativeValue >= previousSessionTotal
     ? cumulativeValue - previousSessionTotal
-    : existingValue ?? 0;
+    : (existingValue ?? 0);
 }
 
-export function retainRecentRealtimeSessions(bars: MarketDataBar[], market: Market, sessionCount = 5) {
+export function retainRecentRealtimeSessions(
+  bars: MarketDataBar[],
+  market: Market,
+  sessionCount = 5,
+) {
   const sorted = [...bars].sort((left, right) => left.timestamp - right.timestamp);
-  const sessionKeys = Array.from(new Set(sorted.map((bar) => getMarketDateKey(bar.timestamp, market))));
-  const retainedKeys = new Set(sessionKeys.slice(Math.max(0, sessionKeys.length - Math.max(1, sessionCount))));
+  const sessionKeys = Array.from(
+    new Set(sorted.map((bar) => getMarketDateKey(bar.timestamp, market))),
+  );
+  const retainedKeys = new Set(
+    sessionKeys.slice(Math.max(0, sessionKeys.length - Math.max(1, sessionCount))),
+  );
 
   return sorted.filter((bar) => retainedKeys.has(getMarketDateKey(bar.timestamp, market)));
 }
@@ -71,15 +87,18 @@ export function mergeRealtimeSnapshotMinuteBar(
 ): MarketDataBar[] {
   const timestamp = Math.floor(getTimestamp(snapshot) / minuteMs) * minuteMs;
   const price = snapshot.lastPrice;
-  const existingBar = currentBars.find((bar) => isMatchingRealtimeBar(bar, key) && bar.timestamp === timestamp);
-  const volume = cumulativeSnapshotValueToMinuteValue(
-    currentBars,
-    key,
-    timestamp,
-    snapshot.volume,
-    existingBar?.volume,
-    (bar) => bar.volume,
-  ) ?? 0;
+  const existingBar = currentBars.find(
+    (bar) => isMatchingRealtimeBar(bar, key) && bar.timestamp === timestamp,
+  );
+  const volume =
+    cumulativeSnapshotValueToMinuteValue(
+      currentBars,
+      key,
+      timestamp,
+      snapshot.volume,
+      existingBar?.volume,
+      (bar) => bar.volume,
+    ) ?? 0;
   const amount = cumulativeSnapshotValueToMinuteValue(
     currentBars,
     key,
@@ -104,7 +123,9 @@ export function mergeRealtimeSnapshotMinuteBar(
 
   return retainRecentRealtimeSessions(
     [
-      ...currentBars.filter((bar) => isMatchingRealtimeBar(bar, key) && bar.timestamp !== timestamp),
+      ...currentBars.filter(
+        (bar) => isMatchingRealtimeBar(bar, key) && bar.timestamp !== timestamp,
+      ),
       minuteBar,
     ],
     key.market,
@@ -119,13 +140,22 @@ export function mergeHistoricalRealtimeBarsWithLiveBars(
   sessionCount = 5,
 ): MarketDataBar[] {
   const matchingHistory = historicalBars.filter((bar) => isMatchingRealtimeBar(bar, key));
-  const earliestHistoricalTimestamp = matchingHistory.reduce((earliest, bar) => Math.min(earliest, bar.timestamp), Number.POSITIVE_INFINITY);
-  const latestHistoricalTimestamp = matchingHistory.reduce((latest, bar) => Math.max(latest, bar.timestamp), Number.NEGATIVE_INFINITY);
+  const earliestHistoricalTimestamp = matchingHistory.reduce(
+    (earliest, bar) => Math.min(earliest, bar.timestamp),
+    Number.POSITIVE_INFINITY,
+  );
+  const latestHistoricalTimestamp = matchingHistory.reduce(
+    (latest, bar) => Math.max(latest, bar.timestamp),
+    Number.NEGATIVE_INFINITY,
+  );
   const retainedPreviousSessionBars = currentBars.filter(
     (bar) => isMatchingRealtimeBar(bar, key) && bar.timestamp < earliestHistoricalTimestamp,
   );
   const retainedLiveBars = currentBars.filter(
-    (bar) => isMatchingRealtimeBar(bar, key) && isLiveMarketDataProviderId(bar.provider) && bar.timestamp >= latestHistoricalTimestamp,
+    (bar) =>
+      isMatchingRealtimeBar(bar, key) &&
+      isLiveMarketDataProviderId(bar.provider) &&
+      bar.timestamp >= latestHistoricalTimestamp,
   );
   const byTimestamp = new Map<number, MarketDataBar>();
 
@@ -134,18 +164,21 @@ export function mergeHistoricalRealtimeBarsWithLiveBars(
   }
   for (const liveBar of retainedLiveBars) {
     const historicalBar = byTimestamp.get(liveBar.timestamp);
-    byTimestamp.set(liveBar.timestamp, historicalBar
-      ? {
-          ...historicalBar,
-          high: Math.max(historicalBar.high, liveBar.high),
-          low: Math.min(historicalBar.low, liveBar.low),
-          close: liveBar.close,
-          volume: liveBar.volume,
-          amount: liveBar.amount ?? historicalBar.amount,
-          provider: liveBar.provider,
-          upstream: liveBar.upstream,
-        }
-      : liveBar);
+    byTimestamp.set(
+      liveBar.timestamp,
+      historicalBar
+        ? {
+            ...historicalBar,
+            high: Math.max(historicalBar.high, liveBar.high),
+            low: Math.min(historicalBar.low, liveBar.low),
+            close: liveBar.close,
+            volume: liveBar.volume,
+            amount: liveBar.amount ?? historicalBar.amount,
+            provider: liveBar.provider,
+            upstream: liveBar.upstream,
+          }
+        : liveBar,
+    );
   }
 
   return retainRecentRealtimeSessions(Array.from(byTimestamp.values()), key.market, sessionCount);
@@ -165,14 +198,19 @@ export function analyzeRealtimeHistoryGap(
     .filter((bar) => isLiveMarketDataProviderId(bar.provider))
     .reduce((latest, bar) => Math.max(latest, bar.timestamp), Number.NEGATIVE_INFINITY);
   const comparisonTimestamp = Number.isFinite(latestLiveTimestamp) ? latestLiveTimestamp : now;
-  const gapMs = Number.isFinite(latestHistoricalTimestamp) ? Math.max(0, comparisonTimestamp - latestHistoricalTimestamp) : 0;
+  const gapMs = Number.isFinite(latestHistoricalTimestamp)
+    ? Math.max(0, comparisonTimestamp - latestHistoricalTimestamp)
+    : 0;
 
   return {
-    latestHistoricalTimestamp: Number.isFinite(latestHistoricalTimestamp) ? latestHistoricalTimestamp : null,
+    latestHistoricalTimestamp: Number.isFinite(latestHistoricalTimestamp)
+      ? latestHistoricalTimestamp
+      : null,
     latestLiveTimestamp: Number.isFinite(latestLiveTimestamp) ? latestLiveTimestamp : null,
     gapMs,
     hasGap: gapMs > warningThresholdMs,
-    isBridgedByLiveData: Number.isFinite(latestLiveTimestamp) && latestLiveTimestamp > latestHistoricalTimestamp,
+    isBridgedByLiveData:
+      Number.isFinite(latestLiveTimestamp) && latestLiveTimestamp > latestHistoricalTimestamp,
   };
 }
 

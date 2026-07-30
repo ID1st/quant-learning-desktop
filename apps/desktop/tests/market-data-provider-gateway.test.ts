@@ -52,7 +52,11 @@ describe("MarketDataProviderRegistry", () => {
     const registry = createMarketDataProviderRegistry();
     registry.register(createProvider("stock-sdk", "healthy"));
     registry.register(
-      createProvider("longbridge", "healthy", { ...baseCapability, realtimeQuote: false, historicalBars: true }),
+      createProvider("longbridge", "healthy", {
+        ...baseCapability,
+        realtimeQuote: false,
+        historicalBars: true,
+      }),
     );
 
     assert.equal(registry.get("stock-sdk")?.displayName, "stock-sdk");
@@ -67,7 +71,9 @@ describe("MarketDataProviderRegistry", () => {
   });
 
   it("rejects duplicate provider ids", () => {
-    const registry = createMarketDataProviderRegistry([createProvider("alphafeed-rest", "healthy")]);
+    const registry = createMarketDataProviderRegistry([
+      createProvider("alphafeed-rest", "healthy"),
+    ]);
 
     assert.throws(() => {
       registry.register(createProvider("alphafeed-rest", "healthy"));
@@ -95,7 +101,9 @@ describe("MarketDataGateway", () => {
       timestamp: 1_788_288_000_000,
     };
     const registry = createMarketDataProviderRegistry([
-      createProvider("longbridge", "healthy", baseCapability, async () => [{ ...quote, provider: "longbridge" }]),
+      createProvider("longbridge", "healthy", baseCapability, async () => [
+        { ...quote, provider: "longbridge" },
+      ]),
       createProvider("alphafeed-rest", "healthy", baseCapability, async () => [quote]),
     ]);
     const gateway = createMarketDataGateway(registry, ["alphafeed-rest", "longbridge"]);
@@ -175,11 +183,10 @@ describe("MarketDataGateway", () => {
         return [quote];
       }),
     ]);
-    const gateway = createMarketDataGateway(
-      registry,
-      ["alphafeed-rest", "longbridge"],
-      { requestTimeoutMs: 10, healthTimeoutMs: 10 },
-    );
+    const gateway = createMarketDataGateway(registry, ["alphafeed-rest", "longbridge"], {
+      requestTimeoutMs: 10,
+      healthTimeoutMs: 10,
+    });
 
     const result = await Promise.race([
       gateway.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]),
@@ -226,7 +233,11 @@ describe("MarketDataGateway", () => {
     ]);
     const gateway = createMarketDataGateway(registry, ["stock-sdk", "yahoo-finance"]);
 
-    const result = await gateway.fetchIntradayBars({ market: "HK", symbol: "00700.HK", timeframe: "1m" });
+    const result = await gateway.fetchIntradayBars({
+      market: "HK",
+      symbol: "00700.HK",
+      timeframe: "1m",
+    });
 
     assert.equal(result.ok, false);
     assert.deepEqual(result.triedProviders, ["stock-sdk"]);
@@ -280,7 +291,14 @@ describe("MarketDataGateway", () => {
       timeframes: ["1d", "1w", "1m"],
     };
     const registry = createMarketDataProviderRegistry([
-      createProvider("alphafeed-rest", "healthy", barCapability, async () => [], async () => [], async () => []),
+      createProvider(
+        "alphafeed-rest",
+        "healthy",
+        barCapability,
+        async () => [],
+        async () => [],
+        async () => [],
+      ),
       createProvider(
         "stock-sdk",
         "healthy",
@@ -292,7 +310,11 @@ describe("MarketDataGateway", () => {
     ]);
     const gateway = createMarketDataGateway(registry, ["alphafeed-rest", "stock-sdk"]);
 
-    const result = await gateway.fetchIntradayBars({ market: "US", symbol: "AAPL.US", timeframe: "1m" });
+    const result = await gateway.fetchIntradayBars({
+      market: "US",
+      symbol: "AAPL.US",
+      timeframe: "1m",
+    });
 
     assert.equal(result.ok, true);
     assert.equal(result.provider, "stock-sdk");

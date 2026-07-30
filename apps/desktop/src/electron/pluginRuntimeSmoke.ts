@@ -40,7 +40,9 @@ void app.whenReady().then(async () => {
         runMode: "backtest",
       });
     } catch (error) {
-      blocked = error instanceof Error && error.message.includes("disabled until a no-Node sandbox is available");
+      blocked =
+        error instanceof Error &&
+        error.message.includes("disabled until a no-Node sandbox is available");
     }
     console.log(JSON.stringify({ ok: snapshot.strategies.length === 0 && blocked }));
     app.exit(0);

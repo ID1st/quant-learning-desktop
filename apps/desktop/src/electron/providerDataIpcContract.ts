@@ -1,4 +1,8 @@
-import type { AlphaFeedApiCredentials, AlphaFeedBarRequest, LongPortBarRequest } from "@quant/api-client";
+import type {
+  AlphaFeedApiCredentials,
+  AlphaFeedBarRequest,
+  LongPortBarRequest,
+} from "@quant/api-client";
 import type { LongPortApiCredentials } from "@quant/api-client";
 import type { MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
 import {
@@ -29,7 +33,9 @@ import { providerDataIpcChannels } from "./providerDataIpcChannels.ts";
 export { providerDataIpcChannels } from "./providerDataIpcChannels.ts";
 
 export interface ProviderDataIpcHandlers {
-  verifyAlphaFeedCredentials(credentials: AlphaFeedApiCredentials): Promise<AlphaFeedBridgeVerificationResult>;
+  verifyAlphaFeedCredentials(
+    credentials: AlphaFeedApiCredentials,
+  ): Promise<AlphaFeedBridgeVerificationResult>;
   fetchAlphaFeedQuoteSnapshot(
     credentials: AlphaFeedApiCredentials,
     watchlist: MarketWatchlistItem[],
@@ -38,16 +44,26 @@ export interface ProviderDataIpcHandlers {
     credentials: AlphaFeedApiCredentials,
     request: AlphaFeedBarRequest,
   ): Promise<AlphaFeedBridgeBarsResult>;
-  fetchAlphaFeedIntradayBars(credentials: AlphaFeedApiCredentials, request: AlphaFeedBarRequest): Promise<AlphaFeedBridgeBarsResult>;
-  connectAlphaFeedStream(request: AlphaFeedStreamConnectRequest): Promise<AlphaFeedStreamControlResult>;
+  fetchAlphaFeedIntradayBars(
+    credentials: AlphaFeedApiCredentials,
+    request: AlphaFeedBarRequest,
+  ): Promise<AlphaFeedBridgeBarsResult>;
+  connectAlphaFeedStream(
+    request: AlphaFeedStreamConnectRequest,
+  ): Promise<AlphaFeedStreamControlResult>;
   readAlphaFeedStreamSnapshot(): Promise<AlphaFeedStreamSnapshotResult>;
   disconnectAlphaFeedStream(): Promise<AlphaFeedStreamControlResult>;
-  verifyLongPortCredentials(credentials: LongPortApiCredentials): Promise<LongPortBridgeVerificationResult>;
+  verifyLongPortCredentials(
+    credentials: LongPortApiCredentials,
+  ): Promise<LongPortBridgeVerificationResult>;
   fetchLongPortQuoteSnapshot(
     credentials: LongPortApiCredentials,
     watchlist: MarketWatchlistItem[],
   ): Promise<LongPortBridgeQuoteSnapshotResult>;
-  fetchLongPortHistoricalBars(credentials: LongPortApiCredentials, request: LongPortBarRequest): Promise<LongPortBridgeBarsResult>;
+  fetchLongPortHistoricalBars(
+    credentials: LongPortApiCredentials,
+    request: LongPortBarRequest,
+  ): Promise<LongPortBridgeBarsResult>;
 }
 
 export interface ProviderDataIpcDependencies {
@@ -65,17 +81,29 @@ export interface ProviderDataIpcDependencies {
 
 const defaultAlphaFeedStreamSession = createAlphaFeedStreamSession();
 
-export function createProviderDataIpcHandlers(dependencies: ProviderDataIpcDependencies = {}): ProviderDataIpcHandlers {
+export function createProviderDataIpcHandlers(
+  dependencies: ProviderDataIpcDependencies = {},
+): ProviderDataIpcHandlers {
   return {
-    verifyAlphaFeedCredentials: dependencies.verifyAlphaFeedCredentials ?? verifyAlphaFeedCredentialsWithRest,
-    fetchAlphaFeedQuoteSnapshot: dependencies.fetchAlphaFeedQuoteSnapshot ?? fetchAlphaFeedQuoteSnapshotsWithRest,
-    fetchAlphaFeedHistoricalBars: dependencies.fetchAlphaFeedHistoricalBars ?? fetchAlphaFeedHistoricalBarsWithRest,
-    fetchAlphaFeedIntradayBars: dependencies.fetchAlphaFeedIntradayBars ?? fetchAlphaFeedIntradayBarsWithRest,
-    connectAlphaFeedStream: dependencies.connectAlphaFeedStream ?? defaultAlphaFeedStreamSession.connect,
-    readAlphaFeedStreamSnapshot: dependencies.readAlphaFeedStreamSnapshot ?? defaultAlphaFeedStreamSession.readSnapshot,
-    disconnectAlphaFeedStream: dependencies.disconnectAlphaFeedStream ?? defaultAlphaFeedStreamSession.disconnect,
-    verifyLongPortCredentials: dependencies.verifyLongPortCredentials ?? verifyLongPortCredentialsWithSdk,
-    fetchLongPortQuoteSnapshot: dependencies.fetchLongPortQuoteSnapshot ?? fetchLongPortQuoteSnapshotsWithSdk,
-    fetchLongPortHistoricalBars: dependencies.fetchLongPortHistoricalBars ?? fetchLongPortHistoricalBarsWithSdk,
+    verifyAlphaFeedCredentials:
+      dependencies.verifyAlphaFeedCredentials ?? verifyAlphaFeedCredentialsWithRest,
+    fetchAlphaFeedQuoteSnapshot:
+      dependencies.fetchAlphaFeedQuoteSnapshot ?? fetchAlphaFeedQuoteSnapshotsWithRest,
+    fetchAlphaFeedHistoricalBars:
+      dependencies.fetchAlphaFeedHistoricalBars ?? fetchAlphaFeedHistoricalBarsWithRest,
+    fetchAlphaFeedIntradayBars:
+      dependencies.fetchAlphaFeedIntradayBars ?? fetchAlphaFeedIntradayBarsWithRest,
+    connectAlphaFeedStream:
+      dependencies.connectAlphaFeedStream ?? defaultAlphaFeedStreamSession.connect,
+    readAlphaFeedStreamSnapshot:
+      dependencies.readAlphaFeedStreamSnapshot ?? defaultAlphaFeedStreamSession.readSnapshot,
+    disconnectAlphaFeedStream:
+      dependencies.disconnectAlphaFeedStream ?? defaultAlphaFeedStreamSession.disconnect,
+    verifyLongPortCredentials:
+      dependencies.verifyLongPortCredentials ?? verifyLongPortCredentialsWithSdk,
+    fetchLongPortQuoteSnapshot:
+      dependencies.fetchLongPortQuoteSnapshot ?? fetchLongPortQuoteSnapshotsWithSdk,
+    fetchLongPortHistoricalBars:
+      dependencies.fetchLongPortHistoricalBars ?? fetchLongPortHistoricalBarsWithSdk,
   };
 }

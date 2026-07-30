@@ -3,10 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { createDatabasePool } from "../db/pool.ts";
 import { latestPostgresMigrationVersion } from "../db/migrationVersion.ts";
-import {
-  runPostgresMigrations,
-  type PostgresMigrationClient,
-} from "../db/migrationRunner.ts";
+import { runPostgresMigrations, type PostgresMigrationClient } from "../db/migrationRunner.ts";
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -47,8 +44,7 @@ async function main() {
 
 void main().catch((error: unknown) => {
   const errorCode =
-    error instanceof Error &&
-    /^[A-Za-z][A-Za-z0-9]+$/u.test(error.name)
+    error instanceof Error && /^[A-Za-z][A-Za-z0-9]+$/u.test(error.name)
       ? error.name
       : "MigrationError";
   process.stderr.write(`PostgreSQL migration failed: ${errorCode}\n`);

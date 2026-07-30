@@ -1,15 +1,9 @@
 export const ENTITLEMENT_DURATION_DAYS = [7, 30, 90, 365] as const;
 
-export type EntitlementDurationDays =
-  (typeof ENTITLEMENT_DURATION_DAYS)[number];
+export type EntitlementDurationDays = (typeof ENTITLEMENT_DURATION_DAYS)[number];
 
 export type PasswordPolicyFailure =
-  | "LENGTH"
-  | "ASCII_NO_WHITESPACE"
-  | "LOWERCASE"
-  | "UPPERCASE"
-  | "DIGIT"
-  | "SPECIAL";
+  "LENGTH" | "ASCII_NO_WHITESPACE" | "LOWERCASE" | "UPPERCASE" | "DIGIT" | "SPECIAL";
 
 export interface PasswordPolicyResult {
   valid: boolean;
@@ -71,31 +65,22 @@ export function validatePasswordPolicy(password: string): PasswordPolicyResult {
   };
 }
 
-export function calculateEntitlementPeriod(
-  input: EntitlementPeriodInput,
-): EntitlementPeriod {
+export function calculateEntitlementPeriod(input: EntitlementPeriodInput): EntitlementPeriod {
   const currentEndsAt =
     input.currentEndsAt && input.currentEndsAt.getTime() > input.now.getTime()
       ? input.currentEndsAt
       : input.now;
   const startsAt = new Date(currentEndsAt.getTime());
-  const endsAt = new Date(
-    startsAt.getTime() + input.durationDays * MILLISECONDS_PER_DAY,
-  );
+  const endsAt = new Date(startsAt.getTime() + input.durationDays * MILLISECONDS_PER_DAY);
 
   return { startsAt, endsAt };
 }
 
-function isEntitlementDurationDays(
-  value: number,
-): value is EntitlementDurationDays {
+function isEntitlementDurationDays(value: number): value is EntitlementDurationDays {
   return ENTITLEMENT_DURATION_DAYS.some((duration) => duration === value);
 }
 
-function parsePositiveInteger(
-  rawValue: string | undefined,
-  label: string,
-): number {
+function parsePositiveInteger(rawValue: string | undefined, label: string): number {
   if (!rawValue || !/^[1-9]\d*$/.test(rawValue)) {
     throw new Error(`${label} must be a positive integer`);
   }
@@ -103,10 +88,7 @@ function parsePositiveInteger(
   return Number(rawValue);
 }
 
-function readOption(
-  argumentsList: string[],
-  optionName: string,
-): string | undefined {
+function readOption(argumentsList: string[], optionName: string): string | undefined {
   const index = argumentsList.indexOf(optionName);
   if (index < 0) {
     return undefined;
@@ -142,9 +124,7 @@ function parseSpecification(rawSpecification: string): InviteBatchEntry[] {
   });
 }
 
-export function parseInviteBatchArguments(
-  argumentsList: string[],
-): InviteBatchArguments {
+export function parseInviteBatchArguments(argumentsList: string[]): InviteBatchArguments {
   const rawSpecification = readOption(argumentsList, "--spec");
   const rawDuration = readOption(argumentsList, "--duration-days");
   const rawCount = readOption(argumentsList, "--count");
@@ -163,10 +143,7 @@ export function parseInviteBatchArguments(
       ];
 
   const claimDays = readOption(argumentsList, "--claim-days")
-    ? parsePositiveInteger(
-        readOption(argumentsList, "--claim-days"),
-        "claim days",
-      )
+    ? parsePositiveInteger(readOption(argumentsList, "--claim-days"), "claim days")
     : 30;
   if (claimDays < MIN_CLAIM_DAYS || claimDays > MAX_CLAIM_DAYS) {
     throw new Error("claim days must be between 1 and 90");

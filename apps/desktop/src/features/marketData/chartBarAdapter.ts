@@ -55,16 +55,14 @@ export function filterMarketBarsForChartContext(
 }
 
 export function marketBarsToStrategyBars(bars: MarketDataBar[]): Bar[] {
-  return bars
-    .filter(isRenderableBar)
-    .map((bar) => ({
-      timestamp: bar.timestamp,
-      open: bar.open,
-      high: bar.high,
-      low: bar.low,
-      close: bar.close,
-      volume: bar.volume,
-    }));
+  return bars.filter(isRenderableBar).map((bar) => ({
+    timestamp: bar.timestamp,
+    open: bar.open,
+    high: bar.high,
+    low: bar.low,
+    close: bar.close,
+    volume: bar.volume,
+  }));
 }
 
 export function marketBarsToCandles(bars: MarketDataBar[]): CandlePoint[] {

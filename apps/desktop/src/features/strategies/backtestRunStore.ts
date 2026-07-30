@@ -24,7 +24,16 @@ function isMarket(value: unknown): value is Market {
 }
 
 function isTimeframe(value: unknown): value is Timeframe {
-  return value === "realtime" || value === "1m" || value === "5m" || value === "15m" || value === "30m" || value === "1h" || value === "1d" || value === "1w";
+  return (
+    value === "realtime" ||
+    value === "1m" ||
+    value === "5m" ||
+    value === "15m" ||
+    value === "30m" ||
+    value === "1h" ||
+    value === "1d" ||
+    value === "1w"
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -36,7 +45,14 @@ function isFiniteNumber(value: unknown): value is number {
 }
 
 function sanitizeResult(value: unknown): BacktestResult | null {
-  if (!isRecord(value) || !isRecord(value.settings) || !isRecord(value.summary) || !Array.isArray(value.trades) || !Array.isArray(value.equityCurve) || !Array.isArray(value.warnings)) {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.settings) ||
+    !isRecord(value.summary) ||
+    !Array.isArray(value.trades) ||
+    !Array.isArray(value.equityCurve) ||
+    !Array.isArray(value.warnings)
+  ) {
     return null;
   }
 
@@ -62,12 +78,29 @@ function sanitizeResult(value: unknown): BacktestResult | null {
     if (!isRecord(trade)) return false;
     return (
       (trade.direction === "long" || trade.direction === "short") &&
-      [trade.entryTimestamp, trade.entryPrice, trade.exitTimestamp, trade.exitPrice, trade.quantity, trade.grossPnl, trade.fees, trade.netPnl, trade.returnPct, trade.entrySignalTimestamp].every((item) => isFiniteNumber(item))
+      [
+        trade.entryTimestamp,
+        trade.entryPrice,
+        trade.exitTimestamp,
+        trade.exitPrice,
+        trade.quantity,
+        trade.grossPnl,
+        trade.fees,
+        trade.netPnl,
+        trade.returnPct,
+        trade.entrySignalTimestamp,
+      ].every((item) => isFiniteNumber(item))
     );
   });
-  const equityCurve = value.equityCurve.filter((point) => isRecord(point) && isFiniteNumber(point.timestamp) && isFiniteNumber(point.equity));
+  const equityCurve = value.equityCurve.filter(
+    (point) => isRecord(point) && isFiniteNumber(point.timestamp) && isFiniteNumber(point.equity),
+  );
 
-  if (trades.length !== value.trades.length || equityCurve.length !== value.equityCurve.length || !value.warnings.every((warning) => typeof warning === "string")) {
+  if (
+    trades.length !== value.trades.length ||
+    equityCurve.length !== value.equityCurve.length ||
+    !value.warnings.every((warning) => typeof warning === "string")
+  ) {
     return null;
   }
 
@@ -75,7 +108,12 @@ function sanitizeResult(value: unknown): BacktestResult | null {
 }
 
 function sanitizeRun(value: unknown): StrategyBacktestRun | null {
-  if (!isRecord(value) || !isMarket(value.market) || !isTimeframe(value.timeframe) || !isRecord(value.parameters)) {
+  if (
+    !isRecord(value) ||
+    !isMarket(value.market) ||
+    !isTimeframe(value.timeframe) ||
+    !isRecord(value.parameters)
+  ) {
     return null;
   }
 
@@ -112,12 +150,18 @@ export function readStrategyBacktestRuns(database: LocalDatabase = appLocalDatab
   });
 }
 
-export function saveStrategyBacktestRun(run: StrategyBacktestRun, database: LocalDatabase = appLocalDatabase) {
+export function saveStrategyBacktestRun(
+  run: StrategyBacktestRun,
+  database: LocalDatabase = appLocalDatabase,
+) {
   if (!sanitizeRun(run)) {
     throw new Error("回测结果包含无效数值，未保存。");
   }
 
-  const nextRuns = [run, ...readStrategyBacktestRuns(database).filter((item) => item.id !== run.id)].slice(0, MAX_SAVED_RUNS);
+  const nextRuns = [
+    run,
+    ...readStrategyBacktestRuns(database).filter((item) => item.id !== run.id),
+  ].slice(0, MAX_SAVED_RUNS);
   database.writeDocument(COLLECTION_KEY, STORAGE_VERSION, nextRuns);
   return nextRuns;
 }

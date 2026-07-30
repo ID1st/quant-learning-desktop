@@ -29,9 +29,7 @@ const CLOCK_ROLLBACK_TOLERANCE_MILLISECONDS = 5 * 60 * 1_000;
 function decodeClaims(encodedPayload: string): OfflineLeaseClaims {
   let value: unknown;
   try {
-    value = JSON.parse(
-      Buffer.from(encodedPayload, "base64url").toString("utf8"),
-    );
+    value = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"));
   } catch {
     throw new Error("offline lease is invalid");
   }
@@ -43,9 +41,7 @@ function decodeClaims(encodedPayload: string): OfflineLeaseClaims {
     typeof claims.userId !== "string" ||
     typeof claims.email !== "string" ||
     typeof claims.deviceId !== "string" ||
-    !ENTITLEMENT_DURATION_DAYS.some(
-      (duration) => duration === claims.entitlementDurationDays,
-    ) ||
+    !ENTITLEMENT_DURATION_DAYS.some((duration) => duration === claims.entitlementDurationDays) ||
     typeof claims.entitlementEndsAt !== "string" ||
     !Number.isFinite(Date.parse(claims.entitlementEndsAt)) ||
     typeof claims.offlineUntil !== "string" ||
@@ -59,11 +55,8 @@ function decodeClaims(encodedPayload: string): OfflineLeaseClaims {
   return claims as unknown as OfflineLeaseClaims;
 }
 
-export function restoreOfflineSession(
-  input: RestoreOfflineSessionInput,
-): AuthSessionSnapshot {
-  const [encodedPayload, encodedSignature, unexpectedPart] =
-    input.lease.split(".");
+export function restoreOfflineSession(input: RestoreOfflineSessionInput): AuthSessionSnapshot {
+  const [encodedPayload, encodedSignature, unexpectedPart] = input.lease.split(".");
   if (!encodedPayload || !encodedSignature || unexpectedPart !== undefined) {
     throw new Error("offline lease is invalid");
   }
@@ -85,8 +78,7 @@ export function restoreOfflineSession(
   const lastServerTime = Date.parse(input.lastServerTime);
   if (
     !Number.isFinite(lastServerTime) ||
-    input.now.getTime() + CLOCK_ROLLBACK_TOLERANCE_MILLISECONDS <
-      lastServerTime
+    input.now.getTime() + CLOCK_ROLLBACK_TOLERANCE_MILLISECONDS < lastServerTime
   ) {
     throw new Error("system clock rollback requires online validation");
   }
@@ -96,10 +88,7 @@ export function restoreOfflineSession(
   if (offlineUntil > entitlementEndsAt) {
     throw new Error("offline lease exceeds the entitlement");
   }
-  if (
-    input.now.getTime() > offlineUntil ||
-    input.now.getTime() > entitlementEndsAt
-  ) {
+  if (input.now.getTime() > offlineUntil || input.now.getTime() > entitlementEndsAt) {
     throw new Error("offline lease has expired");
   }
 

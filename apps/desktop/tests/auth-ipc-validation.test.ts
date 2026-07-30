@@ -30,12 +30,8 @@ test("authentication IPC accepts bounded exact-shape inputs", () => {
       password: "Reset#2026",
     }),
   );
-  assert.doesNotThrow(() =>
-    assertInviteInput({ inviteCode: "QLD-ABCDE-FGHJK-MNPQR" }),
-  );
-  assert.doesNotThrow(() =>
-    assertEmailInput({ email: "learner@example.com" }),
-  );
+  assert.doesNotThrow(() => assertInviteInput({ inviteCode: "QLD-ABCDE-FGHJK-MNPQR" }));
+  assert.doesNotThrow(() => assertEmailInput({ email: "learner@example.com" }));
 });
 
 test("authentication IPC rejects extra keys, wrong types and oversized secrets", () => {
@@ -61,8 +57,5 @@ test("authentication IPC rejects extra keys, wrong types and oversized secrets",
       }),
     /password/i,
   );
-  assert.throws(
-    () => assertInviteInput({ inviteCode: "QLD-ABCDE-💥-MNPQR" }),
-    /invite/i,
-  );
+  assert.throws(() => assertInviteInput({ inviteCode: "QLD-ABCDE-💥-MNPQR" }), /invite/i);
 });

@@ -8,7 +8,10 @@ import {
   retainRecentRealtimeSessions,
 } from "../src/features/marketData/realtimeIntradayBarService.ts";
 import type { MarketQuoteSnapshot } from "../src/features/marketData/marketDataSyncService.ts";
-import type { MarketBarCacheKey, MarketDataBar } from "../src/features/marketData/marketBarCacheService.ts";
+import type {
+  MarketBarCacheKey,
+  MarketDataBar,
+} from "../src/features/marketData/marketBarCacheService.ts";
 
 const key: MarketBarCacheKey = {
   symbol: "AAPL.US",
@@ -50,11 +53,20 @@ test("mergeRealtimeSnapshotMinuteBar updates one canonical OHLC candle per excha
     snapshot("2026-07-01T14:30:00.000Z", 210),
     snapshot("2026-07-01T14:30:10.000Z", 211),
     snapshot("2026-07-01T14:30:20.000Z", 209),
-  ].reduce<MarketDataBar[]>((current, item) => mergeRealtimeSnapshotMinuteBar(current, key, item), []);
+  ].reduce<MarketDataBar[]>(
+    (current, item) => mergeRealtimeSnapshotMinuteBar(current, key, item),
+    [],
+  );
 
   assert.equal(bars.length, 1);
   assert.deepEqual(
-    [new Date(bars[0]!.timestamp).toISOString(), bars[0]!.open, bars[0]!.high, bars[0]!.low, bars[0]!.close],
+    [
+      new Date(bars[0]!.timestamp).toISOString(),
+      bars[0]!.open,
+      bars[0]!.high,
+      bars[0]!.low,
+      bars[0]!.close,
+    ],
     ["2026-07-01T14:30:00.000Z", 210, 211, 209, 209],
   );
 });
@@ -82,8 +94,14 @@ test("mergeRealtimeSnapshotMinuteBar converts cumulative quote volume into minut
     [],
   );
 
-  assert.deepEqual(bars.map((item) => item.volume), [1_000, 150]);
-  assert.deepEqual(bars.map((item) => item.amount), [210_000, 31_675]);
+  assert.deepEqual(
+    bars.map((item) => item.volume),
+    [1_000, 150],
+  );
+  assert.deepEqual(
+    bars.map((item) => item.amount),
+    [210_000, 31_675],
+  );
 });
 
 test("aggregateRealtimePointBarsToMinuteCandles creates derived minute candles", () => {
@@ -239,7 +257,14 @@ test("mergeHistoricalRealtimeBarsWithLiveBars lets a live update refresh the sam
 
   assert.equal(merged.length, 1);
   assert.deepEqual(
-    [merged[0]?.open, merged[0]?.high, merged[0]?.low, merged[0]?.close, merged[0]?.volume, merged[0]?.provider],
+    [
+      merged[0]?.open,
+      merged[0]?.high,
+      merged[0]?.low,
+      merged[0]?.close,
+      merged[0]?.volume,
+      merged[0]?.provider,
+    ],
     [200, 202, 198, 201, 120, "stock-sdk"],
   );
 });
@@ -267,9 +292,16 @@ test("mergeHistoricalRealtimeBarsWithLiveBars retains the previous cached market
     provider: "stock-sdk" as const,
   };
 
-  const merged = mergeHistoricalRealtimeBarsWithLiveBars([currentSessionBar], [previousSessionBar], key);
+  const merged = mergeHistoricalRealtimeBarsWithLiveBars(
+    [currentSessionBar],
+    [previousSessionBar],
+    key,
+  );
 
-  assert.deepEqual(merged.map((bar) => bar.timestamp), [previousSessionBar.timestamp, currentSessionBar.timestamp]);
+  assert.deepEqual(
+    merged.map((bar) => bar.timestamp),
+    [previousSessionBar.timestamp, currentSessionBar.timestamp],
+  );
 });
 
 test("analyzeRealtimeHistoryGap reports delayed history bridged by AlphaFeed live points", () => {
@@ -297,7 +329,12 @@ test("analyzeRealtimeHistoryGap reports delayed history bridged by AlphaFeed liv
     },
   ];
 
-  const gap = analyzeRealtimeHistoryGap(bars, key, Date.parse("2026-07-02T02:16:00.000Z"), 5 * 60_000);
+  const gap = analyzeRealtimeHistoryGap(
+    bars,
+    key,
+    Date.parse("2026-07-02T02:16:00.000Z"),
+    5 * 60_000,
+  );
 
   assert.equal(gap.hasGap, true);
   assert.equal(gap.isBridgedByLiveData, true);

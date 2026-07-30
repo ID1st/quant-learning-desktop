@@ -12,12 +12,19 @@ export interface AppRuntimeErrorRecord {
 const maximumRuntimeErrors = 12;
 
 function sanitizeRuntimeErrorMessage(value: unknown) {
-  const message = value instanceof Error ? value.message : typeof value === "string" ? value : "发生未知运行时错误。";
-  return message
-    .replace(/([?&](?:api[_-]?key|token|secret|password)=)[^&\s]+/giu, "$1[已隐藏]")
-    .replace(/\s+/gu, " ")
-    .trim()
-    .slice(0, 320) || "发生未知运行时错误。";
+  const message =
+    value instanceof Error
+      ? value.message
+      : typeof value === "string"
+        ? value
+        : "发生未知运行时错误。";
+  return (
+    message
+      .replace(/([?&](?:api[_-]?key|token|secret|password)=)[^&\s]+/giu, "$1[已隐藏]")
+      .replace(/\s+/gu, " ")
+      .trim()
+      .slice(0, 320) || "发生未知运行时错误。"
+  );
 }
 
 export function createAppRuntimeErrorRecord(
@@ -37,10 +44,11 @@ export function appendAppRuntimeError(
   records: readonly AppRuntimeErrorRecord[],
   record: AppRuntimeErrorRecord,
 ): AppRuntimeErrorRecord[] {
-  const hasRecentDuplicate = records.some((item) =>
-    item.scope === record.scope &&
-    item.message === record.message &&
-    Math.abs(Date.parse(item.occurredAt) - Date.parse(record.occurredAt)) <= 5_000,
+  const hasRecentDuplicate = records.some(
+    (item) =>
+      item.scope === record.scope &&
+      item.message === record.message &&
+      Math.abs(Date.parse(item.occurredAt) - Date.parse(record.occurredAt)) <= 5_000,
   );
 
   return hasRecentDuplicate ? [...records] : [record, ...records].slice(0, maximumRuntimeErrors);

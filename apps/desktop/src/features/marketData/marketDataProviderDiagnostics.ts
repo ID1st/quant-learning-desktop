@@ -62,8 +62,14 @@ export function summarizeMarketDataProviderHealth(
 ): MarketDataProviderDiagnosticSummary {
   const providerLabel = formatMarketDataProviderLabel(health.provider);
   const statusLabel = formatMarketDataProviderStatus(health.status);
-  const fallbackLabel = formatFallbackLabel(health.provider, options.triedProviders, options.fallbackFrom);
-  const capabilityLabel = options.capability ? formatMarketDataCapability(options.capability) : null;
+  const fallbackLabel = formatFallbackLabel(
+    health.provider,
+    options.triedProviders,
+    options.fallbackFrom,
+  );
+  const capabilityLabel = options.capability
+    ? formatMarketDataCapability(options.capability)
+    : null;
   const prefix = capabilityLabel ? `${capabilityLabel}：` : "";
   const detail = options.message ?? health.message;
 
@@ -71,7 +77,14 @@ export function summarizeMarketDataProviderHealth(
     providerLabel,
     statusLabel,
     fallbackLabel,
-    message: [prefix ? `${prefix}${providerLabel}` : providerLabel, statusLabel, fallbackLabel, detail].filter(Boolean).join(" · "),
+    message: [
+      prefix ? `${prefix}${providerLabel}` : providerLabel,
+      statusLabel,
+      fallbackLabel,
+      detail,
+    ]
+      .filter(Boolean)
+      .join(" · "),
   };
 }
 
@@ -80,7 +93,8 @@ export function formatFallbackLabel(
   triedProviders: readonly GatewayMarketDataProviderId[] | undefined,
   explicitFallbackFrom?: GatewayMarketDataProviderId,
 ) {
-  const fallbackFrom = explicitFallbackFrom ?? triedProviders?.find((provider) => provider !== activeProvider);
+  const fallbackFrom =
+    explicitFallbackFrom ?? triedProviders?.find((provider) => provider !== activeProvider);
 
   if (!fallbackFrom) {
     return undefined;

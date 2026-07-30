@@ -7,14 +7,9 @@ import {
   verify,
 } from "node:crypto";
 
-import {
-  ENTITLEMENT_DURATION_DAYS,
-  type EntitlementDurationDays,
-} from "../domain/authDomain.ts";
+import { ENTITLEMENT_DURATION_DAYS, type EntitlementDurationDays } from "../domain/authDomain.ts";
 
-export type LoginChallengeReason =
-  | "INVITE_REQUIRED"
-  | "ENTITLEMENT_EXPIRED";
+export type LoginChallengeReason = "INVITE_REQUIRED" | "ENTITLEMENT_EXPIRED";
 
 export interface LoginChallengeClaims {
   userId: string;
@@ -75,13 +70,9 @@ export function createLoginChallenge(
 
   const payload = encodeJson({
     ...input,
-    expiresAt: new Date(
-      now.getTime() + LOGIN_CHALLENGE_LIFETIME_MILLISECONDS,
-    ).toISOString(),
+    expiresAt: new Date(now.getTime() + LOGIN_CHALLENGE_LIFETIME_MILLISECONDS).toISOString(),
   });
-  const signature = createHmac("sha256", secret)
-    .update(payload, "ascii")
-    .digest("base64url");
+  const signature = createHmac("sha256", secret).update(payload, "ascii").digest("base64url");
 
   return `${payload}.${signature}`;
 }
@@ -97,9 +88,7 @@ export function verifyLoginChallenge(
   }
 
   const observedSignature = Buffer.from(encodedSignature, "base64url");
-  const expectedSignature = createHmac("sha256", secret)
-    .update(payload, "ascii")
-    .digest();
+  const expectedSignature = createHmac("sha256", secret).update(payload, "ascii").digest();
   if (
     observedSignature.length !== expectedSignature.length ||
     !timingSafeEqual(observedSignature, expectedSignature)
@@ -114,8 +103,7 @@ export function verifyLoginChallenge(
     typeof claims.email !== "string" ||
     !Number.isInteger(claims.authVersion) ||
     Number(claims.authVersion) < 0 ||
-    (claims.reason !== "INVITE_REQUIRED" &&
-      claims.reason !== "ENTITLEMENT_EXPIRED") ||
+    (claims.reason !== "INVITE_REQUIRED" && claims.reason !== "ENTITLEMENT_EXPIRED") ||
     !isValidDate(claims.expiresAt)
   ) {
     throw new Error("login challenge is invalid");
@@ -133,24 +121,14 @@ export function verifyLoginChallenge(
   };
 }
 
-export function createOfflineLease(
-  claims: OfflineLeaseClaims,
-  privateKeyPem: string,
-): string {
+export function createOfflineLease(claims: OfflineLeaseClaims, privateKeyPem: string): string {
   const payload = encodeJson(claims);
-  const signature = sign(
-    null,
-    Buffer.from(payload, "ascii"),
-    privateKeyPem,
-  ).toString("base64url");
+  const signature = sign(null, Buffer.from(payload, "ascii"), privateKeyPem).toString("base64url");
 
   return `${payload}.${signature}`;
 }
 
-export function validateOfflineLeaseKeyPair(
-  privateKeyPem: string,
-  publicKeyPem: string,
-): void {
+export function validateOfflineLeaseKeyPair(privateKeyPem: string, publicKeyPem: string): void {
   let privateKey;
   try {
     privateKey = createPrivateKey(privateKeyPem);
@@ -165,26 +143,12 @@ export function validateOfflineLeaseKeyPair(
     throw new Error("offline lease public key is invalid");
   }
 
-  if (
-    privateKey.asymmetricKeyType !== "ed25519" ||
-    publicKey.asymmetricKeyType !== "ed25519"
-  ) {
+  if (privateKey.asymmetricKeyType !== "ed25519" || publicKey.asymmetricKeyType !== "ed25519") {
     throw new Error("offline lease keys must use Ed25519");
   }
 
-  const signature = sign(
-    null,
-    OFFLINE_LEASE_KEY_VALIDATION_PAYLOAD,
-    privateKey,
-  );
-  if (
-    !verify(
-      null,
-      OFFLINE_LEASE_KEY_VALIDATION_PAYLOAD,
-      publicKey,
-      signature,
-    )
-  ) {
+  const signature = sign(null, OFFLINE_LEASE_KEY_VALIDATION_PAYLOAD, privateKey);
+  if (!verify(null, OFFLINE_LEASE_KEY_VALIDATION_PAYLOAD, publicKey, signature)) {
     throw new Error("offline lease private and public keys do not match");
   }
 }
@@ -200,14 +164,7 @@ export function verifyOfflineLease(
   }
 
   const signature = Buffer.from(encodedSignature, "base64url");
-  if (
-    !verify(
-      null,
-      Buffer.from(payload, "ascii"),
-      publicKeyPem,
-      signature,
-    )
-  ) {
+  if (!verify(null, Buffer.from(payload, "ascii"), publicKeyPem, signature)) {
     throw new Error("offline lease is invalid");
   }
 
@@ -217,9 +174,7 @@ export function verifyOfflineLease(
     typeof claims.userId !== "string" ||
     typeof claims.email !== "string" ||
     typeof claims.deviceId !== "string" ||
-    !ENTITLEMENT_DURATION_DAYS.some(
-      (duration) => duration === claims.entitlementDurationDays,
-    ) ||
+    !ENTITLEMENT_DURATION_DAYS.some((duration) => duration === claims.entitlementDurationDays) ||
     !isValidDate(claims.entitlementEndsAt) ||
     !isValidDate(claims.offlineUntil) ||
     !isValidDate(claims.issuedAt)
@@ -240,8 +195,7 @@ export function verifyOfflineLease(
     userId: claims.userId,
     email: claims.email,
     deviceId: claims.deviceId,
-    entitlementDurationDays:
-      claims.entitlementDurationDays as EntitlementDurationDays,
+    entitlementDurationDays: claims.entitlementDurationDays as EntitlementDurationDays,
     entitlementEndsAt: claims.entitlementEndsAt,
     offlineUntil: claims.offlineUntil,
     issuedAt: claims.issuedAt,

@@ -30,7 +30,11 @@ export function getChartFuturePaddingBars(range: ChartVisibleRange) {
   return Math.max(12, Math.round(Math.max(1, range.end - range.start) * 0.5));
 }
 
-export function shouldInitializeChartViewAfterSparseLoad(previousTotal: number, nextTotal: number, minimumInteractiveCandles = 12) {
+export function shouldInitializeChartViewAfterSparseLoad(
+  previousTotal: number,
+  nextTotal: number,
+  minimumInteractiveCandles = 12,
+) {
   return previousTotal < minimumInteractiveCandles && nextTotal >= minimumInteractiveCandles;
 }
 
@@ -48,14 +52,29 @@ export function zoomChartVisibleRange(
   const anchorIndex = current.start + currentWindow * safeAnchorRatio;
   const nextStart = Math.round(anchorIndex - nextWindow * safeAnchorRatio);
 
-  return clampChartVisibleRange({ start: nextStart, end: nextStart + nextWindow }, total, 12, futurePaddingBars);
+  return clampChartVisibleRange(
+    { start: nextStart, end: nextStart + nextWindow },
+    total,
+    12,
+    futurePaddingBars,
+  );
 }
 
-export function panChartVisibleRange(range: ChartVisibleRange, total: number, deltaBars: number, futurePaddingBars = 0): ChartVisibleRange {
+export function panChartVisibleRange(
+  range: ChartVisibleRange,
+  total: number,
+  deltaBars: number,
+  futurePaddingBars = 0,
+): ChartVisibleRange {
   const current = clampChartVisibleRange(range, total, 12, futurePaddingBars);
   const shift = Math.round(deltaBars);
 
-  return clampChartVisibleRange({ start: current.start + shift, end: current.end + shift }, total, 12, futurePaddingBars);
+  return clampChartVisibleRange(
+    { start: current.start + shift, end: current.end + shift },
+    total,
+    12,
+    futurePaddingBars,
+  );
 }
 
 export function syncChartVisibleRangeForDataUpdate(
@@ -77,7 +96,10 @@ export function syncChartVisibleRangeForDataUpdate(
   if (wasPinnedToLatest) {
     const preservedFuturePadding = Math.max(0, range.end - safePreviousTotal);
     return clampChartVisibleRange(
-      { start: safeNextTotal - windowSize + preservedFuturePadding, end: safeNextTotal + preservedFuturePadding },
+      {
+        start: safeNextTotal - windowSize + preservedFuturePadding,
+        end: safeNextTotal + preservedFuturePadding,
+      },
       safeNextTotal,
       12,
       futurePaddingBars,
@@ -92,7 +114,10 @@ export function getScaledPriceRange(minPrice: number, maxPrice: number, scaleFac
   const safeMax = Math.max(minPrice, maxPrice);
   const center = (safeMin + safeMax) / 2;
   const baseRange = Math.max(1, safeMax - safeMin);
-  const safeScaleFactor = Math.max(0.25, Math.min(4, Number.isFinite(scaleFactor) ? scaleFactor : 1));
+  const safeScaleFactor = Math.max(
+    0.25,
+    Math.min(4, Number.isFinite(scaleFactor) ? scaleFactor : 1),
+  );
   const scaledRange = baseRange * safeScaleFactor;
 
   return {
@@ -110,8 +135,13 @@ export function getPriceScaleOffsetForAnchor(
   anchorPrice: number,
 ) {
   const scaled = getScaledPriceRange(minPrice, maxPrice, scaleFactor);
-  const safeAnchorRatio = Math.max(0, Math.min(1, Number.isFinite(anchorRatio) ? anchorRatio : 0.5));
-  const safeAnchorPrice = Number.isFinite(anchorPrice) ? anchorPrice : (scaled.min + scaled.max) / 2;
+  const safeAnchorRatio = Math.max(
+    0,
+    Math.min(1, Number.isFinite(anchorRatio) ? anchorRatio : 0.5),
+  );
+  const safeAnchorPrice = Number.isFinite(anchorPrice)
+    ? anchorPrice
+    : (scaled.min + scaled.max) / 2;
   const unpannedAnchorPrice = scaled.max - (scaled.max - scaled.min) * safeAnchorRatio;
 
   return safeAnchorPrice - unpannedAnchorPrice;

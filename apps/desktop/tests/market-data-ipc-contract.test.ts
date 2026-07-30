@@ -122,7 +122,9 @@ test("market data IPC handlers search instruments through the primary provider",
   });
 
   assert.equal(result.ok, true);
-  assert.deepEqual(result.data, [{ provider: "stock-sdk", market: "US", symbol: "AAPL.US", name: "Apple" }]);
+  assert.deepEqual(result.data, [
+    { provider: "stock-sdk", market: "US", symbol: "AAPL.US", name: "Apple" },
+  ]);
 });
 
 test("market data IPC handlers validate exact US, HK and CN codes through quote fallback", async () => {
@@ -136,21 +138,51 @@ test("market data IPC handlers validate exact US, HK and CN codes through quote 
 
         quoteRequests.push({ market: request.market, providerSymbol: request.providerSymbol });
         if (request.market === "US") {
-          return [{
-            code: "AAPL", name: "Apple", price: 210, previousClose: 208,
-            open: 209, high: 211, low: 207, volume: 1, amount: 1, time: "2026-07-06 16:00:01",
-          }];
+          return [
+            {
+              code: "AAPL",
+              name: "Apple",
+              price: 210,
+              previousClose: 208,
+              open: 209,
+              high: 211,
+              low: 207,
+              volume: 1,
+              amount: 1,
+              time: "2026-07-06 16:00:01",
+            },
+          ];
         }
         if (request.market === "HK") {
-          return [{
-            code: "00700", name: "Tencent", lastPrice: 83.2, prevClose: 82,
-            open: 82, high: 84, low: 81, volume: 100, amount: 8320, time: "2026/07/07 16:08:52",
-          }];
+          return [
+            {
+              code: "00700",
+              name: "Tencent",
+              lastPrice: 83.2,
+              prevClose: 82,
+              open: 82,
+              high: 84,
+              low: 81,
+              volume: 100,
+              amount: 8320,
+              time: "2026/07/07 16:08:52",
+            },
+          ];
         }
-        return [{
-          code: "sh600519", name: "Kweichow Moutai", price: 1468.1, previousClose: 1460,
-          open: 1462, high: 1475, low: 1458, volume: 1000, amount: 1_468_100, time: "2026/07/07 15:00:00",
-        }];
+        return [
+          {
+            code: "sh600519",
+            name: "Kweichow Moutai",
+            price: 1468.1,
+            previousClose: 1460,
+            open: 1462,
+            high: 1475,
+            low: 1458,
+            volume: 1000,
+            amount: 1_468_100,
+            time: "2026/07/07 15:00:00",
+          },
+        ];
       },
       fetchHistoricalBars: async () => [],
       fetchIntradayBars: async () => [],
@@ -161,14 +193,28 @@ test("market data IPC handlers validate exact US, HK and CN codes through quote 
   });
 
   const cases = [
-    { query: "aapl", markets: ["US"] as const, expected: { market: "US", symbol: "AAPL.US", name: "Apple" } },
-    { query: "00700", markets: ["HK"] as const, expected: { market: "HK", symbol: "00700.HK", name: "Tencent" } },
-    { query: "600519", markets: ["CN"] as const, expected: { market: "CN", symbol: "600519.SH", name: "Kweichow Moutai" } },
+    {
+      query: "aapl",
+      markets: ["US"] as const,
+      expected: { market: "US", symbol: "AAPL.US", name: "Apple" },
+    },
+    {
+      query: "00700",
+      markets: ["HK"] as const,
+      expected: { market: "HK", symbol: "00700.HK", name: "Tencent" },
+    },
+    {
+      query: "600519",
+      markets: ["CN"] as const,
+      expected: { market: "CN", symbol: "600519.SH", name: "Kweichow Moutai" },
+    },
   ];
 
   for (const entry of cases) {
     const result = await handlers.searchInstruments({
-      context: { source: "chart" }, query: entry.query, markets: entry.markets,
+      context: { source: "chart" },
+      query: entry.query,
+      markets: entry.markets,
     });
     assert.equal(result.ok, true);
     if (result.ok) {
@@ -201,7 +247,9 @@ test("market data IPC handlers do not use quote fallback for name searches", asy
   });
 
   const result = await handlers.searchInstruments({
-    context: { source: "chart" }, query: "Apple", markets: ["US"],
+    context: { source: "chart" },
+    query: "Apple",
+    markets: ["US"],
   });
   assert.equal(result.ok, false);
   assert.equal(quoteCalls, 0);
@@ -366,7 +414,9 @@ test("market data IPC handlers fetch CN historical bars through stock sdk primar
       fetchQuoteSnapshot: async () => [],
       fetchHistoricalBars: async () => {
         calls.push("history");
-        return [{ date: "2026-07-06", open: 307.36, high: 314.2, low: 307, close: 312.66, volume: 1 }];
+        return [
+          { date: "2026-07-06", open: 307.36, high: 314.2, low: 307, close: 312.66, volume: 1 },
+        ];
       },
       fetchIntradayBars: async () => {
         calls.push("intraday");
@@ -399,7 +449,9 @@ test("market data IPC handlers fetch CN realtime history through Stock SDK intra
       },
       fetchIntradayBars: async () => {
         calls.push("intraday");
-        return [{ time: "2026-07-06 09:30", open: 0, high: 286.9, low: 286.61, close: 286.86, volume: 1 }];
+        return [
+          { time: "2026-07-06 09:30", open: 0, high: 286.9, low: 286.61, close: 286.86, volume: 1 },
+        ];
       },
     },
   });
@@ -440,7 +492,11 @@ test("market data IPC handlers fall back to optional Yahoo Finance after Stock S
               result: [
                 {
                   timestamp: [1_783_000_000],
-                  indicators: { quote: [{ open: [315.5], high: [315.8], low: [315.4], close: [315.7], volume: [100] }] },
+                  indicators: {
+                    quote: [
+                      { open: [315.5], high: [315.8], low: [315.4], close: [315.7], volume: [100] },
+                    ],
+                  },
                 },
               ],
             },
@@ -476,7 +532,9 @@ test("market data IPC handlers control quote stream through secure desktop crede
   const calls: string[] = [];
   const streamSession: AlphaFeedStreamSession = {
     async connect(request) {
-      calls.push(`connect:${request.mode}:${Boolean(request.credentials.apiKey)}:${request.watchlist.length}`);
+      calls.push(
+        `connect:${request.mode}:${Boolean(request.credentials.apiKey)}:${request.watchlist.length}`,
+      );
       return {
         ok: true,
         state: "connected",
@@ -569,7 +627,12 @@ test("market data IPC stream maps permission and rate-limit health into provider
       return { ok: true, state: "fallback", health };
     },
     async readSnapshot() {
-      return { ok: true, state: "fallback", health: createStreamHealth("error", "fallback"), snapshots: [] };
+      return {
+        ok: true,
+        state: "fallback",
+        health: createStreamHealth("error", "fallback"),
+        snapshots: [],
+      };
     },
     async disconnect() {
       return { ok: true, state: "idle", health: createStreamHealth("ok", "stream disconnected") };
@@ -594,10 +657,17 @@ test("market data IPC stream maps permission and rate-limit health into provider
   assert.equal(unauthorized.ok ? unauthorized.data.state : "", "fallback");
   assert.equal(rateLimited.ok, true);
   assert.equal(rateLimited.ok ? rateLimited.meta.health.status : "", "rateLimited");
-  assert.equal(rateLimited.ok ? rateLimited.meta.health.nextRetryAt : "", "2026-07-06T20:02:00.000Z");
+  assert.equal(
+    rateLimited.ok ? rateLimited.meta.health.nextRetryAt : "",
+    "2026-07-06T20:02:00.000Z",
+  );
 });
 
-function createStreamHealth(status: AlphaFeedProviderHealth["status"], message: string, nextRetryAt?: string) {
+function createStreamHealth(
+  status: AlphaFeedProviderHealth["status"],
+  message: string,
+  nextRetryAt?: string,
+) {
   return {
     status,
     message,
@@ -610,14 +680,20 @@ function createStreamHealth(status: AlphaFeedProviderHealth["status"], message: 
 function createCredentialStoreWithStreamCredentials(): SecureCredentialStore {
   return {
     ...createEmptyCredentialStore(),
-    readAlphaFeedStreamCredentials: () => ({ wsUrl: "wss://stream.example.test", apiKey: "stream-key" }),
+    readAlphaFeedStreamCredentials: () => ({
+      wsUrl: "wss://stream.example.test",
+      apiKey: "stream-key",
+    }),
   };
 }
 
 function createCredentialStoreWithFallbackCredentials(): SecureCredentialStore {
   return {
     ...createEmptyCredentialStore(),
-    readAlphaFeedCredentials: () => ({ apiUrl: "https://alpha.example.test", apiKey: "alpha-test-key" }),
+    readAlphaFeedCredentials: () => ({
+      apiUrl: "https://alpha.example.test",
+      apiKey: "alpha-test-key",
+    }),
     readLongPortCredentials: () => ({
       apiUrl: "https://longbridge.example.test",
       appKey: "long-app-key",

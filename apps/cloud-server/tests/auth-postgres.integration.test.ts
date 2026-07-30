@@ -6,14 +6,8 @@ import test from "node:test";
 import { Pool } from "pg";
 
 import { PgAuthRepository } from "../src/repositories/pgAuthRepository.ts";
-import {
-  runPostgresMigrations,
-  type PostgresMigrationClient,
-} from "../src/db/migrationRunner.ts";
-import {
-  digestInviteCode,
-  normalizeInviteCode,
-} from "../src/security/inviteCodes.ts";
+import { runPostgresMigrations, type PostgresMigrationClient } from "../src/db/migrationRunner.ts";
+import { digestInviteCode, normalizeInviteCode } from "../src/security/inviteCodes.ts";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -47,10 +41,7 @@ test(
     const codeId = randomUUID();
     const plaintextCode = "QLD-ABCDE-FGHJK-MNPQR";
     const pepper = "integration-test-pepper-at-least-32-bytes";
-    const codeDigest = digestInviteCode(
-      normalizeInviteCode(plaintextCode),
-      pepper,
-    );
+    const codeDigest = digestInviteCode(normalizeInviteCode(plaintextCode), pepper);
     const now = new Date("2026-07-28T00:00:00.000Z");
 
     try {
@@ -93,13 +84,7 @@ test(
           )
           VALUES ($1, $2, $3, 30, $4, $5)
         `,
-        [
-          codeId,
-          batchId,
-          codeDigest,
-          new Date("2026-08-28T00:00:00.000Z"),
-          now,
-        ],
+        [codeId, batchId, codeDigest, new Date("2026-08-28T00:00:00.000Z"), now],
       );
 
       const repository = new PgAuthRepository(pool);
@@ -108,15 +93,12 @@ test(
         repository.redeemInvite({ userId, codeDigest, now }),
       ]);
 
-      assert.deepEqual(
-        results.map((result) => result.kind).sort(),
-        ["ALREADY_REDEEMED", "REDEEMED"],
-      );
+      assert.deepEqual(results.map((result) => result.kind).sort(), [
+        "ALREADY_REDEEMED",
+        "REDEEMED",
+      ]);
     } finally {
-      await pool.query(
-        "DELETE FROM invite_redemptions WHERE invite_code_id = $1",
-        [codeId],
-      );
+      await pool.query("DELETE FROM invite_redemptions WHERE invite_code_id = $1", [codeId]);
       await pool.query("DELETE FROM invite_codes WHERE id = $1", [codeId]);
       await pool.query("DELETE FROM invite_batches WHERE id = $1", [batchId]);
       await pool.query("DELETE FROM users WHERE id = $1", [userId]);
@@ -159,9 +141,7 @@ test(
           accessTokenDigest: randomBytes(32),
           refreshTokenDigest: randomBytes(32),
           accessExpiresAt: new Date(issuedAt.getTime() + 15 * 60 * 1_000),
-          refreshExpiresAt: new Date(
-            issuedAt.getTime() + 30 * 24 * 60 * 60 * 1_000,
-          ),
+          refreshExpiresAt: new Date(issuedAt.getTime() + 30 * 24 * 60 * 60 * 1_000),
           now: issuedAt,
         });
       }

@@ -4,9 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import {
-  createDuckDbMarketBarRepository,
-} from "../src/electron/duckDbMarketBarRepository.ts";
+import { createDuckDbMarketBarRepository } from "../src/electron/duckDbMarketBarRepository.ts";
 import type {
   MarketBarCacheKey,
   MarketDataBar,
@@ -37,26 +35,21 @@ test("DuckDB market cache persists sorted unique bars and metadata", async () =>
   const databasePath = join(directory, "market-cache.duckdb");
   try {
     const repository = await createDuckDbMarketBarRepository(databasePath);
-    const written = await repository.write(
-      key,
-      [bar(2_000, 102), bar(1_000, 101), bar(2_000, 103)],
-    );
+    const written = await repository.write(key, [
+      bar(2_000, 102),
+      bar(1_000, 101),
+      bar(2_000, 103),
+    ]);
     assert.deepEqual(await repository.legacyMigrationState(), {
       status: "pending",
     });
-    await repository.recordLegacyMigration(
-      "failed",
-      "LEGACY_IMPORT_FAILED",
-    );
+    await repository.recordLegacyMigration("failed", "LEGACY_IMPORT_FAILED");
     await repository.dispose();
 
     const reopened = await createDuckDbMarketBarRepository(databasePath);
     const cached = await reopened.read(key);
     const summary = await reopened.summary();
-    assert.equal(
-      (await reopened.legacyMigrationState()).errorCode,
-      "LEGACY_IMPORT_FAILED",
-    );
+    assert.equal((await reopened.legacyMigrationState()).errorCode, "LEGACY_IMPORT_FAILED");
     await reopened.recordLegacyMigration("complete");
     await reopened.dispose();
 
@@ -83,13 +76,7 @@ test("DuckDB market cache merges, prunes and clears entries transactionally", as
       join(directory, "market-cache.duckdb"),
     );
     const now = Date.UTC(2026, 6, 30);
-    await repository.write(
-      key,
-      [
-        bar(now - 40 * 24 * 60 * 60 * 1_000, 90),
-        bar(now - 1_000, 100),
-      ],
-    );
+    await repository.write(key, [bar(now - 40 * 24 * 60 * 60 * 1_000, 90), bar(now - 1_000, 100)]);
     await repository.write(key, [bar(now, 101)], {
       mergeExisting: true,
     });

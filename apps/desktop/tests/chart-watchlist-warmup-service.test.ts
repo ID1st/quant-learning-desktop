@@ -16,11 +16,10 @@ test("watchlist warmup puts every active-symbol period ahead of background work"
     { market: "US", symbol: "TSLA.US" },
   );
 
-  assert.deepEqual(plan.slice(0, 3).map((task) => `${task.symbol}:${task.timeframe}:${task.priority}`), [
-    "TSLA.US:1d:active",
-    "TSLA.US:1w:active",
-    "TSLA.US:realtime:active",
-  ]);
+  assert.deepEqual(
+    plan.slice(0, 3).map((task) => `${task.symbol}:${task.timeframe}:${task.priority}`),
+    ["TSLA.US:1d:active", "TSLA.US:1w:active", "TSLA.US:realtime:active"],
+  );
   assert.equal(plan.length, 6);
 });
 

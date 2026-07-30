@@ -82,11 +82,7 @@ The provider-neutral bridge is implemented with these methods:
 ## Target Contracts
 
 ```ts
-type MarketDataProviderId =
-  | "stock-sdk"
-  | "alphafeed-rest"
-  | "alphafeed-websocket"
-  | "longbridge";
+type MarketDataProviderId = "stock-sdk" | "alphafeed-rest" | "alphafeed-websocket" | "longbridge";
 
 type ProviderHealthStatus =
   | "unconfigured"
@@ -160,7 +156,9 @@ interface MarketDataProviderRegistry {
 }
 
 interface MarketDataGateway {
-  fetchQuoteSnapshot(items: MarketDataRequestItem[]): Promise<MarketDataGatewayResult<MarketQuoteSnapshot[]>>;
+  fetchQuoteSnapshot(
+    items: MarketDataRequestItem[],
+  ): Promise<MarketDataGatewayResult<MarketQuoteSnapshot[]>>;
   fetchHistoricalBars(request: MarketBarRequest): Promise<MarketDataGatewayResult<MarketDataBar[]>>;
   fetchIntradayBars(request: MarketBarRequest): Promise<MarketDataGatewayResult<MarketDataBar[]>>;
 }
@@ -492,13 +490,13 @@ Current audit findings:
 Target IPC surface:
 
 ```ts
-window.quantDesktop.marketData.getProviderStatus()
-window.quantDesktop.marketData.fetchQuoteSnapshot(items)
-window.quantDesktop.marketData.fetchHistoricalBars(request)
-window.quantDesktop.marketData.fetchIntradayBars(request)
-window.quantDesktop.marketData.connectQuoteStream(items)
-window.quantDesktop.marketData.readQuoteStreamSnapshot(items)
-window.quantDesktop.marketData.disconnectQuoteStream()
+window.quantDesktop.marketData.getProviderStatus();
+window.quantDesktop.marketData.fetchQuoteSnapshot(items);
+window.quantDesktop.marketData.fetchHistoricalBars(request);
+window.quantDesktop.marketData.fetchIntradayBars(request);
+window.quantDesktop.marketData.connectQuoteStream(items);
+window.quantDesktop.marketData.readQuoteStreamSnapshot(items);
+window.quantDesktop.marketData.disconnectQuoteStream();
 ```
 
 Target response contract:
@@ -638,16 +636,16 @@ Acceptance:
 
 ## Risk Register
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| Public upstream endpoints can change or rate-limit | High | Keep fallback providers and health-based failover |
-| `stock-sdk` has no confirmed native WebSocket | Medium | Model as REST/polling; keep AlphaFeed WebSocket fallback |
-| Symbol formats differ by provider and endpoint | High | Centralize symbol mapping in provider adapters |
-| Invalid or unsuitable OHLC values | High | Validate and repair/reject at adapter boundary |
-| Current chart directly references AlphaFeed/LongBridge | Medium | Introduce gateway in compatibility mode before switching |
-| Existing cache provider enum is narrow | Medium | Add backward-compatible provider ID migration |
-| Mixed historical and live data can overwrite newer points | High | Use provider-neutral merge rules based on timestamp and source role |
-| Stock SDK Eastmoney K-line endpoints are unavailable from a user network | High | Route desktop historical and intraday bars through the internal Tencent reinforcement, preserve AlphaFeed/LongBridge/Yahoo fallbacks, and surface the upstream provenance |
+| Risk                                                                     | Impact | Mitigation                                                                                                                                                                |
+| ------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public upstream endpoints can change or rate-limit                       | High   | Keep fallback providers and health-based failover                                                                                                                         |
+| `stock-sdk` has no confirmed native WebSocket                            | Medium | Model as REST/polling; keep AlphaFeed WebSocket fallback                                                                                                                  |
+| Symbol formats differ by provider and endpoint                           | High   | Centralize symbol mapping in provider adapters                                                                                                                            |
+| Invalid or unsuitable OHLC values                                        | High   | Validate and repair/reject at adapter boundary                                                                                                                            |
+| Current chart directly references AlphaFeed/LongBridge                   | Medium | Introduce gateway in compatibility mode before switching                                                                                                                  |
+| Existing cache provider enum is narrow                                   | Medium | Add backward-compatible provider ID migration                                                                                                                             |
+| Mixed historical and live data can overwrite newer points                | High   | Use provider-neutral merge rules based on timestamp and source role                                                                                                       |
+| Stock SDK Eastmoney K-line endpoints are unavailable from a user network | High   | Route desktop historical and intraday bars through the internal Tencent reinforcement, preserve AlphaFeed/LongBridge/Yahoo fallbacks, and surface the upstream provenance |
 
 ## Test Plan
 

@@ -94,75 +94,75 @@ export interface ChartLayerVisualBase {
 
 export type ChartLayerElement = ChartLayerVisualBase &
   (
-  | {
-      id: string;
-      kind: "signal-marker";
-      timestamp: number;
-      price: number;
-      direction: "up" | "down";
-      tone: Extract<ChartLayerTone, "buy" | "sell" | "neutral">;
-      shape?: "triangle" | "label-up" | "label-down";
-      text?: string;
-    }
-  | {
-      id: string;
-      kind: "price-line";
-      price: number;
-      label?: string;
-      tone: Extract<ChartLayerTone, "target" | "stop" | "range" | "neutral">;
-      fromTimestamp?: number;
-      toTimestamp?: number;
-    }
-  | {
-      id: string;
-      kind: "trend-line";
-      points: Array<{ timestamp: number; price: number }>;
-      tone: ChartTrendTone;
-    }
-  | {
-      id: string;
-      kind: "point-series";
-      points: Array<{ timestamp: number; price: number }>;
-      tone: ChartTrendTone;
-      radius?: number;
-    }
-  | {
-      id: string;
-      kind: "channel";
-      upper: Array<{ timestamp: number; price: number }>;
-      middle?: Array<{ timestamp: number; price: number }>;
-      lower: Array<{ timestamp: number; price: number }>;
-      upperTone?: ChartTrendTone;
-      middleTone?: ChartTrendTone;
-      lowerTone?: ChartTrendTone;
-      fillColor?: string;
-    }
-  | {
-      id: string;
-      kind: "band";
-      fromPrice: number;
-      toPrice: number;
-      label?: string;
-      tone: Extract<ChartLayerTone, "range" | "risk" | "target" | "stop">;
-      fromTimestamp?: number;
-      toTimestamp?: number;
-      fillColor?: string;
-      borderColor?: string;
-    }
-  | {
-      id: string;
-      kind: "text";
-      timestamp: number;
-      price: number;
-      text: string;
-      tone?: "info" | "warning" | "success";
-    }
-  | {
-      id: string;
-      kind: "candle-style";
-      timestamp: number;
-      color: string;
-    }
+    | {
+        id: string;
+        kind: "signal-marker";
+        timestamp: number;
+        price: number;
+        direction: "up" | "down";
+        tone: Extract<ChartLayerTone, "buy" | "sell" | "neutral">;
+        shape?: "triangle" | "label-up" | "label-down";
+        text?: string;
+      }
+    | {
+        id: string;
+        kind: "price-line";
+        price: number;
+        label?: string;
+        tone: Extract<ChartLayerTone, "target" | "stop" | "range" | "neutral">;
+        fromTimestamp?: number;
+        toTimestamp?: number;
+      }
+    | {
+        id: string;
+        kind: "trend-line";
+        points: Array<{ timestamp: number; price: number }>;
+        tone: ChartTrendTone;
+      }
+    | {
+        id: string;
+        kind: "point-series";
+        points: Array<{ timestamp: number; price: number }>;
+        tone: ChartTrendTone;
+        radius?: number;
+      }
+    | {
+        id: string;
+        kind: "channel";
+        upper: Array<{ timestamp: number; price: number }>;
+        middle?: Array<{ timestamp: number; price: number }>;
+        lower: Array<{ timestamp: number; price: number }>;
+        upperTone?: ChartTrendTone;
+        middleTone?: ChartTrendTone;
+        lowerTone?: ChartTrendTone;
+        fillColor?: string;
+      }
+    | {
+        id: string;
+        kind: "band";
+        fromPrice: number;
+        toPrice: number;
+        label?: string;
+        tone: Extract<ChartLayerTone, "range" | "risk" | "target" | "stop">;
+        fromTimestamp?: number;
+        toTimestamp?: number;
+        fillColor?: string;
+        borderColor?: string;
+      }
+    | {
+        id: string;
+        kind: "text";
+        timestamp: number;
+        price: number;
+        text: string;
+        tone?: "info" | "warning" | "success";
+      }
+    | {
+        id: string;
+        kind: "candle-style";
+        timestamp: number;
+        color: string;
+      }
   );
 
 export interface ChartHudPanel {
@@ -229,8 +229,16 @@ export interface ChartPaneModel {
   readonly parameterSummary: string;
   readonly series: readonly ChartPaneSeries[];
   readonly referenceLines?: readonly ChartPaneReferenceLine[];
-  readonly latestValues?: readonly { readonly label: string; readonly value: string; readonly color?: string }[];
-  readonly axis?: { readonly minimum?: number; readonly maximum?: number; readonly includeZero?: boolean };
+  readonly latestValues?: readonly {
+    readonly label: string;
+    readonly value: string;
+    readonly color?: string;
+  }[];
+  readonly axis?: {
+    readonly minimum?: number;
+    readonly maximum?: number;
+    readonly includeZero?: boolean;
+  };
 }
 
 export interface ChartViewportProps {
@@ -259,7 +267,11 @@ export interface ChartViewportProps {
   drawingTool?: "trend-line" | "horizontal-line" | "text" | null;
   onDrawingPoint?: (point: { readonly timestamp: number; readonly price: number }) => void;
   onDrawingElementSelect?: (drawingId: string) => void;
-  onDrawingElementMove?: (drawingId: string, pointIndex: number | null, point: { readonly timestamp: number; readonly price: number }) => void;
+  onDrawingElementMove?: (
+    drawingId: string,
+    pointIndex: number | null,
+    point: { readonly timestamp: number; readonly price: number },
+  ) => void;
   onDrawingElementDragEnd?: () => void;
   loadingState?: {
     readonly stage: string;
@@ -282,7 +294,12 @@ const defaultContext: ChartContext = {
 function generateCandles(context: ChartContext): CandlePoint[] {
   const seed = context.symbol.split("").reduce((total, char) => total + char.charCodeAt(0), 0);
   let previousClose = 166 + (seed % 28);
-  const intervalMs = context.timeframe === "1w" ? 7 * 24 * 60 * 60_000 : context.timeframe === "realtime" ? 60_000 : 24 * 60 * 60_000;
+  const intervalMs =
+    context.timeframe === "1w"
+      ? 7 * 24 * 60 * 60_000
+      : context.timeframe === "realtime"
+        ? 60_000
+        : 24 * 60 * 60_000;
   const endTimestamp = Date.now();
 
   return Array.from({ length: 64 }, (_, index) => {
@@ -303,7 +320,8 @@ function generateCandles(context: ChartContext): CandlePoint[] {
       low,
       close,
       volume,
-      signal: index === 14 || index === 38 ? "buy" : index === 27 || index === 52 ? "sell" : undefined,
+      signal:
+        index === 14 || index === 38 ? "buy" : index === 27 || index === 52 ? "sell" : undefined,
     };
   });
 }
@@ -407,10 +425,7 @@ interface SecondaryPaneCanvasProps {
   readonly onClose?: () => void;
 }
 
-function useResponsiveSvgViewBoxSize(
-  fallbackWidth: number,
-  fallbackHeight: number,
-) {
+function useResponsiveSvgViewBoxSize(fallbackWidth: number, fallbackHeight: number) {
   const [canvas, setCanvas] = useState<SVGSVGElement | null>(null);
   const [viewBoxSize, setViewBoxSize] = useState({
     width: fallbackWidth,
@@ -487,23 +502,30 @@ function SecondaryPaneCanvas({
   const plotTop = 34;
   const plotBottom = viewBoxHeight - 28;
   const visibleValues = pane.series.flatMap((series) =>
-    series.values.flatMap((point) => timestampToX(point.timestamp) === null ? [] : [point.value]),
+    series.values.flatMap((point) => (timestampToX(point.timestamp) === null ? [] : [point.value])),
   );
   const referenceValues = pane.referenceLines?.map((line) => line.value) ?? [];
   const requestedMinimum = pane.axis?.minimum;
   const requestedMaximum = pane.axis?.maximum;
-  const includeZero = pane.axis?.includeZero ?? pane.series.some((series) => series.type !== "line");
-  const rawMinimum = requestedMinimum ?? Math.min(...visibleValues, ...referenceValues, includeZero ? 0 : Number.POSITIVE_INFINITY);
-  const rawMaximum = requestedMaximum ?? Math.max(...visibleValues, ...referenceValues, includeZero ? 0 : Number.NEGATIVE_INFINITY);
+  const includeZero =
+    pane.axis?.includeZero ?? pane.series.some((series) => series.type !== "line");
+  const rawMinimum =
+    requestedMinimum ??
+    Math.min(...visibleValues, ...referenceValues, includeZero ? 0 : Number.POSITIVE_INFINITY);
+  const rawMaximum =
+    requestedMaximum ??
+    Math.max(...visibleValues, ...referenceValues, includeZero ? 0 : Number.NEGATIVE_INFINITY);
   const fallbackMinimum = Number.isFinite(rawMinimum) ? rawMinimum : 0;
   const fallbackMaximum = Number.isFinite(rawMaximum) ? rawMaximum : 1;
-  const padding = requestedMinimum !== undefined && requestedMaximum !== undefined
-    ? 0
-    : Math.max((fallbackMaximum - fallbackMinimum) * 0.08, 0.01);
+  const padding =
+    requestedMinimum !== undefined && requestedMaximum !== undefined
+      ? 0
+      : Math.max((fallbackMaximum - fallbackMinimum) * 0.08, 0.01);
   const minimum = requestedMinimum ?? fallbackMinimum - padding;
   const maximum = requestedMaximum ?? fallbackMaximum + padding;
   const range = Math.max(0.000001, maximum - minimum);
-  const valueToY = (value: number) => plotTop + ((maximum - value) / range) * (plotBottom - plotTop);
+  const valueToY = (value: number) =>
+    plotTop + ((maximum - value) / range) * (plotBottom - plotTop);
   const zeroY = valueToY(Math.min(maximum, Math.max(minimum, 0)));
   const axisTicks = Array.from({ length: 4 }, (_, index) => maximum - (range / 3) * index);
   const hoveredValue = pane.series
@@ -516,11 +538,21 @@ function SecondaryPaneCanvas({
         <strong>{pane.name}</strong>
         <span>{pane.parameterSummary}</span>
         {pane.latestValues?.map((item) => (
-          <span key={item.label} style={{ color: item.color }}>{item.label} {item.value}</span>
+          <span key={item.label} style={{ color: item.color }}>
+            {item.label} {item.value}
+          </span>
         ))}
         <span className="chart-secondary-pane-actions">
-          {onSettings && <button aria-label={`${pane.name} 参数`} onClick={onSettings} type="button">参数</button>}
-          {onClose && <button aria-label={`关闭 ${pane.name}`} onClick={onClose} type="button">关闭</button>}
+          {onSettings && (
+            <button aria-label={`${pane.name} 参数`} onClick={onSettings} type="button">
+              参数
+            </button>
+          )}
+          {onClose && (
+            <button aria-label={`关闭 ${pane.name}`} onClick={onClose} type="button">
+              关闭
+            </button>
+          )}
         </span>
       </div>
       <svg
@@ -537,28 +569,65 @@ function SecondaryPaneCanvas({
         viewBox={`0 0 ${width} ${viewBoxHeight}`}
       >
         <rect className="chart-bg" height={viewBoxHeight} width={width} />
-        {showGrid && Array.from({ length: 4 }, (_, index) => {
-          const y = plotTop + ((plotBottom - plotTop) / 3) * index;
-          return <line className="chart-grid-line" key={`secondary-h-${index}`} x1={plotLeft} x2={plotRight} y1={y} y2={y} />;
-        })}
-        {showGrid && Array.from({ length: 10 }, (_, index) => {
-          const x = plotLeft + ((plotRight - plotLeft) / 9) * index;
-          return <line className="chart-grid-line" key={`secondary-v-${index}`} x1={x} x2={x} y1={plotTop} y2={plotBottom} />;
-        })}
+        {showGrid &&
+          Array.from({ length: 4 }, (_, index) => {
+            const y = plotTop + ((plotBottom - plotTop) / 3) * index;
+            return (
+              <line
+                className="chart-grid-line"
+                key={`secondary-h-${index}`}
+                x1={plotLeft}
+                x2={plotRight}
+                y1={y}
+                y2={y}
+              />
+            );
+          })}
+        {showGrid &&
+          Array.from({ length: 10 }, (_, index) => {
+            const x = plotLeft + ((plotRight - plotLeft) / 9) * index;
+            return (
+              <line
+                className="chart-grid-line"
+                key={`secondary-v-${index}`}
+                x1={x}
+                x2={x}
+                y1={plotTop}
+                y2={plotBottom}
+              />
+            );
+          })}
         {pane.referenceLines?.map((line) => (
           <g className="chart-pane-reference" key={line.id}>
-            <line style={{ stroke: line.color }} x1={plotLeft} x2={plotRight} y1={valueToY(line.value)} y2={valueToY(line.value)} />
-            {line.label && <text x={plotRight - 4} y={valueToY(line.value) - 4}>{line.label}</text>}
+            <line
+              style={{ stroke: line.color }}
+              x1={plotLeft}
+              x2={plotRight}
+              y1={valueToY(line.value)}
+              y2={valueToY(line.value)}
+            />
+            {line.label && (
+              <text x={plotRight - 4} y={valueToY(line.value) - 4}>
+                {line.label}
+              </text>
+            )}
           </g>
         ))}
         {pane.series.map((series) => {
           const points = series.values.flatMap((point) => {
             const x = timestampToX(point.timestamp);
-            return x === null || !Number.isFinite(point.value) ? [] : [{ x, y: valueToY(point.value), point }];
+            return x === null || !Number.isFinite(point.value)
+              ? []
+              : [{ x, y: valueToY(point.value), point }];
           });
           if (series.type === "line") {
             return points.length < 2 ? null : (
-              <path className="chart-pane-line" d={createSmoothPath(points)} key={series.id} style={{ stroke: series.color }} />
+              <path
+                className="chart-pane-line"
+                d={createSmoothPath(points)}
+                key={series.id}
+                style={{ stroke: series.color }}
+              />
             );
           }
           return (
@@ -566,24 +635,50 @@ function SecondaryPaneCanvas({
               {points.map(({ x, y, point }) => {
                 const top = Math.min(y, zeroY);
                 const barHeight = Math.max(1, Math.abs(zeroY - y));
-                const fill = point.tone === "negative" ? series.negativeColor ?? series.color : series.color;
-                return <rect fill={fill} height={barHeight} key={`${series.id}-${point.timestamp}`} opacity=".76" width={Math.max(2, candleWidth)} x={x - candleWidth / 2} y={top} />;
+                const fill =
+                  point.tone === "negative" ? (series.negativeColor ?? series.color) : series.color;
+                return (
+                  <rect
+                    fill={fill}
+                    height={barHeight}
+                    key={`${series.id}-${point.timestamp}`}
+                    opacity=".76"
+                    width={Math.max(2, candleWidth)}
+                    x={x - candleWidth / 2}
+                    y={top}
+                  />
+                );
               })}
             </g>
           );
         })}
         {showPriceLabels && (
           <g className="price-axis-labels">
-            {axisTicks.map((value) => <text key={value} x={plotRight + 10} y={valueToY(value) + 4}>{formatPrice(value)}</text>)}
+            {axisTicks.map((value) => (
+              <text key={value} x={plotRight + 10} y={valueToY(value) + 4}>
+                {formatPrice(value)}
+              </text>
+            ))}
           </g>
         )}
         <g className="time-axis-labels">
-          {timeTicks.map((tick) => <text key={`${tick.label}-${tick.x}`} x={tick.x} y={viewBoxHeight - 8}>{tick.label}</text>)}
+          {timeTicks.map((tick) => (
+            <text key={`${tick.label}-${tick.x}`} x={tick.x} y={viewBoxHeight - 8}>
+              {tick.label}
+            </text>
+          ))}
         </g>
         {showCrosshair && hoverX !== null && (
           <g className="crosshair">
             <line x1={hoverX} x2={hoverX} y1={plotTop} y2={plotBottom} />
-            {hoveredValue !== undefined && <line x1={plotLeft} x2={plotRight} y1={valueToY(hoveredValue)} y2={valueToY(hoveredValue)} />}
+            {hoveredValue !== undefined && (
+              <line
+                x1={plotLeft}
+                x2={plotRight}
+                y1={valueToY(hoveredValue)}
+                y2={valueToY(hoveredValue)}
+              />
+            )}
           </g>
         )}
       </svg>
@@ -621,11 +716,18 @@ export function ChartViewport({
   onDrawingElementDragEnd,
   loadingState,
 }: ChartViewportProps) {
-  const generatedCandles = useMemo(() => generateCandles(context), [context.symbol, context.market, context.timeframe]);
+  const generatedCandles = useMemo(
+    () => generateCandles(context),
+    [context.symbol, context.market, context.timeframe],
+  );
   const candles = providedCandles ?? generatedCandles;
   const contextKey = `${context.market}:${context.symbol}:${context.timeframe}`;
-  const [visibleRange, setVisibleRange] = useState<ChartVisibleRange>(() => createDefaultVisibleRange(candles.length, initialVisibleBars));
-  const [scaleDomain, setScaleDomain] = useState<ChartScaleDomain>(() => calculateScaleDomain(candles, createDefaultVisibleRange(candles.length, initialVisibleBars)));
+  const [visibleRange, setVisibleRange] = useState<ChartVisibleRange>(() =>
+    createDefaultVisibleRange(candles.length, initialVisibleBars),
+  );
+  const [scaleDomain, setScaleDomain] = useState<ChartScaleDomain>(() =>
+    calculateScaleDomain(candles, createDefaultVisibleRange(candles.length, initialVisibleBars)),
+  );
   const [hoverIndex, setHoverIndex] = useState<number | null>(candles.length - 1);
   const previousChartStateRef = useRef({
     candleCount: candles.length,
@@ -634,17 +736,24 @@ export function ChartViewport({
     focusLatestKey,
   });
   const dragStateRef = useRef<
-    | { mode: "pan"; pointerId: number; startX: number; startY: number; startRange: ChartVisibleRange; startPriceOffset: number }
     | {
-      mode: "price-scale";
-      pointerId: number;
-      startY: number;
-      startScaleFactor: number;
-      anchorRatio: number;
-      anchorPrice: number;
-      baseMinPrice: number;
-      baseMaxPrice: number;
-    }
+        mode: "pan";
+        pointerId: number;
+        startX: number;
+        startY: number;
+        startRange: ChartVisibleRange;
+        startPriceOffset: number;
+      }
+    | {
+        mode: "price-scale";
+        pointerId: number;
+        startY: number;
+        startScaleFactor: number;
+        anchorRatio: number;
+        anchorPrice: number;
+        baseMinPrice: number;
+        baseMaxPrice: number;
+      }
     | { mode: "drawing"; pointerId: number; drawingId: string; pointIndex: number | null }
     | null
   >(null);
@@ -652,7 +761,11 @@ export function ChartViewport({
   const [isScalingPriceAxis, setIsScalingPriceAxis] = useState(false);
   const [priceScaleFactor, setPriceScaleFactor] = useState(1);
   const [pricePanOffset, setPricePanOffset] = useState(0);
-  const secondaryPanRef = useRef<{ pointerId: number; startX: number; startRange: ChartVisibleRange } | null>(null);
+  const secondaryPanRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startRange: ChartVisibleRange;
+  } | null>(null);
   const measuredSize = useResponsiveSvgViewBoxSize(canvasWidth, canvasHeight);
   const width = measuredSize.width;
   const height = measuredSize.height;
@@ -661,7 +774,8 @@ export function ChartViewport({
 
   useEffect(() => {
     const previous = previousChartStateRef.current;
-    const shouldResetScale = previous.contextKey !== contextKey || previous.resetViewKey !== resetViewKey;
+    const shouldResetScale =
+      previous.contextKey !== contextKey || previous.resetViewKey !== resetViewKey;
     const shouldFocusLatest = previous.focusLatestKey !== focusLatestKey;
 
     const shouldInitializeAfterSparseLoad = shouldInitializeChartViewAfterSparseLoad(
@@ -670,19 +784,34 @@ export function ChartViewport({
       minimumInteractiveCandleCount,
     );
 
-    if (shouldResetScale || shouldFocusLatest || (previous.candleCount === 0 && candles.length > 0) || shouldInitializeAfterSparseLoad) {
+    if (
+      shouldResetScale ||
+      shouldFocusLatest ||
+      (previous.candleCount === 0 && candles.length > 0) ||
+      shouldInitializeAfterSparseLoad
+    ) {
       const nextRange = createDefaultVisibleRange(candles.length, initialVisibleBars);
       setVisibleRange(nextRange);
       setScaleDomain(calculateScaleDomain(candles, nextRange));
       setHoverIndex(candles.length > 0 ? candles.length - 1 : null);
       setPriceScaleFactor(1);
       setPricePanOffset(0);
-      previousChartStateRef.current = { candleCount: candles.length, contextKey, resetViewKey, focusLatestKey };
+      previousChartStateRef.current = {
+        candleCount: candles.length,
+        contextKey,
+        resetViewKey,
+        focusLatestKey,
+      };
       return;
     }
 
     setVisibleRange((current) =>
-      syncChartVisibleRangeForDataUpdate(current, previous.candleCount, candles.length, getChartFuturePaddingBars(current)),
+      syncChartVisibleRangeForDataUpdate(
+        current,
+        previous.candleCount,
+        candles.length,
+        getChartFuturePaddingBars(current),
+      ),
     );
     setHoverIndex((current) => {
       if (candles.length === 0) {
@@ -693,42 +822,95 @@ export function ChartViewport({
         return null;
       }
 
-      return current >= previous.candleCount - 1 ? candles.length - 1 : Math.min(current, candles.length - 1);
+      return current >= previous.candleCount - 1
+        ? candles.length - 1
+        : Math.min(current, candles.length - 1);
     });
-    previousChartStateRef.current = { candleCount: candles.length, contextKey, resetViewKey, focusLatestKey };
+    previousChartStateRef.current = {
+      candleCount: candles.length,
+      contextKey,
+      resetViewKey,
+      focusLatestKey,
+    };
   }, [candles, contextKey, focusLatestKey, initialVisibleBars, resetViewKey]);
 
   if (loadingState || !hasCandles) {
     return (
-      <section className="chart-viewport" aria-label={`${context.symbol} ${context.timeframe} K 线图`}>
+      <section
+        className="chart-viewport"
+        aria-label={`${context.symbol} ${context.timeframe} K 线图`}
+      >
         <div className="chart-legend">
           <strong>{context.symbol}</strong>
           <span>{context.market}</span>
           <span>{context.timeframe}</span>
         </div>
         <div className="chart-interaction-toolbar" aria-label="图表缩放和移动">
-          <button disabled type="button">放大</button>
-          <button disabled type="button">缩小</button>
-          <button disabled type="button">左移</button>
-          <button disabled type="button">右移</button>
-          <button disabled type="button">重置</button>
+          <button disabled type="button">
+            放大
+          </button>
+          <button disabled type="button">
+            缩小
+          </button>
+          <button disabled type="button">
+            左移
+          </button>
+          <button disabled type="button">
+            右移
+          </button>
+          <button disabled type="button">
+            重置
+          </button>
         </div>
         <div className="chart-loading-canvas">
           <svg aria-hidden="true" className="chart-loading-grid" viewBox="0 0 980 520">
             <rect className="chart-bg" height="520" width="980" />
-            {Array.from({ length: 8 }, (_, index) => <line className="chart-grid-line" key={`h-${index}`} x1="54" x2="894" y1={34 + (452 / 7) * index} y2={34 + (452 / 7) * index} />)}
-            {Array.from({ length: 10 }, (_, index) => <line className="chart-grid-line" key={`v-${index}`} x1={54 + (840 / 9) * index} x2={54 + (840 / 9) * index} y1="34" y2="486" />)}
+            {Array.from({ length: 8 }, (_, index) => (
+              <line
+                className="chart-grid-line"
+                key={`h-${index}`}
+                x1="54"
+                x2="894"
+                y1={34 + (452 / 7) * index}
+                y2={34 + (452 / 7) * index}
+              />
+            ))}
+            {Array.from({ length: 10 }, (_, index) => (
+              <line
+                className="chart-grid-line"
+                key={`v-${index}`}
+                x1={54 + (840 / 9) * index}
+                x2={54 + (840 / 9) * index}
+                y1="34"
+                y2="486"
+              />
+            ))}
             <line className="chart-loading-axis" x1="894" x2="894" y1="34" y2="486" />
             <g className="price-axis-labels">
-              <text className="price-axis-title" x="904" y="48">价格</text>
-              {Array.from({ length: 6 }, (_, index) => <text key={`price-${index}`} x="904" y={112 + index * 66}>--</text>)}
+              <text className="price-axis-title" x="904" y="48">
+                价格
+              </text>
+              {Array.from({ length: 6 }, (_, index) => (
+                <text key={`price-${index}`} x="904" y={112 + index * 66}>
+                  --
+                </text>
+              ))}
             </g>
             <g className="time-axis-labels">
-              {Array.from({ length: 5 }, (_, index) => <text key={`time-${index}`} x={120 + index * 180} y="510">--:--</text>)}
+              {Array.from({ length: 5 }, (_, index) => (
+                <text key={`time-${index}`} x={120 + index * 180} y="510">
+                  --:--
+                </text>
+              ))}
             </g>
           </svg>
-          <div className={`chart-loading-state${loadingState?.isError ? " error" : ""}`} role="status">
-            {!loadingState?.isError && <span className="chart-loading-spinner" aria-hidden="true" />}
+          <div
+            className={`chart-loading-state${loadingState?.isError ? " error" : ""}`}
+            role="status"
+          >
+            {!loadingState?.isError && (
+              <span className="chart-loading-spinner" aria-hidden="true" />
+            )}
             <strong>{loadingState?.isError ? "数据暂不可用" : "正在准备图表"}</strong>
             <span>{loadingState?.message ?? "暂无可用行情数据"}</span>
           </div>
@@ -743,26 +925,43 @@ export function ChartViewport({
   const paddingX = (54 / 980) * width;
   const priceAxisWidth = (86 / 980) * width;
   const plotRight = width - priceAxisWidth;
-  const safeVisibleRange = clampChartVisibleRange(visibleRange, candles.length, 12, getChartFuturePaddingBars(visibleRange));
+  const safeVisibleRange = clampChartVisibleRange(
+    visibleRange,
+    candles.length,
+    12,
+    getChartFuturePaddingBars(visibleRange),
+  );
   const visibleCandles = candles.slice(safeVisibleRange.start, safeVisibleRange.end);
   const visibleCount = Math.max(1, safeVisibleRange.end - safeVisibleRange.start);
   const candleGap = (plotRight - paddingX) / visibleCount;
   const candleWidth = Math.max(5, candleGap * 0.58);
-  const scaledPriceRange = getScaledPriceRange(scaleDomain.minPrice, scaleDomain.maxPrice, priceScaleFactor);
-  const pannedPriceRange = panChartPriceRange(scaledPriceRange.min, scaledPriceRange.max, pricePanOffset);
+  const scaledPriceRange = getScaledPriceRange(
+    scaleDomain.minPrice,
+    scaleDomain.maxPrice,
+    priceScaleFactor,
+  );
+  const pannedPriceRange = panChartPriceRange(
+    scaledPriceRange.min,
+    scaledPriceRange.max,
+    pricePanOffset,
+  );
   const maxPrice = pannedPriceRange.max;
   const minPrice = pannedPriceRange.min;
   const priceRange = Math.max(1, maxPrice - minPrice);
   const safeHoverIndex = hoverIndex === null ? null : Math.min(hoverIndex, candles.length - 1);
-  const hoveredCandle = safeHoverIndex === null ? candles[candles.length - 1] : candles[safeHoverIndex];
+  const hoveredCandle =
+    safeHoverIndex === null ? candles[candles.length - 1] : candles[safeHoverIndex];
 
   const priceToY = (price: number) => chartTop + ((maxPrice - price) / priceRange) * priceHeight;
-  const indexToX = (index: number) => paddingX + (index - safeVisibleRange.start) * candleGap + candleGap / 2;
+  const indexToX = (index: number) =>
+    paddingX + (index - safeVisibleRange.start) * candleGap + candleGap / 2;
   const timestampToX = (timestamp: number) => {
     const exactIndex = candles.findIndex((candle) => candle.timestamp === timestamp);
 
     if (exactIndex >= 0) {
-      return exactIndex >= safeVisibleRange.start && exactIndex < safeVisibleRange.end ? indexToX(exactIndex) : null;
+      return exactIndex >= safeVisibleRange.start && exactIndex < safeVisibleRange.end
+        ? indexToX(exactIndex)
+        : null;
     }
 
     const nearestIndex = candles.reduce((nearest, candle, index) => {
@@ -772,26 +971,41 @@ export function ChartViewport({
 
       const currentDistance = Math.abs(candle.timestamp - timestamp);
       const nearestTimestamp = candles[nearest]?.timestamp;
-      const nearestDistance = nearestTimestamp === undefined ? Number.POSITIVE_INFINITY : Math.abs(nearestTimestamp - timestamp);
+      const nearestDistance =
+        nearestTimestamp === undefined
+          ? Number.POSITIVE_INFINITY
+          : Math.abs(nearestTimestamp - timestamp);
       return currentDistance < nearestDistance ? index : nearest;
     }, 0);
 
-    return nearestIndex >= safeVisibleRange.start && nearestIndex < safeVisibleRange.end ? indexToX(nearestIndex) : null;
+    return nearestIndex >= safeVisibleRange.start && nearestIndex < safeVisibleRange.end
+      ? indexToX(nearestIndex)
+      : null;
   };
-  const timedElementBounds = (fromTimestamp?: number, toTimestamp?: number, extendRight = false) => {
+  const timedElementBounds = (
+    fromTimestamp?: number,
+    toTimestamp?: number,
+    extendRight = false,
+  ) => {
     const visibleStartTimestamp = visibleCandles[0]?.timestamp;
     const visibleEndTimestamp = visibleCandles[visibleCandles.length - 1]?.timestamp;
-    if (typeof visibleStartTimestamp !== "number" || !Number.isFinite(visibleStartTimestamp) ||
-      typeof visibleEndTimestamp !== "number" || !Number.isFinite(visibleEndTimestamp)) return null;
+    if (
+      typeof visibleStartTimestamp !== "number" ||
+      !Number.isFinite(visibleStartTimestamp) ||
+      typeof visibleEndTimestamp !== "number" ||
+      !Number.isFinite(visibleEndTimestamp)
+    )
+      return null;
     const hasFromTimestamp = typeof fromTimestamp === "number" && Number.isFinite(fromTimestamp);
     const hasToTimestamp = typeof toTimestamp === "number" && Number.isFinite(toTimestamp);
     const safeToTimestamp = typeof toTimestamp === "number" ? toTimestamp : Number.NaN;
     if (hasToTimestamp && toTimestamp < visibleStartTimestamp) return null;
     if (hasFromTimestamp && fromTimestamp > visibleEndTimestamp) return null;
 
-    const x1 = !hasFromTimestamp || fromTimestamp <= visibleStartTimestamp
-      ? paddingX
-      : timestampToX(fromTimestamp);
+    const x1 =
+      !hasFromTimestamp || fromTimestamp <= visibleStartTimestamp
+        ? paddingX
+        : timestampToX(fromTimestamp);
     const x2 = shouldExtendTimedElementToPlotRight({
       extendRight,
       hasToTimestamp,
@@ -809,7 +1023,9 @@ export function ChartViewport({
       y: priceToY(candle.close),
     })),
   );
-  const closedChartDepthPath = chartDepthPath ? `${chartDepthPath} L ${plotRight} ${chartBottom} L ${paddingX} ${chartBottom} Z` : null;
+  const closedChartDepthPath = chartDepthPath
+    ? `${chartDepthPath} L ${plotRight} ${chartBottom} L ${paddingX} ${chartBottom} Z`
+    : null;
   const closeLinePath = createSmoothPath(
     visibleCandles.map((candle, offset) => ({
       x: indexToX(safeVisibleRange.start + offset),
@@ -820,17 +1036,21 @@ export function ChartViewport({
   const latestCandle = candles[candles.length - 1];
   const latestPriceY = priceToY(latestCandle.close);
   const latestPriceTone = latestCandle.close >= latestCandle.open ? "up" : "down";
-  const isLatestVisible = candles.length - 1 >= safeVisibleRange.start && candles.length - 1 < safeVisibleRange.end;
+  const isLatestVisible =
+    candles.length - 1 >= safeVisibleRange.start && candles.length - 1 < safeVisibleRange.end;
   const priceTicks = Array.from({ length: 6 }, (_, index) => maxPrice - (priceRange / 5) * index);
   const timeTickOffsets = Array.from({ length: Math.min(6, visibleCount) }, (_, index) =>
-    Math.round((Math.max(1, visibleCount) - 1) * (index / Math.max(1, Math.min(6, visibleCount) - 1))),
+    Math.round(
+      (Math.max(1, visibleCount) - 1) * (index / Math.max(1, Math.min(6, visibleCount) - 1)),
+    ),
   );
 
   const handleMouseMove = (event: MouseEvent<SVGSVGElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const ratio = width / rect.width;
     const x = (event.clientX - rect.left) * ratio;
-    const nextIndex = safeVisibleRange.start + Math.round((x - paddingX - candleGap / 2) / candleGap);
+    const nextIndex =
+      safeVisibleRange.start + Math.round((x - paddingX - candleGap / 2) / candleGap);
     setHoverIndex(Math.min(candles.length - 1, Math.max(safeVisibleRange.start, nextIndex)));
   };
   const handleWheel = (event: WheelEvent<SVGSVGElement>) => {
@@ -839,10 +1059,18 @@ export function ChartViewport({
     const anchorRatio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     const zoomFactor = event.deltaY < 0 ? 0.84 : 1.18;
     applyVisibleRangeWithScale((current) =>
-      zoomChartVisibleRange(current, candles.length, anchorRatio, zoomFactor, getChartFuturePaddingBars(current)),
+      zoomChartVisibleRange(
+        current,
+        candles.length,
+        anchorRatio,
+        zoomFactor,
+        getChartFuturePaddingBars(current),
+      ),
     );
   };
-  const applyVisibleRangeWithScale = (resolveRange: (current: ChartVisibleRange) => ChartVisibleRange) => {
+  const applyVisibleRangeWithScale = (
+    resolveRange: (current: ChartVisibleRange) => ChartVisibleRange,
+  ) => {
     setVisibleRange((current) => {
       const nextRange = resolveRange(current);
       setScaleDomain(calculateScaleDomain(candles, nextRange));
@@ -880,10 +1108,19 @@ export function ChartViewport({
     const x = (event.clientX - rect.left) * ratio;
 
     if (drawingTool && x < plotRight && onDrawingPoint) {
-      const index = Math.min(candles.length - 1, Math.max(safeVisibleRange.start, safeVisibleRange.start + Math.round((x - paddingX - candleGap / 2) / candleGap)));
+      const index = Math.min(
+        candles.length - 1,
+        Math.max(
+          safeVisibleRange.start,
+          safeVisibleRange.start + Math.round((x - paddingX - candleGap / 2) / candleGap),
+        ),
+      );
       const candle = candles[index];
       const y = (event.clientY - rect.top) * (height / rect.height);
-      onDrawingPoint({ timestamp: candle?.timestamp ?? 0, price: maxPrice - ((y - chartTop) / priceHeight) * priceRange });
+      onDrawingPoint({
+        timestamp: candle?.timestamp ?? 0,
+        price: maxPrice - ((y - chartTop) / priceHeight) * priceRange,
+      });
       return;
     }
 
@@ -913,14 +1150,26 @@ export function ChartViewport({
       const rect = event.currentTarget.getBoundingClientRect();
       const x = (event.clientX - rect.left) * (width / rect.width);
       const y = (event.clientY - rect.top) * (height / rect.height);
-      const index = Math.min(candles.length - 1, Math.max(safeVisibleRange.start, safeVisibleRange.start + Math.round((x - paddingX - candleGap / 2) / candleGap)));
-      onDrawingElementMove?.(dragState.drawingId, dragState.pointIndex, { timestamp: candles[index]?.timestamp ?? 0, price: maxPrice - ((y - chartTop) / priceHeight) * priceRange });
+      const index = Math.min(
+        candles.length - 1,
+        Math.max(
+          safeVisibleRange.start,
+          safeVisibleRange.start + Math.round((x - paddingX - candleGap / 2) / candleGap),
+        ),
+      );
+      onDrawingElementMove?.(dragState.drawingId, dragState.pointIndex, {
+        timestamp: candles[index]?.timestamp ?? 0,
+        price: maxPrice - ((y - chartTop) / priceHeight) * priceRange,
+      });
       return;
     }
 
     if (dragState.mode === "price-scale") {
       const deltaY = event.clientY - dragState.startY;
-      const nextScaleFactor = Math.max(0.25, Math.min(4, dragState.startScaleFactor * Math.exp(deltaY / 220)));
+      const nextScaleFactor = Math.max(
+        0.25,
+        Math.min(4, dragState.startScaleFactor * Math.exp(deltaY / 220)),
+      );
       setPriceScaleFactor(nextScaleFactor);
       setPricePanOffset(
         getPriceScaleOffsetForAnchor(
@@ -959,7 +1208,11 @@ export function ChartViewport({
   const handleSecondaryPointerDown = (event: PointerEvent<SVGSVGElement>) => {
     if (event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    secondaryPanRef.current = { pointerId: event.pointerId, startX: event.clientX, startRange: safeVisibleRange };
+    secondaryPanRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startRange: safeVisibleRange,
+    };
   };
   const handleSecondaryPointerMove = (event: PointerEvent<SVGSVGElement>) => {
     const drag = secondaryPanRef.current;
@@ -967,7 +1220,14 @@ export function ChartViewport({
     const rect = event.currentTarget.getBoundingClientRect();
     const windowSize = Math.max(1, drag.startRange.end - drag.startRange.start);
     const deltaBars = -((event.clientX - drag.startX) / Math.max(1, rect.width)) * windowSize;
-    setVisibleRange(panChartVisibleRange(drag.startRange, candles.length, deltaBars, getChartFuturePaddingBars(drag.startRange)));
+    setVisibleRange(
+      panChartVisibleRange(
+        drag.startRange,
+        candles.length,
+        deltaBars,
+        getChartFuturePaddingBars(drag.startRange),
+      ),
+    );
   };
   const handleSecondaryPointerUp = (event: PointerEvent<SVGSVGElement>) => {
     if (secondaryPanRef.current?.pointerId === event.pointerId) secondaryPanRef.current = null;
@@ -980,7 +1240,11 @@ export function ChartViewport({
     setPriceScaleFactor(1);
     setPricePanOffset(0);
   };
-  const beginDrawingDrag = (event: PointerEvent<SVGElement>, drawingId: string, pointIndex: number | null) => {
+  const beginDrawingDrag = (
+    event: PointerEvent<SVGElement>,
+    drawingId: string,
+    pointIndex: number | null,
+  ) => {
     event.stopPropagation();
     event.currentTarget.ownerSVGElement?.setPointerCapture(event.pointerId);
     onDrawingElementSelect?.(drawingId);
@@ -992,7 +1256,9 @@ export function ChartViewport({
     event.preventDefault();
     const bounds = container.getBoundingClientRect();
     const handleMove = (moveEvent: globalThis.PointerEvent) => {
-      onSecondaryPaneRatioChange(clampSecondaryPaneRatio((bounds.bottom - moveEvent.clientY) / Math.max(1, bounds.height)));
+      onSecondaryPaneRatioChange(
+        clampSecondaryPaneRatio((bounds.bottom - moveEvent.clientY) / Math.max(1, bounds.height)),
+      );
     };
     const handleUp = () => {
       window.removeEventListener("pointermove", handleMove);
@@ -1002,15 +1268,22 @@ export function ChartViewport({
     window.addEventListener("pointerup", handleUp, { once: true });
   };
   const handlePaneSeparatorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!onSecondaryPaneRatioChange || !["ArrowUp", "ArrowDown", "Home"].includes(event.key)) return;
+    if (!onSecondaryPaneRatioChange || !["ArrowUp", "ArrowDown", "Home"].includes(event.key))
+      return;
     event.preventDefault();
     if (event.key === "Home") onSecondaryPaneRatioChange(0.26);
-    else onSecondaryPaneRatioChange(clampSecondaryPaneRatio(secondaryPaneRatio + (event.key === "ArrowUp" ? 0.02 : -0.02)));
+    else
+      onSecondaryPaneRatioChange(
+        clampSecondaryPaneRatio(secondaryPaneRatio + (event.key === "ArrowUp" ? 0.02 : -0.02)),
+      );
   };
 
   if (!isFiniteNumber(maxPrice) || !isFiniteNumber(minPrice)) {
     return (
-      <section className="chart-viewport" aria-label={`${context.symbol} ${context.timeframe} K 线图`}>
+      <section
+        className="chart-viewport"
+        aria-label={`${context.symbol} ${context.timeframe} K 线图`}
+      >
         <div className="chart-legend">
           <strong>{context.symbol}</strong>
           <span>{context.market}</span>
@@ -1065,8 +1338,15 @@ export function ChartViewport({
             }
 
             const y = priceToY(Math.max(element.fromPrice, element.toPrice));
-            const bandHeight = Math.max(2, Math.abs(priceToY(element.fromPrice) - priceToY(element.toPrice)));
-            const bounds = timedElementBounds(element.fromTimestamp, element.toTimestamp, element.extendRight);
+            const bandHeight = Math.max(
+              2,
+              Math.abs(priceToY(element.fromPrice) - priceToY(element.toPrice)),
+            );
+            const bounds = timedElementBounds(
+              element.fromTimestamp,
+              element.toTimestamp,
+              element.extendRight,
+            );
             if (!bounds) return null;
             return (
               <rect
@@ -1094,22 +1374,29 @@ export function ChartViewport({
             }
 
             const y = priceToY(element.price);
-            const isProjected = isFiniteNumber(element.fromTimestamp ?? Number.NaN) && !element.labelAnchor;
-            const bounds = timedElementBounds(element.fromTimestamp, element.toTimestamp, element.extendRight);
+            const isProjected =
+              isFiniteNumber(element.fromTimestamp ?? Number.NaN) && !element.labelAnchor;
+            const bounds = timedElementBounds(
+              element.fromTimestamp,
+              element.toTimestamp,
+              element.extendRight,
+            );
             if (!bounds) return null;
             const hasLabel = Boolean(element.label);
-            const projectedLabelLayout = hasLabel && isProjected && !element.labelAnchor
-              ? getProjectedPriceLabelLayout({
-                label: element.label!,
-                lineEndX: bounds.x2,
-                priceY: y,
-                plotLeft: paddingX,
-                plotRight,
-              })
-              : null;
-            const anchoredLabel = hasLabel && element.labelAnchor
-              ? getChartLabelPosition(element.labelAnchor, bounds, y)
-              : null;
+            const projectedLabelLayout =
+              hasLabel && isProjected && !element.labelAnchor
+                ? getProjectedPriceLabelLayout({
+                    label: element.label!,
+                    lineEndX: bounds.x2,
+                    priceY: y,
+                    plotLeft: paddingX,
+                    plotRight,
+                  })
+                : null;
+            const anchoredLabel =
+              hasLabel && element.labelAnchor
+                ? getChartLabelPosition(element.labelAnchor, bounds, y)
+                : null;
 
             return (
               <g
@@ -1117,7 +1404,11 @@ export function ChartViewport({
                 data-element-id={element.id}
                 data-strategy-id={layer.id}
                 key={`${placement}-${layer.id}-${element.id}`}
-                onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
+                onPointerDown={
+                  layer.source === "drawing"
+                    ? (event) => beginDrawingDrag(event, element.id, null)
+                    : undefined
+                }
               >
                 <line
                   style={{
@@ -1134,14 +1425,16 @@ export function ChartViewport({
                   <rect
                     height={20}
                     rx={3}
-                    style={element.color
-                      ? {
-                          fill: element.color,
-                          fillOpacity: 0.3,
-                          stroke: element.color,
-                          strokeOpacity: 0.5,
-                        }
-                      : undefined}
+                    style={
+                      element.color
+                        ? {
+                            fill: element.color,
+                            fillOpacity: 0.3,
+                            stroke: element.color,
+                            strokeOpacity: 0.5,
+                          }
+                        : undefined
+                    }
                     width={projectedLabelLayout.width}
                     x={projectedLabelLayout.x}
                     y={projectedLabelLayout.y}
@@ -1155,8 +1448,16 @@ export function ChartViewport({
                       opacity: element.opacity,
                     }}
                     textAnchor={anchoredLabel?.textAnchor}
-                    x={anchoredLabel?.x ?? (projectedLabelLayout ? projectedLabelLayout.x + projectedLabelLayout.width - 7 : bounds.x2 - 8)}
-                    y={anchoredLabel?.y ?? (projectedLabelLayout ? projectedLabelLayout.y + 14 : y - 5)}
+                    x={
+                      anchoredLabel?.x ??
+                      (projectedLabelLayout
+                        ? projectedLabelLayout.x + projectedLabelLayout.width - 7
+                        : bounds.x2 - 8)
+                    }
+                    y={
+                      anchoredLabel?.y ??
+                      (projectedLabelLayout ? projectedLabelLayout.y + 14 : y - 5)
+                    }
                   >
                     {element.label}
                   </text>
@@ -1169,7 +1470,9 @@ export function ChartViewport({
             const trendPoints = element.points
               .filter((point) => isFiniteNumber(point.timestamp) && isFiniteNumber(point.price))
               .map((point) => ({ x: timestampToX(point.timestamp), y: priceToY(point.price) }));
-            const visibleTrendPoints = trendPoints.filter((point): point is { x: number; y: number } => point.x !== null);
+            const visibleTrendPoints = trendPoints.filter(
+              (point): point is { x: number; y: number } => point.x !== null,
+            );
 
             if (visibleTrendPoints.length < 2) {
               return null;
@@ -1187,7 +1490,17 @@ export function ChartViewport({
                     strokeOpacity: element.opacity,
                   }}
                 />
-                {layer.source === "drawing" && visibleTrendPoints.map((point, pointIndex) => <circle className="drawing-handle" cx={point.x} cy={point.y} key={`${element.id}-${pointIndex}`} onPointerDown={(event) => beginDrawingDrag(event, element.id, pointIndex)} r="6" />)}
+                {layer.source === "drawing" &&
+                  visibleTrendPoints.map((point, pointIndex) => (
+                    <circle
+                      className="drawing-handle"
+                      cx={point.x}
+                      cy={point.y}
+                      key={`${element.id}-${pointIndex}`}
+                      onPointerDown={(event) => beginDrawingDrag(event, element.id, pointIndex)}
+                      r="6"
+                    />
+                  ))}
               </g>
             );
           }
@@ -1198,7 +1511,7 @@ export function ChartViewport({
               .flatMap((point) => {
                 const x = timestampToX(point.timestamp);
                 if (x === null) return [];
-                return [(
+                return [
                   <circle
                     className={`indicator-point-series ${element.tone}`}
                     cx={x}
@@ -1206,8 +1519,8 @@ export function ChartViewport({
                     key={`${placement}-${layer.id}-${element.id}-${point.timestamp}`}
                     r={element.radius ?? 2}
                     style={{ fill: element.color, opacity: element.opacity }}
-                  />
-                )];
+                  />,
+                ];
               });
           }
 
@@ -1223,15 +1536,31 @@ export function ChartViewport({
             if (upper.length < 2 || lower.length < 2) return null;
             const fillPath = [
               `M ${upper.map((point) => `${point.x} ${point.y}`).join(" L ")}`,
-              `L ${[...lower].reverse().map((point) => `${point.x} ${point.y}`).join(" L ")}`,
+              `L ${[...lower]
+                .reverse()
+                .map((point) => `${point.x} ${point.y}`)
+                .join(" L ")}`,
               "Z",
             ].join(" ");
             return (
               <g className="indicator-channel" key={`${placement}-${layer.id}-${element.id}`}>
-                {element.fillColor && <path d={fillPath} style={{ fill: element.fillColor, stroke: "none" }} />}
-                <path className={`strategy-trend-line ${element.upperTone ?? "bearish"}`} d={createSmoothPath(upper)} />
-                {middle.length >= 2 && <path className={`strategy-trend-line ${element.middleTone ?? "neutral"}`} d={createSmoothPath(middle)} />}
-                <path className={`strategy-trend-line ${element.lowerTone ?? "bullish"}`} d={createSmoothPath(lower)} />
+                {element.fillColor && (
+                  <path d={fillPath} style={{ fill: element.fillColor, stroke: "none" }} />
+                )}
+                <path
+                  className={`strategy-trend-line ${element.upperTone ?? "bearish"}`}
+                  d={createSmoothPath(upper)}
+                />
+                {middle.length >= 2 && (
+                  <path
+                    className={`strategy-trend-line ${element.middleTone ?? "neutral"}`}
+                    d={createSmoothPath(middle)}
+                  />
+                )}
+                <path
+                  className={`strategy-trend-line ${element.lowerTone ?? "bullish"}`}
+                  d={createSmoothPath(lower)}
+                />
               </g>
             );
           }
@@ -1249,7 +1578,11 @@ export function ChartViewport({
                 data-element-id={element.id}
                 data-strategy-id={layer.id}
                 key={`${placement}-${layer.id}-${element.id}`}
-                onPointerDown={layer.source === "drawing" ? (event) => beginDrawingDrag(event, element.id, null) : undefined}
+                onPointerDown={
+                  layer.source === "drawing"
+                    ? (event) => beginDrawingDrag(event, element.id, null)
+                    : undefined
+                }
                 style={{
                   fill: element.color,
                   fontSize: getChartTextSize(element.textSize),
@@ -1296,8 +1629,17 @@ export function ChartViewport({
                 style={{ opacity: element.opacity }}
               >
                 <polygon points={pointer} style={{ fill: element.color }} />
-                <rect height="24" rx="4" style={{ fill: element.color }} width={markerWidth} x={x - markerWidth / 2} y={rectY} />
-                <text style={{ fontSize: getChartTextSize(element.textSize) }} x={x} y={rectY + 16}>{markerText}</text>
+                <rect
+                  height="24"
+                  rx="4"
+                  style={{ fill: element.color }}
+                  width={markerWidth}
+                  x={x - markerWidth / 2}
+                  y={rectY}
+                />
+                <text style={{ fontSize: getChartTextSize(element.textSize) }} x={x} y={rectY + 16}>
+                  {markerText}
+                </text>
               </g>
             );
           }
@@ -1315,7 +1657,10 @@ export function ChartViewport({
     );
 
   return (
-    <section className="chart-viewport" aria-label={`${context.symbol} ${context.timeframe} K 线图`}>
+    <section
+      className="chart-viewport"
+      aria-label={`${context.symbol} ${context.timeframe} K 线图`}
+    >
       <div className="chart-legend">
         <strong>{context.symbol}</strong>
         <span>{context.market}</span>
@@ -1326,17 +1671,29 @@ export function ChartViewport({
         <span>C {formatPrice(hoveredCandle.close)}</span>
         <span>V {Math.round(hoveredCandle.volume).toLocaleString("zh-CN")}</span>
         <span>{hoveredCandle.time}</span>
-        <span>{safeVisibleRange.start + 1}-{safeVisibleRange.end} / {candles.length}</span>
-        {renderLayers.flatMap((layer) => layer.legendValues ?? []).map((item, index) => (
-          <span key={`${item.label}-${index}`} style={{ color: item.color }}>{item.label} {item.value}</span>
-        ))}
+        <span>
+          {safeVisibleRange.start + 1}-{safeVisibleRange.end} / {candles.length}
+        </span>
+        {renderLayers
+          .flatMap((layer) => layer.legendValues ?? [])
+          .map((item, index) => (
+            <span key={`${item.label}-${index}`} style={{ color: item.color }}>
+              {item.label} {item.value}
+            </span>
+          ))}
       </div>
 
       <div className="chart-interaction-toolbar" aria-label="图表缩放和平移">
         <button
           onClick={() =>
             applyVisibleRangeWithScale((current) =>
-              zoomChartVisibleRange(current, candles.length, 0.5, 0.84, getChartFuturePaddingBars(current)),
+              zoomChartVisibleRange(
+                current,
+                candles.length,
+                0.5,
+                0.84,
+                getChartFuturePaddingBars(current),
+              ),
             )
           }
           type="button"
@@ -1346,7 +1703,13 @@ export function ChartViewport({
         <button
           onClick={() =>
             applyVisibleRangeWithScale((current) =>
-              zoomChartVisibleRange(current, candles.length, 0.5, 1.18, getChartFuturePaddingBars(current)),
+              zoomChartVisibleRange(
+                current,
+                candles.length,
+                0.5,
+                1.18,
+                getChartFuturePaddingBars(current),
+              ),
             )
           }
           type="button"
@@ -1390,218 +1753,272 @@ export function ChartViewport({
 
       <div
         className="chart-pane-stack"
-        style={{ gridTemplateRows: getChartPaneGridTemplate(secondaryPane ? secondaryPaneRatio : undefined) }}
+        style={{
+          gridTemplateRows: getChartPaneGridTemplate(
+            secondaryPane ? secondaryPaneRatio : undefined,
+          ),
+        }}
       >
-      <svg
-        className={`chart-canvas${isPanning ? " panning" : ""}${isScalingPriceAxis ? " scaling-price-axis" : ""}`}
-        ref={measuredSize.canvasRef}
-        onMouseLeave={() => setHoverIndex(null)}
-        onMouseMove={handleMouseMove}
-        onPointerCancel={handlePointerUp}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onWheel={handleWheel}
-        role="img"
-        viewBox={`0 0 ${width} ${height}`}
-      >
-        <defs>
-          <linearGradient id="chartDepth" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#1b2d42" stopOpacity="0.32" />
-            <stop offset="100%" stopColor="#0b1117" stopOpacity="0" />
-          </linearGradient>
-        </defs>
+        <svg
+          className={`chart-canvas${isPanning ? " panning" : ""}${isScalingPriceAxis ? " scaling-price-axis" : ""}`}
+          ref={measuredSize.canvasRef}
+          onMouseLeave={() => setHoverIndex(null)}
+          onMouseMove={handleMouseMove}
+          onPointerCancel={handlePointerUp}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onWheel={handleWheel}
+          role="img"
+          viewBox={`0 0 ${width} ${height}`}
+        >
+          <defs>
+            <linearGradient id="chartDepth" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#1b2d42" stopOpacity="0.32" />
+              <stop offset="100%" stopColor="#0b1117" stopOpacity="0" />
+            </linearGradient>
+          </defs>
 
-        <rect className="chart-bg" height={height} width={width} />
-        {showGrid &&
-          Array.from({ length: 8 }, (_, index) => {
-            const y = chartTop + (priceHeight / 7) * index;
-            return <line className="chart-grid-line" key={`h-${index}`} x1={paddingX} x2={plotRight} y1={y} y2={y} />;
-          })}
-        {showGrid &&
-          Array.from({ length: 10 }, (_, index) => {
-            const x = paddingX + ((plotRight - paddingX) / 9) * index;
-            return <line className="chart-grid-line" key={`v-${index}`} x1={x} x2={x} y1={chartTop} y2={chartBottom} />;
-          })}
+          <rect className="chart-bg" height={height} width={width} />
+          {showGrid &&
+            Array.from({ length: 8 }, (_, index) => {
+              const y = chartTop + (priceHeight / 7) * index;
+              return (
+                <line
+                  className="chart-grid-line"
+                  key={`h-${index}`}
+                  x1={paddingX}
+                  x2={plotRight}
+                  y1={y}
+                  y2={y}
+                />
+              );
+            })}
+          {showGrid &&
+            Array.from({ length: 10 }, (_, index) => {
+              const x = paddingX + ((plotRight - paddingX) / 9) * index;
+              return (
+                <line
+                  className="chart-grid-line"
+                  key={`v-${index}`}
+                  x1={x}
+                  x2={x}
+                  y1={chartTop}
+                  y2={chartBottom}
+                />
+              );
+            })}
 
-        {displayMode === "line" && closedChartDepthPath && <path className="chart-depth" d={closedChartDepthPath} />}
-
-        {renderChartLayers("under-candles")}
-
-        {displayMode === "line" && (
-          <path className="intraday-close-line" d={closeLinePath} />
-        )}
-
-        {visibleCandles.map((candle, offset) => {
-          const index = safeVisibleRange.start + offset;
-          const x = indexToX(index);
-          const isUp = candle.close >= candle.open;
-          const openY = priceToY(candle.open);
-          const closeY = priceToY(candle.close);
-          const highY = priceToY(candle.high);
-          const lowY = priceToY(candle.low);
-          const bodyY = Math.min(openY, closeY);
-          const bodyHeight = Math.max(3, Math.abs(openY - closeY));
-          const candleStyle =
-            candle.timestamp === undefined ? undefined : candleStyleByTimestamp.get(candle.timestamp);
-
-          return (
-            <g key={`${candle.timestamp}-${index}`}>
-              {displayMode === "candlestick" && (
-                <>
-                  <line
-                    className={isUp ? "candle-wick up" : "candle-wick down"}
-                    style={candleStyle ? { opacity: candleStyle.opacity, stroke: candleStyle.color } : undefined}
-                    x1={x}
-                    x2={x}
-                    y1={highY}
-                    y2={lowY}
-                  />
-                  <rect
-                    className={isUp ? "candle-body up" : "candle-body down"}
-                    height={bodyHeight}
-                    style={candleStyle ? { fill: candleStyle.color, opacity: candleStyle.opacity } : undefined}
-                    rx="2"
-                    width={candleWidth}
-                    x={x - candleWidth / 2}
-                    y={bodyY}
-                  />
-                </>
-              )}
-              {showSignals && candle.signal === "buy" && (
-                <g className="signal-marker buy">
-                  <polygon points={`${x},${lowY + 24} ${x - 9},${lowY + 40} ${x + 9},${lowY + 40}`} />
-                </g>
-              )}
-              {showSignals && candle.signal === "sell" && (
-                <g className="signal-marker sell">
-                  <polygon points={`${x},${highY - 24} ${x - 9},${highY - 40} ${x + 9},${highY - 40}`} />
-                </g>
-              )}
-            </g>
-          );
-        })}
-
-        {renderChartLayers("over-candles")}
-
-        {showCurrentPriceLine && isLatestVisible && (
-          <g className={`current-price-line ${latestPriceTone}`}>
-            <line x1={paddingX} x2={plotRight} y1={latestPriceY} y2={latestPriceY} />
-            {showPriceLabels && (
-              <>
-                <rect height={24} rx={4} width={74} x={plotRight - 70} y={latestPriceY - 12} />
-                <text x={plotRight - 33} y={latestPriceY + 4}>
-                  {formatPrice(latestCandle.close)}
-                </text>
-              </>
-            )}
-          </g>
-        )}
-
-        {showPriceLabels && (
-          <g className="price-axis-labels">
-            <text className="price-axis-title" x={plotRight + 10} y={chartTop + 14}>
-              价格
-            </text>
-            {priceTicks.map((price) => (
-              <text key={price} x={plotRight + 10} y={priceToY(price) + 4}>
-                {formatPrice(price)}
-              </text>
-            ))}
-          </g>
-        )}
-
-        {!secondaryPane && <g className="time-axis-labels">
-          {timeTickOffsets.map((offset) => {
-            const index = safeVisibleRange.start + offset;
-            const candle = candles[index];
-
-            if (!candle) {
-              return null;
-            }
-
-            return (
-              <text key={`${candle.time}-${index}`} x={indexToX(index)} y={height - 8}>
-                {candle.time}
-              </text>
-            );
-          })}
-        </g>}
-
-        {showCrosshair && hoverX !== null && (
-          <g className="crosshair">
-            <line x1={hoverX} x2={hoverX} y1={chartTop} y2={chartBottom} />
-            <line x1={paddingX} x2={plotRight} y1={priceToY(hoveredCandle.close)} y2={priceToY(hoveredCandle.close)} />
-            {showPriceLabels && (
-              <>
-                <rect className="crosshair-price-label" height={22} rx={4} width={68} x={plotRight - 64} y={priceToY(hoveredCandle.close) - 11} />
-                <text className="crosshair-price-text" x={plotRight - 30} y={priceToY(hoveredCandle.close) + 4}>
-                  {formatPrice(hoveredCandle.close)}
-                </text>
-              </>
-            )}
-          </g>
+          {displayMode === "line" && closedChartDepthPath && (
+            <path className="chart-depth" d={closedChartDepthPath} />
           )}
 
-        <rect
-          className="price-axis-hit-area"
-          height={priceHeight}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-            const canvas = event.currentTarget.ownerSVGElement;
-            if (canvas) {
-              beginPriceAxisScale(event, canvas);
-            }
-          }}
-          width={priceAxisWidth}
-          x={plotRight}
-          y={chartTop}
-        />
-      </svg>
-      {secondaryPane && (
-        <>
-          <div
-            aria-label="调整副图高度"
-            aria-orientation="horizontal"
-            aria-valuemax={45}
-            aria-valuemin={18}
-            aria-valuenow={Math.round(clampSecondaryPaneRatio(secondaryPaneRatio) * 100)}
-            className="chart-pane-separator"
-            onDoubleClick={() => onSecondaryPaneRatioChange?.(0.26)}
-            onKeyDown={handlePaneSeparatorKeyDown}
-            onPointerDown={handlePaneSeparatorPointerDown}
-            role="separator"
-            tabIndex={0}
+          {renderChartLayers("under-candles")}
+
+          {displayMode === "line" && <path className="intraday-close-line" d={closeLinePath} />}
+
+          {visibleCandles.map((candle, offset) => {
+            const index = safeVisibleRange.start + offset;
+            const x = indexToX(index);
+            const isUp = candle.close >= candle.open;
+            const openY = priceToY(candle.open);
+            const closeY = priceToY(candle.close);
+            const highY = priceToY(candle.high);
+            const lowY = priceToY(candle.low);
+            const bodyY = Math.min(openY, closeY);
+            const bodyHeight = Math.max(3, Math.abs(openY - closeY));
+            const candleStyle =
+              candle.timestamp === undefined
+                ? undefined
+                : candleStyleByTimestamp.get(candle.timestamp);
+
+            return (
+              <g key={`${candle.timestamp}-${index}`}>
+                {displayMode === "candlestick" && (
+                  <>
+                    <line
+                      className={isUp ? "candle-wick up" : "candle-wick down"}
+                      style={
+                        candleStyle
+                          ? { opacity: candleStyle.opacity, stroke: candleStyle.color }
+                          : undefined
+                      }
+                      x1={x}
+                      x2={x}
+                      y1={highY}
+                      y2={lowY}
+                    />
+                    <rect
+                      className={isUp ? "candle-body up" : "candle-body down"}
+                      height={bodyHeight}
+                      style={
+                        candleStyle
+                          ? { fill: candleStyle.color, opacity: candleStyle.opacity }
+                          : undefined
+                      }
+                      rx="2"
+                      width={candleWidth}
+                      x={x - candleWidth / 2}
+                      y={bodyY}
+                    />
+                  </>
+                )}
+                {showSignals && candle.signal === "buy" && (
+                  <g className="signal-marker buy">
+                    <polygon
+                      points={`${x},${lowY + 24} ${x - 9},${lowY + 40} ${x + 9},${lowY + 40}`}
+                    />
+                  </g>
+                )}
+                {showSignals && candle.signal === "sell" && (
+                  <g className="signal-marker sell">
+                    <polygon
+                      points={`${x},${highY - 24} ${x - 9},${highY - 40} ${x + 9},${highY - 40}`}
+                    />
+                  </g>
+                )}
+              </g>
+            );
+          })}
+
+          {renderChartLayers("over-candles")}
+
+          {showCurrentPriceLine && isLatestVisible && (
+            <g className={`current-price-line ${latestPriceTone}`}>
+              <line x1={paddingX} x2={plotRight} y1={latestPriceY} y2={latestPriceY} />
+              {showPriceLabels && (
+                <>
+                  <rect height={24} rx={4} width={74} x={plotRight - 70} y={latestPriceY - 12} />
+                  <text x={plotRight - 33} y={latestPriceY + 4}>
+                    {formatPrice(latestCandle.close)}
+                  </text>
+                </>
+              )}
+            </g>
+          )}
+
+          {showPriceLabels && (
+            <g className="price-axis-labels">
+              <text className="price-axis-title" x={plotRight + 10} y={chartTop + 14}>
+                价格
+              </text>
+              {priceTicks.map((price) => (
+                <text key={price} x={plotRight + 10} y={priceToY(price) + 4}>
+                  {formatPrice(price)}
+                </text>
+              ))}
+            </g>
+          )}
+
+          {!secondaryPane && (
+            <g className="time-axis-labels">
+              {timeTickOffsets.map((offset) => {
+                const index = safeVisibleRange.start + offset;
+                const candle = candles[index];
+
+                if (!candle) {
+                  return null;
+                }
+
+                return (
+                  <text key={`${candle.time}-${index}`} x={indexToX(index)} y={height - 8}>
+                    {candle.time}
+                  </text>
+                );
+              })}
+            </g>
+          )}
+
+          {showCrosshair && hoverX !== null && (
+            <g className="crosshair">
+              <line x1={hoverX} x2={hoverX} y1={chartTop} y2={chartBottom} />
+              <line
+                x1={paddingX}
+                x2={plotRight}
+                y1={priceToY(hoveredCandle.close)}
+                y2={priceToY(hoveredCandle.close)}
+              />
+              {showPriceLabels && (
+                <>
+                  <rect
+                    className="crosshair-price-label"
+                    height={22}
+                    rx={4}
+                    width={68}
+                    x={plotRight - 64}
+                    y={priceToY(hoveredCandle.close) - 11}
+                  />
+                  <text
+                    className="crosshair-price-text"
+                    x={plotRight - 30}
+                    y={priceToY(hoveredCandle.close) + 4}
+                  >
+                    {formatPrice(hoveredCandle.close)}
+                  </text>
+                </>
+              )}
+            </g>
+          )}
+
+          <rect
+            className="price-axis-hit-area"
+            height={priceHeight}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              const canvas = event.currentTarget.ownerSVGElement;
+              if (canvas) {
+                beginPriceAxisScale(event, canvas);
+              }
+            }}
+            width={priceAxisWidth}
+            x={plotRight}
+            y={chartTop}
           />
-          <SecondaryPaneCanvas
-            candleWidth={candleWidth}
-            height={220}
-            hoveredTimestamp={hoveredCandle.timestamp}
-            hoverX={hoverX}
-            onClose={onSecondaryPaneClose}
-            onMouseLeave={() => setHoverIndex(null)}
-            onMouseMove={handleMouseMove}
-            onPointerDown={handleSecondaryPointerDown}
-            onPointerMove={handleSecondaryPointerMove}
-            onPointerUp={handleSecondaryPointerUp}
-            onSettings={onSecondaryPaneSettings}
-            onWheel={handleWheel}
-            pane={secondaryPane}
-            plotLeft={paddingX}
-            plotRight={plotRight}
-            showCrosshair={showCrosshair}
-            showGrid={showGrid}
-            showPriceLabels={showPriceLabels}
-            timeTicks={timeTickOffsets.flatMap((offset) => {
-              const index = safeVisibleRange.start + offset;
-              const candle = candles[index];
-              return candle ? [{ x: indexToX(index), label: candle.time }] : [];
-            })}
-            timestampToX={timestampToX}
-            width={width}
-          />
-        </>
-      )}
+        </svg>
+        {secondaryPane && (
+          <>
+            <div
+              aria-label="调整副图高度"
+              aria-orientation="horizontal"
+              aria-valuemax={45}
+              aria-valuemin={18}
+              aria-valuenow={Math.round(clampSecondaryPaneRatio(secondaryPaneRatio) * 100)}
+              className="chart-pane-separator"
+              onDoubleClick={() => onSecondaryPaneRatioChange?.(0.26)}
+              onKeyDown={handlePaneSeparatorKeyDown}
+              onPointerDown={handlePaneSeparatorPointerDown}
+              role="separator"
+              tabIndex={0}
+            />
+            <SecondaryPaneCanvas
+              candleWidth={candleWidth}
+              height={220}
+              hoveredTimestamp={hoveredCandle.timestamp}
+              hoverX={hoverX}
+              onClose={onSecondaryPaneClose}
+              onMouseLeave={() => setHoverIndex(null)}
+              onMouseMove={handleMouseMove}
+              onPointerDown={handleSecondaryPointerDown}
+              onPointerMove={handleSecondaryPointerMove}
+              onPointerUp={handleSecondaryPointerUp}
+              onSettings={onSecondaryPaneSettings}
+              onWheel={handleWheel}
+              pane={secondaryPane}
+              plotLeft={paddingX}
+              plotRight={plotRight}
+              showCrosshair={showCrosshair}
+              showGrid={showGrid}
+              showPriceLabels={showPriceLabels}
+              timeTicks={timeTickOffsets.flatMap((offset) => {
+                const index = safeVisibleRange.start + offset;
+                const candle = candles[index];
+                return candle ? [{ x: indexToX(index), label: candle.time }] : [];
+              })}
+              timestampToX={timestampToX}
+              width={width}
+            />
+          </>
+        )}
       </div>
       {showStrategyLayers && (
         <div
@@ -1610,7 +2027,11 @@ export function ChartViewport({
         >
           {renderLayers.flatMap((layer) =>
             (layer.hudPanels ?? []).map((panel) => (
-              <table aria-label={panel.title} className="chart-hud-panel" key={`${layer.id}-${panel.id}`}>
+              <table
+                aria-label={panel.title}
+                className="chart-hud-panel"
+                key={`${layer.id}-${panel.id}`}
+              >
                 <thead>
                   <tr>
                     <th>{panel.title}</th>

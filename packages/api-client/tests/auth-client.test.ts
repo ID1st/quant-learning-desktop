@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  CloudAuthClientError,
-  createCloudAuthClient,
-} from "../src/auth.ts";
+import { CloudAuthClientError, createCloudAuthClient } from "../src/auth.ts";
 
 test("cloud auth login uses the typed endpoint and device headers", async () => {
   let observedUrl = "";
@@ -87,8 +84,7 @@ test("transport failures and server failures map to stable codes", async () => {
   await assert.rejects(
     () => offlineClient.getSession("qat_token"),
     (error: unknown) =>
-      error instanceof CloudAuthClientError &&
-      error.code === "NETWORK_UNAVAILABLE",
+      error instanceof CloudAuthClientError && error.code === "NETWORK_UNAVAILABLE",
   );
 
   const unavailableClient = createCloudAuthClient({
@@ -98,8 +94,7 @@ test("transport failures and server failures map to stable codes", async () => {
   await assert.rejects(
     () => unavailableClient.getSession("qat_token"),
     (error: unknown) =>
-      error instanceof CloudAuthClientError &&
-      error.code === "SERVICE_UNAVAILABLE",
+      error instanceof CloudAuthClientError && error.code === "SERVICE_UNAVAILABLE",
   );
 });
 
@@ -133,17 +128,11 @@ test("successful responses are rejected when their authentication shape is malfo
         { deviceId: "device-1234", deviceLabel: "Windows desktop" },
       ),
     (error: unknown) =>
-      error instanceof CloudAuthClientError &&
-      error.code === "SERVICE_UNAVAILABLE",
+      error instanceof CloudAuthClientError && error.code === "SERVICE_UNAVAILABLE",
   );
 });
 
 test("remote auth endpoints require HTTPS while loopback HTTP remains available for development", () => {
-  assert.throws(
-    () => createCloudAuthClient({ baseUrl: "http://auth.example.com" }),
-    /HTTPS/i,
-  );
-  assert.doesNotThrow(() =>
-    createCloudAuthClient({ baseUrl: "http://127.0.0.1:8787" }),
-  );
+  assert.throws(() => createCloudAuthClient({ baseUrl: "http://auth.example.com" }), /HTTPS/i);
+  assert.doesNotThrow(() => createCloudAuthClient({ baseUrl: "http://127.0.0.1:8787" }));
 });

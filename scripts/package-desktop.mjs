@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(scriptDir, "..");
 const desktopAppDir = join(workspaceRoot, "apps", "desktop");
-const releaseDir = process.env.QUANT_DESKTOP_RELEASE_DIR || join(tmpdir(), "quant-learning-desktop-release");
+const releaseDir =
+  process.env.QUANT_DESKTOP_RELEASE_DIR || join(tmpdir(), "quant-learning-desktop-release");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
 const useShell = process.platform === "win32";
@@ -42,21 +43,19 @@ if (
   !builtMain.includes(productionAuthBaseUrl) ||
   builtMain.includes("configuration-required.invalid")
 ) {
-  console.error(
-    `Packaged desktop authentication endpoint is not ${productionAuthBaseUrl}`,
-  );
+  console.error(`Packaged desktop authentication endpoint is not ${productionAuthBaseUrl}`);
   process.exit(1);
 }
 
-const packageResult = spawnSync(npxCommand, [
-  "electron-builder",
-  ...builderArgs,
-  `--config.directories.output=${releaseDir}`,
-], {
-  cwd: desktopAppDir,
-  stdio: "inherit",
-  shell: useShell,
-});
+const packageResult = spawnSync(
+  npxCommand,
+  ["electron-builder", ...builderArgs, `--config.directories.output=${releaseDir}`],
+  {
+    cwd: desktopAppDir,
+    stdio: "inherit",
+    shell: useShell,
+  },
+);
 
 if (packageResult.error) {
   console.error(packageResult.error.message);

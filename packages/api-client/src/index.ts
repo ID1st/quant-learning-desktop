@@ -1,5 +1,10 @@
 import type { ApiResult } from "@quant/shared";
-import { validatePluginManifest, type PluginCapability, type PluginManifest, type PluginPermission } from "@quant/plugin-loader";
+import {
+  validatePluginManifest,
+  type PluginCapability,
+  type PluginManifest,
+  type PluginPermission,
+} from "@quant/plugin-loader";
 export { isLoopbackHostname, isTrustedServiceHostname } from "./urlSecurity.ts";
 export {
   ALPHAFEED_DEFAULT_API_URL,
@@ -69,7 +74,8 @@ export interface PluginManifestPreflightInput {
   manifestText: string;
 }
 
-export type PluginManifestPreflightErrorCode = "EMPTY_MANIFEST" | "MANIFEST_TOO_LARGE" | "INVALID_JSON" | "INVALID_MANIFEST";
+export type PluginManifestPreflightErrorCode =
+  "EMPTY_MANIFEST" | "MANIFEST_TOO_LARGE" | "INVALID_JSON" | "INVALID_MANIFEST";
 
 export interface PluginManifestPreflightError {
   code: PluginManifestPreflightErrorCode;
@@ -101,14 +107,19 @@ export interface PluginInstallBridge {
 
 const maxManifestBytes = 64 * 1024;
 
-function createFailure(code: PluginManifestPreflightErrorCode, message: string): PluginManifestPreflightResult {
+function createFailure(
+  code: PluginManifestPreflightErrorCode,
+  message: string,
+): PluginManifestPreflightResult {
   return {
     ok: false,
     error: { code, message },
   };
 }
 
-export async function preflightPluginManifest(input: PluginManifestPreflightInput): Promise<PluginManifestPreflightResult> {
+export async function preflightPluginManifest(
+  input: PluginManifestPreflightInput,
+): Promise<PluginManifestPreflightResult> {
   const manifestText = input.manifestText.trim();
 
   if (manifestText.length === 0) {
@@ -141,7 +152,10 @@ export async function preflightPluginManifest(input: PluginManifestPreflightInpu
       },
     };
   } catch (error) {
-    return createFailure("INVALID_MANIFEST", error instanceof Error ? error.message : "插件清单结构无效。");
+    return createFailure(
+      "INVALID_MANIFEST",
+      error instanceof Error ? error.message : "插件清单结构无效。",
+    );
   }
 }
 

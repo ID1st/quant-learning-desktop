@@ -23,10 +23,7 @@ import type {
   ResetPasswordInput,
 } from "../../../../packages/shared/src/auth.ts";
 
-import type {
-  AuthTokenStore,
-  PersistedAuthTokenMaterial,
-} from "./authTokenStore.ts";
+import type { AuthTokenStore, PersistedAuthTokenMaterial } from "./authTokenStore.ts";
 import { restoreOfflineSession } from "./offlineAuthLease.ts";
 
 interface CreateAuthSessionManagerInput {
@@ -42,22 +39,14 @@ export interface AuthSessionManager {
   requestRegistrationCode(
     input: RequestRegistrationCodeInput,
   ): Promise<AuthOperationResult<EmailCodeRequestResult>>;
-  register(
-    input: RegisterInput,
-  ): Promise<AuthOperationResult<RegistrationResult>>;
+  register(input: RegisterInput): Promise<AuthOperationResult<RegistrationResult>>;
   login(input: LoginInput): Promise<AuthOperationResult<LoginResult>>;
-  redeemInvite(
-    input: RedeemInviteInput,
-  ): Promise<AuthOperationResult<AuthSessionSnapshot>>;
-  renewEntitlement(
-    input: RenewEntitlementInput,
-  ): Promise<AuthOperationResult<AuthSessionSnapshot>>;
+  redeemInvite(input: RedeemInviteInput): Promise<AuthOperationResult<AuthSessionSnapshot>>;
+  renewEntitlement(input: RenewEntitlementInput): Promise<AuthOperationResult<AuthSessionSnapshot>>;
   requestPasswordReset(
     input: RequestPasswordResetInput,
   ): Promise<AuthOperationResult<EmailCodeRequestResult>>;
-  resetPassword(
-    input: ResetPasswordInput,
-  ): Promise<AuthOperationResult<PasswordResetResult>>;
+  resetPassword(input: ResetPasswordInput): Promise<AuthOperationResult<PasswordResetResult>>;
   logout(): Promise<AuthOperationResult<{ signedOut: true }>>;
   getSnapshot(): Promise<AuthOperationResult<AuthStateSnapshot>>;
   revalidate(): Promise<AuthOperationResult<AuthStateSnapshot>>;
@@ -79,9 +68,7 @@ function operationError(error: unknown): AuthOperationResult<never> {
       error: {
         code: error.code,
         message: error.message,
-        ...(error.retryAfterSeconds
-          ? { retryAfterSeconds: error.retryAfterSeconds }
-          : {}),
+        ...(error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
       },
     };
   }
@@ -98,29 +85,20 @@ function phaseForError(error: CloudAuthClientError): AuthPhase {
   if (error.code === "ENTITLEMENT_EXPIRED") {
     return "ENTITLEMENT_EXPIRED";
   }
-  if (
-    error.code === "NETWORK_UNAVAILABLE" ||
-    error.code === "SERVICE_UNAVAILABLE"
-  ) {
+  if (error.code === "NETWORK_UNAVAILABLE" || error.code === "SERVICE_UNAVAILABLE") {
     return "SERVICE_UNAVAILABLE";
   }
   return "SIGNED_OUT";
 }
 
-export function createAuthSessionManager(
-  input: CreateAuthSessionManagerInput,
-): AuthSessionManager {
+export function createAuthSessionManager(input: CreateAuthSessionManagerInput): AuthSessionManager {
   const now = input.now ?? (() => new Date());
   const listeners = new Set<(state: AuthStateSnapshot) => void>();
   let state = initialState();
   let persistedMaterial: PersistedAuthTokenMaterial | null = null;
   let loginChallenge: string | null = null;
-  let bootstrapPromise:
-    | Promise<AuthOperationResult<AuthStateSnapshot>>
-    | null = null;
-  let revalidationPromise:
-    | Promise<AuthOperationResult<AuthStateSnapshot>>
-    | null = null;
+  let bootstrapPromise: Promise<AuthOperationResult<AuthStateSnapshot>> | null = null;
+  let revalidationPromise: Promise<AuthOperationResult<AuthStateSnapshot>> | null = null;
   let authenticationGeneration = 0;
 
   function publish(nextState: AuthStateSnapshot): void {
@@ -130,10 +108,7 @@ export function createAuthSessionManager(
     }
   }
 
-  function publishPhase(
-    phase: AuthPhase,
-    session: AuthSessionSnapshot | null = null,
-  ): void {
+  function publishPhase(phase: AuthPhase, session: AuthSessionSnapshot | null = null): void {
     publish({
       phase,
       session,
@@ -182,10 +157,7 @@ export function createAuthSessionManager(
     }
     const accessToken = input.tokenStore.getAccessToken();
     if (!accessToken || !persistedMaterial) {
-      throw new CloudAuthClientError(
-        "SESSION_REVOKED",
-        "Session material is unavailable",
-      );
+      throw new CloudAuthClientError("SESSION_REVOKED", "Session material is unavailable");
     }
     if (validation.session.deviceId !== input.device.deviceId) {
       throw new CloudAuthClientError(
@@ -220,16 +192,10 @@ export function createAuthSessionManager(
     expectedGeneration = authenticationGeneration,
   ): Promise<AuthSessionSnapshot> {
     if (!persistedMaterial) {
-      throw new CloudAuthClientError(
-        "SESSION_REVOKED",
-        "No persisted session is available",
-      );
+      throw new CloudAuthClientError("SESSION_REVOKED", "No persisted session is available");
     }
     return commitBundle(
-      await input.client.refreshSession(
-        persistedMaterial.refreshToken,
-        input.device,
-      ),
+      await input.client.refreshSession(persistedMaterial.refreshToken, input.device),
       expectedGeneration,
     );
   }
@@ -242,10 +208,7 @@ export function createAuthSessionManager(
       return refreshFromPersisted(expectedGeneration);
     }
     try {
-      return await updateValidation(
-        await input.client.getSession(accessToken),
-        expectedGeneration,
-      );
+      return await updateValidation(await input.client.getSession(accessToken), expectedGeneration);
     } catch (error) {
       if (
         error instanceof CloudAuthClientError &&
@@ -258,9 +221,7 @@ export function createAuthSessionManager(
     }
   }
 
-  async function performBootstrap(): Promise<
-    AuthOperationResult<AuthStateSnapshot>
-  > {
+  async function performBootstrap(): Promise<AuthOperationResult<AuthStateSnapshot>> {
     const expectedGeneration = authenticationGeneration;
     publishPhase("BOOTSTRAPPING");
     persistedMaterial = await input.tokenStore.restore();
@@ -278,10 +239,7 @@ export function createAuthSessionManager(
       await refreshFromPersisted(expectedGeneration);
       return { ok: true, data: state };
     } catch (error) {
-      if (
-        error instanceof CloudAuthClientError &&
-        error.code === "NETWORK_UNAVAILABLE"
-      ) {
+      if (error instanceof CloudAuthClientError && error.code === "NETWORK_UNAVAILABLE") {
         try {
           const offlineSession = restoreOfflineSession({
             lease: persistedMaterial.offlineLease,
@@ -307,10 +265,7 @@ export function createAuthSessionManager(
       const clientError =
         error instanceof CloudAuthClientError
           ? error
-          : new CloudAuthClientError(
-              "SERVICE_UNAVAILABLE",
-              "Authentication bootstrap failed",
-            );
+          : new CloudAuthClientError("SERVICE_UNAVAILABLE", "Authentication bootstrap failed");
       publish({
         phase: phaseForError(clientError),
         session: null,
@@ -320,18 +275,12 @@ export function createAuthSessionManager(
     }
   }
 
-  async function performRevalidation(): Promise<
-    AuthOperationResult<AuthStateSnapshot>
-  > {
-    if (
-      state.phase === "BOOTSTRAPPING" ||
-      state.phase === "SERVICE_UNAVAILABLE"
-    ) {
+  async function performRevalidation(): Promise<AuthOperationResult<AuthStateSnapshot>> {
+    if (state.phase === "BOOTSTRAPPING" || state.phase === "SERVICE_UNAVAILABLE") {
       return manager.bootstrap();
     }
     if (
-      (state.phase !== "AUTHENTICATED_ONLINE" &&
-        state.phase !== "AUTHENTICATED_OFFLINE") ||
+      (state.phase !== "AUTHENTICATED_ONLINE" && state.phase !== "AUTHENTICATED_OFFLINE") ||
       !state.session
     ) {
       return { ok: true, data: { ...state } };
@@ -347,8 +296,7 @@ export function createAuthSessionManager(
       if (
         error instanceof CloudAuthClientError &&
         error.code === "NETWORK_UNAVAILABLE" &&
-        (state.phase === "AUTHENTICATED_ONLINE" ||
-          state.phase === "AUTHENTICATED_OFFLINE")
+        (state.phase === "AUTHENTICATED_ONLINE" || state.phase === "AUTHENTICATED_OFFLINE")
       ) {
         try {
           if (!persistedMaterial) {
@@ -365,10 +313,7 @@ export function createAuthSessionManager(
           return { ok: true, data: state };
         } catch {
           const entitlementEndsAt = state.session?.entitlementEndsAt;
-          if (
-            entitlementEndsAt &&
-            now().getTime() >= Date.parse(entitlementEndsAt)
-          ) {
+          if (entitlementEndsAt && now().getTime() >= Date.parse(entitlementEndsAt)) {
             await clearAuthentication();
             publish({
               phase: "ENTITLEMENT_EXPIRED",
@@ -383,10 +328,7 @@ export function createAuthSessionManager(
       const clientError =
         error instanceof CloudAuthClientError
           ? error
-          : new CloudAuthClientError(
-              "SERVICE_UNAVAILABLE",
-              "Session validation failed",
-            );
+          : new CloudAuthClientError("SERVICE_UNAVAILABLE", "Session validation failed");
       publish({
         phase: phaseForError(clientError),
         session: null,
@@ -495,9 +437,7 @@ export function createAuthSessionManager(
           input.device,
         );
         const session =
-          "accessToken" in renewal
-            ? await commitBundle(renewal)
-            : await updateValidation(renewal);
+          "accessToken" in renewal ? await commitBundle(renewal) : await updateValidation(renewal);
         return { ok: true, data: session };
       } catch (error) {
         return operationError(error);

@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  PRODUCTION_AUTH_BASE_URL,
-  resolveAuthBaseUrl,
-} from "../src/electron/authRuntimeConfig.ts";
+import { PRODUCTION_AUTH_BASE_URL, resolveAuthBaseUrl } from "../src/electron/authRuntimeConfig.ts";
 
 test("packaged desktop uses the production authentication endpoint by default", () => {
   assert.equal(PRODUCTION_AUTH_BASE_URL, "https://auth.fnndp.xyz");

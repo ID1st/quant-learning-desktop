@@ -56,7 +56,11 @@ export function formatMarketDataRuntimeEventKind(kind: MarketDataRuntimeEventKin
   return runtimeEventLabels[kind];
 }
 
-export function evaluateMarketCacheFreshness(timeframe: Timeframe, updatedAt: string | undefined, now = Date.now()): MarketCacheFreshness {
+export function evaluateMarketCacheFreshness(
+  timeframe: Timeframe,
+  updatedAt: string | undefined,
+  now = Date.now(),
+): MarketCacheFreshness {
   const maxAgeMs = maximumCacheAgeMs[timeframe];
   const updatedAtMs = updatedAt ? Date.parse(updatedAt) : Number.NaN;
   if (!Number.isFinite(updatedAtMs)) return { state: "missing", maxAgeMs };
@@ -82,7 +86,11 @@ export function appendMarketDataRuntimeEvent(
   const hasRecentDuplicate = timeline.some((entry) => {
     if (entry.kind !== event.kind || entry.message !== event.message) return false;
     const entryTime = Date.parse(entry.timestamp);
-    return Number.isFinite(eventTime) && Number.isFinite(entryTime) && Math.abs(eventTime - entryTime) <= 5_000;
+    return (
+      Number.isFinite(eventTime) &&
+      Number.isFinite(entryTime) &&
+      Math.abs(eventTime - entryTime) <= 5_000
+    );
   });
   if (hasRecentDuplicate) return [...timeline];
   return [event, ...timeline].slice(0, Math.max(1, maximumEntries));

@@ -41,7 +41,9 @@ void app.whenReady().then(async () => {
   try {
     await Promise.race([
       window.loadURL(previewUrl),
-      new Promise((_, reject) => setTimeout(() => reject(new Error(`Timed out loading ${previewUrl}`)), 15_000)),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Timed out loading ${previewUrl}`)), 15_000),
+      ),
     ]);
     for (let attempt = 0; attempt < 30; attempt += 1) {
       const ready = await window.webContents.executeJavaScript(
@@ -90,13 +92,15 @@ void app.whenReady().then(async () => {
       implementationWidth: document.images[1]?.naturalWidth ?? 0
     })`);
 
-    console.log(JSON.stringify({
-      implementationPath,
-      comparisonPath,
-      consoleErrors,
-      consoleWarnings,
-      visualCounts,
-    }));
+    console.log(
+      JSON.stringify({
+        implementationPath,
+        comparisonPath,
+        consoleErrors,
+        consoleWarnings,
+        visualCounts,
+      }),
+    );
     app.exit(consoleErrors.length === 0 ? 0 : 1);
   } catch (error) {
     console.error(error instanceof Error ? error.stack : String(error));

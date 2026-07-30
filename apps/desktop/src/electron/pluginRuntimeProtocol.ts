@@ -1,4 +1,8 @@
-import type { StrategyInput, StrategyOutput, StrategyParameterDefinition } from "@quant/strategy-engine";
+import type {
+  StrategyInput,
+  StrategyOutput,
+  StrategyParameterDefinition,
+} from "@quant/strategy-engine";
 import type { Market, Timeframe } from "@quant/shared";
 import type { PluginRuntimeModule } from "./pluginManager.ts";
 
@@ -26,10 +30,30 @@ export interface PluginRuntimeSnapshot {
 }
 
 export type PluginRuntimeHostRequest =
-  | { readonly id: string; readonly type: "refresh"; readonly modules: readonly PluginRuntimeModule[] }
-  | { readonly id: string; readonly type: "run-strategy"; readonly pluginId: string; readonly key: string; readonly input: StrategyInput };
+  | {
+      readonly id: string;
+      readonly type: "refresh";
+      readonly modules: readonly PluginRuntimeModule[];
+    }
+  | {
+      readonly id: string;
+      readonly type: "run-strategy";
+      readonly pluginId: string;
+      readonly key: string;
+      readonly input: StrategyInput;
+    };
 
 export type PluginRuntimeHostResponse =
-  | { readonly id: string; readonly ok: true; readonly type: "refresh"; readonly snapshot: PluginRuntimeSnapshot }
-  | { readonly id: string; readonly ok: true; readonly type: "run-strategy"; readonly output: StrategyOutput }
+  | {
+      readonly id: string;
+      readonly ok: true;
+      readonly type: "refresh";
+      readonly snapshot: PluginRuntimeSnapshot;
+    }
+  | {
+      readonly id: string;
+      readonly ok: true;
+      readonly type: "run-strategy";
+      readonly output: StrategyOutput;
+    }
   | { readonly id: string; readonly ok: false; readonly message: string };

@@ -48,7 +48,8 @@ export interface AlphaFeedQuoteOptions {
   now?: () => Date;
 }
 
-export type AlphaFeedAdjustType = "none" | "forward" | "backward" | "forward_additive" | "backward_additive";
+export type AlphaFeedAdjustType =
+  "none" | "forward" | "backward" | "forward_additive" | "backward_additive";
 
 export interface AlphaFeedBarRequest {
   symbol: string;
@@ -237,7 +238,10 @@ function parseQuoteResponse(value: unknown): AlphaFeedQuoteResponse {
 }
 
 function parseNumberArray(value: unknown, field: string) {
-  if (!Array.isArray(value) || value.some((item) => typeof item !== "number" || !Number.isFinite(item))) {
+  if (
+    !Array.isArray(value) ||
+    value.some((item) => typeof item !== "number" || !Number.isFinite(item))
+  ) {
     throw new Error(`AlphaFeed K 线响应字段无效：${field}`);
   }
 
@@ -253,7 +257,12 @@ function parseOptionalAmountArray(value: unknown, expectedLength: number) {
 }
 
 function parseKlineResponse(value: unknown): AlphaFeedKlineResponse {
-  if (!value || typeof value !== "object" || !value || typeof (value as { data?: unknown }).data !== "object") {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !value ||
+    typeof (value as { data?: unknown }).data !== "object"
+  ) {
     throw new Error("AlphaFeed K 线响应结构无效。");
   }
 
@@ -270,7 +279,11 @@ function parseKlineResponse(value: unknown): AlphaFeedKlineResponse {
   const expectedLength = parsed.timestamp.length;
   parsed.amount = parseOptionalAmountArray(data.amount, expectedLength);
 
-  if ([parsed.open, parsed.high, parsed.low, parsed.close, parsed.volume, parsed.amount].some((column) => column.length !== expectedLength)) {
+  if (
+    [parsed.open, parsed.high, parsed.low, parsed.close, parsed.volume, parsed.amount].some(
+      (column) => column.length !== expectedLength,
+    )
+  ) {
     throw new Error("AlphaFeed K 线列式数据长度不一致。");
   }
 
@@ -279,7 +292,10 @@ function parseKlineResponse(value: unknown): AlphaFeedKlineResponse {
   };
 }
 
-function mapQuoteToSnapshot(quote: AlphaFeedQuotePayload, receivedAt: string): AlphaFeedQuoteSnapshot {
+function mapQuoteToSnapshot(
+  quote: AlphaFeedQuotePayload,
+  receivedAt: string,
+): AlphaFeedQuoteSnapshot {
   const changePercent =
     typeof quote.ext?.change_pct === "number" && Number.isFinite(quote.ext.change_pct)
       ? quote.ext.change_pct * 100
@@ -314,7 +330,9 @@ export function createAlphaFeedSecretPreview(value: string) {
   return `${normalized.slice(0, 4)}****${normalized.slice(-4)}`;
 }
 
-export function normalizeAlphaFeedApiCredentials(input: AlphaFeedApiCredentials): NormalizedAlphaFeedApiCredentials {
+export function normalizeAlphaFeedApiCredentials(
+  input: AlphaFeedApiCredentials,
+): NormalizedAlphaFeedApiCredentials {
   return {
     apiUrl: ensureHttpUrl(input.apiUrl.trim() || ALPHAFEED_DEFAULT_API_URL),
     apiKey: ensureApiKey(input.apiKey),

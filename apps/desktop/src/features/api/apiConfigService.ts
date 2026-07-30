@@ -70,7 +70,13 @@ function sanitizeBinding(value: unknown): LongPortApiBinding | null {
   const appKeyPreview = binding.appKeyPreview ?? binding.keyPreview;
   const verifiedAt = binding.verifiedAt ?? binding.boundAt;
 
-  if (!binding.apiUrl || !appKeyPreview || !verifiedAt || !binding.markets || !binding.activatedAt) {
+  if (
+    !binding.apiUrl ||
+    !appKeyPreview ||
+    !verifiedAt ||
+    !binding.markets ||
+    !binding.activatedAt
+  ) {
     return null;
   }
 
@@ -105,7 +111,13 @@ function sanitizeAlphaFeedBinding(value: unknown): AlphaFeedApiBinding | null {
   }
 
   const binding = value as Partial<AlphaFeedApiBinding>;
-  if (!binding.apiUrl || !binding.apiKeyPreview || !binding.verifiedAt || !binding.markets || !binding.activatedAt) {
+  if (
+    !binding.apiUrl ||
+    !binding.apiKeyPreview ||
+    !binding.verifiedAt ||
+    !binding.markets ||
+    !binding.activatedAt
+  ) {
     return null;
   }
 
@@ -128,7 +140,10 @@ export function readAlphaFeedApiBinding(): AlphaFeedApiBinding | null {
 }
 
 export async function clearAlphaFeedApiBinding() {
-  await clearSecureCredentials(window.quantDesktop?.secureCredentials?.clearAlphaFeed(), "AlphaFeed REST");
+  await clearSecureCredentials(
+    window.quantDesktop?.secureCredentials?.clearAlphaFeed(),
+    "AlphaFeed REST",
+  );
   appLocalDatabase.removeDocument(ALPHAFEED_COLLECTION_KEY);
 }
 
@@ -164,7 +179,10 @@ export function readAlphaFeedStreamBinding(): AlphaFeedStreamBinding | null {
 }
 
 export async function clearAlphaFeedStreamBinding() {
-  await clearSecureCredentials(window.quantDesktop?.secureCredentials?.clearAlphaFeedStream(), "AlphaFeed WebSocket");
+  await clearSecureCredentials(
+    window.quantDesktop?.secureCredentials?.clearAlphaFeedStream(),
+    "AlphaFeed WebSocket",
+  );
   appLocalDatabase.removeDocument(ALPHAFEED_STREAM_COLLECTION_KEY);
 }
 
@@ -225,7 +243,10 @@ export async function readSavedAlphaFeedCredentials(): Promise<AlphaFeedApiForm 
   return null;
 }
 
-export async function readSavedAlphaFeedStreamCredentials(): Promise<Pick<AlphaFeedStreamForm, "wsUrl" | "apiKey"> | null> {
+export async function readSavedAlphaFeedStreamCredentials(): Promise<Pick<
+  AlphaFeedStreamForm,
+  "wsUrl" | "apiKey"
+> | null> {
   return null;
 }
 
@@ -263,7 +284,9 @@ export function normalizeAlphaFeedStreamForm(form: AlphaFeedStreamForm): AlphaFe
   };
 }
 
-export async function saveAlphaFeedStreamConfig(form: AlphaFeedStreamForm): Promise<AlphaFeedStreamBinding> {
+export async function saveAlphaFeedStreamConfig(
+  form: AlphaFeedStreamForm,
+): Promise<AlphaFeedStreamBinding> {
   const normalized = normalizeAlphaFeedStreamForm(form);
 
   await saveAlphaFeedStreamCredentials(normalized);
@@ -284,7 +307,9 @@ export async function readSavedLongPortCredentials(): Promise<LongPortApiForm | 
   return null;
 }
 
-export async function resolveAlphaFeedCredentials(form: AlphaFeedApiForm): Promise<AlphaFeedApiForm> {
+export async function resolveAlphaFeedCredentials(
+  form: AlphaFeedApiForm,
+): Promise<AlphaFeedApiForm> {
   if (form.apiKey.trim()) {
     return {
       ...form,
@@ -373,7 +398,9 @@ export async function verifyLongPortApiConfig(form: LongPortApiForm): Promise<Lo
   return binding;
 }
 
-async function verifyAlphaFeedWithDesktopBridge(form: AlphaFeedApiForm): Promise<AlphaFeedApiBinding> {
+async function verifyAlphaFeedWithDesktopBridge(
+  form: AlphaFeedApiForm,
+): Promise<AlphaFeedApiBinding> {
   const bridge = window.quantDesktop?.alphaFeed;
 
   if (!bridge) {
@@ -388,7 +415,9 @@ async function verifyAlphaFeedWithDesktopBridge(form: AlphaFeedApiForm): Promise
   return result.summary;
 }
 
-export async function verifyAlphaFeedApiConfig(form: AlphaFeedApiForm): Promise<AlphaFeedApiBinding> {
+export async function verifyAlphaFeedApiConfig(
+  form: AlphaFeedApiForm,
+): Promise<AlphaFeedApiBinding> {
   const credentials = await resolveAlphaFeedCredentials(form);
 
   await verifyAlphaFeedApiCredentials(

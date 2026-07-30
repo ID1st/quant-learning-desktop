@@ -54,11 +54,7 @@ test("outbox worker uses leases, claim-token completion and stable Message-ID", 
       return {};
     },
   } as unknown as Transporter;
-  const worker = new EmailOutboxWorker(
-    pool,
-    transporter,
-    "no-reply@example.test",
-  );
+  const worker = new EmailOutboxWorker(pool, transporter, "no-reply@example.test");
 
   await worker.drainOnce();
 
@@ -95,11 +91,7 @@ test("outbox claim query can recover an expired SENDING lease", async () => {
     },
   } as unknown as Transporter;
 
-  await new EmailOutboxWorker(
-    pool,
-    transporter,
-    "no-reply@example.test",
-  ).drainOnce();
+  await new EmailOutboxWorker(pool, transporter, "no-reply@example.test").drainOnce();
 
   assert.match(claimQueries[0]!, /status = 'SENDING'/u);
   assert.match(claimQueries[0]!, /lease_expires_at <= now\(\)/u);

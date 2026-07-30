@@ -1,4 +1,12 @@
-import { Activity, AlertTriangle, ArrowRight, BarChart3, CheckCircle2, DatabaseZap, ListChecks } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  BarChart3,
+  CheckCircle2,
+  DatabaseZap,
+  ListChecks,
+} from "lucide-react";
 import { readAlphaFeedApiBinding, readLongPortApiBinding } from "../features/api/apiConfigService";
 import { readMarketDataProviderSettings } from "../features/marketData/marketDataProviderSettings";
 import {
@@ -40,14 +48,32 @@ export function DashboardPage() {
   const navigate = useAppStore((state) => state.navigate);
   const quoteBySymbol = new Map(quoteSnapshots.map((snapshot) => [snapshot.symbol, snapshot]));
   const hasMarketData = quoteSnapshots.length > 0;
-  const primaryProvider = providerSettings.stockSdkPrimaryEnabled ? "Stock SDK" : alphaFeedBinding ? "AlphaFeed REST" : "未配置";
+  const primaryProvider = providerSettings.stockSdkPrimaryEnabled
+    ? "Stock SDK"
+    : alphaFeedBinding
+      ? "AlphaFeed REST"
+      : "未配置";
   const syncCompleted = syncState?.status === "completed";
   const requiresSetup = !alphaFeedBinding && !hasMarketData;
   const tasks = [
     ...(requiresSetup
-      ? [{ title: "连接行情数据源", detail: "配置主数据源或备用数据源后即可开始同步。", action: "前往数据源中心" }]
+      ? [
+          {
+            title: "连接行情数据源",
+            detail: "配置主数据源或备用数据源后即可开始同步。",
+            action: "前往数据源中心",
+          },
+        ]
       : []),
-    ...(!syncCompleted ? [{ title: "等待行情缓存准备", detail: "缓存完成后可在超级图表中运行策略。", action: "查看数据状态" }] : []),
+    ...(!syncCompleted
+      ? [
+          {
+            title: "等待行情缓存准备",
+            detail: "缓存完成后可在超级图表中运行策略。",
+            action: "查看数据状态",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -56,9 +82,17 @@ export function DashboardPage() {
         <div>
           <p>今日工作台</p>
           <h1>{hasMarketData ? "行情与研究已就绪" : "先连接行情，再开始研究"}</h1>
-          <span>{hasMarketData ? "查看关注标的、进入超级图表并运行当前策略。" : "完成数据源连接后，系统会准备自选行情与必要的 K 线缓存。"}</span>
+          <span>
+            {hasMarketData
+              ? "查看关注标的、进入超级图表并运行当前策略。"
+              : "完成数据源连接后，系统会准备自选行情与必要的 K 线缓存。"}
+          </span>
         </div>
-        <button className="today-primary-action" onClick={() => navigate(requiresSetup ? "apiConfig" : "chart")} type="button">
+        <button
+          className="today-primary-action"
+          onClick={() => navigate(requiresSetup ? "apiConfig" : "chart")}
+          type="button"
+        >
           {requiresSetup ? "连接数据源" : "打开超级图表"}
           <ArrowRight size={16} />
         </button>
@@ -71,7 +105,9 @@ export function DashboardPage() {
             <small>主行情源</small>
             <strong>{primaryProvider}</strong>
           </span>
-          <em className={hasMarketData ? "healthy" : "pending"}>{hasMarketData ? "可用" : "待连接"}</em>
+          <em className={hasMarketData ? "healthy" : "pending"}>
+            {hasMarketData ? "可用" : "待连接"}
+          </em>
         </article>
         <article>
           <ListChecks size={18} />
@@ -87,7 +123,9 @@ export function DashboardPage() {
             <small>备用源</small>
             <strong>{longPortBinding ? "LongBridge 已配置" : "尚未配置"}</strong>
           </span>
-          <em className={longPortBinding ? "healthy" : "neutral"}>{longPortBinding ? "可回退" : "可选"}</em>
+          <em className={longPortBinding ? "healthy" : "neutral"}>
+            {longPortBinding ? "可回退" : "可选"}
+          </em>
         </article>
       </section>
 
@@ -113,7 +151,11 @@ export function DashboardPage() {
                     </span>
                     <span>{item.market}</span>
                     <strong>{quote ? formatPrice(quote.lastPrice) : "--"}</strong>
-                    <em className={quote && quote.changePercent < 0 ? "negative" : quote ? "positive" : ""}>
+                    <em
+                      className={
+                        quote && quote.changePercent < 0 ? "negative" : quote ? "positive" : ""
+                      }
+                    >
                       {quote ? formatChangePercent(quote.changePercent) : "等待报价"}
                     </em>
                   </div>
@@ -145,7 +187,9 @@ export function DashboardPage() {
             <span>当前研究模式</span>
             <strong>{hasMarketData ? "可进入图表" : "等待行情"}</strong>
           </div>
-          <div className="today-research-note">策略、信号和日志会在超级图表的底部 Dock 中按需展开。</div>
+          <div className="today-research-note">
+            策略、信号和日志会在超级图表的底部 Dock 中按需展开。
+          </div>
         </aside>
       </div>
 

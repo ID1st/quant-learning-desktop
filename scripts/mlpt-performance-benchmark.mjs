@@ -35,14 +35,16 @@ for (let iteration = 0; iteration < 6; iteration += 1) {
   durations.push(performance.now() - startedAt);
 }
 
-console.log(JSON.stringify({
-  durationsMs: durations.map((duration) => Number(duration.toFixed(2))),
-  warmMedianMs: Number(
-    durations
-      .slice(1)
-      .sort((left, right) => left - right)[Math.floor((durations.length - 1) / 2)]
-      .toFixed(2),
-  ),
-  elements: output.render.elements.length,
-  trainingSamples: output.metrics.trainingSampleCount,
-}));
+console.log(
+  JSON.stringify({
+    durationsMs: durations.map((duration) => Number(duration.toFixed(2))),
+    warmMedianMs: Number(
+      durations
+        .slice(1)
+        .sort((left, right) => left - right)
+        [Math.floor((durations.length - 1) / 2)].toFixed(2),
+    ),
+    elements: output.render.elements.length,
+    trainingSamples: output.metrics.trainingSampleCount,
+  }),
+);

@@ -23,7 +23,9 @@ export function ToastViewport() {
   const dismiss = useToastStore((state) => state.dismiss);
 
   useEffect(() => {
-    const timers = toasts.map((toast) => window.setTimeout(() => dismiss(toast.id), toast.durationMs));
+    const timers = toasts.map((toast) =>
+      window.setTimeout(() => dismiss(toast.id), toast.durationMs),
+    );
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [dismiss, toasts]);
 

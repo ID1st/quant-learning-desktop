@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createMemoryPersistenceStore } from "../src/electron/localPersistence.ts";
-import { createSecureCredentialStore, type SecureCredentialCrypto } from "../src/electron/secureCredentialStore.ts";
+import {
+  createSecureCredentialStore,
+  type SecureCredentialCrypto,
+} from "../src/electron/secureCredentialStore.ts";
 
 function createTestCrypto(overrides: Partial<SecureCredentialCrypto> = {}): SecureCredentialCrypto {
   return {

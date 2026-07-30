@@ -28,7 +28,11 @@ function isLocalDatabaseDocument(value: unknown): value is LocalDatabaseDocument
   }
 
   const document = value as Partial<LocalDatabaseDocument<unknown>>;
-  return typeof document.version === "number" && "data" in document && typeof document.updatedAt === "string";
+  return (
+    typeof document.version === "number" &&
+    "data" in document &&
+    typeof document.updatedAt === "string"
+  );
 }
 
 export function createBrowserStorageDriver(): LocalDatabaseDriver {
@@ -39,7 +43,9 @@ export function createBrowserStorageDriver(): LocalDatabaseDriver {
   };
 }
 
-export function createDesktopBridgeStorageDriver(bridge: DesktopLocalDatabaseBridge): LocalDatabaseDriver {
+export function createDesktopBridgeStorageDriver(
+  bridge: DesktopLocalDatabaseBridge,
+): LocalDatabaseDriver {
   return {
     getItem: (key) => bridge.getItem(key),
     setItem: (key, value) => bridge.setItem(key, value),
@@ -136,7 +142,9 @@ export function createAppLocalDatabase() {
   }
 
   const desktopBridge = getDesktopLocalDatabaseBridge();
-  return new LocalDatabase(desktopBridge ? createDesktopBridgeStorageDriver(desktopBridge) : createBrowserStorageDriver());
+  return new LocalDatabase(
+    desktopBridge ? createDesktopBridgeStorageDriver(desktopBridge) : createBrowserStorageDriver(),
+  );
 }
 
 export const appLocalDatabase = createAppLocalDatabase();

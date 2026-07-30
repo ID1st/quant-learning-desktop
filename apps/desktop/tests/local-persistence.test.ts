@@ -7,7 +7,9 @@ import {
   type JsonFilePersistenceDriver,
 } from "../src/electron/localPersistence.ts";
 
-function createMemoryJsonDriver(initialValue: string | null = null): JsonFilePersistenceDriver & { currentValue(): string | null } {
+function createMemoryJsonDriver(
+  initialValue: string | null = null,
+): JsonFilePersistenceDriver & { currentValue(): string | null } {
   let value = initialValue;
 
   return {
@@ -57,7 +59,10 @@ test("local persistence rejects unsafe keys and oversized values", () => {
   const store = createMemoryPersistenceStore();
 
   assert.throws(() => store.setItem("../secret", "alpha"), /键名无效/);
-  assert.throws(() => store.setItem("quant-learning.sample", "x".repeat(5 * 1024 * 1024 + 1)), /数据过大/);
+  assert.throws(
+    () => store.setItem("quant-learning.sample", "x".repeat(5 * 1024 * 1024 + 1)),
+    /数据过大/,
+  );
 });
 
 test("desktop bridge delegates to the persistence store", () => {

@@ -21,11 +21,26 @@ test("market runtime session marks closed sessions without scheduling live refre
 });
 
 test("runtime events dedupe immediate repeats and retain the latest entries", () => {
-  const first = { kind: "cache-hit" as const, timestamp: "2026-07-13T04:00:00.000Z", message: "命中日线缓存" };
+  const first = {
+    kind: "cache-hit" as const,
+    timestamp: "2026-07-13T04:00:00.000Z",
+    message: "命中日线缓存",
+  };
   const timeline = appendMarketDataRuntimeEvent([], first, 2);
   assert.equal(appendMarketDataRuntimeEvent(timeline, first, 2).length, 1);
-  const next = appendMarketDataRuntimeEvent(timeline, { kind: "fallback" as const, timestamp: "2026-07-13T04:01:00.000Z", message: "已降级" }, 2);
-  assert.deepEqual(next.map((entry) => entry.kind), ["fallback", "cache-hit"]);
-  const interleaved = appendMarketDataRuntimeEvent(next, { kind: "cache-hit", timestamp: "2026-07-13T04:00:03.000Z", message: "命中日线缓存" }, 3);
+  const next = appendMarketDataRuntimeEvent(
+    timeline,
+    { kind: "fallback" as const, timestamp: "2026-07-13T04:01:00.000Z", message: "已降级" },
+    2,
+  );
+  assert.deepEqual(
+    next.map((entry) => entry.kind),
+    ["fallback", "cache-hit"],
+  );
+  const interleaved = appendMarketDataRuntimeEvent(
+    next,
+    { kind: "cache-hit", timestamp: "2026-07-13T04:00:03.000Z", message: "命中日线缓存" },
+    3,
+  );
   assert.equal(interleaved.length, 2);
 });

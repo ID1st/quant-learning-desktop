@@ -33,14 +33,11 @@ void app.whenReady().then(async () => {
     },
   });
   const consoleProblems: string[] = [];
-  window.webContents.on(
-    "console-message",
-    (_event, level, message, _line, sourceId) => {
-      if (level >= 2) {
-        consoleProblems.push(`${sourceId}: ${message}`);
-      }
-    },
-  );
+  window.webContents.on("console-message", (_event, level, message, _line, sourceId) => {
+    if (level >= 2) {
+      consoleProblems.push(`${sourceId}: ${message}`);
+    }
+  });
 
   const checks: Array<{
     phase: string;

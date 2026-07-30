@@ -60,14 +60,7 @@ test("expired entitlement renewals restart from redemption time", () => {
 
 test("batch arguments support one duration and mixed specifications", () => {
   assert.deepEqual(
-    parseInviteBatchArguments([
-      "--duration-days",
-      "30",
-      "--count",
-      "100",
-      "--claim-days",
-      "30",
-    ]),
+    parseInviteBatchArguments(["--duration-days", "30", "--count", "100", "--claim-days", "30"]),
     {
       claimDays: 30,
       entries: [{ durationDays: 30, count: 100 }],
@@ -76,12 +69,7 @@ test("batch arguments support one duration and mixed specifications", () => {
   );
 
   assert.deepEqual(
-    parseInviteBatchArguments([
-      "--spec",
-      "7=20,30=50,90=20,365=10",
-      "--claim-days",
-      "45",
-    ]),
+    parseInviteBatchArguments(["--spec", "7=20,30=50,90=20,365=10", "--claim-days", "45"]),
     {
       claimDays: 45,
       entries: [
@@ -102,22 +90,8 @@ test("batch arguments reject unsupported durations, invalid claim windows and to
   );
   assert.throws(
     () =>
-      parseInviteBatchArguments([
-        "--duration-days",
-        "30",
-        "--count",
-        "1",
-        "--claim-days",
-        "91",
-      ]),
+      parseInviteBatchArguments(["--duration-days", "30", "--count", "1", "--claim-days", "91"]),
     /claim/i,
   );
-  assert.throws(
-    () =>
-      parseInviteBatchArguments([
-        "--spec",
-        "7=100,30=200,90=100,365=101",
-      ]),
-    /500/,
-  );
+  assert.throws(() => parseInviteBatchArguments(["--spec", "7=100,30=200,90=100,365=101"]), /500/);
 });

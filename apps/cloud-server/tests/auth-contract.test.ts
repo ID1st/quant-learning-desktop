@@ -45,18 +45,9 @@ test("the session snapshot validator rejects token-like and malformed data", () 
   };
 
   assert.equal(isAuthSessionSnapshot(validSnapshot), true);
-  assert.equal(
-    isAuthSessionSnapshot({ ...validSnapshot, accessToken: "must-not-leak" }),
-    false,
-  );
-  assert.equal(
-    isAuthSessionSnapshot({ ...validSnapshot, entitlementDurationDays: 14 }),
-    false,
-  );
-  assert.equal(
-    isAuthSessionSnapshot({ ...validSnapshot, activeDeviceCount: -1 }),
-    false,
-  );
+  assert.equal(isAuthSessionSnapshot({ ...validSnapshot, accessToken: "must-not-leak" }), false);
+  assert.equal(isAuthSessionSnapshot({ ...validSnapshot, entitlementDurationDays: 14 }), false);
+  assert.equal(isAuthSessionSnapshot({ ...validSnapshot, activeDeviceCount: -1 }), false);
 });
 
 test("entitlement durations remain restricted to supported tiers", () => {

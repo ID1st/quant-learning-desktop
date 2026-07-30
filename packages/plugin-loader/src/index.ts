@@ -73,7 +73,10 @@ function normalizeStringArray(value: unknown, field: string): string[] {
     return [];
   }
 
-  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.trim().length === 0)) {
+  if (
+    !Array.isArray(value) ||
+    value.some((item) => typeof item !== "string" || item.trim().length === 0)
+  ) {
     throw new Error(`插件清单字段无效：${field}`);
   }
 

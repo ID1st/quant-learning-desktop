@@ -49,7 +49,10 @@ export function createStockSdkGatewayProviderOperations(
   let sdkPromise: Promise<StockSdkClient> | null = initialSdk ? Promise.resolve(initialSdk) : null;
   let klineUnavailableUntil = 0;
   let klineFailureMessage = "";
-  const instrumentSearchCache = new Map<string, { readonly records: readonly StockSdkRawRecord[]; readonly expiresAt: number }>();
+  const instrumentSearchCache = new Map<
+    string,
+    { readonly records: readonly StockSdkRawRecord[]; readonly expiresAt: number }
+  >();
   const instrumentSearchInFlight = new Map<string, Promise<readonly StockSdkRawRecord[]>>();
   const tencentBars = options.tencentBars;
   const getSdk = () => {
@@ -94,7 +97,11 @@ export function createStockSdkGatewayProviderOperations(
               ? await withRequestTimeout(sdk.quotes.hk(providerSymbols), "Stock SDK HK quote")
               : await withRequestTimeout(sdk.quotes.us(providerSymbols), "Stock SDK US quote");
 
-        records.push(...toRawRecords(result).map((record, index) => attachProviderSymbol(record, group, index)));
+        records.push(
+          ...toRawRecords(result).map((record, index) =>
+            attachProviderSymbol(record, group, index),
+          ),
+        );
       }
 
       return records;
@@ -112,14 +119,26 @@ export function createStockSdkGatewayProviderOperations(
       };
 
       if (request.market === "CN") {
-        return toRawRecords(await runKlineRequest("Stock SDK CN history", () => sdk.kline.cn(request.providerSymbol, options)));
+        return toRawRecords(
+          await runKlineRequest("Stock SDK CN history", () =>
+            sdk.kline.cn(request.providerSymbol, options),
+          ),
+        );
       }
 
       if (request.market === "HK") {
-        return toRawRecords(await runKlineRequest("Stock SDK HK history", () => sdk.kline.hk(request.providerSymbol, options)));
+        return toRawRecords(
+          await runKlineRequest("Stock SDK HK history", () =>
+            sdk.kline.hk(request.providerSymbol, options),
+          ),
+        );
       }
 
-      return toRawRecords(await runKlineRequest("Stock SDK US history", () => sdk.kline.us(request.providerSymbol, options)));
+      return toRawRecords(
+        await runKlineRequest("Stock SDK US history", () =>
+          sdk.kline.us(request.providerSymbol, options),
+        ),
+      );
     },
     async fetchIntradayBars(request) {
       if (tencentBars) {
@@ -145,14 +164,26 @@ export function createStockSdkGatewayProviderOperations(
 
       try {
         if (request.market === "CN") {
-          return toRawRecords(await runKlineRequest("Stock SDK CN intraday", () => sdk.kline.cnMinute(request.providerSymbol, options)));
+          return toRawRecords(
+            await runKlineRequest("Stock SDK CN intraday", () =>
+              sdk.kline.cnMinute(request.providerSymbol, options),
+            ),
+          );
         }
 
         if (request.market === "HK") {
-          return toRawRecords(await runKlineRequest("Stock SDK HK intraday", () => sdk.kline.hkMinute(request.providerSymbol, options)));
+          return toRawRecords(
+            await runKlineRequest("Stock SDK HK intraday", () =>
+              sdk.kline.hkMinute(request.providerSymbol, options),
+            ),
+          );
         }
 
-        return toRawRecords(await runKlineRequest("Stock SDK US intraday", () => sdk.kline.usMinute(request.providerSymbol, options)));
+        return toRawRecords(
+          await runKlineRequest("Stock SDK US intraday", () =>
+            sdk.kline.usMinute(request.providerSymbol, options),
+          ),
+        );
       } catch (error) {
         if (!canUseTimeline || !isNetworkFailure(error)) {
           throw error;
@@ -183,7 +214,10 @@ export function createStockSdkGatewayProviderOperations(
             // deadline here can abort a healthy first search while its upstream
             // request is still resolving in the Electron main process.
             const records = toRawRecords(await sdk.search(query));
-            instrumentSearchCache.set(normalizedQuery, { records, expiresAt: Date.now() + instrumentSearchCacheTtlMs });
+            instrumentSearchCache.set(normalizedQuery, {
+              records,
+              expiresAt: Date.now() + instrumentSearchCacheTtlMs,
+            });
             return records;
           } catch (error) {
             lastError = error;
@@ -210,13 +244,13 @@ export function createStockSdkGatewayProviderOperations(
 function withRequestTimeout<T>(request: Promise<T>, label: string, timeoutMs = 8_000): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms.`)), timeoutMs);
+    timeoutId = setTimeout(
+      () => reject(new Error(`${label} timed out after ${timeoutMs}ms.`)),
+      timeoutMs,
+    );
   });
 
-  return Promise.race([
-    request,
-    timeout,
-  ]).finally(() => {
+  return Promise.race([request, timeout]).finally(() => {
     if (timeoutId !== undefined) {
       clearTimeout(timeoutId);
     }
@@ -250,7 +284,11 @@ async function createStockSdkClient(): Promise<StockSdkClient> {
   }) as StockSdkClient;
 }
 
-function attachProviderSymbol(record: StockSdkRawRecord, requests: readonly StockSdkQuoteRequest[], index: number): StockSdkRawRecord {
+function attachProviderSymbol(
+  record: StockSdkRawRecord,
+  requests: readonly StockSdkQuoteRequest[],
+  index: number,
+): StockSdkRawRecord {
   const recordCode = String(record.code ?? record.symbol ?? record.secid ?? "").toUpperCase();
   const match =
     requests.find((request) => sameSymbol(recordCode, request.providerSymbol)) ??
@@ -278,7 +316,9 @@ function normalizeComparableSymbol(symbol: string) {
 function canUseTencentTimeline(
   request: StockSdkBarRequest,
   sdk: StockSdkClient,
-): sdk is StockSdkClient & { readonly quotes: StockSdkClient["quotes"] & { timeline(code: string): Promise<unknown> } } {
+): sdk is StockSdkClient & {
+  readonly quotes: StockSdkClient["quotes"] & { timeline(code: string): Promise<unknown> };
+} {
   return (
     request.period === "1" &&
     (request.market === "CN" || request.market === "HK") &&
@@ -287,7 +327,9 @@ function canUseTencentTimeline(
 }
 
 async function fetchTencentTimelineBars(
-  sdk: StockSdkClient & { readonly quotes: StockSdkClient["quotes"] & { timeline(code: string): Promise<unknown> } },
+  sdk: StockSdkClient & {
+    readonly quotes: StockSdkClient["quotes"] & { timeline(code: string): Promise<unknown> };
+  },
   request: StockSdkBarRequest,
 ) {
   const timeline = await withRequestTimeout(
@@ -303,7 +345,8 @@ function isNetworkFailure(error: unknown) {
     return true;
   }
 
-  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return (
     message.includes("fetch failed") ||
     message.includes("socket") ||
@@ -332,7 +375,13 @@ function toTencentTimelineSymbol(request: StockSdkBarRequest) {
 
   const symbol = request.symbol.trim().toUpperCase();
   const code = request.providerSymbol.replace(/^(SH|SZ)/iu, "");
-  const exchange = symbol.endsWith(".SZ") || symbol.startsWith("SZ") || code.startsWith("0") || code.startsWith("3") ? "sz" : "sh";
+  const exchange =
+    symbol.endsWith(".SZ") ||
+    symbol.startsWith("SZ") ||
+    code.startsWith("0") ||
+    code.startsWith("3")
+      ? "sz"
+      : "sh";
   return `${exchange}${code}`;
 }
 
@@ -383,7 +432,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function readFiniteNumber(value: unknown) {
-  const numeric = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : NaN;
+  const numeric =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : NaN;
   return Number.isFinite(numeric) ? numeric : undefined;
 }
 
@@ -393,7 +447,8 @@ function toHistoryRangeOptions(request: StockSdkBarRequest) {
 
   return {
     startDate: startTime ? formatDate(startTime) : undefined,
-    endDate: request.startTime || request.endTime || request.count ? formatDate(endTime) : undefined,
+    endDate:
+      request.startTime || request.endTime || request.count ? formatDate(endTime) : undefined,
   };
 }
 

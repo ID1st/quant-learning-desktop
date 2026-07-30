@@ -8,10 +8,7 @@ export function assertRootInviteExportAccess(): void {
   }
 }
 
-export function readRequiredOption(
-  argumentsList: string[],
-  optionName: string,
-): string {
+export function readRequiredOption(argumentsList: string[], optionName: string): string {
   const index = argumentsList.indexOf(optionName);
   const value = index >= 0 ? argumentsList[index + 1]?.trim() : "";
   if (!value) {
@@ -21,11 +18,7 @@ export function readRequiredOption(
 }
 
 export function assertUuid(value: string, label: string): void {
-  if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      value,
-    )
-  ) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
     throw new Error(`${label} must be a valid UUID`);
   }
 }

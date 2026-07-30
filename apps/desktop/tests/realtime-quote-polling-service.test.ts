@@ -7,7 +7,10 @@ import {
   mergeQuoteSnapshots,
   sanitizeRealtimePollIntervalMs,
 } from "../src/features/marketData/realtimeQuotePollingService.ts";
-import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../src/features/marketData/marketDataSyncService.ts";
+import type {
+  MarketQuoteSnapshot,
+  MarketWatchlistItem,
+} from "../src/features/marketData/marketDataSyncService.ts";
 
 function item(index: number): MarketWatchlistItem {
   return {
@@ -19,7 +22,11 @@ function item(index: number): MarketWatchlistItem {
 }
 
 test("createQuotePollingBatches dedupes watchlist items and caps each request batch", () => {
-  const watchlist = [item(1), item(1), ...Array.from({ length: 35 }, (_, index) => item(index + 2))];
+  const watchlist = [
+    item(1),
+    item(1),
+    ...Array.from({ length: 35 }, (_, index) => item(index + 2)),
+  ];
   const batches = createQuotePollingBatches(watchlist, 30);
 
   assert.equal(batches.length, 2);
@@ -52,7 +59,10 @@ test("mergeQuoteSnapshots replaces only updated symbols and keeps previous snaps
     lastPrice: 201,
     receivedAt: "2026-07-02T01:00:10.000Z",
   };
-  const merged = mergeQuoteSnapshots({ "US:AAPL.US": previous, "US:TSLA.US": { ...previous, symbol: "TSLA.US" } }, [next]);
+  const merged = mergeQuoteSnapshots(
+    { "US:AAPL.US": previous, "US:TSLA.US": { ...previous, symbol: "TSLA.US" } },
+    [next],
+  );
 
   assert.equal(merged["US:AAPL.US"]?.lastPrice, 201);
   assert.equal(merged["US:TSLA.US"]?.lastPrice, 200);

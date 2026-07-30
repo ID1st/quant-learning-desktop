@@ -38,7 +38,9 @@ export interface StockSdkBarRequest extends StockSdkQuoteRequest {
 export type StockSdkRawRecord = Readonly<Record<string, unknown>>;
 
 export interface StockSdkGatewayProviderOperations {
-  fetchQuoteSnapshot(requests: readonly StockSdkQuoteRequest[]): Promise<readonly StockSdkRawRecord[]>;
+  fetchQuoteSnapshot(
+    requests: readonly StockSdkQuoteRequest[],
+  ): Promise<readonly StockSdkRawRecord[]>;
   fetchHistoricalBars(request: StockSdkBarRequest): Promise<readonly StockSdkRawRecord[]>;
   fetchIntradayBars(request: StockSdkBarRequest): Promise<readonly StockSdkRawRecord[]>;
   searchInstruments?(query: string): Promise<readonly StockSdkRawRecord[]>;
@@ -80,7 +82,10 @@ export function createStockSdkGatewayProvider(
 ): RealtimeQuoteProvider & HistoricalBarProvider & IntradayBarProvider & InstrumentSearchProvider {
   const delayLevel = options.delayLevel ?? "unknown";
   const capability = { ...stockSdkCapability, delayLevel };
-  const health = createStockSdkHealthStore(capability, options.enabled === true ? "healthy" : "unconfigured");
+  const health = createStockSdkHealthStore(
+    capability,
+    options.enabled === true ? "healthy" : "unconfigured",
+  );
 
   return {
     id: "stock-sdk",
@@ -93,7 +98,10 @@ export function createStockSdkGatewayProvider(
       const startedAt = Date.now();
       try {
         const records = await operations.fetchQuoteSnapshot(requests);
-        health.markHealthy(Date.now() - startedAt, readMarketDataUpstream(records[0]?.upstream ?? records[0]?.source));
+        health.markHealthy(
+          Date.now() - startedAt,
+          readMarketDataUpstream(records[0]?.upstream ?? records[0]?.source),
+        );
         return mapStockSdkQuoteSnapshots(records, requests, delayLevel);
       } catch (error) {
         health.markFailed(toErrorMessage(error));
@@ -193,7 +201,13 @@ function normalizeSearchSymbol(code: string, market: Market) {
     return normalized.replace(/^HK/u, "").replace(/\.HK$/u, "").padStart(5, "0") + ".HK";
   }
   const digits = normalized.replace(/^(SH|SZ)/u, "").replace(/\.(SH|SZ)$/u, "");
-  const exchange = normalized.startsWith("SZ") || normalized.endsWith(".SZ") || digits.startsWith("0") || digits.startsWith("3") ? ".SZ" : ".SH";
+  const exchange =
+    normalized.startsWith("SZ") ||
+    normalized.endsWith(".SZ") ||
+    digits.startsWith("0") ||
+    digits.startsWith("3")
+      ? ".SZ"
+      : ".SH";
   return `${digits}${exchange}`;
 }
 
@@ -214,7 +228,10 @@ export function toStockSdkBarRequest(
     symbol: request.symbol,
     providerSymbol: normalizeStockSdkSymbol(request.symbol, request.market, kind),
     timeframe: request.timeframe,
-    period: kind === "historical" ? toStockSdkHistoryPeriod(request.timeframe) : toStockSdkMinutePeriod(request.timeframe),
+    period:
+      kind === "historical"
+        ? toStockSdkHistoryPeriod(request.timeframe)
+        : toStockSdkMinutePeriod(request.timeframe),
     count: request.count,
     startTime: request.startTime,
     endTime: request.endTime,
@@ -231,7 +248,13 @@ export function normalizeStockSdkSymbol(
 
   if (market === "CN") {
     const code = clean.replace(/\.(SH|SZ|CN)$/u, "").replace(/^(SH|SZ)/u, "");
-    const exchange = clean.endsWith(".SZ") || clean.startsWith("SZ") || code.startsWith("0") || code.startsWith("3") ? "sz" : "sh";
+    const exchange =
+      clean.endsWith(".SZ") ||
+      clean.startsWith("SZ") ||
+      code.startsWith("0") ||
+      code.startsWith("3")
+        ? "sz"
+        : "sh";
     return usage === "quote" ? `${exchange}${code}` : code;
   }
 
@@ -300,7 +323,11 @@ function mapStockSdkQuoteSnapshots(
   delayLevel: MarketDataProviderDelayLevel,
 ): readonly GatewayMarketQuoteSnapshot[] {
   return requests.map((request, index) =>
-    mapStockSdkQuoteSnapshot(findQuoteRecordForRequest(records, request, index), request, delayLevel),
+    mapStockSdkQuoteSnapshot(
+      findQuoteRecordForRequest(records, request, index),
+      request,
+      delayLevel,
+    ),
   );
 }
 
@@ -315,7 +342,13 @@ function findQuoteRecordForRequest(
   ]);
 
   return records.find((record) => {
-    const recordSymbol = readOptionalString(record, ["providerSymbol", "symbol", "code", "secid", "securityCode"]);
+    const recordSymbol = readOptionalString(record, [
+      "providerSymbol",
+      "symbol",
+      "code",
+      "secid",
+      "securityCode",
+    ]);
     return recordSymbol ? requestKeys.has(normalizeComparableSymbol(recordSymbol)) : false;
   });
 }
@@ -330,8 +363,20 @@ function mapStockSdkQuoteSnapshot(
   }
 
   const price = readFiniteNumber(record, ["price", "lastPrice", "current", "close", "latestPrice"]);
-  const previousClose = readOptionalFiniteNumber(record, ["previousClose", "prevClose", "preClose", "lastClose"]);
-  const timestamp = readTimestamp(record, ["timestamp", "quoteTime", "datetime", "dateTime", "time", "date"]);
+  const previousClose = readOptionalFiniteNumber(record, [
+    "previousClose",
+    "prevClose",
+    "preClose",
+    "lastClose",
+  ]);
+  const timestamp = readTimestamp(record, [
+    "timestamp",
+    "quoteTime",
+    "datetime",
+    "dateTime",
+    "time",
+    "date",
+  ]);
 
   return {
     provider: "stock-sdk",
@@ -344,7 +389,12 @@ function mapStockSdkQuoteSnapshot(
     highPrice: readOptionalFiniteNumber(record, ["highPrice", "high"]),
     lowPrice: readOptionalFiniteNumber(record, ["lowPrice", "low"]),
     change: readOptionalFiniteNumber(record, ["change", "chg"]),
-    changePercent: readOptionalFiniteNumber(record, ["changePercent", "pctChg", "pct", "changeRate"]),
+    changePercent: readOptionalFiniteNumber(record, [
+      "changePercent",
+      "pctChg",
+      "pct",
+      "changeRate",
+    ]),
     timestamp,
     volume: readOptionalFiniteNumber(record, ["volume", "vol"]),
     amount: readOptionalFiniteNumber(record, ["amount", "turnover"]),
@@ -365,7 +415,13 @@ function mapStockSdkBars(
     const close = readFiniteNumber(record, ["close", "closingPrice", "price"]);
     const high = readFiniteNumber(record, ["high", "highestPrice"]);
     const low = readFiniteNumber(record, ["low", "lowestPrice"]);
-    const repairedOpen = repairOpenPrice(readFiniteNumber(record, ["open", "openingPrice"], true), close, previousClose, high, low);
+    const repairedOpen = repairOpenPrice(
+      readFiniteNumber(record, ["open", "openingPrice"], true),
+      close,
+      previousClose,
+      high,
+      low,
+    );
     const repairedExtremes = repairMinorOhlcPrecisionMismatch(repairedOpen, high, low, close);
     const bar: GatewayMarketDataBar = {
       provider: "stock-sdk",
@@ -390,12 +446,22 @@ function mapStockSdkBars(
 }
 
 function readMarketDataUpstream(value: unknown): MarketDataUpstream | undefined {
-  return value === "tencent" || value === "eastmoney" || value === "alphafeed" || value === "longbridge" || value === "yahoo-finance"
+  return value === "tencent" ||
+    value === "eastmoney" ||
+    value === "alphafeed" ||
+    value === "longbridge" ||
+    value === "yahoo-finance"
     ? value
     : undefined;
 }
 
-function repairOpenPrice(open: number, close: number, previousClose: number | undefined, high: number, low: number) {
+function repairOpenPrice(
+  open: number,
+  close: number,
+  previousClose: number | undefined,
+  high: number,
+  low: number,
+) {
   if (open > 0) {
     return open;
   }
@@ -486,7 +552,11 @@ function readOptionalFiniteNumber(record: StockSdkRawRecord, keys: readonly stri
   for (const key of keys) {
     const value = record[key];
     const numberValue =
-      typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : NaN;
+      typeof value === "number"
+        ? value
+        : typeof value === "string" && value.trim() !== ""
+          ? Number(value)
+          : NaN;
     if (Number.isFinite(numberValue)) {
       return numberValue;
     }
@@ -516,7 +586,12 @@ function normalizeComparableSymbol(symbol: string) {
 
 function classifyStockSdkFailure(message: string): MarketDataProviderHealthStatus {
   const lower = message.toLowerCase();
-  if (lower.includes("401") || lower.includes("403") || lower.includes("unauthorized") || lower.includes("permission")) {
+  if (
+    lower.includes("401") ||
+    lower.includes("403") ||
+    lower.includes("unauthorized") ||
+    lower.includes("permission")
+  ) {
     return "unauthorized";
   }
 
@@ -534,7 +609,12 @@ function formatStockSdkFailure(message: string) {
     return "证券搜索暂时不可用，请稍后重试。";
   }
 
-  if (lower.includes("401") || lower.includes("403") || lower.includes("unauthorized") || lower.includes("permission")) {
+  if (
+    lower.includes("401") ||
+    lower.includes("403") ||
+    lower.includes("unauthorized") ||
+    lower.includes("permission")
+  ) {
     return "Stock SDK 请求权限不足。";
   }
 

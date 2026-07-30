@@ -10,9 +10,7 @@ async function main(): Promise<void> {
   const pool = createDatabasePool(config.databaseUrl);
 
   try {
-    const status = await new PgInviteBatchRepository(pool).inspectBatch(
-      batchId,
-    );
+    const status = await new PgInviteBatchRepository(pool).inspectBatch(batchId);
     if (!status) {
       throw new Error("invite batch was not found");
     }

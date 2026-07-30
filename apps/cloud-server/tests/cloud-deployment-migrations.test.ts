@@ -4,10 +4,7 @@ import test from "node:test";
 
 test("cloud deployment backs up and migrates before activating the candidate", async () => {
   const script = await readFile(
-    new URL(
-      "../../../deploy/cloud/scripts/deploy-release.sh",
-      import.meta.url,
-    ),
+    new URL("../../../deploy/cloud/scripts/deploy-release.sh", import.meta.url),
     "utf8",
   );
   const buildIndex = script.indexOf("build auth migrate");
@@ -26,19 +23,10 @@ test("cloud deployment backs up and migrates before activating the candidate", a
 test("cloud image bundles migrations and auth waits for the migrator", async () => {
   const [dockerfile, compose] = await Promise.all([
     readFile(new URL("../Dockerfile", import.meta.url), "utf8"),
-    readFile(
-      new URL(
-        "../../../deploy/cloud/docker-compose.yml",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
+    readFile(new URL("../../../deploy/cloud/docker-compose.yml", import.meta.url), "utf8"),
   ]);
 
-  assert.match(
-    dockerfile,
-    /COPY apps\/cloud-server\/migrations apps\/cloud-server\/migrations/u,
-  );
+  assert.match(dockerfile, /COPY apps\/cloud-server\/migrations apps\/cloud-server\/migrations/u);
   assert.match(compose, /migrate:/u);
   assert.match(compose, /condition: service_completed_successfully/u);
 });

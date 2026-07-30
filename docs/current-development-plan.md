@@ -67,7 +67,7 @@ Completed foundations:
 
 ## Latest Stability Update (2026-07-11)
 
-  - Completed market-data stability and intraday rendering performance slice. Quotes use Stock SDK first; CN/HK current-session intraday uses the Stock SDK Tencent timeline first; chart bars try Stock SDK first, then configured AlphaFeed REST and LongBridge, with Yahoo Finance as a US-only final emergency fallback. Quote snapshots skip Yahoo because it has no quote capability.
+- Completed market-data stability and intraday rendering performance slice. Quotes use Stock SDK first; CN/HK current-session intraday uses the Stock SDK Tencent timeline first; chart bars try Stock SDK first, then configured AlphaFeed REST and LongBridge, with Yahoo Finance as a US-only final emergency fallback. Quote snapshots skip Yahoo because it has no quote capability.
 - Yahoo Finance is explicitly modeled as a US-only best-effort fallback for `1m`, `1d`, and `1w`, with bounded retry for transient network or HTTP 5xx failure. It does not claim websocket or guaranteed realtime capability.
 - Provider-neutral error handling preserves the latest sanitized provider health detail. Stock SDK network failures now report a readable fallback-ready reason instead of only a generic request error.
 - When a history or intraday request fails, the chart keeps any local bars already cached and reports the retained cache count. The cache-to-live merge rule still prevents historical data from overwriting newer live minute bars.

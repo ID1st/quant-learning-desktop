@@ -1,6 +1,15 @@
-import { BookOpen, ChartCandlestick, ChartNoAxesCombined, ShieldAlert, SlidersHorizontal } from "lucide-react";
+import {
+  BookOpen,
+  ChartCandlestick,
+  ChartNoAxesCombined,
+  ShieldAlert,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useMemo, useState } from "react";
-import { strategyLearningEntries, type StrategyLearningCategory } from "../features/learning/strategyLearningContent";
+import {
+  strategyLearningEntries,
+  type StrategyLearningCategory,
+} from "../features/learning/strategyLearningContent";
 import { useAppStore } from "../state/appStore";
 
 const categoryLabels: Record<StrategyLearningCategory, string> = {
@@ -12,7 +21,9 @@ export function StrategyLearningPage() {
   const [selectedId, setSelectedId] = useState(strategyLearningEntries[0]?.id ?? "utorb");
   const navigate = useAppStore((state) => state.navigate);
   const selectedEntry = useMemo(
-    () => strategyLearningEntries.find((entry) => entry.id === selectedId) ?? strategyLearningEntries[0]!,
+    () =>
+      strategyLearningEntries.find((entry) => entry.id === selectedId) ??
+      strategyLearningEntries[0]!,
     [selectedId],
   );
   const workspaceAction = selectedEntry.workspaceAction;
@@ -43,7 +54,10 @@ export function StrategyLearningPage() {
                     type="button"
                   >
                     <strong>{entry.title}</strong>
-                    <small>{entry.directoryLabel ?? (entry.category === "strategy" ? "预制策略" : entry.placement)}</small>
+                    <small>
+                      {entry.directoryLabel ??
+                        (entry.category === "strategy" ? "预制策略" : entry.placement)}
+                    </small>
                   </button>
                 ))}
               </section>
@@ -53,7 +67,13 @@ export function StrategyLearningPage() {
 
         <main className="strategy-learning-content">
           <header className="strategy-learning-title">
-            <span>{selectedEntry.category === "strategy" ? <BookOpen size={20} /> : <ChartNoAxesCombined size={20} />}</span>
+            <span>
+              {selectedEntry.category === "strategy" ? (
+                <BookOpen size={20} />
+              ) : (
+                <ChartNoAxesCombined size={20} />
+              )}
+            </span>
             <div>
               <em>{categoryLabels[selectedEntry.category]}</em>
               <h2>{selectedEntry.title}</h2>
@@ -87,7 +107,10 @@ export function StrategyLearningPage() {
           </section>
 
           <section className="strategy-learning-block">
-            <div className="strategy-learning-block-heading"><SlidersHorizontal size={18} /><h3>参数说明</h3></div>
+            <div className="strategy-learning-block-heading">
+              <SlidersHorizontal size={18} />
+              <h3>参数说明</h3>
+            </div>
             <div className="strategy-learning-parameter-list">
               {selectedEntry.parameters.map((parameter) => (
                 <article key={parameter.name}>
@@ -100,13 +123,27 @@ export function StrategyLearningPage() {
           </section>
 
           <section className="strategy-learning-block">
-            <div className="strategy-learning-block-heading"><ChartNoAxesCombined size={18} /><h3>图表输出</h3></div>
-            <div className="strategy-learning-chip-list">{selectedEntry.chartOutputs.map((output) => <span key={output}>{output}</span>)}</div>
+            <div className="strategy-learning-block-heading">
+              <ChartNoAxesCombined size={18} />
+              <h3>图表输出</h3>
+            </div>
+            <div className="strategy-learning-chip-list">
+              {selectedEntry.chartOutputs.map((output) => (
+                <span key={output}>{output}</span>
+              ))}
+            </div>
           </section>
 
           <section className="strategy-learning-risk">
-            <div className="strategy-learning-block-heading"><ShieldAlert size={18} /><h3>使用边界与风险提示</h3></div>
-            <ul>{selectedEntry.risks.map((risk) => <li key={risk}>{risk}</li>)}</ul>
+            <div className="strategy-learning-block-heading">
+              <ShieldAlert size={18} />
+              <h3>使用边界与风险提示</h3>
+            </div>
+            <ul>
+              {selectedEntry.risks.map((risk) => (
+                <li key={risk}>{risk}</li>
+              ))}
+            </ul>
           </section>
         </main>
       </div>

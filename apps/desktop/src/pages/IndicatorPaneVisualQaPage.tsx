@@ -27,12 +27,21 @@ export function IndicatorPaneVisualQaPage() {
   const [settings, setSettings] = useState(defaultChartIndicatorSettings);
   const [ratio, setRatio] = useState(0.26);
   const evaluations = useMemo(
-    () => createChartIndicatorEvaluations(candles, settings, "cross-market", builtInChartIndicatorDefinitions),
+    () =>
+      createChartIndicatorEvaluations(
+        candles,
+        settings,
+        "cross-market",
+        builtInChartIndicatorDefinitions,
+      ),
     [settings],
   );
-  const overlays = evaluations.flatMap((evaluation) => evaluation.placement === "overlay" ? [evaluation.layer] : []);
+  const overlays = evaluations.flatMap((evaluation) =>
+    evaluation.placement === "overlay" ? [evaluation.layer] : [],
+  );
   const secondary = evaluations.find(
-    (evaluation): evaluation is Extract<(typeof evaluations)[number], { placement: "pane" }> => evaluation.placement === "pane",
+    (evaluation): evaluation is Extract<(typeof evaluations)[number], { placement: "pane" }> =>
+      evaluation.placement === "pane",
   );
 
   return (
@@ -47,16 +56,54 @@ export function IndicatorPaneVisualQaPage() {
             updateSettings={(update) => setSettings(update)}
           />
         </div>
-        <button onClick={() => setSettings((current) => setIndicatorEnabled(current, "ma", !current.instances.ma?.enabled))} type="button">切换 MA</button>
-        <button onClick={() => setSettings((current) => setIndicatorEnabled(current, "boll", !current.instances.boll?.enabled))} type="button">切换 BOLL</button>
-        <button onClick={() => setSettings((current) => setIndicatorEnabled(current, "macd", !current.instances.macd?.enabled))} type="button">切换 MACD</button>
-        <button onClick={() => setSettings((current) => setIndicatorEnabled(current, "rsi", !current.instances.rsi?.enabled))} type="button">切换 RSI</button>
+        <button
+          onClick={() =>
+            setSettings((current) =>
+              setIndicatorEnabled(current, "ma", !current.instances.ma?.enabled),
+            )
+          }
+          type="button"
+        >
+          切换 MA
+        </button>
+        <button
+          onClick={() =>
+            setSettings((current) =>
+              setIndicatorEnabled(current, "boll", !current.instances.boll?.enabled),
+            )
+          }
+          type="button"
+        >
+          切换 BOLL
+        </button>
+        <button
+          onClick={() =>
+            setSettings((current) =>
+              setIndicatorEnabled(current, "macd", !current.instances.macd?.enabled),
+            )
+          }
+          type="button"
+        >
+          切换 MACD
+        </button>
+        <button
+          onClick={() =>
+            setSettings((current) =>
+              setIndicatorEnabled(current, "rsi", !current.instances.rsi?.enabled),
+            )
+          }
+          type="button"
+        >
+          切换 RSI
+        </button>
       </div>
       <ChartViewport
         candles={candles}
         context={{ symbol: "QA", market: "US", timeframe: "1d" }}
         layers={overlays}
-        onSecondaryPaneClose={() => secondary && setSettings((current) => setIndicatorEnabled(current, secondary.id, false))}
+        onSecondaryPaneClose={() =>
+          secondary && setSettings((current) => setIndicatorEnabled(current, secondary.id, false))
+        }
         onSecondaryPaneRatioChange={setRatio}
         secondaryPane={secondary?.pane}
         secondaryPaneRatio={ratio}

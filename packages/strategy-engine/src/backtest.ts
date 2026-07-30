@@ -82,7 +82,9 @@ function finitePositive(value: number | undefined, fallback: number) {
 }
 
 function finiteSlippageRate(value: number | undefined, fallback: number) {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value < 1 ? value : fallback;
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value < 1
+    ? value
+    : fallback;
 }
 
 function hasFiniteBarFields(bar: Bar) {
@@ -109,7 +111,10 @@ export function resolveBacktestSettings(settings: BacktestSettings = {}): Resolv
   };
 }
 
-function getSignalDirection(signal: StrategySignal, allowShort: boolean): BacktestPositionDirection | null {
+function getSignalDirection(
+  signal: StrategySignal,
+  allowShort: boolean,
+): BacktestPositionDirection | null {
   if (signal.backtestAction === "enter-long") {
     return "long";
   }
@@ -131,9 +136,17 @@ function getExitPrice(price: number, direction: BacktestPositionDirection, slipp
   return direction === "long" ? price * (1 - slippageRate) : price * (1 + slippageRate);
 }
 
-function getUnrealizedNetPnl(position: OpenPosition, markPrice: number, feeRate: number, slippageRate: number) {
+function getUnrealizedNetPnl(
+  position: OpenPosition,
+  markPrice: number,
+  feeRate: number,
+  slippageRate: number,
+) {
   const exitPrice = getExitPrice(markPrice, position.direction, slippageRate);
-  const grossPnl = position.direction === "long" ? (exitPrice - position.entryPrice) * position.quantity : (position.entryPrice - exitPrice) * position.quantity;
+  const grossPnl =
+    position.direction === "long"
+      ? (exitPrice - position.entryPrice) * position.quantity
+      : (position.entryPrice - exitPrice) * position.quantity;
   return grossPnl - position.entryFee - exitPrice * position.quantity * feeRate;
 }
 
@@ -145,7 +158,10 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
   const warnings: string[] = [];
 
   if (bars.filter(isTradableBar).length < 2) {
-    return createEmptyResult(settings, warnings.concat("至少需要两根有效 K 线，才能按下一根 K 线开盘价成交。"));
+    return createEmptyResult(
+      settings,
+      warnings.concat("至少需要两根有效 K 线，才能按下一根 K 线开盘价成交。"),
+    );
   }
 
   const signalsByTimestamp = new Map<number, StrategySignal[]>();
@@ -254,7 +270,10 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
             closePosition(bar, pendingSignal.timestamp);
             openPosition(bar, direction, pendingSignal);
           }
-        } else if (pendingSignal.type === "exit" || (pendingSignal.type === "sell" && !settings.allowShort)) {
+        } else if (
+          pendingSignal.type === "exit" ||
+          (pendingSignal.type === "sell" && !settings.allowShort)
+        ) {
           closePosition(bar, pendingSignal.timestamp);
         } else if (direction && state.position?.direction !== direction) {
           closePosition(bar, pendingSignal.timestamp);
@@ -274,7 +293,7 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
     );
     if (directionalSignal) {
       if (index === bars.length - 1) {
-        warnings.push("最后一根 K 线产生的信号没有下一根开盘价，已忽略。" );
+        warnings.push("最后一根 K 线产生的信号没有下一根开盘价，已忽略。");
       } else {
         pendingSignal = directionalSignal;
       }
@@ -286,7 +305,16 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
 
     equityCurve.push({
       timestamp: bar.timestamp,
-      equity: capital + (state.position && latestMarkPrice !== null ? getUnrealizedNetPnl(state.position, latestMarkPrice, settings.feeRate, settings.slippageRate) : 0),
+      equity:
+        capital +
+        (state.position && latestMarkPrice !== null
+          ? getUnrealizedNetPnl(
+              state.position,
+              latestMarkPrice,
+              settings.feeRate,
+              settings.slippageRate,
+            )
+          : 0),
     });
   }
 
@@ -295,16 +323,23 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
     if (!lastBar) {
       return createEmptyResult(settings, warnings);
     }
-    warnings.push("回测结束时仍有持仓，已按最后一根 K 线收盘价强制平仓。" );
+    warnings.push("回测结束时仍有持仓，已按最后一根 K 线收盘价强制平仓。");
     const closingBar = { ...lastBar, open: lastBar.close };
     closePosition(closingBar);
     const finalEquityIndex = equityCurve.length - 1;
-    equityCurve[finalEquityIndex] = { timestamp: bars[finalEquityIndex]?.timestamp ?? lastBar.timestamp, equity: capital };
+    equityCurve[finalEquityIndex] = {
+      timestamp: bars[finalEquityIndex]?.timestamp ?? lastBar.timestamp,
+      equity: capital,
+    };
   }
 
   const winningTradeCount = trades.filter((trade) => trade.netPnl > 0).length;
-  const grossProfit = trades.filter((trade) => trade.netPnl > 0).reduce((total, trade) => total + trade.netPnl, 0);
-  const grossLoss = Math.abs(trades.filter((trade) => trade.netPnl < 0).reduce((total, trade) => total + trade.netPnl, 0));
+  const grossProfit = trades
+    .filter((trade) => trade.netPnl > 0)
+    .reduce((total, trade) => total + trade.netPnl, 0);
+  const grossLoss = Math.abs(
+    trades.filter((trade) => trade.netPnl < 0).reduce((total, trade) => total + trade.netPnl, 0),
+  );
   let peakEquity = settings.initialCapital;
   let maxDrawdownPct = 0;
   equityCurve.forEach((point) => {

@@ -4,19 +4,19 @@
 
 该云主机用于承载量化学习系统桌面版的账号验证服务，服务标识为 `quant-auth`。
 
-| 项目 | 当前值 |
-| --- | --- |
-| 云服务商 | 阿里云 |
-| 地域 | 中国香港（`cn-hongkong`） |
-| 实例 ID | `i-j6c0kp5inx82hnn0f75w` |
-| 实例名称 | `iZj6c0kp5inx82hnn0f75wZ` |
-| 实例规格 | `ecs.e-c1m1.large`，2 vCPU、2 GiB 内存 |
-| 公网 IPv4 | `47.243.230.223` |
-| 私网 IPv4 | `172.27.235.84` |
-| 操作系统 | Alibaba Cloud Linux 3 |
-| 当前内核 | `5.10.134-19.7.1.al8.x86_64` |
-| 系统盘 | 40 GiB ESSD Entry |
-| 服务根目录 | `/opt/quant-auth` |
+| 项目       | 当前值                                 |
+| ---------- | -------------------------------------- |
+| 云服务商   | 阿里云                                 |
+| 地域       | 中国香港（`cn-hongkong`）              |
+| 实例 ID    | `i-j6c0kp5inx82hnn0f75w`               |
+| 实例名称   | `iZj6c0kp5inx82hnn0f75wZ`              |
+| 实例规格   | `ecs.e-c1m1.large`，2 vCPU、2 GiB 内存 |
+| 公网 IPv4  | `47.243.230.223`                       |
+| 私网 IPv4  | `172.27.235.84`                        |
+| 操作系统   | Alibaba Cloud Linux 3                  |
+| 当前内核   | `5.10.134-19.7.1.al8.x86_64`           |
+| 系统盘     | 40 GiB ESSD Entry                      |
+| 服务根目录 | `/opt/quant-auth`                      |
 
 本机开发环境中的 `.env.cloud.local` 保存同一组基础设施元数据。该文件受 `.gitignore` 保护，不应提交到版本库。
 

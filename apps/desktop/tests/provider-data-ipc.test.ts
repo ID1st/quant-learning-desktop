@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createProviderDataIpcHandlers, providerDataIpcChannels } from "../src/electron/providerDataIpcContract.ts";
+import {
+  createProviderDataIpcHandlers,
+  providerDataIpcChannels,
+} from "../src/electron/providerDataIpcContract.ts";
 
 test("provider data IPC channels are stable string contracts", () => {
   assert.deepEqual(providerDataIpcChannels, {
@@ -50,7 +53,12 @@ test("provider data IPC handlers delegate to injected provider functions", async
       return {
         ok: true,
         state: "connected",
-        health: { status: "ok", message: "connected", checkedAt: "2026-07-01T00:00:00.000Z", latencyMs: 1 },
+        health: {
+          status: "ok",
+          message: "connected",
+          checkedAt: "2026-07-01T00:00:00.000Z",
+          latencyMs: 1,
+        },
       };
     },
     readAlphaFeedStreamSnapshot: async () => {
@@ -59,7 +67,12 @@ test("provider data IPC handlers delegate to injected provider functions", async
         ok: true,
         state: "connected",
         snapshots: [],
-        health: { status: "ok", message: "connected", checkedAt: "2026-07-01T00:00:00.000Z", latencyMs: 1 },
+        health: {
+          status: "ok",
+          message: "connected",
+          checkedAt: "2026-07-01T00:00:00.000Z",
+          latencyMs: 1,
+        },
       };
     },
     disconnectAlphaFeedStream: async () => {
@@ -67,7 +80,12 @@ test("provider data IPC handlers delegate to injected provider functions", async
       return {
         ok: true,
         state: "idle",
-        health: { status: "ok", message: "disconnected", checkedAt: "2026-07-01T00:00:00.000Z", latencyMs: 1 },
+        health: {
+          status: "ok",
+          message: "disconnected",
+          checkedAt: "2026-07-01T00:00:00.000Z",
+          latencyMs: 1,
+        },
       };
     },
     verifyLongPortCredentials: async (credentials) => {
@@ -94,20 +112,30 @@ test("provider data IPC handlers delegate to injected provider functions", async
     },
   });
 
-  await handlers.verifyAlphaFeedCredentials({ apiUrl: "https://api.alphafeed.org", apiKey: "alpha-key" });
-  await handlers.fetchAlphaFeedQuoteSnapshot({ apiUrl: "https://api.alphafeed.org", apiKey: "alpha-key" }, [
-    { symbol: "AAPL.US", name: "Apple Inc.", market: "US", source: "preset" },
-  ]);
-  await handlers.fetchAlphaFeedHistoricalBars({ apiUrl: "https://api.alphafeed.org", apiKey: "alpha-key" }, {
-    symbol: "AAPL.US",
-    market: "US",
-    timeframe: "1d",
+  await handlers.verifyAlphaFeedCredentials({
+    apiUrl: "https://api.alphafeed.org",
+    apiKey: "alpha-key",
   });
-  await handlers.fetchAlphaFeedIntradayBars({ apiUrl: "https://api.alphafeed.org", apiKey: "alpha-key" }, {
-    symbol: "AAPL.US",
-    market: "US",
-    timeframe: "15m",
-  });
+  await handlers.fetchAlphaFeedQuoteSnapshot(
+    { apiUrl: "https://api.alphafeed.org", apiKey: "alpha-key" },
+    [{ symbol: "AAPL.US", name: "Apple Inc.", market: "US", source: "preset" }],
+  );
+  await handlers.fetchAlphaFeedHistoricalBars(
+    { apiUrl: "https://api.alphafeed.org", apiKey: "alpha-key" },
+    {
+      symbol: "AAPL.US",
+      market: "US",
+      timeframe: "1d",
+    },
+  );
+  await handlers.fetchAlphaFeedIntradayBars(
+    { apiUrl: "https://api.alphafeed.org", apiKey: "alpha-key" },
+    {
+      symbol: "AAPL.US",
+      market: "US",
+      timeframe: "15m",
+    },
+  );
   await handlers.connectAlphaFeedStream({
     credentials: { wsUrl: "wss://api.tickflow.org/v1/ws/stream", apiKey: "stream-key" },
     mode: "watchlist",

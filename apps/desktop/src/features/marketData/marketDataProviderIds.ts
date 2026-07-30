@@ -1,5 +1,6 @@
 export type LegacyMarketDataProviderId = "alphafeed" | "longport";
-export type GatewayMarketDataProviderId = "stock-sdk" | "alphafeed-rest" | "alphafeed-websocket" | "longbridge" | "yahoo-finance";
+export type GatewayMarketDataProviderId =
+  "stock-sdk" | "alphafeed-rest" | "alphafeed-websocket" | "longbridge" | "yahoo-finance";
 export type MarketDataProviderId = LegacyMarketDataProviderId | GatewayMarketDataProviderId;
 
 export const marketDataProviderIds = [
@@ -20,7 +21,10 @@ export const liveMarketDataProviderIds: readonly MarketDataProviderId[] = [
   "yahoo-finance",
 ] as const;
 
-export const historicalMarketDataProviderIds: readonly MarketDataProviderId[] = ["longport", "longbridge"] as const;
+export const historicalMarketDataProviderIds: readonly MarketDataProviderId[] = [
+  "longport",
+  "longbridge",
+] as const;
 
 export function sanitizeMarketDataProviderId(value: unknown): MarketDataProviderId | null {
   return typeof value === "string" && marketDataProviderIds.includes(value as MarketDataProviderId)

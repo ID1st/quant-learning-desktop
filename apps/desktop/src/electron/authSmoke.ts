@@ -8,10 +8,7 @@ import type {
 
 import { registerAuthIpcHandlers } from "./authIpc.ts";
 import { createAuthSessionManager } from "./authSessionManager.ts";
-import {
-  createAuthTokenStore,
-  type AuthEncryptedPersistence,
-} from "./authTokenStore.ts";
+import { createAuthTokenStore, type AuthEncryptedPersistence } from "./authTokenStore.ts";
 import { createDesktopRendererSecurityPolicy } from "./electronSecurity.ts";
 
 const bundle: CloudSessionBundle = {
@@ -68,10 +65,8 @@ void app.whenReady().then(async () => {
     client: createSmokeClient(),
     tokenStore: createAuthTokenStore(persistence, {
       isEncryptionAvailable: () => true,
-      encrypt: async (value) =>
-        Buffer.from(value, "utf8").toString("base64"),
-      decrypt: async (value) =>
-        Buffer.from(value, "base64").toString("utf8"),
+      encrypt: async (value) => Buffer.from(value, "utf8").toString("base64"),
+      decrypt: async (value) => Buffer.from(value, "base64").toString("utf8"),
     }),
     device: {
       deviceId: "device-smoke",

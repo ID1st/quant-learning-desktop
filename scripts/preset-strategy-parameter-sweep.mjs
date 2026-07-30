@@ -52,7 +52,12 @@ const trendLongShort = sweep({
   datasets: datasets.trend,
   segments: trendSegments,
   candidates: trendParameters,
-  defaultParameters: { supertrendFactor: 12, supertrendAtrPeriod: 90, wmaLength: 40, emaLength: 14 },
+  defaultParameters: {
+    supertrendFactor: 12,
+    supertrendAtrPeriod: 90,
+    wmaLength: 40,
+    emaLength: 14,
+  },
   minimumTradesPerSymbol: 2,
   allowShort: true,
 });
@@ -62,7 +67,12 @@ const trendLongOnly = sweep({
   datasets: datasets.trend,
   segments: trendSegments,
   candidates: trendParameters,
-  defaultParameters: { supertrendFactor: 12, supertrendAtrPeriod: 90, wmaLength: 40, emaLength: 14 },
+  defaultParameters: {
+    supertrendFactor: 12,
+    supertrendAtrPeriod: 90,
+    wmaLength: 40,
+    emaLength: 14,
+  },
   minimumTradesPerSymbol: 2,
   allowShort: false,
 });
@@ -120,58 +130,154 @@ const utorbLongOnly = sweep({
 });
 process.stderr.write("UTORB sweeps complete.\n");
 
-console.log(JSON.stringify({
-  generatedAt: new Date().toISOString(),
-  dataSource: "Yahoo Finance chart endpoint (regular session only)",
-  symbols,
-  settings: { ...backtestSettings, executionModes: ["long-short", "long-only"] },
-  split: "60% train / 20% validation / 20% untouched test",
-  datasets: {
-    trend: summarizeDatasets(datasets.trend),
-    utorb: summarizeDatasets(datasets.utorb),
-  },
-  trend: { longShort: trendLongShort, longOnly: trendLongOnly },
-  utorb: { longShort: utorbLongShort, longOnly: utorbLongOnly },
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      generatedAt: new Date().toISOString(),
+      dataSource: "Yahoo Finance chart endpoint (regular session only)",
+      symbols,
+      settings: { ...backtestSettings, executionModes: ["long-short", "long-only"] },
+      split: "60% train / 20% validation / 20% untouched test",
+      datasets: {
+        trend: summarizeDatasets(datasets.trend),
+        utorb: summarizeDatasets(datasets.utorb),
+      },
+      trend: { longShort: trendLongShort, longOnly: trendLongOnly },
+      utorb: { longShort: utorbLongShort, longOnly: utorbLongOnly },
+    },
+    null,
+    2,
+  ),
+);
 
-function sweep({ strategyKey, timeframe, datasets: strategyDatasets, segments, candidates, defaultParameters, minimumTradesPerSymbol, allowShort }) {
+function sweep({
+  strategyKey,
+  timeframe,
+  datasets: strategyDatasets,
+  segments,
+  candidates,
+  defaultParameters,
+  minimumTradesPerSymbol,
+  allowShort,
+}) {
   const trainRanked = candidates
-    .map((parameters) => ({ parameters, train: evaluate(strategyKey, timeframe, strategyDatasets, segments.train, parameters, minimumTradesPerSymbol, allowShort) }))
+    .map((parameters) => ({
+      parameters,
+      train: evaluate(
+        strategyKey,
+        timeframe,
+        strategyDatasets,
+        segments.train,
+        parameters,
+        minimumTradesPerSymbol,
+        allowShort,
+      ),
+    }))
     .sort((left, right) => right.train.score - left.train.score);
-  const validationRanked = trainRanked.slice(0, 30)
+  const validationRanked = trainRanked
+    .slice(0, 30)
     .map((candidate) => ({
       ...candidate,
-      validation: evaluate(strategyKey, timeframe, strategyDatasets, segments.validation, candidate.parameters, minimumTradesPerSymbol, allowShort),
+      validation: evaluate(
+        strategyKey,
+        timeframe,
+        strategyDatasets,
+        segments.validation,
+        candidate.parameters,
+        minimumTradesPerSymbol,
+        allowShort,
+      ),
     }))
     .sort((left, right) => right.validation.score - left.validation.score);
   const finalists = validationRanked.slice(0, 5).map((candidate) => ({
     parameters: compactParameters(strategyKey, candidate.parameters),
-    full: evaluate(strategyKey, timeframe, strategyDatasets, segments.full, candidate.parameters, minimumTradesPerSymbol, allowShort),
+    full: evaluate(
+      strategyKey,
+      timeframe,
+      strategyDatasets,
+      segments.full,
+      candidate.parameters,
+      minimumTradesPerSymbol,
+      allowShort,
+    ),
     train: candidate.train,
     validation: candidate.validation,
-    test: evaluate(strategyKey, timeframe, strategyDatasets, segments.test, candidate.parameters, minimumTradesPerSymbol, allowShort),
+    test: evaluate(
+      strategyKey,
+      timeframe,
+      strategyDatasets,
+      segments.test,
+      candidate.parameters,
+      minimumTradesPerSymbol,
+      allowShort,
+    ),
   }));
 
   return {
     searchedParameterSets: candidates.length,
     allowShort,
-    segments: Object.fromEntries(Object.entries(segments).map(([key, segment]) => [key, {
-      start: new Date(segment.start).toISOString(),
-      end: new Date(segment.end).toISOString(),
-    }])),
+    segments: Object.fromEntries(
+      Object.entries(segments).map(([key, segment]) => [
+        key,
+        {
+          start: new Date(segment.start).toISOString(),
+          end: new Date(segment.end).toISOString(),
+        },
+      ]),
+    ),
     default: {
       parameters: compactParameters(strategyKey, defaultParameters),
-      full: evaluate(strategyKey, timeframe, strategyDatasets, segments.full, defaultParameters, minimumTradesPerSymbol, allowShort),
-      train: evaluate(strategyKey, timeframe, strategyDatasets, segments.train, defaultParameters, minimumTradesPerSymbol, allowShort),
-      validation: evaluate(strategyKey, timeframe, strategyDatasets, segments.validation, defaultParameters, minimumTradesPerSymbol, allowShort),
-      test: evaluate(strategyKey, timeframe, strategyDatasets, segments.test, defaultParameters, minimumTradesPerSymbol, allowShort),
+      full: evaluate(
+        strategyKey,
+        timeframe,
+        strategyDatasets,
+        segments.full,
+        defaultParameters,
+        minimumTradesPerSymbol,
+        allowShort,
+      ),
+      train: evaluate(
+        strategyKey,
+        timeframe,
+        strategyDatasets,
+        segments.train,
+        defaultParameters,
+        minimumTradesPerSymbol,
+        allowShort,
+      ),
+      validation: evaluate(
+        strategyKey,
+        timeframe,
+        strategyDatasets,
+        segments.validation,
+        defaultParameters,
+        minimumTradesPerSymbol,
+        allowShort,
+      ),
+      test: evaluate(
+        strategyKey,
+        timeframe,
+        strategyDatasets,
+        segments.test,
+        defaultParameters,
+        minimumTradesPerSymbol,
+        allowShort,
+      ),
     },
     selectedBeforeTest: finalists[0],
     finalists,
   };
 }
 
-function evaluate(strategyKey, timeframe, strategyDatasets, segment, parameters, minimumTradesPerSymbol, allowShort) {
+function evaluate(
+  strategyKey,
+  timeframe,
+  strategyDatasets,
+  segment,
+  parameters,
+  minimumTradesPerSymbol,
+  allowShort,
+) {
   const results = strategyDatasets.map(({ symbol, bars }) => {
     const contextBars = bars.filter((bar) => bar.timestamp <= segment.end);
     const segmentBars = contextBars.filter((bar) => bar.timestamp >= segment.start);
@@ -197,17 +303,26 @@ function evaluate(strategyKey, timeframe, strategyDatasets, segment, parameters,
   const drawdowns = results.map((result) => result.summary.maxDrawdownPct);
   const trades = results.flatMap((result) => result.trades);
   const totalTrades = trades.length;
-  const grossProfit = trades.filter((trade) => trade.netPnl > 0).reduce((total, trade) => total + trade.netPnl, 0);
-  const grossLoss = Math.abs(trades.filter((trade) => trade.netPnl < 0).reduce((total, trade) => total + trade.netPnl, 0));
+  const grossProfit = trades
+    .filter((trade) => trade.netPnl > 0)
+    .reduce((total, trade) => total + trade.netPnl, 0);
+  const grossLoss = Math.abs(
+    trades.filter((trade) => trade.netPnl < 0).reduce((total, trade) => total + trade.netPnl, 0),
+  );
   const positiveSymbolRatio = returns.filter((value) => value > 0).length / returns.length;
   const minimumTrades = strategyDatasets.length * minimumTradesPerSymbol;
-  const lowTradePenalty = Math.max(0, minimumTrades - totalTrades) / minimumTrades * 8;
+  const lowTradePenalty = (Math.max(0, minimumTrades - totalTrades) / minimumTrades) * 8;
   const meanReturnPct = mean(returns);
   const medianReturnPct = median(returns);
   const worstReturnPct = Math.min(...returns);
   const meanDrawdownPct = mean(drawdowns);
-  const score = medianReturnPct + meanReturnPct * 0.25 + worstReturnPct * 0.2 - meanDrawdownPct * 0.5 +
-    (positiveSymbolRatio - 0.5) * 4 - lowTradePenalty;
+  const score =
+    medianReturnPct +
+    meanReturnPct * 0.25 +
+    worstReturnPct * 0.2 -
+    meanDrawdownPct * 0.5 +
+    (positiveSymbolRatio - 0.5) * 4 -
+    lowTradePenalty;
 
   return roundObject({
     score,
@@ -217,9 +332,12 @@ function evaluate(strategyKey, timeframe, strategyDatasets, segment, parameters,
     meanDrawdownPct,
     positiveSymbolRatio,
     totalTrades,
-    winRate: totalTrades > 0 ? trades.filter((trade) => trade.netPnl > 0).length / totalTrades * 100 : 0,
+    winRate:
+      totalTrades > 0 ? (trades.filter((trade) => trade.netPnl > 0).length / totalTrades) * 100 : 0,
     profitFactor: grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? null : 0,
-    perSymbolReturnPct: Object.fromEntries(results.map((result) => [result.symbol, result.summary.totalReturnPct])),
+    perSymbolReturnPct: Object.fromEntries(
+      results.map((result) => [result.symbol, result.summary.totalReturnPct]),
+    ),
   });
 }
 
@@ -235,7 +353,9 @@ function createSegments(bars) {
 }
 
 async function fetchYahooBars(symbol, interval, range) {
-  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
+  const url = new URL(
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`,
+  );
   url.search = new URLSearchParams({ interval, range, includePrePost: "false", events: "history" });
   let response;
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -250,33 +370,56 @@ async function fetchYahooBars(symbol, interval, range) {
     }
     if (attempt < 2) await delay(500 * (attempt + 1));
   }
-  if (!response?.ok) throw new Error(`${symbol} ${interval} returned HTTP ${response?.status ?? "unknown"}.`);
+  if (!response?.ok)
+    throw new Error(`${symbol} ${interval} returned HTTP ${response?.status ?? "unknown"}.`);
 
   const payload = await response.json();
   const result = payload.chart?.result?.[0];
   const quote = result?.indicators?.quote?.[0];
   const bars = (result?.timestamp ?? []).flatMap((seconds, index) => {
-    const values = [quote?.open?.[index], quote?.high?.[index], quote?.low?.[index], quote?.close?.[index], quote?.volume?.[index] ?? 0];
+    const values = [
+      quote?.open?.[index],
+      quote?.high?.[index],
+      quote?.low?.[index],
+      quote?.close?.[index],
+      quote?.volume?.[index] ?? 0,
+    ];
     if (!values.every(Number.isFinite)) return [];
     const [open, high, low, close, volume] = values;
-    if (open <= 0 || high < Math.max(open, close) || low > Math.min(open, close) || high < low || volume < 0) return [];
+    if (
+      open <= 0 ||
+      high < Math.max(open, close) ||
+      low > Math.min(open, close) ||
+      high < low ||
+      volume < 0
+    )
+      return [];
     return [{ timestamp: seconds * 1_000, open, high, low, close, volume }];
   });
-  if (bars.length < 100) throw new Error(`${symbol} ${interval} returned only ${bars.length} valid bars.`);
+  if (bars.length < 100)
+    throw new Error(`${symbol} ${interval} returned only ${bars.length} valid bars.`);
   return bars;
 }
 
 function cartesian(source) {
   return Object.entries(source).reduce(
-    (rows, [key, values]) => rows.flatMap((row) => values.map((value) => ({ ...row, [key]: value }))),
+    (rows, [key, values]) =>
+      rows.flatMap((row) => values.map((value) => ({ ...row, [key]: value }))),
     [{}],
   );
 }
 
 function compactParameters(strategyKey, parameters) {
-  const keys = strategyKey === "trend-targets"
-    ? ["supertrendFactor", "supertrendAtrPeriod", "wmaLength", "emaLength"]
-    : ["timezoneOffsetHours", "openingRangeMinutes", "rangeSource", "trailingStopAtrMultiplier", "trailingStopAtrPeriod"];
+  const keys =
+    strategyKey === "trend-targets"
+      ? ["supertrendFactor", "supertrendAtrPeriod", "wmaLength", "emaLength"]
+      : [
+          "timezoneOffsetHours",
+          "openingRangeMinutes",
+          "rangeSource",
+          "trailingStopAtrMultiplier",
+          "trailingStopAtrPeriod",
+        ];
   return Object.fromEntries(keys.map((key) => [key, parameters[key]]));
 }
 
@@ -302,7 +445,8 @@ function median(values) {
 function roundObject(value) {
   if (typeof value === "number") return Number(value.toFixed(4));
   if (Array.isArray(value)) return value.map(roundObject);
-  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, roundObject(item)]));
+  if (value && typeof value === "object")
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, roundObject(item)]));
   return value;
 }
 

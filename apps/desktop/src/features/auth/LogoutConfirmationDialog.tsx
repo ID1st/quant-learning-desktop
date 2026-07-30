@@ -41,9 +41,8 @@ export function LogoutConfirmationDialog({
         return;
       }
       if (event.key === "Tab") {
-        const focusableElements = dialogRef.current?.querySelectorAll<HTMLButtonElement>(
-          "button:not(:disabled)",
-        );
+        const focusableElements =
+          dialogRef.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)");
         if (!focusableElements?.length) {
           return;
         }

@@ -28,11 +28,7 @@ function AuthBootstrapScreen() {
   );
 }
 
-function EntitlementActivatedScreen({
-  session,
-}: {
-  session: AuthSessionSnapshot;
-}) {
+function EntitlementActivatedScreen({ session }: { session: AuthSessionSnapshot }) {
   return (
     <main className="auth-bootstrap-screen" aria-live="polite">
       <ShieldCheck size={26} />
@@ -53,9 +49,7 @@ function EntitlementActivatedScreen({
 function LocalProfileConflictScreen() {
   const [isClearing, setClearing] = useState(false);
   const pendingSession = useAuthStore((state) => state.pendingSession);
-  const acceptPendingProfileSwitch = useAuthStore(
-    (state) => state.acceptPendingProfileSwitch,
-  );
+  const acceptPendingProfileSwitch = useAuthStore((state) => state.acceptPendingProfileSwitch);
   const clearSession = useAuthStore((state) => state.clearSession);
 
   const cancel = async () => {
@@ -97,11 +91,7 @@ function LocalProfileConflictScreen() {
         >
           {isClearing ? "正在清除本机资料…" : "清除本机用户资料并切换账号"}
         </button>
-        <button
-          className="secondary-auth-action"
-          onClick={() => void cancel()}
-          type="button"
-        >
+        <button className="secondary-auth-action" onClick={() => void cancel()} type="button">
           取消并退出新账号
         </button>
       </section>
@@ -112,37 +102,28 @@ function LocalProfileConflictScreen() {
 export function App() {
   const phase = useAuthStore((state) => state.phase);
   const session = useAuthStore((state) => state.session);
-  const profileConflictUserId = useAuthStore(
-    (state) => state.profileConflictUserId,
-  );
+  const profileConflictUserId = useAuthStore((state) => state.profileConflictUserId);
   const applyAuthState = useAuthStore((state) => state.applyAuthState);
   const setPhase = useAuthStore((state) => state.setPhase);
   const currentRoute = useAppStore((state) => state.currentRoute);
   const navigate = useAppStore((state) => state.navigate);
   const theme = useAppStore((state) => state.theme);
-  const [entitlementNotice, setEntitlementNotice] =
-    useState<AuthSessionSnapshot | null>(null);
+  const [entitlementNotice, setEntitlementNotice] = useState<AuthSessionSnapshot | null>(null);
   const [expiredAtNotice, setExpiredAtNotice] = useState("");
 
   const handleAuthState = useCallback(
     (nextState: AuthStateSnapshot) => {
       const previousAuthState = useAuthStore.getState();
       const previousPhase = previousAuthState.phase;
-      if (
-        nextState.phase === "ENTITLEMENT_EXPIRED" &&
-        previousAuthState.session
-      ) {
-        setExpiredAtNotice(
-          previousAuthState.session.entitlementEndsAt,
-        );
+      if (nextState.phase === "ENTITLEMENT_EXPIRED" && previousAuthState.session) {
+        setExpiredAtNotice(previousAuthState.session.entitlementEndsAt);
       }
       applyAuthState(nextState);
       if (
         nextState.session &&
         (nextState.phase === "AUTHENTICATED_ONLINE" ||
           nextState.phase === "AUTHENTICATED_OFFLINE") &&
-        (previousPhase === "INVITE_REQUIRED" ||
-          previousPhase === "ENTITLEMENT_EXPIRED")
+        (previousPhase === "INVITE_REQUIRED" || previousPhase === "ENTITLEMENT_EXPIRED")
       ) {
         setEntitlementNotice(nextState.session);
         setExpiredAtNotice("");
@@ -152,9 +133,7 @@ export function App() {
   );
 
   const authenticated =
-    (phase === "AUTHENTICATED_ONLINE" ||
-      phase === "AUTHENTICATED_OFFLINE") &&
-    Boolean(session);
+    (phase === "AUTHENTICATED_ONLINE" || phase === "AUTHENTICATED_OFFLINE") && Boolean(session);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,18 +163,12 @@ export function App() {
     if (!entitlementNotice) {
       return;
     }
-    const timer = window.setTimeout(
-      () => setEntitlementNotice(null),
-      1_500,
-    );
+    const timer = window.setTimeout(() => setEntitlementNotice(null), 1_500);
     return () => window.clearTimeout(timer);
   }, [entitlementNotice]);
 
   useEffect(() => {
-    const requiredRoute = resolveRequiredAppRoute(
-      authenticated,
-      currentRoute,
-    );
+    const requiredRoute = resolveRequiredAppRoute(authenticated, currentRoute);
     if (requiredRoute) {
       navigate(requiredRoute);
     }
@@ -221,9 +194,7 @@ export function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppErrorBoundary
-        onRecover={() => navigate(authenticated ? "chart" : "login")}
-      >
+      <AppErrorBoundary onRecover={() => navigate(authenticated ? "chart" : "login")}>
         <div data-theme={theme}>{content}</div>
       </AppErrorBoundary>
     </QueryClientProvider>

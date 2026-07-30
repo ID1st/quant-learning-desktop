@@ -10,7 +10,12 @@ import {
   type MarketDataProviderId,
 } from "./marketDataProviderIds.ts";
 
-export { sanitizeMarketDataProviderId, type GatewayMarketDataProviderId, type LegacyMarketDataProviderId, type MarketDataProviderId };
+export {
+  sanitizeMarketDataProviderId,
+  type GatewayMarketDataProviderId,
+  type LegacyMarketDataProviderId,
+  type MarketDataProviderId,
+};
 
 export type MarketDataSyncStepId =
   | "api-verification"
@@ -118,7 +123,9 @@ function createWatchlist(markets: Market[]) {
 }
 
 function wait(delayMs: number) {
-  return delayMs > 0 ? new Promise((resolve) => globalThis.setTimeout(resolve, delayMs)) : Promise.resolve();
+  return delayMs > 0
+    ? new Promise((resolve) => globalThis.setTimeout(resolve, delayMs))
+    : Promise.resolve();
 }
 
 function writeSyncState(database: LocalDatabase, state: MarketDataSyncState) {
@@ -172,7 +179,11 @@ function sanitizeSyncStep(value: unknown): MarketDataSyncStep | null {
   }
 
   const step = value as Partial<MarketDataSyncStep>;
-  if (typeof step.id !== "string" || typeof step.label !== "string" || typeof step.status !== "string") {
+  if (
+    typeof step.id !== "string" ||
+    typeof step.label !== "string" ||
+    typeof step.status !== "string"
+  ) {
     return null;
   }
 
@@ -201,7 +212,9 @@ function sanitizeSyncState(value: unknown): MarketDataSyncState | null {
   const state = value as Partial<MarketDataSyncState>;
   const provider = sanitizeMarketDataProviderId(state.provider);
   const fallbackProvider = sanitizeMarketDataProviderId(state.fallbackProvider);
-  const markets = Array.isArray(state.markets) ? state.markets.map(sanitizeMarket).filter((market): market is Market => market !== null) : [];
+  const markets = Array.isArray(state.markets)
+    ? state.markets.map(sanitizeMarket).filter((market): market is Market => market !== null)
+    : [];
   const steps = Array.isArray(state.steps)
     ? state.steps.map(sanitizeSyncStep).filter((step): step is MarketDataSyncStep => step !== null)
     : [];
@@ -225,7 +238,9 @@ function sanitizeSyncState(value: unknown): MarketDataSyncState | null {
     version: 1,
     provider,
     fallbackProvider: fallbackProvider ?? undefined,
-    status: ["idle", "running", "completed", "failed"].includes(state.status) ? (state.status as MarketDataSyncStatus) : "idle",
+    status: ["idle", "running", "completed", "failed"].includes(state.status)
+      ? (state.status as MarketDataSyncStatus)
+      : "idle",
     markets,
     appKeyPreview: state.appKeyPreview,
     accountId: typeof state.accountId === "string" ? state.accountId : undefined,
@@ -259,7 +274,7 @@ function sanitizeWatchlist(value: unknown): MarketWatchlistItem[] | null {
         symbol: candidate.symbol,
         name: candidate.name,
         market,
-        source: candidate.source === "user" ? "user" as const : "preset" as const,
+        source: candidate.source === "user" ? ("user" as const) : ("preset" as const),
       },
     ];
   });
@@ -267,7 +282,9 @@ function sanitizeWatchlist(value: unknown): MarketWatchlistItem[] | null {
   return watchlist;
 }
 
-export function readMarketWatchlist(database: LocalDatabase = appLocalDatabase): MarketWatchlistItem[] {
+export function readMarketWatchlist(
+  database: LocalDatabase = appLocalDatabase,
+): MarketWatchlistItem[] {
   return database.readDocument(WATCHLIST_COLLECTION_KEY, {
     version: STORAGE_VERSION,
     fallback: [...presetWatchlist],
@@ -275,12 +292,20 @@ export function readMarketWatchlist(database: LocalDatabase = appLocalDatabase):
   });
 }
 
-export function writeMarketWatchlist(watchlist: readonly MarketWatchlistItem[], database: LocalDatabase = appLocalDatabase) {
+export function writeMarketWatchlist(
+  watchlist: readonly MarketWatchlistItem[],
+  database: LocalDatabase = appLocalDatabase,
+) {
   const sanitized = sanitizeWatchlist(watchlist) ?? [];
   if (sanitized.length === 0) {
     return readMarketWatchlist(database);
   }
-  const unique = sanitized.filter((item, index, items) => items.findIndex((candidate) => candidate.market === item.market && candidate.symbol === item.symbol) === index);
+  const unique = sanitized.filter(
+    (item, index, items) =>
+      items.findIndex(
+        (candidate) => candidate.market === item.market && candidate.symbol === item.symbol,
+      ) === index,
+  );
   writeWatchlist(database, unique);
   return unique;
 }
@@ -313,12 +338,24 @@ function sanitizeQuoteSnapshot(value: unknown): MarketQuoteSnapshot | null {
     market,
     lastPrice: snapshot.lastPrice,
     previousClose: snapshot.previousClose,
-    openPrice: typeof snapshot.openPrice === "number" && Number.isFinite(snapshot.openPrice) ? snapshot.openPrice : undefined,
-    highPrice: typeof snapshot.highPrice === "number" && Number.isFinite(snapshot.highPrice) ? snapshot.highPrice : undefined,
-    lowPrice: typeof snapshot.lowPrice === "number" && Number.isFinite(snapshot.lowPrice) ? snapshot.lowPrice : undefined,
+    openPrice:
+      typeof snapshot.openPrice === "number" && Number.isFinite(snapshot.openPrice)
+        ? snapshot.openPrice
+        : undefined,
+    highPrice:
+      typeof snapshot.highPrice === "number" && Number.isFinite(snapshot.highPrice)
+        ? snapshot.highPrice
+        : undefined,
+    lowPrice:
+      typeof snapshot.lowPrice === "number" && Number.isFinite(snapshot.lowPrice)
+        ? snapshot.lowPrice
+        : undefined,
     changePercent: snapshot.changePercent,
     volume: snapshot.volume,
-    amount: typeof snapshot.amount === "number" && Number.isFinite(snapshot.amount) ? snapshot.amount : undefined,
+    amount:
+      typeof snapshot.amount === "number" && Number.isFinite(snapshot.amount)
+        ? snapshot.amount
+        : undefined,
     quoteTime: snapshot.quoteTime,
     receivedAt: snapshot.receivedAt,
     provider,
@@ -330,10 +367,14 @@ function sanitizeQuoteSnapshots(value: unknown): MarketQuoteSnapshot[] | null {
     return null;
   }
 
-  return value.map(sanitizeQuoteSnapshot).filter((snapshot): snapshot is MarketQuoteSnapshot => snapshot !== null);
+  return value
+    .map(sanitizeQuoteSnapshot)
+    .filter((snapshot): snapshot is MarketQuoteSnapshot => snapshot !== null);
 }
 
-export function readMarketDataSyncState(database: LocalDatabase = appLocalDatabase): MarketDataSyncState | null {
+export function readMarketDataSyncState(
+  database: LocalDatabase = appLocalDatabase,
+): MarketDataSyncState | null {
   return database.readDocument(SYNC_STATE_COLLECTION_KEY, {
     version: STORAGE_VERSION,
     fallback: null,
@@ -341,7 +382,9 @@ export function readMarketDataSyncState(database: LocalDatabase = appLocalDataba
   });
 }
 
-export function readMarketWatchlistCache(database: LocalDatabase = appLocalDatabase): MarketWatchlistItem[] {
+export function readMarketWatchlistCache(
+  database: LocalDatabase = appLocalDatabase,
+): MarketWatchlistItem[] {
   return database.readDocument(WATCHLIST_COLLECTION_KEY, {
     version: STORAGE_VERSION,
     fallback: [],
@@ -349,7 +392,9 @@ export function readMarketWatchlistCache(database: LocalDatabase = appLocalDatab
   });
 }
 
-export function readMarketQuoteSnapshotCache(database: LocalDatabase = appLocalDatabase): MarketQuoteSnapshot[] {
+export function readMarketQuoteSnapshotCache(
+  database: LocalDatabase = appLocalDatabase,
+): MarketQuoteSnapshot[] {
   return database.readDocument(QUOTE_SNAPSHOT_COLLECTION_KEY, {
     version: STORAGE_VERSION,
     fallback: [],
@@ -402,7 +447,9 @@ export async function runInitialMarketDataSync(
     publish({
       ...state,
       updatedAt: now().toISOString(),
-      steps: state.steps.map((item) => (item.id === step.id ? { ...item, status: "running" } : item)),
+      steps: state.steps.map((item) =>
+        item.id === step.id ? { ...item, status: "running" } : item,
+      ),
     });
 
     await wait(delayMs);
@@ -419,11 +466,7 @@ export async function runInitialMarketDataSync(
 
       if (step.id === "historical-candles" && options.fetchHistoricalBars) {
         historicalBars = await options.fetchHistoricalBars(syncWatchlist);
-        await writeHistoricalBars(
-          database,
-          historicalBars,
-          marketBarCacheRepository,
-        );
+        await writeHistoricalBars(database, historicalBars, marketBarCacheRepository);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "行情同步失败";

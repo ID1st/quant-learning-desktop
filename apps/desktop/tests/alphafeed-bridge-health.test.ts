@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { fetchAlphaFeedQuoteSnapshotsWithRest, verifyAlphaFeedCredentialsWithRest } from "../src/electron/alphaFeedBridge.ts";
+import {
+  fetchAlphaFeedQuoteSnapshotsWithRest,
+  verifyAlphaFeedCredentialsWithRest,
+} from "../src/electron/alphaFeedBridge.ts";
 
 const originalFetch = globalThis.fetch;
 
@@ -47,7 +50,8 @@ test("AlphaFeed bridge returns latency health on successful verification", async
 });
 
 test("AlphaFeed bridge classifies rate limits and exposes retry hints", async () => {
-  globalThis.fetch = async () => createJsonResponse({ message: "too many requests" }, { status: 429 });
+  globalThis.fetch = async () =>
+    createJsonResponse({ message: "too many requests" }, { status: 429 });
 
   const result = await fetchAlphaFeedQuoteSnapshotsWithRest(
     {

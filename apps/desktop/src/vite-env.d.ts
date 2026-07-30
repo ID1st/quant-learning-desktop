@@ -8,7 +8,8 @@ interface QuantDesktopLocalDatabaseBridge {
 
 type QuantDesktopMarket = "US" | "HK" | "CN";
 type QuantDesktopTimeframe = "realtime" | "1m" | "5m" | "15m" | "30m" | "1h" | "1d" | "1w";
-type QuantDesktopGatewayProviderId = "stock-sdk" | "alphafeed-rest" | "alphafeed-websocket" | "longbridge" | "yahoo-finance";
+type QuantDesktopGatewayProviderId =
+  "stock-sdk" | "alphafeed-rest" | "alphafeed-websocket" | "longbridge" | "yahoo-finance";
 type QuantDesktopMarketDataRequestSource = "chart" | "sync" | "strategy" | "diagnostics";
 type QuantDesktopMarketDataHealthStatus =
   | "unconfigured"
@@ -19,8 +20,10 @@ type QuantDesktopMarketDataHealthStatus =
   | "rateLimited"
   | "delayed";
 type QuantDesktopMarketDataDelayLevel = "realtime" | "delayed" | "unknown";
-type QuantDesktopMarketDataUpstream = "tencent" | "eastmoney" | "alphafeed" | "longbridge" | "yahoo-finance";
-type QuantDesktopMarketDataStreamState = "idle" | "connecting" | "connected" | "fallback" | "disconnected" | "error";
+type QuantDesktopMarketDataUpstream =
+  "tencent" | "eastmoney" | "alphafeed" | "longbridge" | "yahoo-finance";
+type QuantDesktopMarketDataStreamState =
+  "idle" | "connecting" | "connected" | "fallback" | "disconnected" | "error";
 type QuantDesktopMarketDataErrorCode =
   | "NO_CAPABLE_PROVIDER"
   | "PROVIDER_UNAVAILABLE"
@@ -181,7 +184,9 @@ type QuantDesktopMarketDataProviderStatusResult =
     };
 
 interface QuantDesktopMarketDataBridge {
-  getProviderStatus(context: QuantDesktopMarketDataRequestContext): Promise<QuantDesktopMarketDataProviderStatusResult>;
+  getProviderStatus(
+    context: QuantDesktopMarketDataRequestContext,
+  ): Promise<QuantDesktopMarketDataProviderStatusResult>;
   fetchQuoteSnapshot(request: {
     readonly context: QuantDesktopMarketDataRequestContext;
     readonly items: readonly QuantDesktopMarketDataRequestItem[];
@@ -215,12 +220,16 @@ interface QuantDesktopMarketDataBridge {
     readonly providerPolicy?: {
       readonly stockSdkPrimaryEnabled?: boolean;
     };
-  }): Promise<QuantDesktopMarketDataResult<readonly {
-    readonly provider: QuantDesktopGatewayProviderId;
-    readonly market: QuantDesktopMarket;
-    readonly symbol: string;
-    readonly name: string;
-  }[]>>;
+  }): Promise<
+    QuantDesktopMarketDataResult<
+      readonly {
+        readonly provider: QuantDesktopGatewayProviderId;
+        readonly market: QuantDesktopMarket;
+        readonly symbol: string;
+        readonly name: string;
+      }[]
+    >
+  >;
   connectQuoteStream(request: {
     readonly context: QuantDesktopMarketDataRequestContext;
     readonly items: readonly QuantDesktopMarketDataRequestItem[];
@@ -303,7 +312,14 @@ interface QuantDesktopPluginStrategyInput {
   readonly symbol: string;
   readonly market: QuantDesktopMarket;
   readonly timeframe: QuantDesktopTimeframe;
-  readonly bars: readonly { readonly timestamp: number; readonly open: number; readonly high: number; readonly low: number; readonly close: number; readonly volume: number }[];
+  readonly bars: readonly {
+    readonly timestamp: number;
+    readonly open: number;
+    readonly high: number;
+    readonly low: number;
+    readonly close: number;
+    readonly volume: number;
+  }[];
   readonly parameters: Record<string, unknown>;
   readonly runMode: "backtest" | "realtime";
   readonly enabled?: boolean;
@@ -331,11 +347,21 @@ type QuantDesktopPluginResult<T> =
 interface QuantDesktopPluginBridge {
   list(): Promise<QuantDesktopPluginResult<readonly QuantDesktopInstalledPlugin[]>>;
   installLocalPlugin(): Promise<QuantDesktopPluginResult<QuantDesktopInstalledPlugin>>;
-  setEnabled(pluginId: string, enabled: boolean): Promise<QuantDesktopPluginResult<QuantDesktopInstalledPlugin>>;
-  reportRuntimeFailure(pluginId: string, message: string): Promise<QuantDesktopPluginResult<QuantDesktopInstalledPlugin>>;
+  setEnabled(
+    pluginId: string,
+    enabled: boolean,
+  ): Promise<QuantDesktopPluginResult<QuantDesktopInstalledPlugin>>;
+  reportRuntimeFailure(
+    pluginId: string,
+    message: string,
+  ): Promise<QuantDesktopPluginResult<QuantDesktopInstalledPlugin>>;
   uninstall(pluginId: string): Promise<QuantDesktopPluginResult<null>>;
   getRuntimeSnapshot(): Promise<QuantDesktopPluginResult<QuantDesktopPluginRuntimeSnapshot>>;
-  runStrategy(pluginId: string, key: string, input: QuantDesktopPluginStrategyInput): Promise<QuantDesktopPluginResult<QuantDesktopPluginStrategyOutput>>;
+  runStrategy(
+    pluginId: string,
+    key: string,
+    input: QuantDesktopPluginStrategyInput,
+  ): Promise<QuantDesktopPluginResult<QuantDesktopPluginStrategyOutput>>;
 }
 
 interface QuantDesktopBridge {
@@ -344,7 +370,10 @@ interface QuantDesktopBridge {
   readonly auth: import("@quant/shared").QuantDesktopAuthBridge;
   readonly localDatabase?: QuantDesktopLocalDatabaseBridge;
   readonly secureCredentials?: {
-    saveAlphaFeed(credentials: { apiUrl: string; apiKey: string }): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
+    saveAlphaFeed(credentials: {
+      apiUrl: string;
+      apiKey: string;
+    }): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     clearAlphaFeed(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     saveAlphaFeedStream(credentials: {
       wsUrl: string;
@@ -363,10 +392,7 @@ interface QuantDesktopBridge {
   readonly marketBarCache?: import("./electron/marketBarCacheIpcContract.ts").MarketBarCacheIpcBridge;
   readonly plugins?: QuantDesktopPluginBridge;
   readonly alphaFeed?: {
-    verifyCredentials(credentials: {
-      apiUrl: string;
-      apiKey: string;
-    }): Promise<
+    verifyCredentials(credentials: { apiUrl: string; apiKey: string }): Promise<
       | {
           ok: true;
           summary: {
@@ -652,7 +678,14 @@ interface QuantDesktopBridge {
 }
 
 interface AlphaFeedProviderHealth {
-  status: "ok" | "auth_failed" | "permission_denied" | "rate_limited" | "network_error" | "invalid_response" | "error";
+  status:
+    | "ok"
+    | "auth_failed"
+    | "permission_denied"
+    | "rate_limited"
+    | "network_error"
+    | "invalid_response"
+    | "error";
   message: string;
   checkedAt: string;
   latencyMs: number;

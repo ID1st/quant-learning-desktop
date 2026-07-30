@@ -50,7 +50,9 @@ test("Yahoo Finance emergency provider maps US one-minute bars within the reques
 });
 
 test("Yahoo Finance emergency provider rejects unsupported intraday requests", async () => {
-  const provider = createYahooFinanceIntradayProvider({ fetchImpl: async () => new Response("{}", { status: 200 }) });
+  const provider = createYahooFinanceIntradayProvider({
+    fetchImpl: async () => new Response("{}", { status: 200 }),
+  });
 
   await assert.rejects(
     () => provider.fetchIntradayBars({ market: "HK", symbol: "00700.HK", timeframe: "1m" }),
@@ -65,13 +67,29 @@ test("Yahoo Finance emergency provider retries transient network failures once",
     fetchImpl: async () => {
       calls += 1;
       if (calls === 1) throw new Error("fetch failed: UND_ERR_SOCKET");
-      return new Response(JSON.stringify({
-        chart: { result: [{ timestamp: [1_783_000_000], indicators: { quote: [{ open: [315], high: [316], low: [314], close: [315.5], volume: [1] }] } }] },
-      }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          chart: {
+            result: [
+              {
+                timestamp: [1_783_000_000],
+                indicators: {
+                  quote: [{ open: [315], high: [316], low: [314], close: [315.5], volume: [1] }],
+                },
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
     },
   });
 
-  const bars = await provider.fetchIntradayBars({ market: "US", symbol: "AAPL.US", timeframe: "1m" });
+  const bars = await provider.fetchIntradayBars({
+    market: "US",
+    symbol: "AAPL.US",
+    timeframe: "1m",
+  });
   assert.equal(calls, 2);
   assert.equal(bars[0]?.provider, "yahoo-finance");
 });
@@ -85,7 +103,11 @@ test("Yahoo Finance emergency provider maps US daily history", async () => {
             result: [
               {
                 timestamp: [1_783_000_000],
-                indicators: { quote: [{ open: [315.5], high: [316], low: [315], close: [315.7], volume: [100] }] },
+                indicators: {
+                  quote: [
+                    { open: [315.5], high: [316], low: [315], close: [315.7], volume: [100] },
+                  ],
+                },
               },
             ],
           },
@@ -94,7 +116,11 @@ test("Yahoo Finance emergency provider maps US daily history", async () => {
       ),
   });
 
-  const bars = await provider.fetchHistoricalBars({ market: "US", symbol: "AAPL.US", timeframe: "1d" });
+  const bars = await provider.fetchHistoricalBars({
+    market: "US",
+    symbol: "AAPL.US",
+    timeframe: "1d",
+  });
 
   assert.equal(bars[0]?.timeframe, "1d");
   assert.equal(bars[0]?.provider, "yahoo-finance");

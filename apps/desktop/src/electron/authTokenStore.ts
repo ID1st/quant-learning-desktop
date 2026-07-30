@@ -1,11 +1,4 @@
-import {
-  chmod,
-  mkdir,
-  readFile,
-  rename,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
+import { chmod, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 export interface AuthEncryptedPersistence {
@@ -28,10 +21,7 @@ export interface AuthTokenMaterial {
   lastServerTime: string;
 }
 
-export type PersistedAuthTokenMaterial = Omit<
-  AuthTokenMaterial,
-  "accessToken"
->;
+export type PersistedAuthTokenMaterial = Omit<AuthTokenMaterial, "accessToken">;
 
 export interface AuthTokenStore {
   save(material: AuthTokenMaterial): Promise<void>;
@@ -45,20 +35,13 @@ interface PersistedEnvelope {
   encryptedPayload: string;
 }
 
-function isPersistedMaterial(
-  value: unknown,
-): value is PersistedAuthTokenMaterial {
+function isPersistedMaterial(value: unknown): value is PersistedAuthTokenMaterial {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }
   const record = value as Record<string, unknown>;
   const keys = Object.keys(record).sort();
-  const expectedKeys = [
-    "deviceId",
-    "lastServerTime",
-    "offlineLease",
-    "refreshToken",
-  ].sort();
+  const expectedKeys = ["deviceId", "lastServerTime", "offlineLease", "refreshToken"].sort();
   return (
     keys.length === expectedKeys.length &&
     keys.every((key, index) => key === expectedKeys[index]) &&
@@ -105,10 +88,7 @@ export function createAuthTokenStore(
           return null;
         }
         const envelope = JSON.parse(rawValue) as Partial<PersistedEnvelope>;
-        if (
-          envelope.version !== 1 ||
-          typeof envelope.encryptedPayload !== "string"
-        ) {
+        if (envelope.version !== 1 || typeof envelope.encryptedPayload !== "string") {
           throw new Error("stored authentication envelope is invalid");
         }
         const plaintext = await crypto.decrypt(envelope.encryptedPayload);
@@ -131,9 +111,7 @@ export function createAuthTokenStore(
   };
 }
 
-export function createFileAuthPersistence(
-  filePath: string,
-): AuthEncryptedPersistence {
+export function createFileAuthPersistence(filePath: string): AuthEncryptedPersistence {
   const temporaryPath = `${filePath}.tmp`;
   return {
     read: async () =>

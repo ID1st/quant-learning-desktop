@@ -7,9 +7,7 @@ async function main(): Promise<void> {
   const config = loadCloudAuthConfig();
   const pool = createDatabasePool(config.databaseUrl);
   const server = await buildAuthServer(config, pool);
-  const emailWorker = config.smtp
-    ? createEmailOutboxWorker(pool, config.smtp)
-    : null;
+  const emailWorker = config.smtp ? createEmailOutboxWorker(pool, config.smtp) : null;
   emailWorker?.start();
 
   const shutdown = async (signal: string): Promise<void> => {

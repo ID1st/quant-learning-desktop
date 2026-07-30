@@ -55,13 +55,7 @@ export class PgInviteBatchRepository implements InviteBatchRepository {
           )
           VALUES ($1, $2, $3, $4, $5)
         `,
-        [
-          input.batchId,
-          input.claimExpiresAt,
-          input.codes.length,
-          input.createdBy,
-          input.createdAt,
-        ],
+        [input.batchId, input.claimExpiresAt, input.codes.length, input.createdBy, input.createdAt],
       );
 
       await client.query(
@@ -139,10 +133,7 @@ export class PgInviteBatchRepository implements InviteBatchRepository {
     };
   }
 
-  public async revokeBatch(
-    batchId: string,
-    now: Date,
-  ): Promise<InviteBatchStatus | null> {
+  public async revokeBatch(batchId: string, now: Date): Promise<InviteBatchStatus | null> {
     await withTransaction(this.pool, async (client) => {
       const batchResult = await client.query(
         `

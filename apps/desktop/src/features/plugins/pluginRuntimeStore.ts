@@ -2,9 +2,13 @@ import { create } from "zustand";
 import type { StrategyDefinition, StrategyInput, StrategyOutput } from "@quant/strategy-engine";
 import type { ChartIndicatorDefinition } from "../chartIndicators/chartIndicators.ts";
 import type { InstalledPluginRecord } from "../../electron/pluginManager.ts";
-import type { PluginRuntimeSnapshot, PluginStrategyRuntimeDescriptor } from "../../electron/pluginRuntimeProtocol.ts";
+import type {
+  PluginRuntimeSnapshot,
+  PluginStrategyRuntimeDescriptor,
+} from "../../electron/pluginRuntimeProtocol.ts";
 
-export type PluginRuntimeStateStatus = "idle" | "loading" | "ready" | "degraded" | "unavailable" | "error";
+export type PluginRuntimeStateStatus =
+  "idle" | "loading" | "ready" | "degraded" | "unavailable" | "error";
 
 interface PluginRuntimeState {
   plugins: readonly InstalledPluginRecord[];
@@ -13,7 +17,9 @@ interface PluginRuntimeState {
   status: PluginRuntimeStateStatus;
   message: string;
   refresh(): Promise<void>;
-  runStrategies(requests: readonly { readonly strategy: StrategyDefinition; readonly input: StrategyInput }[]): Promise<void>;
+  runStrategies(
+    requests: readonly { readonly strategy: StrategyDefinition; readonly input: StrategyInput }[],
+  ): Promise<void>;
   installLocalPlugin(): Promise<void>;
   setEnabled(pluginId: string, enabled: boolean): Promise<void>;
   uninstall(pluginId: string): Promise<void>;
@@ -34,7 +40,10 @@ function createOutputKey(strategyKey: string, input: StrategyInput) {
   return `${strategyKey}:${input.symbol}:${input.market}:${input.timeframe}:${input.bars.length}:${last?.timestamp ?? 0}:${last?.open ?? 0}:${last?.high ?? 0}:${last?.low ?? 0}:${last?.close ?? 0}:${JSON.stringify(input.parameters)}`;
 }
 
-function createStrategyDefinitions(descriptors: readonly PluginStrategyRuntimeDescriptor[], outputs: OutputCache): StrategyDefinition[] {
+function createStrategyDefinitions(
+  descriptors: readonly PluginStrategyRuntimeDescriptor[],
+  outputs: OutputCache,
+): StrategyDefinition[] {
   return descriptors.map((descriptor) => ({
     key: descriptor.key,
     name: descriptor.name,
@@ -46,16 +55,27 @@ function createStrategyDefinitions(descriptors: readonly PluginStrategyRuntimeDe
     supportedTimeframes: [...descriptor.supportedTimeframes],
     parameterSchema: [...descriptor.parameterSchema],
     run(input) {
-      return outputs[createOutputKey(descriptor.key, input)] ?? createPendingOutput(descriptor, input);
+      return (
+        outputs[createOutputKey(descriptor.key, input)] ?? createPendingOutput(descriptor, input)
+      );
     },
   }));
 }
 
-function createPendingOutput(descriptor: PluginStrategyRuntimeDescriptor, input: StrategyInput): StrategyOutput {
+function createPendingOutput(
+  descriptor: PluginStrategyRuntimeDescriptor,
+  input: StrategyInput,
+): StrategyOutput {
   return {
     signals: [],
     overlays: [],
-    render: { strategyId: descriptor.key, strategyName: descriptor.name, enabled: input.enabled !== false, zIndex: 20, elements: [] },
+    render: {
+      strategyId: descriptor.key,
+      strategyName: descriptor.name,
+      enabled: input.enabled !== false,
+      zIndex: 20,
+      elements: [],
+    },
     metrics: {},
     logs: ["插件策略正在隔离宿主中计算。"],
     alerts: [],
@@ -91,18 +111,31 @@ export const usePluginRuntimeStore = create<PluginRuntimeState>((set, get) => {
     async refresh() {
       const bridge = getPluginBridge();
       if (!bridge) {
-        set({ plugins: [], strategies: [], status: "unavailable", message: "真实插件管理需要在桌面应用中运行。" });
+        set({
+          plugins: [],
+          strategies: [],
+          status: "unavailable",
+          message: "真实插件管理需要在桌面应用中运行。",
+        });
         return;
       }
       set({ status: "loading", message: "正在加载插件隔离运行时…" });
       try {
-        const [listResult, runtimeResult] = await Promise.all([bridge.list(), bridge.getRuntimeSnapshot()]);
+        const [listResult, runtimeResult] = await Promise.all([
+          bridge.list(),
+          bridge.getRuntimeSnapshot(),
+        ]);
         if (!listResult.ok) {
           set({ status: "error", message: listResult.error.message });
           return;
         }
         if (!runtimeResult.ok) {
-          set({ plugins: listResult.data, strategies: [], status: "unavailable", message: runtimeResult.error.message });
+          set({
+            plugins: listResult.data,
+            strategies: [],
+            status: "unavailable",
+            message: runtimeResult.error.message,
+          });
           return;
         }
         applySnapshot(runtimeResult.data as PluginRuntimeSnapshot);
@@ -114,12 +147,16 @@ export const usePluginRuntimeStore = create<PluginRuntimeState>((set, get) => {
     async runStrategies(requests) {
       const bridge = getPluginBridge();
       if (!bridge) return;
-      const pluginRequests = requests.filter(({ strategy }) => strategy.sourceType === "plugin" && strategy.sourceFile);
+      const pluginRequests = requests.filter(
+        ({ strategy }) => strategy.sourceType === "plugin" && strategy.sourceFile,
+      );
       if (pluginRequests.length === 0) return;
-      const results = await Promise.all(pluginRequests.map(async ({ strategy, input }) => {
-        const result = await bridge.runStrategy(strategy.sourceFile!, strategy.key, input);
-        return { strategy, input, result };
-      }));
+      const results = await Promise.all(
+        pluginRequests.map(async ({ strategy, input }) => {
+          const result = await bridge.runStrategy(strategy.sourceFile!, strategy.key, input);
+          return { strategy, input, result };
+        }),
+      );
       const nextOutputs: Record<string, StrategyOutput> = { ...outputs };
       let failedMessage: string | null = null;
       results.forEach(({ strategy, input, result }) => {
@@ -128,7 +165,8 @@ export const usePluginRuntimeStore = create<PluginRuntimeState>((set, get) => {
           return;
         }
         // The isolated utility host validates and JSON-normalizes this payload before IPC.
-        nextOutputs[createOutputKey(strategy.key, input)] = result.data as unknown as StrategyOutput;
+        nextOutputs[createOutputKey(strategy.key, input)] =
+          result.data as unknown as StrategyOutput;
       });
       outputs = nextOutputs;
       set({

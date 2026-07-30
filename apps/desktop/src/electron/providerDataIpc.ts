@@ -1,9 +1,17 @@
 import { ipcMain } from "electron";
-import type { AlphaFeedApiCredentials, AlphaFeedBarRequest, LongPortBarRequest } from "@quant/api-client";
+import type {
+  AlphaFeedApiCredentials,
+  AlphaFeedBarRequest,
+  LongPortBarRequest,
+} from "@quant/api-client";
 import type { LongPortApiCredentials } from "@quant/api-client";
 import type { MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
 import type { AlphaFeedStreamConnectRequest } from "./alphaFeedStreamBridge.ts";
-import { createProviderDataIpcHandlers, providerDataIpcChannels, type ProviderDataIpcHandlers } from "./providerDataIpcContract.ts";
+import {
+  createProviderDataIpcHandlers,
+  providerDataIpcChannels,
+  type ProviderDataIpcHandlers,
+} from "./providerDataIpcContract.ts";
 import {
   assertAlphaFeedCredentials,
   assertAlphaFeedStreamCredentials,
@@ -19,11 +27,14 @@ export function registerProviderDataIpcHandlers(
   securityPolicy: DesktopRendererSecurityPolicy,
   handlers: ProviderDataIpcHandlers = createProviderDataIpcHandlers(),
 ) {
-  ipcMain.handle(providerDataIpcChannels.verifyAlphaFeedCredentials, (event, credentials: unknown) => {
-    assertTrustedIpcSender(event, securityPolicy);
-    assertAlphaFeedCredentials(credentials);
-    return handlers.verifyAlphaFeedCredentials(credentials as unknown as AlphaFeedApiCredentials);
-  });
+  ipcMain.handle(
+    providerDataIpcChannels.verifyAlphaFeedCredentials,
+    (event, credentials: unknown) => {
+      assertTrustedIpcSender(event, securityPolicy);
+      assertAlphaFeedCredentials(credentials);
+      return handlers.verifyAlphaFeedCredentials(credentials as unknown as AlphaFeedApiCredentials);
+    },
+  );
   ipcMain.handle(
     providerDataIpcChannels.fetchAlphaFeedQuoteSnapshot,
     (event, credentials: unknown, watchlist: unknown) => {
@@ -64,7 +75,8 @@ export function registerProviderDataIpcHandlers(
     assertTrustedIpcSender(event, securityPolicy);
     assertRecord(request, "request");
     assertAlphaFeedStreamCredentials(request.credentials);
-    if (request.mode !== "watchlist" && request.mode !== "all-symbols") throw new TypeError("request.mode is invalid.");
+    if (request.mode !== "watchlist" && request.mode !== "all-symbols")
+      throw new TypeError("request.mode is invalid.");
     assertMarketDataItems(request.watchlist, request.mode === "all-symbols");
     return handlers.connectAlphaFeedStream(request as unknown as AlphaFeedStreamConnectRequest);
   });
@@ -76,11 +88,14 @@ export function registerProviderDataIpcHandlers(
     assertTrustedIpcSender(event, securityPolicy);
     return handlers.disconnectAlphaFeedStream();
   });
-  ipcMain.handle(providerDataIpcChannels.verifyLongPortCredentials, (event, credentials: unknown) => {
-    assertTrustedIpcSender(event, securityPolicy);
-    assertLongPortCredentials(credentials);
-    return handlers.verifyLongPortCredentials(credentials as unknown as LongPortApiCredentials);
-  });
+  ipcMain.handle(
+    providerDataIpcChannels.verifyLongPortCredentials,
+    (event, credentials: unknown) => {
+      assertTrustedIpcSender(event, securityPolicy);
+      assertLongPortCredentials(credentials);
+      return handlers.verifyLongPortCredentials(credentials as unknown as LongPortApiCredentials);
+    },
+  );
   ipcMain.handle(
     providerDataIpcChannels.fetchLongPortQuoteSnapshot,
     (event, credentials: unknown, watchlist: unknown) => {

@@ -10,7 +10,10 @@ import {
   type StockSdkQuoteRequest,
 } from "../src/features/marketData/stockSdkGatewayProvider.ts";
 import { createStockSdkGatewayProviderOperations } from "../src/features/marketData/stockSdkProviderOperations.ts";
-import { createMarketDataGateway, createMarketDataProviderRegistry } from "../src/features/marketData/marketDataProviderGateway.ts";
+import {
+  createMarketDataGateway,
+  createMarketDataProviderRegistry,
+} from "../src/features/marketData/marketDataProviderGateway.ts";
 import type {
   GatewayMarketDataProvider,
   GatewayMarketQuoteSnapshot,
@@ -46,16 +49,22 @@ describe("Stock SDK symbol normalization", () => {
       providerSymbol: "sh600519",
     });
 
-    assert.deepEqual(toStockSdkBarRequest({ market: "US", symbol: "AAPL.US", timeframe: "1w", count: 120 }, "historical"), {
-      market: "US",
-      symbol: "AAPL.US",
-      providerSymbol: "105.AAPL",
-      timeframe: "1w",
-      period: "weekly",
-      count: 120,
-      startTime: undefined,
-      endTime: undefined,
-    });
+    assert.deepEqual(
+      toStockSdkBarRequest(
+        { market: "US", symbol: "AAPL.US", timeframe: "1w", count: 120 },
+        "historical",
+      ),
+      {
+        market: "US",
+        symbol: "AAPL.US",
+        providerSymbol: "105.AAPL",
+        timeframe: "1w",
+        period: "weekly",
+        count: 120,
+        startTime: undefined,
+        endTime: undefined,
+      },
+    );
   });
 });
 
@@ -104,7 +113,9 @@ describe("Stock SDK gateway provider", () => {
       }),
       fetchQuoteSnapshot: async () => [fallbackQuote],
     };
-    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([stockSdkProvider, fallbackProvider]));
+    const gateway = createMarketDataGateway(
+      createMarketDataProviderRegistry([stockSdkProvider, fallbackProvider]),
+    );
 
     const result = await gateway.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]);
 
@@ -155,7 +166,9 @@ describe("Stock SDK gateway provider", () => {
       },
       { enabled: true },
     );
-    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([provider]), ["stock-sdk"]);
+    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([provider]), [
+      "stock-sdk",
+    ]);
 
     const result = await gateway.fetchQuoteSnapshot([
       { market: "CN", symbol: "600519.SH" },
@@ -169,7 +182,12 @@ describe("Stock SDK gateway provider", () => {
       ["sh600519", "00700", "AAPL"],
     );
     assert.deepEqual(
-      result.data.map((snapshot) => [snapshot.provider, snapshot.market, snapshot.symbol, snapshot.price]),
+      result.data.map((snapshot) => [
+        snapshot.provider,
+        snapshot.market,
+        snapshot.symbol,
+        snapshot.price,
+      ]),
       [
         ["stock-sdk", "CN", "600519.SH", 1468.1],
         ["stock-sdk", "HK", "00700.HK", 83.2],
@@ -205,7 +223,12 @@ describe("Stock SDK gateway provider", () => {
     const provider = createStockSdkGatewayProvider(
       {
         fetchQuoteSnapshot: async () => [
-          { code: "BRK.A", name: "Berkshire Hathaway", price: 750_000, timestamp: 1_788_288_000_000 },
+          {
+            code: "BRK.A",
+            name: "Berkshire Hathaway",
+            price: 750_000,
+            timestamp: 1_788_288_000_000,
+          },
         ],
         fetchHistoricalBars: async () => [],
         fetchIntradayBars: async () => [],
@@ -235,17 +258,46 @@ describe("Stock SDK gateway provider", () => {
         fetchIntradayBars: async (request) => {
           capturedIntraday.push(`${request.providerSymbol}:${request.period}`);
           return [
-            { datetime: "2026-07-07 09:30:00", open: 0, high: 83.5, low: 83.1, close: 83.2, volume: 100 },
-            { datetime: "2026-07-07 09:31:00", open: 0, high: 83.6, low: 83.2, close: 83.4, volume: 120 },
-            { datetime: "2026-07-08 09:30:00", open: 0, high: 85.1, low: 84.9, close: 85, volume: 90 },
+            {
+              datetime: "2026-07-07 09:30:00",
+              open: 0,
+              high: 83.5,
+              low: 83.1,
+              close: 83.2,
+              volume: 100,
+            },
+            {
+              datetime: "2026-07-07 09:31:00",
+              open: 0,
+              high: 83.6,
+              low: 83.2,
+              close: 83.4,
+              volume: 120,
+            },
+            {
+              datetime: "2026-07-08 09:30:00",
+              open: 0,
+              high: 85.1,
+              low: 84.9,
+              close: 85,
+              volume: 90,
+            },
           ];
         },
       },
       { enabled: true },
     );
 
-    const historicalBars = await provider.fetchHistoricalBars({ market: "US", symbol: "AAPL.US", timeframe: "1w" });
-    const intradayBars = await provider.fetchIntradayBars({ market: "HK", symbol: "00700.HK", timeframe: "1m" });
+    const historicalBars = await provider.fetchHistoricalBars({
+      market: "US",
+      symbol: "AAPL.US",
+      timeframe: "1w",
+    });
+    const intradayBars = await provider.fetchIntradayBars({
+      market: "HK",
+      symbol: "00700.HK",
+      timeframe: "1m",
+    });
 
     assert.deepEqual(capturedHistorical, ["105.AAPL:weekly"]);
     assert.deepEqual(capturedIntraday, ["00700:1"]);
@@ -262,13 +314,24 @@ describe("Stock SDK gateway provider", () => {
         fetchQuoteSnapshot: async () => [],
         fetchHistoricalBars: async () => [],
         fetchIntradayBars: async () => [
-          { datetime: "2026-07-09 16:00:00", open: 316.07, high: 316.21, low: 315.9, close: 316.22, volume: 12_800_715 },
+          {
+            datetime: "2026-07-09 16:00:00",
+            open: 316.07,
+            high: 316.21,
+            low: 315.9,
+            close: 316.22,
+            volume: 12_800_715,
+          },
         ],
       },
       { enabled: true },
     );
 
-    const bars = await provider.fetchIntradayBars({ market: "US", symbol: "AAPL.US", timeframe: "1m" });
+    const bars = await provider.fetchIntradayBars({
+      market: "US",
+      symbol: "AAPL.US",
+      timeframe: "1m",
+    });
 
     assert.equal(bars[0]?.high, 316.22);
     assert.equal((await provider.getHealth()).status, "healthy");
@@ -278,7 +341,9 @@ describe("Stock SDK gateway provider", () => {
     const provider = createStockSdkGatewayProvider(
       {
         fetchQuoteSnapshot: async () => [],
-        fetchHistoricalBars: async () => [{ date: "2026-07-07", open: 10, high: 9, low: 8, close: 10, volume: 1 }],
+        fetchHistoricalBars: async () => [
+          { date: "2026-07-07", open: 10, high: 9, low: 8, close: 10, volume: 1 },
+        ],
         fetchIntradayBars: async () => [],
       },
       { enabled: true },
@@ -328,8 +393,20 @@ describe("Stock SDK provider operations", () => {
           return {
             date: "2026-07-10",
             data: [
-              { time: "09:30", timestamp: 1_784_000_000_000, price: 1200, volume: 100, amount: 120_000 },
-              { time: "09:31", timestamp: 1_784_000_060_000, price: 1201, volume: 160, amount: 192_060 },
+              {
+                time: "09:30",
+                timestamp: 1_784_000_000_000,
+                price: 1200,
+                volume: 100,
+                amount: 120_000,
+              },
+              {
+                time: "09:31",
+                timestamp: 1_784_000_060_000,
+                price: 1201,
+                volume: 160,
+                amount: 192_060,
+              },
             ],
           };
         },
@@ -368,8 +445,24 @@ describe("Stock SDK provider operations", () => {
     assert.deepEqual(timelineCalls, ["sh600519", "hk00700"]);
     assert.equal(minuteKlineCalls, 0);
     assert.deepEqual(cnBars, [
-      { timestamp: 1_784_000_000_000, open: 1200, high: 1200, low: 1200, close: 1200, volume: 100, amount: 120_000 },
-      { timestamp: 1_784_000_060_000, open: 1201, high: 1201, low: 1201, close: 1201, volume: 60, amount: 72_060 },
+      {
+        timestamp: 1_784_000_000_000,
+        open: 1200,
+        high: 1200,
+        low: 1200,
+        close: 1200,
+        volume: 100,
+        amount: 120_000,
+      },
+      {
+        timestamp: 1_784_000_060_000,
+        open: 1201,
+        high: 1201,
+        low: 1201,
+        close: 1201,
+        volume: 60,
+        amount: 72_060,
+      },
     ]);
     assert.equal(hkBars.length, 2);
   });
@@ -400,7 +493,14 @@ describe("Stock SDK provider operations", () => {
     });
 
     await assert.rejects(
-      () => operations.fetchIntradayBars({ market: "US", symbol: "AAPL.US", providerSymbol: "105.AAPL", timeframe: "1m", period: "1" }),
+      () =>
+        operations.fetchIntradayBars({
+          market: "US",
+          symbol: "AAPL.US",
+          providerSymbol: "105.AAPL",
+          timeframe: "1m",
+          period: "1",
+        }),
       /UND_ERR_SOCKET/,
     );
     assert.equal(timelineCalled, false);
@@ -509,7 +609,13 @@ describe("Stock SDK provider operations", () => {
         usMinute: async () => [],
       },
     });
-    const request = { market: "CN" as const, symbol: "600519.SH", providerSymbol: "600519", timeframe: "1d" as const, period: "daily" as const };
+    const request = {
+      market: "CN" as const,
+      symbol: "600519.SH",
+      providerSymbol: "600519",
+      timeframe: "1d" as const,
+      period: "daily" as const,
+    };
 
     await assert.rejects(() => operations.fetchHistoricalBars(request), /connection reset/);
     await assert.rejects(() => operations.fetchHistoricalBars(request), /temporarily unavailable/);
@@ -527,7 +633,14 @@ describe("Stock SDK provider operations", () => {
         return [{ code: "usnok.n", name: "Nokia", market: "us" }];
       },
       quotes: { cn: async () => [], hk: async () => [], us: async () => [] },
-      kline: { cn: async () => [], cnMinute: async () => [], hk: async () => [], hkMinute: async () => [], us: async () => [], usMinute: async () => [] },
+      kline: {
+        cn: async () => [],
+        cnMinute: async () => [],
+        hk: async () => [],
+        hkMinute: async () => [],
+        us: async () => [],
+        usMinute: async () => [],
+      },
     });
 
     const first = await operations.searchInstruments?.("NOK");
@@ -545,7 +658,14 @@ describe("Stock SDK provider operations", () => {
         return [{ code: "usnok.n", name: "Nokia", market: "us" }];
       },
       quotes: { cn: async () => [], hk: async () => [], us: async () => [] },
-      kline: { cn: async () => [], cnMinute: async () => [], hk: async () => [], hkMinute: async () => [], us: async () => [], usMinute: async () => [] },
+      kline: {
+        cn: async () => [],
+        cnMinute: async () => [],
+        hk: async () => [],
+        hkMinute: async () => [],
+        us: async () => [],
+        usMinute: async () => [],
+      },
     });
 
     const records = await operations.searchInstruments?.("NOK");

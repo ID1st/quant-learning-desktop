@@ -26,18 +26,12 @@ function requireEnvironmentValue(
 ): string {
   const value = environment[name]?.trim() ?? "";
   if (Buffer.byteLength(value, "utf8") < minimumBytes) {
-    throw new Error(
-      `${name} is required and must contain at least ${minimumBytes} bytes`,
-    );
+    throw new Error(`${name} is required and must contain at least ${minimumBytes} bytes`);
   }
   return value.replaceAll("\\n", "\n");
 }
 
-function parsePort(
-  rawValue: string | undefined,
-  fallback: number,
-  name: string,
-): number {
+function parsePort(rawValue: string | undefined, fallback: number, name: string): number {
   const port = rawValue ? Number(rawValue) : fallback;
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     throw new Error(`${name} must be a valid TCP port`);
@@ -45,9 +39,7 @@ function parsePort(
   return port;
 }
 
-export function loadCloudAuthConfig(
-  environment: NodeJS.ProcessEnv = process.env,
-): CloudAuthConfig {
+export function loadCloudAuthConfig(environment: NodeJS.ProcessEnv = process.env): CloudAuthConfig {
   const smtpHost = environment.AUTH_SMTP_HOST?.trim() ?? "";
   const smtp = smtpHost
     ? {
@@ -64,56 +56,25 @@ export function loadCloudAuthConfig(
     host: environment.AUTH_HOST?.trim() || "127.0.0.1",
     port: parsePort(environment.AUTH_PORT, 8787, "AUTH_PORT"),
     databaseUrl: requireEnvironmentValue(environment, "DATABASE_URL"),
-    inviteCodePepper: requireEnvironmentValue(
-      environment,
-      "AUTH_INVITE_CODE_PEPPER",
-      32,
-    ),
-    tokenPepper: requireEnvironmentValue(
-      environment,
-      "AUTH_TOKEN_PEPPER",
-      32,
-    ),
-    emailCodePepper: requireEnvironmentValue(
-      environment,
-      "AUTH_EMAIL_CODE_PEPPER",
-      32,
-    ),
-    loginChallengeSecret: requireEnvironmentValue(
-      environment,
-      "AUTH_LOGIN_CHALLENGE_SECRET",
-      32,
-    ),
-    offlineLeasePrivateKeyPem: requireEnvironmentValue(
-      environment,
-      "AUTH_OFFLINE_PRIVATE_KEY_PEM",
-    ),
-    offlineLeasePublicKeyPem: requireEnvironmentValue(
-      environment,
-      "AUTH_OFFLINE_PUBLIC_KEY_PEM",
-    ),
+    inviteCodePepper: requireEnvironmentValue(environment, "AUTH_INVITE_CODE_PEPPER", 32),
+    tokenPepper: requireEnvironmentValue(environment, "AUTH_TOKEN_PEPPER", 32),
+    emailCodePepper: requireEnvironmentValue(environment, "AUTH_EMAIL_CODE_PEPPER", 32),
+    loginChallengeSecret: requireEnvironmentValue(environment, "AUTH_LOGIN_CHALLENGE_SECRET", 32),
+    offlineLeasePrivateKeyPem: requireEnvironmentValue(environment, "AUTH_OFFLINE_PRIVATE_KEY_PEM"),
+    offlineLeasePublicKeyPem: requireEnvironmentValue(environment, "AUTH_OFFLINE_PUBLIC_KEY_PEM"),
     inviteExportDirectory:
-      environment.AUTH_INVITE_EXPORT_DIR?.trim() ||
-      "/opt/quant-auth/secrets/invite-exports",
+      environment.AUTH_INVITE_EXPORT_DIR?.trim() || "/opt/quant-auth/secrets/invite-exports",
     smtp,
   };
 }
 
 export function loadInviteCliConfig(
   environment: NodeJS.ProcessEnv = process.env,
-): Pick<
-  CloudAuthConfig,
-  "databaseUrl" | "inviteCodePepper" | "inviteExportDirectory"
-> {
+): Pick<CloudAuthConfig, "databaseUrl" | "inviteCodePepper" | "inviteExportDirectory"> {
   return {
     databaseUrl: requireEnvironmentValue(environment, "DATABASE_URL"),
-    inviteCodePepper: requireEnvironmentValue(
-      environment,
-      "AUTH_INVITE_CODE_PEPPER",
-      32,
-    ),
+    inviteCodePepper: requireEnvironmentValue(environment, "AUTH_INVITE_CODE_PEPPER", 32),
     inviteExportDirectory:
-      environment.AUTH_INVITE_EXPORT_DIR?.trim() ||
-      "/opt/quant-auth/secrets/invite-exports",
+      environment.AUTH_INVITE_EXPORT_DIR?.trim() || "/opt/quant-auth/secrets/invite-exports",
   };
 }

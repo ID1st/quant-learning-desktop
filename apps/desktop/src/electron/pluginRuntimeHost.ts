@@ -18,9 +18,13 @@ export interface PluginRuntimeHostOptions {
 export function createPluginRuntimeHost(options: PluginRuntimeHostOptions): PluginRuntimeHost {
   return {
     async refresh() {
-      const logs = options.manager.list()
+      const logs = options.manager
+        .list()
         .filter((plugin) => plugin.status === "enabled" && plugin.manifest.type === "strategy")
-        .map((plugin) => ({ pluginId: plugin.manifest.id, message: pluginExecutionDisabledMessage }));
+        .map((plugin) => ({
+          pluginId: plugin.manifest.id,
+          message: pluginExecutionDisabledMessage,
+        }));
       return { strategies: [], logs, failures: [] };
     },
     async runStrategy(pluginId, key, input) {

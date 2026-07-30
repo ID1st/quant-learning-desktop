@@ -76,7 +76,8 @@ function printSnapshotResult(quotes) {
     const age = formatAge(timestamp);
     const lastDone = toNumber(quote.lastDone);
     const previousClose = toNumber(quote.prevClose);
-    const changePercent = previousClose === 0 ? 0 : ((lastDone - previousClose) / previousClose) * 100;
+    const changePercent =
+      previousClose === 0 ? 0 : ((lastDone - previousClose) / previousClose) * 100;
 
     console.log(
       [

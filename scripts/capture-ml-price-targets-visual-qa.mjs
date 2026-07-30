@@ -2,7 +2,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { app, BrowserWindow } from "electron";
 
-const previewUrl = process.env.ML_VISUAL_QA_URL ?? "http://127.0.0.1:5174/?ml-price-targets-visual-qa=1";
+const previewUrl =
+  process.env.ML_VISUAL_QA_URL ?? "http://127.0.0.1:5174/?ml-price-targets-visual-qa=1";
 const outputDirectory = resolve("data/tmp");
 const implementationPath = resolve(outputDirectory, "ml-price-targets-visual-qa.png");
 const comparisonPath = resolve(outputDirectory, "ml-price-targets-visual-comparison.png");
@@ -28,14 +29,18 @@ void app.whenReady().then(async () => {
 
   window.webContents.on("console-message", (...args) => {
     const details = typeof args[1] === "object" ? args[1] : { level: args[1], message: args[2] };
-    if (details.level === "error" || details.level === 3) consoleErrors.push(String(details.message ?? "Unknown console error"));
-    if (details.level === "warning" || details.level === 2) consoleWarnings.push(String(details.message ?? "Unknown console warning"));
+    if (details.level === "error" || details.level === 3)
+      consoleErrors.push(String(details.message ?? "Unknown console error"));
+    if (details.level === "warning" || details.level === 2)
+      consoleWarnings.push(String(details.message ?? "Unknown console warning"));
   });
 
   try {
     await Promise.race([
       window.loadURL(previewUrl),
-      new Promise((_, reject) => setTimeout(() => reject(new Error(`Timed out loading ${previewUrl}`)), 15_000)),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Timed out loading ${previewUrl}`)), 15_000),
+      ),
     ]);
     for (let attempt = 0; attempt < 40; attempt += 1) {
       const ready = await window.webContents.executeJavaScript(
@@ -65,7 +70,9 @@ figcaption{color:#9aa6b8;font-weight:700}img{width:100%;height:100%;object-fit:c
     const comparison = await window.webContents.capturePage();
     await writeFile(comparisonPath, comparison.toPNG());
 
-    console.log(JSON.stringify({ implementationPath, comparisonPath, consoleErrors, consoleWarnings }));
+    console.log(
+      JSON.stringify({ implementationPath, comparisonPath, consoleErrors, consoleWarnings }),
+    );
     app.exit(consoleErrors.length === 0 ? 0 : 1);
   } catch (error) {
     console.error(error instanceof Error ? error.stack : String(error));

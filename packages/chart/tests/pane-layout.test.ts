@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  clampSecondaryPaneRatio,
-  getChartPaneGridTemplate,
-} from "../src/paneLayout.ts";
+import { clampSecondaryPaneRatio, getChartPaneGridTemplate } from "../src/paneLayout.ts";
 
 test("secondary pane ratio is constrained to a readable 18 to 45 percent", () => {
   assert.equal(clampSecondaryPaneRatio(0.1), 0.18);

@@ -119,7 +119,13 @@ test("counts valid cached timestamps but excludes the open minute and invalid up
   const stockBars = createBars("stock-sdk", 3, endTime + 2 * minute);
   stockBars[0] = { ...stockBars[0]!, high: stockBars[0]!.low - 1 };
   const result = await fetchMlptHistoricalBackfill({
-    request: { market: "US", symbol: "AAPL.US", timeframe: "1m", count: 4, endTime: endTime + minute },
+    request: {
+      market: "US",
+      symbol: "AAPL.US",
+      timeframe: "1m",
+      count: 4,
+      endTime: endTime + minute,
+    },
     targetBars: 4,
     confirmedThroughTimestamp: endTime,
     knownTimestamps: [endTime - 10 * minute, endTime - 9 * minute],

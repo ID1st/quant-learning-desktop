@@ -49,10 +49,7 @@ function sanitizeLegacySession(value: unknown): LegacySession | null {
     return null;
   }
   const record = value as Record<string, unknown>;
-  if (
-    typeof record.userId !== "string" ||
-    typeof record.apiBound !== "boolean"
-  ) {
+  if (typeof record.userId !== "string" || typeof record.apiBound !== "boolean") {
     return null;
   }
   return {
@@ -88,32 +85,22 @@ function sanitizeProfileBinding(value: unknown): LocalProfileBinding | null {
 }
 
 function migrateLegacySession(): LocalOnboardingState {
-  const existingOnboarding = appLocalDatabase.readDocument(
-    ONBOARDING_COLLECTION,
-    {
-      version: STORAGE_VERSION,
-      fallback: null as LocalOnboardingState | null,
-      sanitize: sanitizeOnboarding,
-    },
-  );
-  const legacySession = appLocalDatabase.readDocument(
-    LEGACY_SESSION_COLLECTION,
-    {
-      version: STORAGE_VERSION,
-      fallback: null as LegacySession | null,
-      sanitize: sanitizeLegacySession,
-    },
-  );
+  const existingOnboarding = appLocalDatabase.readDocument(ONBOARDING_COLLECTION, {
+    version: STORAGE_VERSION,
+    fallback: null as LocalOnboardingState | null,
+    sanitize: sanitizeOnboarding,
+  });
+  const legacySession = appLocalDatabase.readDocument(LEGACY_SESSION_COLLECTION, {
+    version: STORAGE_VERSION,
+    fallback: null as LegacySession | null,
+    sanitize: sanitizeLegacySession,
+  });
 
   appLocalDatabase.removeDocument(LEGACY_SESSION_COLLECTION);
   const onboarding = existingOnboarding ?? {
     apiBound: legacySession?.apiBound ?? false,
   };
-  appLocalDatabase.writeDocument(
-    ONBOARDING_COLLECTION,
-    STORAGE_VERSION,
-    onboarding,
-  );
+  appLocalDatabase.writeDocument(ONBOARDING_COLLECTION, STORAGE_VERSION, onboarding);
   return onboarding;
 }
 
@@ -136,11 +123,7 @@ function persistApiBound(apiBound: boolean): void {
 
 function bindProfile(userId: string): void {
   profileBinding = { userId };
-  appLocalDatabase.writeDocument(
-    PROFILE_BINDING_COLLECTION,
-    STORAGE_VERSION,
-    profileBinding,
-  );
+  appLocalDatabase.writeDocument(PROFILE_BINDING_COLLECTION, STORAGE_VERSION, profileBinding);
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -155,8 +138,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     const session = nextState.session;
     if (
       session &&
-      (nextState.phase === "AUTHENTICATED_ONLINE" ||
-        nextState.phase === "AUTHENTICATED_OFFLINE")
+      (nextState.phase === "AUTHENTICATED_ONLINE" || nextState.phase === "AUTHENTICATED_OFFLINE")
     ) {
       if (!profileBinding) {
         bindProfile(session.userId);
@@ -208,6 +190,5 @@ export const useAuthStore = create<AuthState>((set) => ({
         apiBound: false,
       };
     }),
-  clearProfileConflict: () =>
-    set({ profileConflictUserId: null, pendingSession: null }),
+  clearProfileConflict: () => set({ profileConflictUserId: null, pendingSession: null }),
 }));

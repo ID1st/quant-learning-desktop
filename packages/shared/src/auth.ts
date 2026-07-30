@@ -1,7 +1,6 @@
 export const ENTITLEMENT_DURATION_DAYS = [7, 30, 90, 365] as const;
 
-export type EntitlementDurationDays =
-  (typeof ENTITLEMENT_DURATION_DAYS)[number];
+export type EntitlementDurationDays = (typeof ENTITLEMENT_DURATION_DAYS)[number];
 
 export const ACCESS_STATUSES = [
   "ACTIVE",
@@ -74,8 +73,7 @@ export interface AuthOperationError {
 }
 
 export type AuthOperationResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: AuthOperationError };
+  { ok: true; data: T } | { ok: false; error: AuthOperationError };
 
 export interface RequestRegistrationCodeInput {
   email: string;
@@ -134,46 +132,28 @@ export interface QuantDesktopAuthBridge {
   requestRegistrationCode(
     input: RequestRegistrationCodeInput,
   ): Promise<AuthOperationResult<EmailCodeRequestResult>>;
-  register(
-    input: RegisterInput,
-  ): Promise<AuthOperationResult<RegistrationResult>>;
+  register(input: RegisterInput): Promise<AuthOperationResult<RegistrationResult>>;
   login(input: LoginInput): Promise<AuthOperationResult<LoginResult>>;
-  redeemInvite(
-    input: RedeemInviteInput,
-  ): Promise<AuthOperationResult<AuthSessionSnapshot>>;
-  renewEntitlement(
-    input: RenewEntitlementInput,
-  ): Promise<AuthOperationResult<AuthSessionSnapshot>>;
+  redeemInvite(input: RedeemInviteInput): Promise<AuthOperationResult<AuthSessionSnapshot>>;
+  renewEntitlement(input: RenewEntitlementInput): Promise<AuthOperationResult<AuthSessionSnapshot>>;
   requestPasswordReset(
     input: RequestPasswordResetInput,
   ): Promise<AuthOperationResult<EmailCodeRequestResult>>;
-  resetPassword(
-    input: ResetPasswordInput,
-  ): Promise<AuthOperationResult<PasswordResetResult>>;
+  resetPassword(input: ResetPasswordInput): Promise<AuthOperationResult<PasswordResetResult>>;
   logout(): Promise<AuthOperationResult<{ signedOut: true }>>;
   getSnapshot(): Promise<AuthOperationResult<AuthStateSnapshot>>;
   subscribe(listener: (state: AuthStateSnapshot) => void): () => void;
 }
 
 export function isAuthErrorCode(value: unknown): value is AuthErrorCode {
-  return (
-    typeof value === "string" &&
-    AUTH_ERROR_CODES.some((errorCode) => errorCode === value)
-  );
+  return typeof value === "string" && AUTH_ERROR_CODES.some((errorCode) => errorCode === value);
 }
 
 function isIsoDate(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length >= 20 &&
-    Number.isFinite(Date.parse(value))
-  );
+  return typeof value === "string" && value.length >= 20 && Number.isFinite(Date.parse(value));
 }
 
-function hasExactKeys(
-  record: Record<string, unknown>,
-  expectedKeys: readonly string[],
-): boolean {
+function hasExactKeys(record: Record<string, unknown>, expectedKeys: readonly string[]): boolean {
   const keys = Object.keys(record).sort();
   return (
     keys.length === expectedKeys.length &&
@@ -181,9 +161,7 @@ function hasExactKeys(
   );
 }
 
-export function isAuthSessionSnapshot(
-  value: unknown,
-): value is AuthSessionSnapshot {
+export function isAuthSessionSnapshot(value: unknown): value is AuthSessionSnapshot {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }
@@ -212,9 +190,7 @@ export function isAuthSessionSnapshot(
     typeof record.email === "string" &&
     record.email.includes("@") &&
     ACCESS_STATUSES.some((status) => status === record.accessStatus) &&
-    ENTITLEMENT_DURATION_DAYS.some(
-      (duration) => duration === record.entitlementDurationDays,
-    ) &&
+    ENTITLEMENT_DURATION_DAYS.some((duration) => duration === record.entitlementDurationDays) &&
     isIsoDate(record.entitlementEndsAt) &&
     isIsoDate(record.offlineUntil) &&
     typeof record.deviceId === "string" &&

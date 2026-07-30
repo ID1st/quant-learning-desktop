@@ -42,17 +42,50 @@ test("plugin IPC returns isolated descriptors and routes strategy execution with
     installFromDirectory: async () => record,
     setEnabled: async () => record,
     recordRuntimeFailure: async () => ({ ...record, status: "degraded" as const, failureCount: 1 }),
-    uninstall: async (id) => { calls.push(`uninstall:${id}`); },
-    readEnabledRuntimeModules: async () => [{ plugin: record, source: "export function activate() {}" }],
+    uninstall: async (id) => {
+      calls.push(`uninstall:${id}`);
+    },
+    readEnabledRuntimeModules: async () => [
+      { plugin: record, source: "export function activate() {}" },
+    ],
   };
   const runtime: PluginRuntimeHost = {
     async refresh() {
       calls.push("refresh");
-      return { strategies: [{ kind: "strategy", pluginId: record.manifest.id, key: `${record.manifest.id}:signal`, name: "Sample", version: "1.0.0", description: "test", supportedMarkets: ["US"], supportedTimeframes: ["1d"], parameterSchema: [] }], logs: [], failures: [] };
+      return {
+        strategies: [
+          {
+            kind: "strategy",
+            pluginId: record.manifest.id,
+            key: `${record.manifest.id}:signal`,
+            name: "Sample",
+            version: "1.0.0",
+            description: "test",
+            supportedMarkets: ["US"],
+            supportedTimeframes: ["1d"],
+            parameterSchema: [],
+          },
+        ],
+        logs: [],
+        failures: [],
+      };
     },
     async runStrategy(pluginId, key) {
       calls.push(`run:${pluginId}:${key}`);
-      return { signals: [], overlays: [], render: { strategyId: key, strategyName: "Sample", enabled: true, zIndex: 20, elements: [] }, metrics: {}, logs: [], alerts: [] };
+      return {
+        signals: [],
+        overlays: [],
+        render: {
+          strategyId: key,
+          strategyName: "Sample",
+          enabled: true,
+          zIndex: 20,
+          elements: [],
+        },
+        metrics: {},
+        logs: [],
+        alerts: [],
+      };
     },
     dispose: () => undefined,
   };
@@ -61,7 +94,12 @@ test("plugin IPC returns isolated descriptors and routes strategy execution with
   assert.equal(snapshot.ok, true);
   assert.equal(snapshot.ok && "source" in snapshot.data.strategies[0]!, false);
   const execution = await handlers.runStrategy(record.manifest.id, `${record.manifest.id}:signal`, {
-    symbol: "AAPL.US", market: "US", timeframe: "1d", bars: [], parameters: {}, runMode: "backtest",
+    symbol: "AAPL.US",
+    market: "US",
+    timeframe: "1d",
+    bars: [],
+    parameters: {},
+    runMode: "backtest",
   });
   assert.equal(execution.ok, true);
   assert.deepEqual(calls, ["refresh", `run:${record.manifest.id}:${record.manifest.id}:signal`]);

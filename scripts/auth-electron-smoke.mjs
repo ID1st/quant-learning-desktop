@@ -11,19 +11,10 @@ const electron = path.join(
   "dist",
   process.platform === "win32" ? "electron.exe" : "electron",
 );
-const entry = path.join(
-  root,
-  "apps",
-  "desktop",
-  "out",
-  "main",
-  "authSmoke.js",
-);
+const entry = path.join(root, "apps", "desktop", "out", "main", "authSmoke.js");
 
 if (!existsSync(electron) || !existsSync(entry)) {
-  throw new Error(
-    "Electron auth smoke prerequisites are missing. Run the Electron build first.",
-  );
+  throw new Error("Electron auth smoke prerequisites are missing. Run the Electron build first.");
 }
 
 const child = spawn(electron, [entry], {

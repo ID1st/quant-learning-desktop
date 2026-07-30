@@ -111,8 +111,7 @@ function validateMessage(message: OutboxMessage): void {
   if (
     !/^\d{6}$/.test(message.payload.code) ||
     message.payload.expiresInMinutes !== 10 ||
-    (message.template !== "registration-code" &&
-      message.template !== "password-reset-code")
+    (message.template !== "registration-code" && message.template !== "password-reset-code")
   ) {
     throw new Error("email outbox payload is invalid");
   }
@@ -124,8 +123,7 @@ function renderMessage(message: OutboxMessage): {
   html: string;
 } {
   validateMessage(message);
-  const purpose =
-    message.template === "registration-code" ? "注册" : "重置密码";
+  const purpose = message.template === "registration-code" ? "注册" : "重置密码";
   const subject = `量化学习系统${purpose}验证码`;
   const text = `您的${purpose}验证码为：${message.payload.code}。验证码 10 分钟内有效，请勿转发。`;
   const html = [
@@ -143,8 +141,7 @@ function safeDeliveryError(error: unknown): string {
   }
   const record = error as Record<string, unknown>;
   const code =
-    typeof record.code === "string" &&
-    /^[A-Za-z0-9_.-]{1,40}$/.test(record.code)
+    typeof record.code === "string" && /^[A-Za-z0-9_.-]{1,40}$/.test(record.code)
       ? record.code
       : "UNKNOWN";
   const responseCode =
@@ -163,11 +160,7 @@ export class EmailOutboxWorker {
   private readonly transporter: Transporter;
   private readonly from: string;
 
-  public constructor(
-    pool: Pool,
-    transporter: Transporter,
-    from: string,
-  ) {
+  public constructor(pool: Pool, transporter: Transporter, from: string) {
     this.pool = pool;
     this.transporter = transporter;
     this.from = from;
@@ -229,10 +222,7 @@ export class EmailOutboxWorker {
             [message.id, message.claimToken],
           );
         } catch (error) {
-          const retryDelayMinutes = Math.min(
-            2 ** message.attemptCount,
-            60,
-          );
+          const retryDelayMinutes = Math.min(2 ** message.attemptCount, 60);
           await this.pool.query(
             `
               UPDATE email_outbox

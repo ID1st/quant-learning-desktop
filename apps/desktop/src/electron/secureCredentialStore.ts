@@ -66,7 +66,9 @@ function sanitizeLongPortCredentials(value: unknown): LongPortApiCredentials | n
   const appSecret = normalizeString(candidate.appSecret);
   const accessToken = normalizeString(candidate.accessToken);
 
-  return apiUrl && appKey && appSecret && accessToken ? { apiUrl, appKey, appSecret, accessToken } : null;
+  return apiUrl && appKey && appSecret && accessToken
+    ? { apiUrl, appKey, appSecret, accessToken }
+    : null;
 }
 
 function sanitizeAlphaFeedStreamCredentials(value: unknown): AlphaFeedStreamCredentials | null {
@@ -81,7 +83,10 @@ function sanitizeAlphaFeedStreamCredentials(value: unknown): AlphaFeedStreamCred
   return wsUrl && apiKey ? { wsUrl, apiKey } : null;
 }
 
-function readEnvelope(value: string | null, provider: SecureCredentialProvider): SecureCredentialEnvelope | null {
+function readEnvelope(
+  value: string | null,
+  provider: SecureCredentialProvider,
+): SecureCredentialEnvelope | null {
   if (!value) {
     return null;
   }
@@ -124,14 +129,27 @@ function createEnvelope(
   };
 }
 
-export function createSecureCredentialStore(store: LocalPersistenceStore, crypto: SecureCredentialCrypto): SecureCredentialStore {
-  const saveCredentials = (key: string, provider: SecureCredentialProvider, credentials: object, activate = false) => {
+export function createSecureCredentialStore(
+  store: LocalPersistenceStore,
+  crypto: SecureCredentialCrypto,
+): SecureCredentialStore {
+  const saveCredentials = (
+    key: string,
+    provider: SecureCredentialProvider,
+    credentials: object,
+    activate = false,
+  ) => {
     if (!crypto.isEncryptionAvailable()) {
       throw new Error("当前系统不支持安全凭据加密。");
     }
 
     const encryptedPayload = crypto.encrypt(JSON.stringify(credentials));
-    store.setItem(key, JSON.stringify(createEnvelope(provider, encryptedPayload, activate ? new Date().toISOString() : undefined)));
+    store.setItem(
+      key,
+      JSON.stringify(
+        createEnvelope(provider, encryptedPayload, activate ? new Date().toISOString() : undefined),
+      ),
+    );
   };
 
   const readCredentials = <T>(
@@ -164,7 +182,8 @@ export function createSecureCredentialStore(store: LocalPersistenceStore, crypto
       // remain inert until the user explicitly fills and verifies the current form.
       saveCredentials(ALPHAFEED_CREDENTIAL_KEY, "alphafeed", sanitized, true);
     },
-    readAlphaFeedCredentials: () => readCredentials(ALPHAFEED_CREDENTIAL_KEY, "alphafeed", sanitizeAlphaFeedCredentials, true),
+    readAlphaFeedCredentials: () =>
+      readCredentials(ALPHAFEED_CREDENTIAL_KEY, "alphafeed", sanitizeAlphaFeedCredentials, true),
     clearAlphaFeedCredentials: () => store.removeItem(ALPHAFEED_CREDENTIAL_KEY),
     saveAlphaFeedStreamCredentials: (credentials) => {
       const sanitized = sanitizeAlphaFeedStreamCredentials(credentials);
@@ -175,7 +194,11 @@ export function createSecureCredentialStore(store: LocalPersistenceStore, crypto
       saveCredentials(ALPHAFEED_STREAM_CREDENTIAL_KEY, "alphafeed-stream", sanitized);
     },
     readAlphaFeedStreamCredentials: () =>
-      readCredentials(ALPHAFEED_STREAM_CREDENTIAL_KEY, "alphafeed-stream", sanitizeAlphaFeedStreamCredentials),
+      readCredentials(
+        ALPHAFEED_STREAM_CREDENTIAL_KEY,
+        "alphafeed-stream",
+        sanitizeAlphaFeedStreamCredentials,
+      ),
     clearAlphaFeedStreamCredentials: () => store.removeItem(ALPHAFEED_STREAM_CREDENTIAL_KEY),
     saveLongPortCredentials: (credentials) => {
       const sanitized = sanitizeLongPortCredentials(credentials);
@@ -187,7 +210,8 @@ export function createSecureCredentialStore(store: LocalPersistenceStore, crypto
       // inert until the user explicitly fills and verifies the current form.
       saveCredentials(LONGPORT_CREDENTIAL_KEY, "longport", sanitized, true);
     },
-    readLongPortCredentials: () => readCredentials(LONGPORT_CREDENTIAL_KEY, "longport", sanitizeLongPortCredentials, true),
+    readLongPortCredentials: () =>
+      readCredentials(LONGPORT_CREDENTIAL_KEY, "longport", sanitizeLongPortCredentials, true),
     clearLongPortCredentials: () => store.removeItem(LONGPORT_CREDENTIAL_KEY),
   };
 }

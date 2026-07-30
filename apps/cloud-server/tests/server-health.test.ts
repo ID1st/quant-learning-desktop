@@ -30,9 +30,7 @@ function createConfig(): CloudAuthConfig {
   };
 }
 
-function createPool(
-  query: (sql?: string, values?: unknown[]) => Promise<unknown>,
-): Pool {
+function createPool(query: (sql?: string, values?: unknown[]) => Promise<unknown>): Pool {
   return {
     query,
   } as unknown as Pool;

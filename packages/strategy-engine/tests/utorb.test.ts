@@ -1,12 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createPresetStrategyRegistry, runRegisteredStrategy, runStrategyBacktest, type Bar } from "../src/index.ts";
+import {
+  createPresetStrategyRegistry,
+  runRegisteredStrategy,
+  runStrategyBacktest,
+  type Bar,
+} from "../src/index.ts";
 
-function bar(timestamp: string, open: number, high: number, low: number, close: number, volume = 100): Bar {
+function bar(
+  timestamp: string,
+  open: number,
+  high: number,
+  low: number,
+  close: number,
+  volume = 100,
+): Bar {
   return { timestamp: Date.parse(timestamp), open, high, low, close, volume };
 }
 
-function runUtorb(bars: Bar[], parameters: Record<string, unknown> = {}, market: "US" | "HK" | "CN" = "US") {
+function runUtorb(
+  bars: Bar[],
+  parameters: Record<string, unknown> = {},
+  market: "US" | "HK" | "CN" = "US",
+) {
   const registry = createPresetStrategyRegistry();
   return runRegisteredStrategy(registry, {
     strategyKey: "utorb",
@@ -58,16 +74,26 @@ const twoSessionBars = [
 
 test("UTORB reproduces Pine sessions, resets daily, and emits one breakout per direction per session", () => {
   const result = runUtorb(twoSessionBars, { signalLabelSize: "large" });
-  const directionalSignals = result.output.signals.filter((signal) => signal.type === "buy" || signal.type === "sell");
-  const breakoutMarker = result.output.render.elements.find((element) => element.id === `utorb-buy-${Date.parse("2026-01-02T15:00:00Z")}`);
+  const directionalSignals = result.output.signals.filter(
+    (signal) => signal.type === "buy" || signal.type === "sell",
+  );
+  const breakoutMarker = result.output.render.elements.find(
+    (element) => element.id === `utorb-buy-${Date.parse("2026-01-02T15:00:00Z")}`,
+  );
 
   assert.equal(result.output.metrics.totalSessions, 2);
-  assert.deepEqual(directionalSignals.map((signal) => signal.type), ["buy", "sell", "buy"]);
-  assert.deepEqual(directionalSignals.map((signal) => signal.timestamp), [
-    Date.parse("2026-01-02T15:00:00Z"),
-    Date.parse("2026-01-02T15:15:00Z"),
-    Date.parse("2026-01-03T15:00:00Z"),
-  ]);
+  assert.deepEqual(
+    directionalSignals.map((signal) => signal.type),
+    ["buy", "sell", "buy"],
+  );
+  assert.deepEqual(
+    directionalSignals.map((signal) => signal.timestamp),
+    [
+      Date.parse("2026-01-02T15:00:00Z"),
+      Date.parse("2026-01-02T15:15:00Z"),
+      Date.parse("2026-01-03T15:00:00Z"),
+    ],
+  );
   assert.equal(directionalSignals[0]?.label, "向上突破（低量）");
   assert.deepEqual(
     breakoutMarker?.kind === "signal-marker"
@@ -91,14 +117,19 @@ test("UTORB reproduces Pine sessions, resets daily, and emits one breakout per d
 
 test("UTORB marks secondary opposite breakouts as observational for backtests", () => {
   const result = runUtorb(twoSessionBars.slice(0, 5));
-  const directionalSignals = result.output.signals.filter((signal) => signal.type === "buy" || signal.type === "sell");
+  const directionalSignals = result.output.signals.filter(
+    (signal) => signal.type === "buy" || signal.type === "sell",
+  );
   const backtest = runStrategyBacktest({
     bars: twoSessionBars.slice(0, 5),
     signals: result.output.signals,
     settings: { initialCapital: 1_000, feeRate: 0, slippageRate: 0, allowShort: true },
   });
 
-  assert.deepEqual(directionalSignals.map((signal) => signal.backtestAction), ["enter-long", "none"]);
+  assert.deepEqual(
+    directionalSignals.map((signal) => signal.backtestAction),
+    ["enter-long", "none"],
+  );
   assert.equal(backtest.trades.length, 1);
   assert.equal(backtest.trades[0]?.direction, "long");
 });
@@ -113,7 +144,9 @@ test("UTORB follows New York daylight saving time in market timezone mode", () =
 
   assert.equal(result.output.metrics.totalSessions, 1);
   assert.equal(
-    result.output.signals.some((signal) => signal.type === "buy" && signal.timestamp === Date.parse("2026-07-07T14:00:00Z")),
+    result.output.signals.some(
+      (signal) => signal.type === "buy" && signal.timestamp === Date.parse("2026-07-07T14:00:00Z"),
+    ),
     true,
   );
 });
@@ -128,7 +161,10 @@ test("UTORB uses the selected Asian market timezone without manual UTC offsets",
   for (const market of ["HK", "CN"] as const) {
     const result = runUtorb(asianBars, {}, market);
     assert.equal(result.output.metrics.totalSessions, 1);
-    assert.equal(result.output.signals.some((signal) => signal.type === "buy"), true);
+    assert.equal(
+      result.output.signals.some((signal) => signal.type === "buy"),
+      true,
+    );
   }
 });
 
@@ -140,19 +176,36 @@ test("UTORB plots the Pine opening range and all six extension levels for the la
     (element) => element.kind === "price-line" && element.fromTimestamp === latestStart,
   );
   const latestRangeBand = result.output.render.elements.find(
-    (element) => element.kind === "band" && element.id === `utorb-opening-range-${Date.UTC(2026, 0, 3)}`,
+    (element) =>
+      element.kind === "band" && element.id === `utorb-opening-range-${Date.UTC(2026, 0, 3)}`,
   );
   const latestTargetZones = result.output.render.elements.filter(
-    (element) => element.kind === "band" && element.id.startsWith("utorb-target-zone-") && element.fromTimestamp === latestStart,
+    (element) =>
+      element.kind === "band" &&
+      element.id.startsWith("utorb-target-zone-") &&
+      element.fromTimestamp === latestStart,
   );
 
-  assert.deepEqual(latestLines.filter((line) => line.kind === "price-line").map((line) => line.price).sort((a, b) => a - b), [
-    180, 186, 192, 198, 204, 210, 216, 222,
-  ]);
-  assert.ok(latestLines.every((line) => line.kind === "price-line" && line.toTimestamp === latestPlotEnd));
-  assert.equal(latestRangeBand?.kind === "band" ? latestRangeBand.toTimestamp : null, latestPlotEnd);
+  assert.deepEqual(
+    latestLines
+      .filter((line) => line.kind === "price-line")
+      .map((line) => line.price)
+      .sort((a, b) => a - b),
+    [180, 186, 192, 198, 204, 210, 216, 222],
+  );
+  assert.ok(
+    latestLines.every((line) => line.kind === "price-line" && line.toTimestamp === latestPlotEnd),
+  );
+  assert.equal(
+    latestRangeBand?.kind === "band" ? latestRangeBand.toTimestamp : null,
+    latestPlotEnd,
+  );
   assert.equal(latestTargetZones.length, 6);
-  assert.ok(latestTargetZones.every((element) => element.kind === "band" && element.toTimestamp === latestPlotEnd));
+  assert.ok(
+    latestTargetZones.every(
+      (element) => element.kind === "band" && element.toTimestamp === latestPlotEnd,
+    ),
+  );
   assert.deepEqual(
     latestTargetZones
       .filter((element) => element.id.includes("zone-up"))
@@ -185,18 +238,32 @@ test("UTORB exposes Pine target hit rates, trailing stop, optimizer, and volume 
   assert.equal(result.output.metrics.upperTargetOneHits, 2);
   assert.equal(result.output.metrics.upperTargetOneHitRate, 100);
   assert.ok(Number.isFinite(result.output.metrics.bestTrailingStopMultiplier));
-  assert.ok(result.output.render.elements.some((element) => element.kind === "trend-line" && element.id.startsWith("utorb-trail")));
+  assert.ok(
+    result.output.render.elements.some(
+      (element) => element.kind === "trend-line" && element.id.startsWith("utorb-trail"),
+    ),
+  );
   assert.ok(volumeProfile.length > 0);
-  assert.ok(volumeProfile.every((element) => element.kind === "band" && element.toTimestamp === latestTimestamp));
+  assert.ok(
+    volumeProfile.every(
+      (element) => element.kind === "band" && element.toTimestamp === latestTimestamp,
+    ),
+  );
   assert.ok(volumeProfile.every((element) => element.kind === "band" && element.opacity === 0.1));
   assert.equal(result.output.render.hudPanels, undefined);
-  assert.equal(result.output.alerts.some((alert) => alert.includes("最终向上目标")), false);
+  assert.equal(
+    result.output.alerts.some((alert) => alert.includes("最终向上目标")),
+    false,
+  );
 
   const closeCrossResult = runUtorb([
     ...twoSessionBars,
     bar("2026-01-03T15:45:00Z", 220, 224, 219, 223, 600),
   ]);
-  assert.equal(closeCrossResult.output.alerts.some((alert) => alert.includes("最终向上目标")), true);
+  assert.equal(
+    closeCrossResult.output.alerts.some((alert) => alert.includes("最终向上目标")),
+    true,
+  );
 });
 
 test("UTORB clears the previous range at a new local day before the next opening session", () => {
@@ -209,9 +276,14 @@ test("UTORB clears the previous range at a new local day before the next opening
     bar("2026-01-03T15:00:00Z", 204, 210, 203, 206),
   ];
   const result = runUtorb(bars, { stopPlotting: false });
-  const directionalSignals = result.output.signals.filter((signal) => signal.type === "buy" || signal.type === "sell");
+  const directionalSignals = result.output.signals.filter(
+    (signal) => signal.type === "buy" || signal.type === "sell",
+  );
 
-  assert.deepEqual(directionalSignals.map((signal) => signal.timestamp), [Date.parse("2026-01-03T15:00:00Z")]);
+  assert.deepEqual(
+    directionalSignals.map((signal) => signal.timestamp),
+    [Date.parse("2026-01-03T15:00:00Z")],
+  );
   assert.equal(result.output.metrics.totalSessions, 2);
 });
 
@@ -225,51 +297,62 @@ test("UTORB maps Pine plotting end modes to the configured timezone", () => {
   const londonLine = london.output.render.elements.find((element) => element.kind === "price-line");
   const manualLine = manual.output.render.elements.find((element) => element.kind === "price-line");
 
-  assert.equal(londonLine?.kind === "price-line" ? londonLine.toTimestamp : null, Date.parse("2026-01-02T16:30:00Z"));
-  assert.equal(manualLine?.kind === "price-line" ? manualLine.toTimestamp : null, Date.parse("2026-01-02T21:15:00Z"));
+  assert.equal(
+    londonLine?.kind === "price-line" ? londonLine.toTimestamp : null,
+    Date.parse("2026-01-02T16:30:00Z"),
+  );
+  assert.equal(
+    manualLine?.kind === "price-line" ? manualLine.toTimestamp : null,
+    Date.parse("2026-01-02T21:15:00Z"),
+  );
 });
 
 test("UTORB exposes parameters corresponding to Pine inputs", () => {
   const registry = createPresetStrategyRegistry();
   const strategy = registry.get("utorb");
 
-  assert.deepEqual(strategy?.parameterSchema.map((parameter) => parameter.key), [
-    "sessionStartHour",
-    "sessionStartMinute",
-    "openingRangeMinutes",
-    "sessionDays",
-    "timezoneMode",
-    "timezoneOffsetHours",
-    "rangeSource",
-    "showTargets",
-    "showTargetLabels",
-    "extensionType",
-    "extensionMultiplierOne",
-    "extensionMultiplierTwo",
-    "extensionMultiplierThree",
-    "bullColor",
-    "bearColor",
-    "neutralColor",
-    "backgroundTransparency",
-    "signalLabelSize",
-    "showVolumeProfile",
-    "volumeProfileRows",
-    "volumeProfileWidthPercent",
-    "volumeProfileColor",
-    "stopPlotting",
-    "plottingEndType",
-    "manualEndHour",
-    "manualEndMinute",
-    "showTrailingStop",
-    "trailingStopAtrMultiplier",
-    "trailingStopAtrPeriod",
-    "showOptimizer",
-  ]);
+  assert.deepEqual(
+    strategy?.parameterSchema.map((parameter) => parameter.key),
+    [
+      "sessionStartHour",
+      "sessionStartMinute",
+      "openingRangeMinutes",
+      "sessionDays",
+      "timezoneMode",
+      "timezoneOffsetHours",
+      "rangeSource",
+      "showTargets",
+      "showTargetLabels",
+      "extensionType",
+      "extensionMultiplierOne",
+      "extensionMultiplierTwo",
+      "extensionMultiplierThree",
+      "bullColor",
+      "bearColor",
+      "neutralColor",
+      "backgroundTransparency",
+      "signalLabelSize",
+      "showVolumeProfile",
+      "volumeProfileRows",
+      "volumeProfileWidthPercent",
+      "volumeProfileColor",
+      "stopPlotting",
+      "plottingEndType",
+      "manualEndHour",
+      "manualEndMinute",
+      "showTrailingStop",
+      "trailingStopAtrMultiplier",
+      "trailingStopAtrPeriod",
+      "showOptimizer",
+    ],
+  );
 });
 
 test("UTORB defaults match the original Pine Script inputs", () => {
   const strategy = createPresetStrategyRegistry().get("utorb");
-  const defaults = Object.fromEntries(strategy?.parameterSchema.map((parameter) => [parameter.key, parameter.defaultValue]) ?? []);
+  const defaults = Object.fromEntries(
+    strategy?.parameterSchema.map((parameter) => [parameter.key, parameter.defaultValue]) ?? [],
+  );
 
   assert.deepEqual(
     {
@@ -319,18 +402,27 @@ test("UTORB defaults retain the original Pine detail layers", () => {
     (element) => element.kind === "price-line" && element.id.startsWith("utorb-target-"),
   );
   const latestTargetLines = targetLines.filter(
-    (element) => element.kind === "price-line" && element.fromTimestamp === Date.parse("2026-01-03T14:30:00Z"),
+    (element) =>
+      element.kind === "price-line" && element.fromTimestamp === Date.parse("2026-01-03T14:30:00Z"),
   );
   const earlierTargetLines = targetLines.filter(
-    (element) => element.kind === "price-line" && element.fromTimestamp !== Date.parse("2026-01-03T14:30:00Z"),
+    (element) =>
+      element.kind === "price-line" && element.fromTimestamp !== Date.parse("2026-01-03T14:30:00Z"),
   );
 
   assert.equal(result.input.parameters.showVolumeProfile, true);
   assert.equal(result.input.parameters.showTargetLabels, true);
   assert.ok(targetLines.length > 0);
-  assert.ok(latestTargetLines.every((line) => line.kind === "price-line" && line.label?.includes("%")));
-  assert.ok(earlierTargetLines.every((line) => line.kind === "price-line" && line.label === undefined));
-  assert.equal(result.output.render.elements.some((element) => element.id.startsWith("utorb-volume-profile-")), true);
+  assert.ok(
+    latestTargetLines.every((line) => line.kind === "price-line" && line.label?.includes("%")),
+  );
+  assert.ok(
+    earlierTargetLines.every((line) => line.kind === "price-line" && line.label === undefined),
+  );
+  assert.equal(
+    result.output.render.elements.some((element) => element.id.startsWith("utorb-volume-profile-")),
+    true,
+  );
   assert.equal(result.output.render.hudPanels, undefined);
 });
 

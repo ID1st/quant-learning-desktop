@@ -3,7 +3,14 @@ import test from "node:test";
 import { runStrategyBacktest, type Bar } from "../src/index.ts";
 
 function bar(timestamp: number, open: number, close = open): Bar {
-  return { timestamp, open, high: Math.max(open, close), low: Math.min(open, close), close, volume: 100 };
+  return {
+    timestamp,
+    open,
+    high: Math.max(open, close),
+    low: Math.min(open, close),
+    close,
+    volume: 100,
+  };
 }
 
 test("backtest disables short entries by default", () => {
@@ -86,7 +93,10 @@ test("backtest applies fees and slippage, and can disable short entries", () => 
   assert.equal(result.trades[0]?.exitPrice, 108.9);
   assert.equal(result.trades[0]?.direction, "long");
   assert.equal(result.trades[0]?.exitSignalTimestamp, 2);
-  assert.equal(result.warnings.some((warning) => warning.includes("强制平仓")), false);
+  assert.equal(
+    result.warnings.some((warning) => warning.includes("强制平仓")),
+    false,
+  );
   assert.equal(result.summary.finalCapital < 1078, true);
 });
 
@@ -97,7 +107,10 @@ test("backtest ignores a final-bar signal without a future open", () => {
   });
 
   assert.equal(result.summary.tradeCount, 0);
-  assert.equal(result.warnings.some((warning) => warning.includes("最后一根")), true);
+  assert.equal(
+    result.warnings.some((warning) => warning.includes("最后一根")),
+    true,
+  );
 });
 
 test("backtest skips a short entry when its required next-bar price is zero", () => {
@@ -108,7 +121,11 @@ test("backtest skips a short entry when its required next-bar price is zero", ()
   });
 
   assert.equal(result.summary.tradeCount, 0);
-  assert.ok(result.trades.every((trade) => [trade.entryPrice, trade.exitPrice, trade.quantity, trade.netPnl].every(Number.isFinite)));
+  assert.ok(
+    result.trades.every((trade) =>
+      [trade.entryPrice, trade.exitPrice, trade.quantity, trade.netPnl].every(Number.isFinite),
+    ),
+  );
   assert.ok(result.equityCurve.every((point) => Number.isFinite(point.equity)));
   assert.ok(Number.isFinite(result.summary.finalCapital));
   assert.ok(Number.isFinite(result.summary.totalReturnPct));
@@ -122,7 +139,9 @@ test("backtest falls back from a non-executable slippage rate", () => {
   });
 
   assert.equal(result.settings.slippageRate, 0.0005);
-  assert.ok(result.trades.every((trade) => Number.isFinite(trade.entryPrice) && trade.entryPrice > 0));
+  assert.ok(
+    result.trades.every((trade) => Number.isFinite(trade.entryPrice) && trade.entryPrice > 0),
+  );
 });
 
 test("backtest settles an open short against the last valid close when the final bar is invalid", () => {
@@ -133,7 +152,11 @@ test("backtest settles an open short against the last valid close when the final
   });
 
   assert.equal(result.summary.tradeCount, 1);
-  assert.ok(result.trades.every((trade) => [trade.entryPrice, trade.exitPrice, trade.quantity, trade.netPnl].every(Number.isFinite)));
+  assert.ok(
+    result.trades.every((trade) =>
+      [trade.entryPrice, trade.exitPrice, trade.quantity, trade.netPnl].every(Number.isFinite),
+    ),
+  );
   assert.ok(result.equityCurve.every((point) => Number.isFinite(point.equity)));
   assert.ok(Number.isFinite(result.summary.finalCapital));
 });
@@ -165,7 +188,10 @@ test("backtest entry sizing reserves the entry fee", () => {
 
   const trade = result.trades[0];
   assert.ok(trade);
-  assert.ok(trade.entryPrice * trade.quantity + trade.entryPrice * trade.quantity * feeRate <= initialCapital + Number.EPSILON);
+  assert.ok(
+    trade.entryPrice * trade.quantity + trade.entryPrice * trade.quantity * feeRate <=
+      initialCapital + Number.EPSILON,
+  );
 });
 
 test("backtest rejects a fee rate that can consume the full notional", () => {

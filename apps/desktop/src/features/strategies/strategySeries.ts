@@ -1,9 +1,6 @@
 import type { Bar } from "@quant/strategy-engine";
 import type { Market, Timeframe } from "@quant/shared";
-import {
-  getSessionSegments,
-  resolveTradingSessionAt,
-} from "../marketData/marketCalendar.ts";
+import { getSessionSegments, resolveTradingSessionAt } from "../marketData/marketCalendar.ts";
 
 const aggregationMinutes: Partial<Record<Timeframe, number>> = {
   "5m": 5,
@@ -19,9 +16,7 @@ export interface AggregateBarsInput {
   asOfTimestamp: number;
 }
 
-export function aggregateBarsToTimeframe(
-  input: AggregateBarsInput,
-): Bar[] {
+export function aggregateBarsToTimeframe(input: AggregateBarsInput): Bar[] {
   const minutes = aggregationMinutes[input.timeframe] ?? 1;
   const interval = minutes * 60_000;
   const buckets = new Map<
@@ -33,9 +28,7 @@ export function aggregateBarsToTimeframe(
       endTime: number;
     }
   >();
-  let cachedSegments:
-    | ReturnType<typeof getSessionSegments>
-    | null = null;
+  let cachedSegments: ReturnType<typeof getSessionSegments> | null = null;
 
   [...input.bars]
     .sort((left, right) => left.timestamp - right.timestamp)
@@ -45,30 +38,20 @@ export function aggregateBarsToTimeframe(
         bar.timestamp < cachedSegments[0]!.startTime ||
         bar.timestamp >= cachedSegments.at(-1)!.endTime
       ) {
-        const resolution = resolveTradingSessionAt(
-          input.market,
-          bar.timestamp,
-        );
+        const resolution = resolveTradingSessionAt(input.market, bar.timestamp);
         cachedSegments =
-          resolution.ok && resolution.session
-            ? getSessionSegments(resolution.session)
-            : null;
+          resolution.ok && resolution.session ? getSessionSegments(resolution.session) : null;
       }
       const segmentIndex =
         cachedSegments?.findIndex(
-          (candidate) =>
-            bar.timestamp >= candidate.startTime &&
-            bar.timestamp < candidate.endTime,
+          (candidate) => bar.timestamp >= candidate.startTime && bar.timestamp < candidate.endTime,
         ) ?? -1;
-      const segment =
-        segmentIndex >= 0 ? cachedSegments?.[segmentIndex] : null;
+      const segment = segmentIndex >= 0 ? cachedSegments?.[segmentIndex] : null;
       if (!segment) {
         return;
       }
       const bucketStart =
-        segment.startTime +
-        Math.floor((bar.timestamp - segment.startTime) / interval) *
-          interval;
+        segment.startTime + Math.floor((bar.timestamp - segment.startTime) / interval) * interval;
       const bucketEnd = Math.min(bucketStart + interval, segment.endTime);
       const key = `${segmentIndex}:${bucketStart}`;
       const existing = buckets.get(key);
@@ -90,9 +73,7 @@ export function aggregateBarsToTimeframe(
 
   return [...buckets.values()]
     .filter(
-      (bucket) =>
-        bucket.count >= bucket.expectedCount &&
-        input.asOfTimestamp >= bucket.endTime,
+      (bucket) => bucket.count >= bucket.expectedCount && input.asOfTimestamp >= bucket.endTime,
     )
     .map((bucket) => bucket.bar);
 }
@@ -109,10 +90,7 @@ export function createStrategySeriesByTimeframe(input: {
     [input.primaryTimeframe]: input.primaryBars,
   };
 
-  if (
-    input.primaryTimeframe === "realtime" ||
-    input.primaryTimeframe === "1m"
-  ) {
+  if (input.primaryTimeframe === "realtime" || input.primaryTimeframe === "1m") {
     result["1m"] = input.primaryBars;
     result["5m"] = aggregateBarsToTimeframe({
       ...input,

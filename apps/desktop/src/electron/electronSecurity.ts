@@ -28,7 +28,10 @@ export function createDesktopRendererSecurityPolicy(
   let rendererDevOrigin: string | undefined;
   if (input.rendererDevServerUrl) {
     const url = new URL(input.rendererDevServerUrl);
-    if ((url.protocol !== "http:" && url.protocol !== "https:") || !isLoopbackHostname(url.hostname)) {
+    if (
+      (url.protocol !== "http:" && url.protocol !== "https:") ||
+      !isLoopbackHostname(url.hostname)
+    ) {
       throw new Error("Electron renderer development URL must use HTTP(S) on a loopback host.");
     }
     rendererDevOrigin = url.origin;
@@ -48,22 +51,30 @@ export function isTrustedRendererUrl(candidate: string, policy: DesktopRendererS
     }
 
     const packagedUrl = new URL(policy.packagedRendererUrl);
-    return candidateUrl.protocol === "file:" &&
+    return (
+      candidateUrl.protocol === "file:" &&
       candidateUrl.host === packagedUrl.host &&
-      candidateUrl.pathname === packagedUrl.pathname;
+      candidateUrl.pathname === packagedUrl.pathname
+    );
   } catch {
     return false;
   }
 }
 
-export function assertTrustedIpcSender(event: IpcSenderEventLike, policy: DesktopRendererSecurityPolicy) {
+export function assertTrustedIpcSender(
+  event: IpcSenderEventLike,
+  policy: DesktopRendererSecurityPolicy,
+) {
   const senderUrl = event.senderFrame?.url || event.sender?.getURL?.() || "";
   if (!isTrustedRendererUrl(senderUrl, policy)) {
     throw new Error("IPC invocation rejected from an untrusted renderer.");
   }
 }
 
-export function assertRecord(value: unknown, name: string): asserts value is Record<string, unknown> {
+export function assertRecord(
+  value: unknown,
+  name: string,
+): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError(`${name} must be an object.`);
   }
@@ -72,7 +83,11 @@ export function assertRecord(value: unknown, name: string): asserts value is Rec
 export function assertBoundedString(
   value: unknown,
   name: string,
-  options: { readonly minLength?: number; readonly maxLength?: number; readonly pattern?: RegExp } = {},
+  options: {
+    readonly minLength?: number;
+    readonly maxLength?: number;
+    readonly pattern?: RegExp;
+  } = {},
 ): asserts value is string {
   const minLength = options.minLength ?? 1;
   const maxLength = options.maxLength ?? 512;
@@ -97,20 +112,25 @@ export function assertMarketDataContext(value: unknown) {
   if (!requestSources.has(String(value.source))) {
     throw new TypeError("context.source is invalid.");
   }
-  if (value.requestId !== undefined) assertBoundedString(value.requestId, "context.requestId", { maxLength: 128 });
-  if (value.requestedAt !== undefined) assertBoundedString(value.requestedAt, "context.requestedAt", { maxLength: 64 });
+  if (value.requestId !== undefined)
+    assertBoundedString(value.requestId, "context.requestId", { maxLength: 128 });
+  if (value.requestedAt !== undefined)
+    assertBoundedString(value.requestedAt, "context.requestedAt", { maxLength: 64 });
 }
 
 export function assertMarketDataItems(value: unknown, allowEmpty = false) {
   const minimumLength = allowEmpty ? 0 : 1;
   if (!Array.isArray(value) || value.length < minimumLength || value.length > maxMarketDataItems) {
-    throw new TypeError(`items must contain between ${minimumLength} and ${maxMarketDataItems} entries.`);
+    throw new TypeError(
+      `items must contain between ${minimumLength} and ${maxMarketDataItems} entries.`,
+    );
   }
   value.forEach((item, index) => {
     assertRecord(item, `items[${index}]`);
     assertMarket(item.market, `items[${index}].market`);
     assertBoundedString(item.symbol, `items[${index}].symbol`, { maxLength: 64 });
-    if (item.name !== undefined) assertBoundedString(item.name, `items[${index}].name`, { maxLength: 160 });
+    if (item.name !== undefined)
+      assertBoundedString(item.name, `items[${index}].name`, { maxLength: 160 });
   });
 }
 
@@ -118,11 +138,18 @@ export function assertMarketDataBarRequest(value: unknown, allowAdditiveAdjustme
   assertRecord(value, "request");
   assertMarket(value.market, "request.market");
   assertBoundedString(value.symbol, "request.symbol", { maxLength: 64 });
-  if (!timeframes.has(String(value.timeframe))) throw new TypeError("request.timeframe is invalid.");
+  if (!timeframes.has(String(value.timeframe)))
+    throw new TypeError("request.timeframe is invalid.");
   if (value.count !== undefined) assertIntegerRange(value.count, "request.count", 1, 5_000);
-  if (value.startTime !== undefined) assertFiniteRange(value.startTime, "request.startTime", 0, Number.MAX_SAFE_INTEGER);
-  if (value.endTime !== undefined) assertFiniteRange(value.endTime, "request.endTime", 0, Number.MAX_SAFE_INTEGER);
-  if (typeof value.startTime === "number" && typeof value.endTime === "number" && value.startTime > value.endTime) {
+  if (value.startTime !== undefined)
+    assertFiniteRange(value.startTime, "request.startTime", 0, Number.MAX_SAFE_INTEGER);
+  if (value.endTime !== undefined)
+    assertFiniteRange(value.endTime, "request.endTime", 0, Number.MAX_SAFE_INTEGER);
+  if (
+    typeof value.startTime === "number" &&
+    typeof value.endTime === "number" &&
+    value.startTime > value.endTime
+  ) {
     throw new TypeError("request.startTime must not exceed request.endTime.");
   }
   if (value.adjust !== undefined) {
@@ -136,21 +163,36 @@ export function assertMarketDataBarRequest(value: unknown, allowAdditiveAdjustme
 export function assertMarketDataProviderPolicy(value: unknown) {
   if (value === undefined) return;
   assertRecord(value, "providerPolicy");
-  if (value.stockSdkPrimaryEnabled !== undefined) assertBoolean(value.stockSdkPrimaryEnabled, "providerPolicy.stockSdkPrimaryEnabled");
-  if (value.alphaFeedStreamMode !== undefined && value.alphaFeedStreamMode !== "watchlist" && value.alphaFeedStreamMode !== "all-symbols") {
+  if (value.stockSdkPrimaryEnabled !== undefined)
+    assertBoolean(value.stockSdkPrimaryEnabled, "providerPolicy.stockSdkPrimaryEnabled");
+  if (
+    value.alphaFeedStreamMode !== undefined &&
+    value.alphaFeedStreamMode !== "watchlist" &&
+    value.alphaFeedStreamMode !== "all-symbols"
+  ) {
     throw new TypeError("providerPolicy.alphaFeedStreamMode is invalid.");
   }
   if (value.mlptHistory !== undefined) {
     assertRecord(value.mlptHistory, "providerPolicy.mlptHistory");
-    assertIntegerRange(value.mlptHistory.targetBars, "providerPolicy.mlptHistory.targetBars", 1, maxStrategyBars);
+    assertIntegerRange(
+      value.mlptHistory.targetBars,
+      "providerPolicy.mlptHistory.targetBars",
+      1,
+      maxStrategyBars,
+    );
     assertFiniteRange(
       value.mlptHistory.confirmedThroughTimestamp,
       "providerPolicy.mlptHistory.confirmedThroughTimestamp",
       0,
       Number.MAX_SAFE_INTEGER,
     );
-    if (!Array.isArray(value.mlptHistory.knownTimestamps) || value.mlptHistory.knownTimestamps.length > maxStrategyBars) {
-      throw new TypeError(`providerPolicy.mlptHistory.knownTimestamps must contain at most ${maxStrategyBars} entries.`);
+    if (
+      !Array.isArray(value.mlptHistory.knownTimestamps) ||
+      value.mlptHistory.knownTimestamps.length > maxStrategyBars
+    ) {
+      throw new TypeError(
+        `providerPolicy.mlptHistory.knownTimestamps must contain at most ${maxStrategyBars} entries.`,
+      );
     }
     value.mlptHistory.knownTimestamps.forEach((timestamp, index) =>
       assertFiniteRange(
@@ -205,14 +247,20 @@ export function assertPluginStrategyInput(value: unknown): asserts value is Stra
   assertBoundedString(value.symbol, "input.symbol", { maxLength: 64 });
   assertMarket(value.market, "input.market");
   if (!timeframes.has(String(value.timeframe))) throw new TypeError("input.timeframe is invalid.");
-  if (value.runMode !== "live" && value.runMode !== "backtest") throw new TypeError("input.runMode is invalid.");
+  if (value.runMode !== "live" && value.runMode !== "backtest")
+    throw new TypeError("input.runMode is invalid.");
   if (!Array.isArray(value.bars) || value.bars.length > maxStrategyBars) {
     throw new TypeError(`input.bars must contain at most ${maxStrategyBars} entries.`);
   }
   value.bars.forEach((bar, index) => {
     assertRecord(bar, `input.bars[${index}]`);
     for (const field of ["timestamp", "open", "high", "low", "close", "volume"] as const) {
-      assertFiniteRange(bar[field], `input.bars[${index}].${field}`, field === "volume" ? 0 : -Number.MAX_VALUE, Number.MAX_VALUE);
+      assertFiniteRange(
+        bar[field],
+        `input.bars[${index}].${field}`,
+        field === "volume" ? 0 : -Number.MAX_VALUE,
+        Number.MAX_VALUE,
+      );
     }
   });
   assertRecord(value.parameters, "input.parameters");

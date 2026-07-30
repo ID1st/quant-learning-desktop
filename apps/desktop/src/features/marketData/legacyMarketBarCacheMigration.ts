@@ -29,21 +29,13 @@ export type LegacyMarketBarCacheMigrationResult =
       errorCode: LegacyMarketCacheMigrationErrorCode;
     };
 
-function matchesEntryKey(
-  bar: MarketDataBar,
-  entry: MarketBarCacheMetadata,
-) {
+function matchesEntryKey(bar: MarketDataBar, entry: MarketBarCacheMetadata) {
   return (
-    bar.market === entry.market &&
-    bar.symbol === entry.symbol &&
-    bar.timeframe === entry.timeframe
+    bar.market === entry.market && bar.symbol === entry.symbol && bar.timeframe === entry.timeframe
   );
 }
 
-function entryMatchesBars(
-  entry: MarketBarCacheMetadata,
-  bars: readonly MarketDataBar[],
-) {
+function entryMatchesBars(entry: MarketBarCacheMetadata, bars: readonly MarketDataBar[]) {
   return (
     bars.length > 0 &&
     bars.length === entry.barCount &&
@@ -98,22 +90,14 @@ export async function migrateLegacyMarketBarCache(
     }
 
     try {
-      for (
-        let offset = 0;
-        offset < bars.length;
-        offset += migrationBatchSize
-      ) {
+      for (let offset = 0; offset < bars.length; offset += migrationBatchSize) {
         const finalBatch = offset + migrationBatchSize >= bars.length;
-        await options.repository.write(
-          entry,
-          bars.slice(offset, offset + migrationBatchSize),
-          {
-            mergeExisting: offset > 0,
-            ...(finalBatch && entry.historicalCompletion
-              ? { historicalCompletion: entry.historicalCompletion }
-              : {}),
-          },
-        );
+        await options.repository.write(entry, bars.slice(offset, offset + migrationBatchSize), {
+          mergeExisting: offset > 0,
+          ...(finalBatch && entry.historicalCompletion
+            ? { historicalCompletion: entry.historicalCompletion }
+            : {}),
+        });
       }
     } catch {
       return failMigration(options.repository, "LEGACY_IMPORT_FAILED");

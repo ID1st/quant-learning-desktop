@@ -43,7 +43,9 @@ function sanitizeRecord(value: unknown): Record<string, string> {
   }, {});
 }
 
-export function createMemoryPersistenceStore(seed: Record<string, string> = {}): LocalPersistenceStore {
+export function createMemoryPersistenceStore(
+  seed: Record<string, string> = {},
+): LocalPersistenceStore {
   const store = new Map(Object.entries(sanitizeRecord(seed)));
 
   return {
@@ -63,7 +65,9 @@ export function createMemoryPersistenceStore(seed: Record<string, string> = {}):
   };
 }
 
-export function createJsonFilePersistenceStore(driver: JsonFilePersistenceDriver): LocalPersistenceStore {
+export function createJsonFilePersistenceStore(
+  driver: JsonFilePersistenceDriver,
+): LocalPersistenceStore {
   const readStore = () => {
     const rawValue = driver.readText();
     if (!rawValue) {
@@ -126,7 +130,9 @@ export function createNodeJsonFilePersistenceDriver(filePath: string): JsonFileP
   };
 }
 
-export function createDesktopBridgeFromPersistenceStore(store: LocalPersistenceStore): LocalPersistenceStore {
+export function createDesktopBridgeFromPersistenceStore(
+  store: LocalPersistenceStore,
+): LocalPersistenceStore {
   return {
     getItem: (key) => store.getItem(key),
     setItem: (key, value) => store.setItem(key, value),

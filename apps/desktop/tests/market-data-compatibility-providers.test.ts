@@ -6,7 +6,10 @@ import {
   createAlphaFeedWebSocketGatewayProvider,
   createLongBridgeGatewayProvider,
 } from "../src/features/marketData/marketDataCompatibilityProviders.ts";
-import { createMarketDataGateway, createMarketDataProviderRegistry } from "../src/features/marketData/marketDataProviderGateway.ts";
+import {
+  createMarketDataGateway,
+  createMarketDataProviderRegistry,
+} from "../src/features/marketData/marketDataProviderGateway.ts";
 
 const quoteSnapshot = {
   symbol: "AAPL.US",
@@ -44,23 +47,44 @@ describe("AlphaFeed REST gateway compatibility provider", () => {
       fetchQuoteSnapshot: async () => ({
         ok: true,
         snapshots: [quoteSnapshot],
-        health: { status: "ok", message: "ok", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 12 },
+        health: {
+          status: "ok",
+          message: "ok",
+          checkedAt: "2026-07-07T00:00:00.000Z",
+          latencyMs: 12,
+        },
       }),
       fetchHistoricalBars: async () => ({
         ok: true,
         bars: [marketBar],
-        health: { status: "ok", message: "ok", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 12 },
+        health: {
+          status: "ok",
+          message: "ok",
+          checkedAt: "2026-07-07T00:00:00.000Z",
+          latencyMs: 12,
+        },
       }),
       fetchIntradayBars: async () => ({
         ok: true,
         bars: [{ ...marketBar, timeframe: "realtime" }],
-        health: { status: "ok", message: "ok", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 12 },
+        health: {
+          status: "ok",
+          message: "ok",
+          checkedAt: "2026-07-07T00:00:00.000Z",
+          latencyMs: 12,
+        },
       }),
     });
-    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([provider]), ["alphafeed-rest"]);
+    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([provider]), [
+      "alphafeed-rest",
+    ]);
 
     const quoteResult = await gateway.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]);
-    const historyResult = await gateway.fetchHistoricalBars({ market: "US", symbol: "AAPL.US", timeframe: "1d" });
+    const historyResult = await gateway.fetchHistoricalBars({
+      market: "US",
+      symbol: "AAPL.US",
+      timeframe: "1d",
+    });
 
     assert.equal(quoteResult.ok, true);
     assert.equal(quoteResult.provider, "alphafeed-rest");
@@ -86,17 +110,38 @@ describe("AlphaFeed REST gateway compatibility provider", () => {
           },
         },
       }),
-      fetchHistoricalBars: async () => ({ ok: true, bars: [], health: { status: "ok", message: "ok", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 1 } }),
-      fetchIntradayBars: async () => ({ ok: true, bars: [], health: { status: "ok", message: "ok", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 1 } }),
+      fetchHistoricalBars: async () => ({
+        ok: true,
+        bars: [],
+        health: {
+          status: "ok",
+          message: "ok",
+          checkedAt: "2026-07-07T00:00:00.000Z",
+          latencyMs: 1,
+        },
+      }),
+      fetchIntradayBars: async () => ({
+        ok: true,
+        bars: [],
+        health: {
+          status: "ok",
+          message: "ok",
+          checkedAt: "2026-07-07T00:00:00.000Z",
+          latencyMs: 1,
+        },
+      }),
     });
     const longBridgeProvider = createLongBridgeGatewayProvider({
-      fetchQuoteSnapshot: async () => ({ ok: true, snapshots: [{ ...quoteSnapshot, provider: "longport" }] }),
+      fetchQuoteSnapshot: async () => ({
+        ok: true,
+        snapshots: [{ ...quoteSnapshot, provider: "longport" }],
+      }),
       fetchHistoricalBars: async () => ({ ok: true, bars: [] }),
     });
-    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([alphaProvider, longBridgeProvider]), [
-      "alphafeed-rest",
-      "longbridge",
-    ]);
+    const gateway = createMarketDataGateway(
+      createMarketDataProviderRegistry([alphaProvider, longBridgeProvider]),
+      ["alphafeed-rest", "longbridge"],
+    );
 
     const result = await gateway.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]);
 
@@ -121,10 +166,30 @@ describe("AlphaFeed REST gateway compatibility provider", () => {
           },
         },
       }),
-      fetchHistoricalBars: async () => ({ ok: true, bars: [], health: { status: "ok", message: "ok", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 1 } }),
-      fetchIntradayBars: async () => ({ ok: true, bars: [], health: { status: "ok", message: "ok", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 1 } }),
+      fetchHistoricalBars: async () => ({
+        ok: true,
+        bars: [],
+        health: {
+          status: "ok",
+          message: "ok",
+          checkedAt: "2026-07-07T00:00:00.000Z",
+          latencyMs: 1,
+        },
+      }),
+      fetchIntradayBars: async () => ({
+        ok: true,
+        bars: [],
+        health: {
+          status: "ok",
+          message: "ok",
+          checkedAt: "2026-07-07T00:00:00.000Z",
+          latencyMs: 1,
+        },
+      }),
     });
-    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([alphaProvider]), ["alphafeed-rest"]);
+    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([alphaProvider]), [
+      "alphafeed-rest",
+    ]);
 
     const result = await gateway.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]);
 
@@ -142,21 +207,38 @@ describe("AlphaFeed WebSocket gateway compatibility provider", () => {
       connectStream: async () => ({
         ok: true,
         state: "connected",
-        health: { status: "ok", message: "connected", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 1 },
+        health: {
+          status: "ok",
+          message: "connected",
+          checkedAt: "2026-07-07T00:00:00.000Z",
+          latencyMs: 1,
+        },
       }),
       readStreamSnapshot: async () => ({
         ok: true,
         state: "connected",
         snapshots: [quoteSnapshot],
-        health: { status: "ok", message: "connected", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 1 },
+        health: {
+          status: "ok",
+          message: "connected",
+          checkedAt: "2026-07-07T00:00:00.000Z",
+          latencyMs: 1,
+        },
       }),
       disconnectStream: async () => ({
         ok: true,
         state: "idle",
-        health: { status: "ok", message: "disconnected", checkedAt: "2026-07-07T00:00:00.000Z", latencyMs: 1 },
+        health: {
+          status: "ok",
+          message: "disconnected",
+          checkedAt: "2026-07-07T00:00:00.000Z",
+          latencyMs: 1,
+        },
       }),
     });
-    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([provider]), ["alphafeed-websocket"]);
+    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([provider]), [
+      "alphafeed-websocket",
+    ]);
 
     await provider.connectStream([{ market: "US", symbol: "AAPL.US" }]);
     const result = await gateway.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]);
@@ -170,13 +252,25 @@ describe("AlphaFeed WebSocket gateway compatibility provider", () => {
 describe("LongBridge gateway compatibility provider", () => {
   it("wraps existing quote and historical bar operations without changing their legacy result contracts", async () => {
     const provider = createLongBridgeGatewayProvider({
-      fetchQuoteSnapshot: async () => ({ ok: true, snapshots: [{ ...quoteSnapshot, provider: "longport" }] }),
-      fetchHistoricalBars: async () => ({ ok: true, bars: [{ ...marketBar, provider: "longport" }] }),
+      fetchQuoteSnapshot: async () => ({
+        ok: true,
+        snapshots: [{ ...quoteSnapshot, provider: "longport" }],
+      }),
+      fetchHistoricalBars: async () => ({
+        ok: true,
+        bars: [{ ...marketBar, provider: "longport" }],
+      }),
     });
-    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([provider]), ["longbridge"]);
+    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([provider]), [
+      "longbridge",
+    ]);
 
     const quoteResult = await gateway.fetchQuoteSnapshot([{ market: "US", symbol: "AAPL.US" }]);
-    const barResult = await gateway.fetchHistoricalBars({ market: "US", symbol: "AAPL.US", timeframe: "1d" });
+    const barResult = await gateway.fetchHistoricalBars({
+      market: "US",
+      symbol: "AAPL.US",
+      timeframe: "1d",
+    });
 
     assert.equal(quoteResult.ok, true);
     assert.equal(quoteResult.data[0]?.provider, "longbridge");

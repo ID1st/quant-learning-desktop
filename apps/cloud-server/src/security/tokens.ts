@@ -24,7 +24,5 @@ export function digestEmailCode(
   if (Buffer.byteLength(pepper, "utf8") < 32) {
     throw new Error("email code pepper must contain at least 32 bytes");
   }
-  return createHmac("sha256", pepper)
-    .update(`${email}\n${purpose}\n${code}`, "utf8")
-    .digest();
+  return createHmac("sha256", pepper).update(`${email}\n${purpose}\n${code}`, "utf8").digest();
 }

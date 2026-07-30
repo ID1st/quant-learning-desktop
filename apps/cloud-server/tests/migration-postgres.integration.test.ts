@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import {
-  mkdtemp,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,9 +15,7 @@ import {
 } from "../src/db/migrationRunner.ts";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
-const migrationsDirectory = fileURLToPath(
-  new URL("../migrations", import.meta.url),
-);
+const migrationsDirectory = fileURLToPath(new URL("../migrations", import.meta.url));
 
 function migrationClient(client: PoolClient): PostgresMigrationClient {
   return {
@@ -33,10 +26,7 @@ function migrationClient(client: PoolClient): PostgresMigrationClient {
   };
 }
 
-async function withIsolatedSchema(
-  pool: Pool,
-  callback: (client: PoolClient) => Promise<void>,
-) {
+async function withIsolatedSchema(pool: Pool, callback: (client: PoolClient) => Promise<void>) {
   const schema = `migration_${randomUUID().replaceAll("-", "_")}`;
   const client = await pool.connect();
   try {
@@ -81,10 +71,9 @@ test(
           true,
         );
 
-        await client.query(
-          "UPDATE schema_migrations SET checksum = $1 WHERE version = 1",
-          ["0".repeat(64)],
-        );
+        await client.query("UPDATE schema_migrations SET checksum = $1 WHERE version = 1", [
+          "0".repeat(64),
+        ]);
         await assert.rejects(
           runPostgresMigrations({
             client: migrationClient(client),
@@ -95,10 +84,7 @@ test(
       });
 
       await withIsolatedSchema(pool, async (client) => {
-        const baseline = await readFile(
-          join(migrationsDirectory, "001_auth_schema.sql"),
-          "utf8",
-        );
+        const baseline = await readFile(join(migrationsDirectory, "001_auth_schema.sql"), "utf8");
         await client.query(baseline);
         const result = await runPostgresMigrations({
           client: migrationClient(client),
@@ -111,21 +97,13 @@ test(
       });
 
       await withIsolatedSchema(pool, async (client) => {
-        const directory = await mkdtemp(
-          join(tmpdir(), "quant-pg-migrations-"),
-        );
+        const directory = await mkdtemp(join(tmpdir(), "quant-pg-migrations-"));
         try {
           await writeFile(
             join(directory, "001_baseline.sql"),
-            await readFile(
-              join(migrationsDirectory, "001_auth_schema.sql"),
-              "utf8",
-            ),
+            await readFile(join(migrationsDirectory, "001_auth_schema.sql"), "utf8"),
           );
-          await writeFile(
-            join(directory, "002_broken.sql"),
-            "CREATE TABLE broken (\n",
-          );
+          await writeFile(join(directory, "002_broken.sql"), "CREATE TABLE broken (\n");
           await assert.rejects(
             runPostgresMigrations({
               client: migrationClient(client),

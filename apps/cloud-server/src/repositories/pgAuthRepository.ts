@@ -37,11 +37,7 @@ export interface SessionIdentityRecord {
 }
 
 export type ChallengeConsumptionResult =
-  | "CONSUMED"
-  | "INVALID"
-  | "EXPIRED"
-  | "USER_ALREADY_EXISTS"
-  | "USER_NOT_FOUND";
+  "CONSUMED" | "INVALID" | "EXPIRED" | "USER_ALREADY_EXISTS" | "USER_NOT_FOUND";
 
 export type InviteRedemptionResult =
   | { kind: "REDEEMED"; entitlement: EntitlementRecord }
@@ -112,13 +108,11 @@ function digestsEqual(left: Buffer, right: Buffer): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-function toEntitlement(
-  row: {
-    duration_days: number | null;
-    starts_at: Date | null;
-    ends_at: Date | null;
-  },
-): EntitlementRecord | null {
+function toEntitlement(row: {
+  duration_days: number | null;
+  starts_at: Date | null;
+  ends_at: Date | null;
+}): EntitlementRecord | null {
   if (!row.duration_days || !row.starts_at || !row.ends_at) {
     return null;
   }
@@ -136,14 +130,12 @@ export class PgAuthRepository {
     this.pool = pool;
   }
 
-  public async createEmailChallenge(
-    input: CreateChallengeInput,
-  ): Promise<boolean> {
+  public async createEmailChallenge(input: CreateChallengeInput): Promise<boolean> {
     return withTransaction(this.pool, async (client) => {
-      await client.query(
-        "SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))",
-        [input.email, input.purpose],
-      );
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [
+        input.email,
+        input.purpose,
+      ]);
       const recentChallenge = await client.query(
         `
           SELECT 1
@@ -203,9 +195,7 @@ export class PgAuthRepository {
         `,
         [
           input.email,
-          input.purpose === "REGISTRATION"
-            ? "registration-code"
-            : "password-reset-code",
+          input.purpose === "REGISTRATION" ? "registration-code" : "password-reset-code",
           JSON.stringify({
             code: input.plaintextCode,
             expiresInMinutes: 10,
@@ -260,10 +250,10 @@ export class PgAuthRepository {
       return "INVALID";
     }
     if (challenge.expires_at.getTime() < now.getTime()) {
-      await client.query(
-        "UPDATE email_challenges SET consumed_at = $2 WHERE id = $1",
-        [challenge.id, now],
-      );
+      await client.query("UPDATE email_challenges SET consumed_at = $2 WHERE id = $1", [
+        challenge.id,
+        now,
+      ]);
       return "EXPIRED";
     }
     if (
@@ -286,10 +276,10 @@ export class PgAuthRepository {
       return "INVALID";
     }
 
-    await client.query(
-      "UPDATE email_challenges SET consumed_at = $2 WHERE id = $1",
-      [challenge.id, now],
-    );
+    await client.query("UPDATE email_challenges SET consumed_at = $2 WHERE id = $1", [
+      challenge.id,
+      now,
+    ]);
     return "VALID";
   }
 
@@ -300,11 +290,7 @@ export class PgAuthRepository {
     now: Date;
   }): Promise<ChallengeConsumptionResult> {
     return withTransaction(this.pool, async (client) => {
-      const challenge = await this.lockLatestChallenge(
-        client,
-        input.email,
-        "REGISTRATION",
-      );
+      const challenge = await this.lockLatestChallenge(client, input.email, "REGISTRATION");
       const challengeResult = await this.verifyLockedChallenge(
         client,
         challenge,
@@ -315,10 +301,9 @@ export class PgAuthRepository {
         return challengeResult;
       }
 
-      const existingUser = await client.query(
-        "SELECT 1 FROM users WHERE email = $1",
-        [input.email],
-      );
+      const existingUser = await client.query("SELECT 1 FROM users WHERE email = $1", [
+        input.email,
+      ]);
       if (existingUser.rowCount) {
         return "USER_ALREADY_EXISTS";
       }
@@ -347,11 +332,7 @@ export class PgAuthRepository {
     now: Date;
   }): Promise<ChallengeConsumptionResult> {
     return withTransaction(this.pool, async (client) => {
-      const challenge = await this.lockLatestChallenge(
-        client,
-        input.email,
-        "PASSWORD_RESET",
-      );
+      const challenge = await this.lockLatestChallenge(client, input.email, "PASSWORD_RESET");
       const challengeResult = await this.verifyLockedChallenge(
         client,
         challenge,
@@ -392,16 +373,11 @@ export class PgAuthRepository {
   }
 
   public async userExists(email: string): Promise<boolean> {
-    const result = await this.pool.query(
-      "SELECT 1 FROM users WHERE email = $1",
-      [email],
-    );
+    const result = await this.pool.query("SELECT 1 FROM users WHERE email = $1", [email]);
     return Boolean(result.rowCount);
   }
 
-  public async findUserByEmail(
-    email: string,
-  ): Promise<LoginUserRecord | null> {
+  public async findUserByEmail(email: string): Promise<LoginUserRecord | null> {
     const result = await this.pool.query<{
       id: string;
       email: string;
@@ -556,22 +532,14 @@ export class PgAuthRepository {
           )
           VALUES ($1, $2, $3, $4, $5)
         `,
-        [
-          code.id,
-          input.userId,
-          currentEntitlement?.ends_at ?? null,
-          entitlement.endsAt,
-          input.now,
-        ],
+        [code.id, input.userId, currentEntitlement?.ends_at ?? null, entitlement.endsAt, input.now],
       );
 
       return { kind: "REDEEMED", entitlement };
     });
   }
 
-  public async issueSession(
-    input: IssueSessionInput,
-  ): Promise<IssuedSessionRecord | null> {
+  public async issueSession(input: IssueSessionInput): Promise<IssuedSessionRecord | null> {
     return withTransaction(this.pool, async (client) => {
       const userResult = await client.query(
         `
@@ -721,9 +689,7 @@ export class PgAuthRepository {
     };
   }
 
-  public async rotateSession(
-    input: RotateSessionInput,
-  ): Promise<SessionIdentityRecord | null> {
+  public async rotateSession(input: RotateSessionInput): Promise<SessionIdentityRecord | null> {
     return withTransaction(this.pool, async (client) => {
       const sessionResult = await client.query<{
         session_id: string;
@@ -793,10 +759,7 @@ export class PgAuthRepository {
     });
   }
 
-  public async countActiveDevices(
-    userId: string,
-    now: Date,
-  ): Promise<number> {
+  public async countActiveDevices(userId: string, now: Date): Promise<number> {
     const result = await this.pool.query<{ count: number }>(
       `
         SELECT count(*)::int AS count
@@ -810,11 +773,7 @@ export class PgAuthRepository {
     return result.rows[0]?.count ?? 0;
   }
 
-  public async revokeSession(
-    sessionId: string,
-    reason: string,
-    now: Date,
-  ): Promise<void> {
+  public async revokeSession(sessionId: string, reason: string, now: Date): Promise<void> {
     await this.pool.query(
       `
         UPDATE sessions

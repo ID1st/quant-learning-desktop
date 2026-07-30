@@ -1,14 +1,10 @@
-import {
-  getCalendarCoverage,
-} from "../apps/desktop/src/features/marketData/marketCalendar.ts";
+import { getCalendarCoverage } from "../apps/desktop/src/features/marketData/marketCalendar.ts";
 import type { Market } from "../packages/shared/src/index.ts";
 
 const minimumCoverageDays = 90;
 const millisecondsPerDay = 24 * 60 * 60 * 1_000;
 const now = new Date();
-const requiredThrough = new Date(
-  now.getTime() + minimumCoverageDays * millisecondsPerDay,
-);
+const requiredThrough = new Date(now.getTime() + minimumCoverageDays * millisecondsPerDay);
 
 for (const market of ["CN", "HK", "US"] satisfies Market[]) {
   const coverage = getCalendarCoverage(market);
@@ -21,7 +17,6 @@ for (const market of ["CN", "HK", "US"] satisfies Market[]) {
     );
   }
   console.log(
-    `${market}: ${coverage.firstDate}..${coverage.lastDate} ` +
-      `(${coverage.sourceVersion})`,
+    `${market}: ${coverage.firstDate}..${coverage.lastDate} ` + `(${coverage.sourceVersion})`,
   );
 }

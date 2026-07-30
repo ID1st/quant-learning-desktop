@@ -6,10 +6,7 @@ import type {
   MarketBarCacheRepository,
   MarketBarCacheWriteOptions,
 } from "./marketBarCacheRepository.ts";
-import type {
-  MarketBarCacheKey,
-  MarketDataBar,
-} from "./marketBarCacheService.ts";
+import type { MarketBarCacheKey, MarketDataBar } from "./marketBarCacheService.ts";
 import { createMemoryMarketBarRepository } from "./memoryMarketBarRepository.ts";
 import { appLocalDatabase } from "../persistence/localDatabase.ts";
 import { migrateLegacyMarketBarCache } from "./legacyMarketBarCacheMigration.ts";
@@ -23,9 +20,7 @@ function unwrap<T>(result: MarketBarCacheIpcResult<T>) {
   return result.data;
 }
 
-function createIpcMarketBarRepository(
-  bridge: MarketBarCacheIpcBridge,
-): MarketBarCacheRepository {
+function createIpcMarketBarRepository(bridge: MarketBarCacheIpcBridge): MarketBarCacheRepository {
   return {
     async read(key) {
       return [...unwrap(await bridge.read({ key }))];
@@ -49,9 +44,7 @@ function createIpcMarketBarRepository(
             key,
             bars: bars.slice(offset, offset + maximumWriteBatchSize),
             options: {
-              mergeExisting: isFirstBatch
-                ? options.mergeExisting
-                : true,
+              mergeExisting: isFirstBatch ? options.mergeExisting : true,
               ...(isFinalBatch && options.historicalCompletion
                 ? { historicalCompletion: options.historicalCompletion }
                 : {}),
@@ -146,10 +139,7 @@ export function getMarketBarCacheRepository(): MarketBarCacheRepository {
   if (repository) {
     return repository;
   }
-  const bridge =
-    typeof window === "undefined"
-      ? undefined
-      : window.quantDesktop?.marketBarCache;
+  const bridge = typeof window === "undefined" ? undefined : window.quantDesktop?.marketBarCache;
   if (bridge) {
     const ipcRepository = createIpcMarketBarRepository(bridge);
     repository = gateRepositoryOnMigration(

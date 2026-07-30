@@ -13,7 +13,9 @@ import {
 interface IndicatorQuickMenuProps {
   readonly market: Market;
   readonly settings: ChartIndicatorSettings;
-  readonly updateSettings: (update: (current: ChartIndicatorSettings) => ChartIndicatorSettings) => void;
+  readonly updateSettings: (
+    update: (current: ChartIndicatorSettings) => ChartIndicatorSettings,
+  ) => void;
   readonly onOpenParameters: (indicatorId: string) => void;
   readonly definitions?: readonly ChartIndicatorDefinition[];
 }
@@ -34,14 +36,15 @@ export function IndicatorQuickMenu({
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const enabledCount = definitions.filter((definition) =>
-    getIndicatorInstance(settings, definition.id, definition).enabled,
+  const enabledCount = definitions.filter(
+    (definition) => getIndicatorInstance(settings, definition.id, definition).enabled,
   ).length;
 
   useEffect(() => {
     if (!isOpen) return;
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.target instanceof Node && !wrapperRef.current?.contains(event.target)) setIsOpen(false);
+      if (event.target instanceof Node && !wrapperRef.current?.contains(event.target))
+        setIsOpen(false);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -62,42 +65,53 @@ export function IndicatorQuickMenu({
         <strong>{title}</strong>
         <span>{help}</span>
       </div>
-      {definitions.filter((definition) => (definition.placement ?? "overlay") === placement).map((definition) => {
-        const instance = getIndicatorInstance(settings, definition.id, definition);
-        return (
-          <div className={instance.enabled ? "strategy-quick-menu-item active" : "strategy-quick-menu-item"} key={definition.id}>
-            <span>
-              <strong>{definition.name}</strong>
-              <small>{placement === "overlay" ? "叠加在主图" : "显示在单独副图"}</small>
-            </span>
-            <div>
-              <button
-                aria-label={`${definition.name}${instance.enabled ? "关闭" : "打开"}`}
-                aria-pressed={instance.enabled}
-                className={instance.enabled ? "active" : ""}
-                onClick={() => updateSettings((current) => setIndicatorEnabled(current, definition.id, !instance.enabled, definitions))}
-                type="button"
-              >
-                {instance.enabled && <Check size={13} />}
-                {instance.enabled ? "已打开" : "打开"}
-              </button>
-              {definition.parameters.length > 0 && (
+      {definitions
+        .filter((definition) => (definition.placement ?? "overlay") === placement)
+        .map((definition) => {
+          const instance = getIndicatorInstance(settings, definition.id, definition);
+          return (
+            <div
+              className={
+                instance.enabled ? "strategy-quick-menu-item active" : "strategy-quick-menu-item"
+              }
+              key={definition.id}
+            >
+              <span>
+                <strong>{definition.name}</strong>
+                <small>{placement === "overlay" ? "叠加在主图" : "显示在单独副图"}</small>
+              </span>
+              <div>
                 <button
-                  aria-label={`${definition.name} 参数`}
-                  onClick={() => {
-                    setIsOpen(false);
-                    onOpenParameters(definition.id);
-                  }}
+                  aria-label={`${definition.name}${instance.enabled ? "关闭" : "打开"}`}
+                  aria-pressed={instance.enabled}
+                  className={instance.enabled ? "active" : ""}
+                  onClick={() =>
+                    updateSettings((current) =>
+                      setIndicatorEnabled(current, definition.id, !instance.enabled, definitions),
+                    )
+                  }
                   type="button"
                 >
-                  <SlidersHorizontal size={13} />
-                  参数
+                  {instance.enabled && <Check size={13} />}
+                  {instance.enabled ? "已打开" : "打开"}
                 </button>
-              )}
+                {definition.parameters.length > 0 && (
+                  <button
+                    aria-label={`${definition.name} 参数`}
+                    onClick={() => {
+                      setIsOpen(false);
+                      onOpenParameters(definition.id);
+                    }}
+                    type="button"
+                  >
+                    <SlidersHorizontal size={13} />
+                    参数
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
     </section>
   );
 
@@ -117,7 +131,11 @@ export function IndicatorQuickMenu({
         {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
       </button>
       {isOpen && (
-        <section className="strategy-quick-menu-panel indicator-quick-menu" role="menu" aria-label="技术指标">
+        <section
+          className="strategy-quick-menu-panel indicator-quick-menu"
+          role="menu"
+          aria-label="技术指标"
+        >
           <header>
             <span>
               <strong>技术指标</strong>
@@ -131,7 +149,9 @@ export function IndicatorQuickMenu({
                 aria-pressed={settings.conventionMode === option.value}
                 className={settings.conventionMode === option.value ? "active" : ""}
                 key={option.value}
-                onClick={() => updateSettings((current) => ({ ...current, conventionMode: option.value }))}
+                onClick={() =>
+                  updateSettings((current) => ({ ...current, conventionMode: option.value }))
+                }
                 type="button"
               >
                 {option.label}

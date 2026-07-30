@@ -42,7 +42,10 @@ test("LocalDatabase reads legacy raw JSON and rewrites a versioned document", ()
 
   assert.deepEqual(document, { id: "alpha", count: 2 });
 
-  const stored = JSON.parse(driver.getItem("test.sample") ?? "{}") as { version?: number; data?: SampleDocument };
+  const stored = JSON.parse(driver.getItem("test.sample") ?? "{}") as {
+    version?: number;
+    data?: SampleDocument;
+  };
   assert.equal(stored.version, 1);
   assert.deepEqual(stored.data, { id: "alpha", count: 2 });
 });

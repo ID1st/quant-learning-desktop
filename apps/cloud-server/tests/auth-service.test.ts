@@ -11,8 +11,7 @@ import { verifyLoginChallenge } from "../src/security/signedArtifacts.ts";
 import { createAuthService } from "../src/services/authService.ts";
 
 const now = new Date("2026-07-28T00:00:00.000Z");
-const loginChallengeSecret =
-  "login-challenge-test-secret-at-least-32-bytes";
+const loginChallengeSecret = "login-challenge-test-secret-at-least-32-bytes";
 
 function createDependencies(
   user: LoginUserRecord,
@@ -82,9 +81,7 @@ function createDependencies(
   };
 }
 
-function createUser(
-  entitlement: LoginUserRecord["entitlement"],
-): LoginUserRecord {
+function createUser(entitlement: LoginUserRecord["entitlement"]): LoginUserRecord {
   return {
     id: "user-1",
     email: "learner@example.com",
@@ -101,10 +98,10 @@ test("registration requests send an ownership code without exposing account exis
   });
   const service = await dependencies.createService();
 
-  const result = await service.requestRegistrationCode(
-    "learner@example.com",
-    { now, sourceIp: "127.0.0.1" },
-  );
+  const result = await service.requestRegistrationCode("learner@example.com", {
+    now,
+    sourceIp: "127.0.0.1",
+  });
 
   assert.deepEqual(result, { accepted: true, retryAfterSeconds: 60 });
   assert.equal(dependencies.getEmailChallengeCreationCalls(), 1);
@@ -126,9 +123,7 @@ test("verified duplicate registration reports that the account already exists", 
         },
         { now, sourceIp: "127.0.0.1" },
       ),
-    (error: unknown) =>
-      error instanceof AuthDomainError &&
-      error.code === "ACCOUNT_ALREADY_EXISTS",
+    (error: unknown) => error instanceof AuthDomainError && error.code === "ACCOUNT_ALREADY_EXISTS",
   );
 });
 
@@ -145,11 +140,7 @@ test("login never issues a session before an invite has established entitlement"
   assert.equal(result.kind, "INVITE_REQUIRED");
   assert.equal(dependencies.getSessionIssueCalls(), 0);
   if (result.kind === "INVITE_REQUIRED") {
-    const claims = verifyLoginChallenge(
-      result.loginChallenge,
-      loginChallengeSecret,
-      now,
-    );
+    const claims = verifyLoginChallenge(result.loginChallenge, loginChallengeSecret, now);
     assert.equal(claims.authVersion, 0);
     assert.equal(claims.reason, "INVITE_REQUIRED");
   }
@@ -200,8 +191,7 @@ test("password-version changes invalidate an outstanding invite challenge", asyn
         { deviceId: "device-1234", deviceLabel: "Windows desktop" },
         { now, sourceIp: "127.0.0.1" },
       ),
-    (error: unknown) =>
-      error instanceof AuthDomainError && error.code === "ACCESS_DENIED",
+    (error: unknown) => error instanceof AuthDomainError && error.code === "ACCESS_DENIED",
   );
   assert.equal(dependencies.getInviteRedemptionCalls(), 0);
   assert.equal(dependencies.getSessionIssueCalls(), 0);

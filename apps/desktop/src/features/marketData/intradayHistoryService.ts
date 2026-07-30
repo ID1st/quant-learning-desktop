@@ -22,19 +22,12 @@ export interface IntradayHistoryWindow {
 const minuteMs = 60_000;
 const intradayWarmupSessionCount = 5;
 
-function previousSession(
-  market: Market,
-  before: MarketDateParts,
-): TradingSession | null {
+function previousSession(market: Market, before: MarketDateParts): TradingSession | null {
   const resolution = findPreviousTradingSession(market, before);
   return resolution.ok ? resolution.session : null;
 }
 
-function findStartSession(
-  market: Market,
-  latest: TradingSession,
-  count: number,
-) {
+function findStartSession(market: Market, latest: TradingSession, count: number) {
   let session = latest;
   const [year, month, day] = latest.date.split("-").map(Number);
   let parts = { year, month, day };
@@ -55,10 +48,7 @@ export function getIntradayHistoryWindow(
   now = Date.now(),
   sessionCount = intradayWarmupSessionCount,
 ): IntradayHistoryWindow {
-  const today = getZonedDateParts(
-    new Date(now),
-    getMarketTimeZone(market),
-  );
+  const today = getZonedDateParts(new Date(now), getMarketTimeZone(market));
   const todayResolution = resolveTradingDate(market, today);
   if (!todayResolution.ok) {
     return {
@@ -79,16 +69,12 @@ export function getIntradayHistoryWindow(
     if (now < firstOpen) {
       latestSession = previousSession(market, today);
     } else {
-      const active = segments.find(
-        (segment) => now >= segment.startTime && now < segment.endTime,
-      );
+      const active = segments.find((segment) => now >= segment.startTime && now < segment.endTime);
       isMarketOpen = Boolean(active);
       if (active) {
         endTime = now;
       } else {
-        const completed = segments.filter(
-          (segment) => segment.endTime <= now,
-        );
+        const completed = segments.filter((segment) => segment.endTime <= now);
         endTime = completed.at(-1)?.endTime ?? firstOpen;
       }
     }
@@ -109,11 +95,7 @@ export function getIntradayHistoryWindow(
   if (latestSession.date !== formatParts(today)) {
     endTime = latestSegments.at(-1)?.endTime ?? now;
   }
-  const startSession = findStartSession(
-    market,
-    latestSession,
-    sessionCount,
-  );
+  const startSession = findStartSession(market, latestSession, sessionCount);
   const startTime = getSessionSegments(startSession)[0]?.startTime ?? now;
 
   return { startTime, endTime, isMarketOpen };
@@ -125,10 +107,7 @@ function formatParts(parts: MarketDateParts) {
     .padStart(2, "0")}-${parts.day.toString().padStart(2, "0")}`;
 }
 
-export function isMarketSessionOpen(
-  market: Market,
-  now = Date.now(),
-) {
+export function isMarketSessionOpen(market: Market, now = Date.now()) {
   return getIntradayHistoryWindow(market, now).isMarketOpen;
 }
 
@@ -139,11 +118,7 @@ export function alphaFeedMinuteBarsToRealtimeBars(
 ): MarketDataBar[] {
   return bars
     .filter((bar) => bar.symbol === key.symbol && bar.market === key.market)
-    .filter(
-      (bar) =>
-        bar.timestamp >= window.startTime &&
-        bar.timestamp <= window.endTime,
-    )
+    .filter((bar) => bar.timestamp >= window.startTime && bar.timestamp <= window.endTime)
     .map((bar) => ({
       symbol: key.symbol,
       market: key.market,

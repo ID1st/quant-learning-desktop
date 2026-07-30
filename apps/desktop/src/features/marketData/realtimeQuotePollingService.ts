@@ -23,7 +23,8 @@ export function createSnapshotCacheWriteGate(intervalMs = defaultSnapshotCacheWr
 }
 
 export function sanitizeRealtimePollIntervalMs(value: unknown) {
-  return typeof value === "number" && realtimePollIntervalOptionsMs.includes(value as (typeof realtimePollIntervalOptionsMs)[number])
+  return typeof value === "number" &&
+    realtimePollIntervalOptionsMs.includes(value as (typeof realtimePollIntervalOptionsMs)[number])
     ? value
     : defaultRealtimePollIntervalMs;
 }
@@ -49,7 +50,10 @@ export function dedupeWatchlistItems(items: MarketWatchlistItem[]) {
   return deduped;
 }
 
-export function createQuotePollingBatches(items: MarketWatchlistItem[], batchSize = realtimeQuoteBatchSize) {
+export function createQuotePollingBatches(
+  items: MarketWatchlistItem[],
+  batchSize = realtimeQuoteBatchSize,
+) {
   const safeBatchSize = Math.max(1, Math.floor(batchSize));
   const deduped = dedupeWatchlistItems(items);
   const batches: MarketWatchlistItem[][] = [];
@@ -65,7 +69,10 @@ export function getQuoteSnapshotKey(snapshot: Pick<MarketQuoteSnapshot, "market"
   return `${snapshot.market}:${snapshot.symbol}`;
 }
 
-export function mergeQuoteSnapshots(current: Record<string, MarketQuoteSnapshot>, snapshots: MarketQuoteSnapshot[]) {
+export function mergeQuoteSnapshots(
+  current: Record<string, MarketQuoteSnapshot>,
+  snapshots: MarketQuoteSnapshot[],
+) {
   return snapshots.reduce<Record<string, MarketQuoteSnapshot>>(
     (next, snapshot) => {
       next[getQuoteSnapshotKey(snapshot)] = snapshot;

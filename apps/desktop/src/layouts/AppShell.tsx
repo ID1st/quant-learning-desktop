@@ -1,5 +1,27 @@
-import { Activity, AlertTriangle, BarChart3, BookOpen, Command, KeyRound, LayoutDashboard, LogOut, RefreshCw, Search, Settings, WifiOff, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PropsWithChildren } from "react";
+import {
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  BookOpen,
+  Command,
+  KeyRound,
+  LayoutDashboard,
+  LogOut,
+  RefreshCw,
+  Search,
+  Settings,
+  WifiOff,
+  X,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PropsWithChildren,
+} from "react";
 import type { AppRoute } from "@quant/shared";
 import { useAuthStore } from "../features/auth/authStore";
 import { getAuthBridge } from "../features/auth/authService";
@@ -92,8 +114,7 @@ export function AppShell({ children }: PropsWithChildren) {
   const offlineRemainingMilliseconds = session?.isOffline
     ? Date.parse(session.offlineUntil) - Date.now()
     : 0;
-  const offlineWarning =
-    session?.isOffline && offlineRemainingMilliseconds <= 2 * 60 * 60 * 1_000;
+  const offlineWarning = session?.isOffline && offlineRemainingMilliseconds <= 2 * 60 * 60 * 1_000;
 
   const runCommand = (route: AppRoute, label: string) => {
     navigate(route);
@@ -155,10 +176,7 @@ export function AppShell({ children }: PropsWithChildren) {
       </aside>
       <section className="app-content">
         {session?.isOffline && (
-          <div
-            className={`offline-auth-banner ${offlineWarning ? "warning" : ""}`}
-            role="status"
-          >
+          <div className={`offline-auth-banner ${offlineWarning ? "warning" : ""}`} role="status">
             {offlineWarning ? <AlertTriangle size={15} /> : <WifiOff size={15} />}
             <span>
               当前使用离线授权，可用至
@@ -175,8 +193,17 @@ export function AppShell({ children }: PropsWithChildren) {
         {children}
       </section>
       {isCommandPaletteOpen && (
-        <div className="command-palette-backdrop" role="presentation" onClick={() => setIsCommandPaletteOpen(false)}>
-          <section aria-label="命令面板" className="command-palette" onClick={(event) => event.stopPropagation()} role="dialog">
+        <div
+          className="command-palette-backdrop"
+          role="presentation"
+          onClick={() => setIsCommandPaletteOpen(false)}
+        >
+          <section
+            aria-label="命令面板"
+            className="command-palette"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
             <div className="command-palette-input">
               <Search size={17} />
               <input
@@ -188,7 +215,11 @@ export function AppShell({ children }: PropsWithChildren) {
                 value={commandQuery}
               />
               <kbd>Esc</kbd>
-              <button aria-label="关闭命令面板" onClick={() => setIsCommandPaletteOpen(false)} type="button">
+              <button
+                aria-label="关闭命令面板"
+                onClick={() => setIsCommandPaletteOpen(false)}
+                type="button"
+              >
                 <X size={16} />
               </button>
             </div>
@@ -197,14 +228,27 @@ export function AppShell({ children }: PropsWithChildren) {
                 const Icon = command.icon;
 
                 return (
-                  <button key={command.route} onClick={() => runCommand(command.route, command.label)} role="option" type="button">
+                  <button
+                    key={command.route}
+                    onClick={() => runCommand(command.route, command.label)}
+                    role="option"
+                    type="button"
+                  >
                     <Icon size={17} />
                     <span>{command.label}</span>
-                    <kbd>{command.route === "chart" ? "G C" : command.route === "dashboard" ? "G D" : "打开"}</kbd>
+                    <kbd>
+                      {command.route === "chart"
+                        ? "G C"
+                        : command.route === "dashboard"
+                          ? "G D"
+                          : "打开"}
+                    </kbd>
                   </button>
                 );
               })}
-              {visibleCommands.length === 0 && <div className="command-palette-empty">没有匹配的命令。</div>}
+              {visibleCommands.length === 0 && (
+                <div className="command-palette-empty">没有匹配的命令。</div>
+              )}
             </div>
           </section>
         </div>

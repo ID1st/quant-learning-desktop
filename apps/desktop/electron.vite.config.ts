@@ -4,14 +4,9 @@ import { resolve } from "node:path";
 
 const workspaceRoot = resolve(__dirname, "../..");
 const authenticationDefines = {
-  __QUANT_AUTH_BASE_URL__: JSON.stringify(
-    process.env.QUANT_AUTH_BASE_URL?.trim() ?? "",
-  ),
+  __QUANT_AUTH_BASE_URL__: JSON.stringify(process.env.QUANT_AUTH_BASE_URL?.trim() ?? ""),
   __QUANT_AUTH_OFFLINE_PUBLIC_KEY_PEM__: JSON.stringify(
-    (process.env.QUANT_AUTH_OFFLINE_PUBLIC_KEY_PEM ?? "").replaceAll(
-      "\\n",
-      "\n",
-    ),
+    (process.env.QUANT_AUTH_OFFLINE_PUBLIC_KEY_PEM ?? "").replaceAll("\\n", "\n"),
   ),
 };
 
@@ -34,13 +29,13 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-      input: {
-        main: resolve(__dirname, "src/electron/main.ts"),
-        authSmoke: resolve(__dirname, "src/electron/authSmoke.ts"),
-        authVisualSmoke: resolve(__dirname, "src/electron/authVisualSmoke.ts"),
-        marketDataSearchSmoke: resolve(__dirname, "src/electron/marketDataSearchSmoke.ts"),
-        pluginRuntimeSmoke: resolve(__dirname, "src/electron/pluginRuntimeSmoke.ts"),
-      },
+        input: {
+          main: resolve(__dirname, "src/electron/main.ts"),
+          authSmoke: resolve(__dirname, "src/electron/authSmoke.ts"),
+          authVisualSmoke: resolve(__dirname, "src/electron/authVisualSmoke.ts"),
+          marketDataSearchSmoke: resolve(__dirname, "src/electron/marketDataSearchSmoke.ts"),
+          pluginRuntimeSmoke: resolve(__dirname, "src/electron/pluginRuntimeSmoke.ts"),
+        },
       },
     },
   },

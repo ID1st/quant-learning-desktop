@@ -13,9 +13,7 @@ import {
 class FakeMigrationClient implements PostgresMigrationClient {
   readonly applied = new Map<number, { name: string; checksum: string }>();
   readonly statements: string[] = [];
-  private transactionApplied:
-    | { version: number; name: string; checksum: string }
-    | undefined;
+  private transactionApplied: { version: number; name: string; checksum: string } | undefined;
 
   async query<T extends Record<string, unknown> = Record<string, unknown>>(
     sql: string,
@@ -64,10 +62,7 @@ test("migration runner applies files in order and repeated execution is empty", 
   const directory = await mkdtemp(join(tmpdir(), "quant-migrations-"));
   try {
     await writeFile(join(directory, "002_second.sql"), "SELECT 2;\n");
-    await writeFile(
-      join(directory, "001_baseline.sql"),
-      "BEGIN;\nSELECT 1;\nCOMMIT;\n",
-    );
+    await writeFile(join(directory, "001_baseline.sql"), "BEGIN;\nSELECT 1;\nCOMMIT;\n");
     const client = new FakeMigrationClient();
 
     const first = await runPostgresMigrations({ client, directory });
@@ -107,10 +102,7 @@ test("migration runner keeps earlier transactions when a later migration fails",
   const directory = await mkdtemp(join(tmpdir(), "quant-migrations-"));
   try {
     await writeFile(join(directory, "001_baseline.sql"), "SELECT 1;\n");
-    await writeFile(
-      join(directory, "002_broken.sql"),
-      "SELECT 'FAIL_MIGRATION';\n",
-    );
+    await writeFile(join(directory, "002_broken.sql"), "SELECT 'FAIL_MIGRATION';\n");
     const client = new FakeMigrationClient();
 
     await assert.rejects(
@@ -118,10 +110,7 @@ test("migration runner keeps earlier transactions when a later migration fails",
       /simulated migration failure/u,
     );
     assert.deepEqual([...client.applied.keys()], [1]);
-    assert.equal(
-      client.statements.filter((statement) => statement === "ROLLBACK").length,
-      1,
-    );
+    assert.equal(client.statements.filter((statement) => statement === "ROLLBACK").length, 1);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

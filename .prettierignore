@@ -1,0 +1,15 @@
+.codex/
+node_modules/
+coverage/
+dist/
+build/
+out/
+release/
+prototype/
+trading-strategies/
+docs/generated/
+package-lock.json
+*.duckdb
+*.ico
+*.png
+*.svg

@@ -1,7 +1,4 @@
-import type {
-  AuthErrorCode,
-  QuantDesktopAuthBridge,
-} from "@quant/shared";
+import type { AuthErrorCode, QuantDesktopAuthBridge } from "@quant/shared";
 
 export interface PasswordRuleState {
   length: boolean;
@@ -34,10 +31,7 @@ export function getAuthBridge(): QuantDesktopAuthBridge | null {
   return window.quantDesktop?.auth ?? null;
 }
 
-export function authErrorMessage(
-  code: AuthErrorCode,
-  retryAfterSeconds?: number,
-): string {
+export function authErrorMessage(code: AuthErrorCode, retryAfterSeconds?: number): string {
   if (code === "RATE_LIMITED" && retryAfterSeconds) {
     return `操作过于频繁，请在 ${retryAfterSeconds} 秒后重试。`;
   }
@@ -50,9 +44,7 @@ export function evaluatePasswordRules(password: string): PasswordRuleState {
     lowercase: /[a-z]/.test(password),
     uppercase: /[A-Z]/.test(password),
     digit: /\d/.test(password),
-    special: /[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/.test(
-      password,
-    ),
+    special: /[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/.test(password),
     asciiNoWhitespace: /^[\x21-\x7e]+$/.test(password),
   };
 }

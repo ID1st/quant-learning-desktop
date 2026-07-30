@@ -1,5 +1,8 @@
 import { create } from "zustand";
-import type { StrategyParameterDefinition, UserStrategyDraftDefinition } from "@quant/strategy-engine";
+import type {
+  StrategyParameterDefinition,
+  UserStrategyDraftDefinition,
+} from "@quant/strategy-engine";
 import { appLocalDatabase } from "../persistence/localDatabase";
 
 const COLLECTION_KEY = "user-strategy-drafts";
@@ -23,7 +26,11 @@ interface UserStrategyDraftState {
   addDraft: (definition: UserStrategyDraftDefinition) => string;
   duplicateDraft: (draftId: string) => string | null;
   updateDraftMeta: (draftId: string, values: { name: string; description: string }) => void;
-  updateDraftParameter: (draftId: string, parameterKey: string, defaultValue: StrategyParameterDefinition["defaultValue"]) => void;
+  updateDraftParameter: (
+    draftId: string,
+    parameterKey: string,
+    defaultValue: StrategyParameterDefinition["defaultValue"],
+  ) => void;
   deleteDraft: (draftId: string) => void;
   setSelectedDraftId: (draftId: string | null) => void;
 }
@@ -70,7 +77,8 @@ function sanitizeDraftState(value: unknown): StoredUserStrategyDraftState | null
   const parsed = value as Partial<StoredUserStrategyDraftState>;
   const drafts = Array.isArray(parsed.drafts) ? parsed.drafts.filter(isStoredDraft) : [];
   const selectedDraftId =
-    typeof parsed.selectedDraftId === "string" && drafts.some((draft) => draft.id === parsed.selectedDraftId)
+    typeof parsed.selectedDraftId === "string" &&
+    drafts.some((draft) => draft.id === parsed.selectedDraftId)
       ? parsed.selectedDraftId
       : null;
 
@@ -147,14 +155,18 @@ export const useUserStrategyDraftStore = create<UserStrategyDraftState>((set) =>
           ...sourceDraft.definition,
           name: createCopyName(sourceDraft.definition.name, state.drafts),
           description: sourceDraft.definition.description,
-          parameterSchema: sourceDraft.definition.parameterSchema.map((parameter) => ({ ...parameter })),
+          parameterSchema: sourceDraft.definition.parameterSchema.map((parameter) => ({
+            ...parameter,
+          })),
           translation: {
             ...sourceDraft.definition.translation,
             ir: {
               ...sourceDraft.definition.translation.ir,
               declaration: { ...sourceDraft.definition.translation.ir.declaration },
               inputs: sourceDraft.definition.translation.ir.inputs.map((input) => ({ ...input })),
-              visuals: sourceDraft.definition.translation.ir.visuals.map((visual) => ({ ...visual })),
+              visuals: sourceDraft.definition.translation.ir.visuals.map((visual) => ({
+                ...visual,
+              })),
               alerts: sourceDraft.definition.translation.ir.alerts.map((alert) => ({ ...alert })),
               unsupportedCalls: [...sourceDraft.definition.translation.ir.unsupportedCalls],
             },
@@ -228,7 +240,8 @@ export const useUserStrategyDraftStore = create<UserStrategyDraftState>((set) =>
   deleteDraft: (draftId) => {
     set((state) => {
       const drafts = state.drafts.filter((draft) => draft.id !== draftId);
-      const selectedDraftId = state.selectedDraftId === draftId ? drafts[0]?.id ?? null : state.selectedDraftId;
+      const selectedDraftId =
+        state.selectedDraftId === draftId ? (drafts[0]?.id ?? null) : state.selectedDraftId;
       const nextState = { drafts, selectedDraftId };
 
       writeStoredDraftState(nextState);
@@ -237,7 +250,10 @@ export const useUserStrategyDraftStore = create<UserStrategyDraftState>((set) =>
   },
   setSelectedDraftId: (selectedDraftId) => {
     set((state) => {
-      const nextSelectedDraftId = selectedDraftId && state.drafts.some((draft) => draft.id === selectedDraftId) ? selectedDraftId : null;
+      const nextSelectedDraftId =
+        selectedDraftId && state.drafts.some((draft) => draft.id === selectedDraftId)
+          ? selectedDraftId
+          : null;
       const nextState = { drafts: state.drafts, selectedDraftId: nextSelectedDraftId };
 
       writeStoredDraftState(nextState);

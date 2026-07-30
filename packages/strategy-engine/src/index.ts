@@ -382,7 +382,9 @@ function parsePineInputs(sourceText: string): PineStrategyInputDraft[] {
 }
 
 function findUnsupportedOrderCalls(sourceText: string) {
-  return ["strategy.entry", "strategy.exit", "strategy.order", "strategy.close"].filter((call) => sourceText.includes(call));
+  return ["strategy.entry", "strategy.exit", "strategy.order", "strategy.close"].filter((call) =>
+    sourceText.includes(call),
+  );
 }
 
 function findUnsupportedPineStatements(sourceText: string) {
@@ -460,8 +462,14 @@ function createDraftKey(title: string) {
   return `user-${normalized || "pine-strategy"}`;
 }
 
-function parseInputDefaultValue(input: PineStrategyInputDraft, sourceText: string): number | boolean | string {
-  const pattern = new RegExp(`^\\s*${input.key}\\s*=\\s*input(?:\\.${input.type})?\\s*\\(([^)]*)\\)`, "im");
+function parseInputDefaultValue(
+  input: PineStrategyInputDraft,
+  sourceText: string,
+): number | boolean | string {
+  const pattern = new RegExp(
+    `^\\s*${input.key}\\s*=\\s*input(?:\\.${input.type})?\\s*\\(([^)]*)\\)`,
+    "im",
+  );
   const args = sourceText.match(pattern)?.[1] ?? "";
   const firstArg = args.split(",")[0]?.trim() ?? "";
 
@@ -477,7 +485,10 @@ function parseInputDefaultValue(input: PineStrategyInputDraft, sourceText: strin
   return firstArg.replace(/^["']|["']$/g, "") || "";
 }
 
-function mapPineInputToParameter(input: PineStrategyInputDraft, sourceText: string): StrategyParameterDefinition {
+function mapPineInputToParameter(
+  input: PineStrategyInputDraft,
+  sourceText: string,
+): StrategyParameterDefinition {
   const isNumber = ["int", "float"].includes(input.type);
   const isBoolean = input.type === "bool";
 
@@ -490,7 +501,9 @@ function mapPineInputToParameter(input: PineStrategyInputDraft, sourceText: stri
   };
 }
 
-export function preflightPineStrategySource(input: PineStrategyPreflightInput): PineStrategyPreflightResult {
+export function preflightPineStrategySource(
+  input: PineStrategyPreflightInput,
+): PineStrategyPreflightResult {
   const sourceText = input.sourceText.trim();
 
   if (sourceText.length === 0) {
@@ -505,7 +518,8 @@ export function preflightPineStrategySource(input: PineStrategyPreflightInput): 
 
   const version = sourceText.match(/\/\/@version\s*=\s*(\d+)/i)?.[1] ?? null;
   const declarationMatch = sourceText.match(/\b(indicator|strategy|library)\s*\(/i);
-  const declaration = (declarationMatch?.[1]?.toLowerCase() as PineStrategyDeclaration | undefined) ?? "unknown";
+  const declaration =
+    (declarationMatch?.[1]?.toLowerCase() as PineStrategyDeclaration | undefined) ?? "unknown";
   const declarationArgs = parseDeclarationArgs(sourceText);
   const inputs = parsePineInputs(sourceText);
 
@@ -528,7 +542,9 @@ export function preflightPineStrategySource(input: PineStrategyPreflightInput): 
   }
 
   if (unsupportedStatements.length > 0) {
-    warnings.push(`Unsupported Pine statements require manual review: ${unsupportedStatements.join(" / ")}`);
+    warnings.push(
+      `Unsupported Pine statements require manual review: ${unsupportedStatements.join(" / ")}`,
+    );
   }
 
   if (declaration === "library") {
@@ -553,7 +569,10 @@ export function preflightPineStrategySource(input: PineStrategyPreflightInput): 
       overlay: parseOverlay(declarationArgs),
       lineCount: sourceText.split(/\r?\n/).length,
       inputCount: inputs.length || countMatches(sourceText, /\binput(?:\.\w+)?\s*\(/gi),
-      plotCount: countMatches(sourceText, /\b(?:plot|plotshape|plotchar|plotbar|plotcandle)\s*\(/gi),
+      plotCount: countMatches(
+        sourceText,
+        /\b(?:plot|plotshape|plotchar|plotbar|plotcandle)\s*\(/gi,
+      ),
       alertCount: countMatches(sourceText, /\balertcondition\s*\(/gi),
       inputs,
       canCreateDraft: translationStatus === "ready",
@@ -566,7 +585,9 @@ export function preflightPineStrategySource(input: PineStrategyPreflightInput): 
   };
 }
 
-export function createPineTranslationPlan(input: PineStrategyPreflightInput): PineTranslationPlanResult {
+export function createPineTranslationPlan(
+  input: PineStrategyPreflightInput,
+): PineTranslationPlanResult {
   const preflight = preflightPineStrategySource(input);
 
   if (!preflight.ok) {
@@ -592,13 +613,18 @@ export function createPineTranslationPlan(input: PineStrategyPreflightInput): Pi
         calculations: parseCalculations(sourceText),
         visuals: parseVisuals(sourceText),
         alerts: parseAlerts(sourceText),
-        unsupportedCalls: [...findUnsupportedOrderCalls(sourceText), ...findUnsupportedPineStatements(sourceText)],
+        unsupportedCalls: [
+          ...findUnsupportedOrderCalls(sourceText),
+          ...findUnsupportedPineStatements(sourceText),
+        ],
       },
     },
   };
 }
 
-export function createUserStrategyDraftDefinition(input: PineStrategyPreflightInput): UserStrategyDraftDefinitionResult {
+export function createUserStrategyDraftDefinition(
+  input: PineStrategyPreflightInput,
+): UserStrategyDraftDefinitionResult {
   const translationPlan = createPineTranslationPlan(input);
 
   if (!translationPlan.ok) {
@@ -634,7 +660,11 @@ function getBarSeries(input: StrategyInput, key: string): Array<number | null> |
   return null;
 }
 
-function resolveNumericToken(token: string, draft: UserStrategyDraftDefinition, input: StrategyInput): number | null {
+function resolveNumericToken(
+  token: string,
+  draft: UserStrategyDraftDefinition,
+  input: StrategyInput,
+): number | null {
   const normalized = token.trim();
   const literalValue = Number(normalized);
 
@@ -701,7 +731,12 @@ function evaluateAlertCondition(
   return leftSeries.map((leftValue, index) => {
     const rightValue = rightSeries[index];
 
-    if (leftValue === null || rightValue === null || leftValue === undefined || rightValue === undefined) {
+    if (
+      leftValue === null ||
+      rightValue === null ||
+      leftValue === undefined ||
+      rightValue === undefined
+    ) {
       return false;
     }
 
@@ -763,7 +798,9 @@ function findRunnableSubsetIssues(draft: UserStrategyDraftDefinition) {
   return issues;
 }
 
-export function createRunnableUserStrategyDefinition(draft: UserStrategyDraftDefinition): RunnableUserStrategyDefinitionResult {
+export function createRunnableUserStrategyDefinition(
+  draft: UserStrategyDraftDefinition,
+): RunnableUserStrategyDefinitionResult {
   if (draft.translation.status !== "ready") {
     return {
       ok: false,
@@ -803,11 +840,26 @@ export function createRunnableUserStrategyDefinition(draft: UserStrategyDraftDef
         const enabled = input.enabled ?? true;
         const seriesByKey = new Map<string, Array<number | null>>();
 
-        seriesByKey.set("open", input.bars.map((bar) => bar.open));
-        seriesByKey.set("high", input.bars.map((bar) => bar.high));
-        seriesByKey.set("low", input.bars.map((bar) => bar.low));
-        seriesByKey.set("close", input.bars.map((bar) => bar.close));
-        seriesByKey.set("volume", input.bars.map((bar) => bar.volume));
+        seriesByKey.set(
+          "open",
+          input.bars.map((bar) => bar.open),
+        );
+        seriesByKey.set(
+          "high",
+          input.bars.map((bar) => bar.high),
+        );
+        seriesByKey.set(
+          "low",
+          input.bars.map((bar) => bar.low),
+        );
+        seriesByKey.set(
+          "close",
+          input.bars.map((bar) => bar.close),
+        );
+        seriesByKey.set(
+          "volume",
+          input.bars.map((bar) => bar.volume),
+        );
 
         for (const calculation of draft.translation.ir.calculations ?? []) {
           const outputSeries = evaluateCalculation(calculation, draft, input, seriesByKey);
@@ -899,14 +951,20 @@ export function createRunnableUserStrategyDefinition(draft: UserStrategyDraftDef
   };
 }
 
-export function resolveStrategyParameters(strategy: StrategyDefinition, parameters: Record<string, unknown> = {}) {
+export function resolveStrategyParameters(
+  strategy: StrategyDefinition,
+  parameters: Record<string, unknown> = {},
+) {
   return strategy.parameterSchema.reduce<Record<string, unknown>>((resolved, parameter) => {
     resolved[parameter.key] = parameters[parameter.key] ?? parameter.defaultValue;
     return resolved;
   }, {});
 }
 
-export function createStrategyInput(strategy: StrategyDefinition, request: StrategyRunRequest): StrategyInput {
+export function createStrategyInput(
+  strategy: StrategyDefinition,
+  request: StrategyRunRequest,
+): StrategyInput {
   return {
     symbol: request.symbol,
     market: request.market,
@@ -920,7 +978,10 @@ export function createStrategyInput(strategy: StrategyDefinition, request: Strat
   };
 }
 
-export function runRegisteredStrategy(registry: StrategyRegistry, request: StrategyRunRequest): StrategyRunResult {
+export function runRegisteredStrategy(
+  registry: StrategyRegistry,
+  request: StrategyRunRequest,
+): StrategyRunResult {
   const strategy = registry.get(request.strategyKey);
 
   if (!strategy) {
@@ -972,7 +1033,11 @@ function getNumberParameter(parameters: Record<string, unknown>, key: string, fa
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-function getPositiveNumberParameter(parameters: Record<string, unknown>, key: string, fallback: number) {
+function getPositiveNumberParameter(
+  parameters: Record<string, unknown>,
+  key: string,
+  fallback: number,
+) {
   const value = getNumberParameter(parameters, key, fallback);
   return value > 0 ? value : fallback;
 }
@@ -1015,7 +1080,11 @@ function wilderMovingAverage(values: readonly number[], period: number): Array<n
 function pineAtr(bars: readonly Bar[], period: number): Array<number | null> {
   const trueRanges = bars.map((bar, index) => {
     const previousClose = bars[index - 1]?.close ?? bar.close;
-    return Math.max(bar.high - bar.low, Math.abs(bar.high - previousClose), Math.abs(bar.low - previousClose));
+    return Math.max(
+      bar.high - bar.low,
+      Math.abs(bar.high - previousClose),
+      Math.abs(bar.low - previousClose),
+    );
   });
 
   return wilderMovingAverage(trueRanges, period);
@@ -1038,7 +1107,10 @@ const marketTimeZones: Record<Market, string> = {
 };
 const zonedDateFormatterCache = new Map<string, Intl.DateTimeFormat>();
 
-function getZonedDateParts(timestamp: number, timeZone: string): CalendarDate & { hour: number; minute: number } {
+function getZonedDateParts(
+  timestamp: number,
+  timeZone: string,
+): CalendarDate & { hour: number; minute: number } {
   let formatter = zonedDateFormatterCache.get(timeZone);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat("en-CA", {
@@ -1077,12 +1149,23 @@ function calendarDateKey(date: CalendarDate) {
   return Date.UTC(date.year, date.month - 1, date.day);
 }
 
-function zonedDateTimeToTimestamp(date: CalendarDate, hour: number, minute: number, timeZone: string) {
+function zonedDateTimeToTimestamp(
+  date: CalendarDate,
+  hour: number,
+  minute: number,
+  timeZone: string,
+) {
   const desiredAsUtc = Date.UTC(date.year, date.month - 1, date.day, hour, minute);
   let timestamp = desiredAsUtc;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const actual = getZonedDateParts(timestamp, timeZone);
-    const actualAsUtc = Date.UTC(actual.year, actual.month - 1, actual.day, actual.hour, actual.minute);
+    const actualAsUtc = Date.UTC(
+      actual.year,
+      actual.month - 1,
+      actual.day,
+      actual.hour,
+      actual.minute,
+    );
     const correction = desiredAsUtc - actualAsUtc;
     timestamp += correction;
     if (correction === 0) {
@@ -1094,22 +1177,43 @@ function zonedDateTimeToTimestamp(date: CalendarDate, hour: number, minute: numb
 
 function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): StrategyOutput {
   const enabled = input.enabled ?? true;
-  const sessionStartHour = Math.min(23, Math.max(0, Math.round(getNumberParameter(input.parameters, "sessionStartHour", 9))));
-  const sessionStartMinute = Math.min(59, Math.max(0, Math.round(getNumberParameter(input.parameters, "sessionStartMinute", 30))));
-  const openingRangeMinutes = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "openingRangeMinutes", 30)));
-  const sessionDays = getStringParameter(input.parameters, "sessionDays", "1234567").replace(/[^1-7]/g, "") || "1234567";
-  const timezoneMode = getStringParameter(input.parameters, "timezoneMode", "fixed-offset") === "market"
-    ? "market"
-    : "fixed-offset";
-  const timezoneOffsetHours = Math.min(12, Math.max(-12, getNumberParameter(input.parameters, "timezoneOffsetHours", -5)));
+  const sessionStartHour = Math.min(
+    23,
+    Math.max(0, Math.round(getNumberParameter(input.parameters, "sessionStartHour", 9))),
+  );
+  const sessionStartMinute = Math.min(
+    59,
+    Math.max(0, Math.round(getNumberParameter(input.parameters, "sessionStartMinute", 30))),
+  );
+  const openingRangeMinutes = Math.max(
+    1,
+    Math.round(getPositiveNumberParameter(input.parameters, "openingRangeMinutes", 30)),
+  );
+  const sessionDays =
+    getStringParameter(input.parameters, "sessionDays", "1234567").replace(/[^1-7]/g, "") ||
+    "1234567";
+  const timezoneMode =
+    getStringParameter(input.parameters, "timezoneMode", "fixed-offset") === "market"
+      ? "market"
+      : "fixed-offset";
+  const timezoneOffsetHours = Math.min(
+    12,
+    Math.max(-12, getNumberParameter(input.parameters, "timezoneOffsetHours", -5)),
+  );
   const sessionTimeZone = marketTimeZones[input.market];
-  const rangeSource = getStringParameter(input.parameters, "rangeSource", "high-low") === "close" ? "close" : "high-low";
+  const rangeSource =
+    getStringParameter(input.parameters, "rangeSource", "high-low") === "close"
+      ? "close"
+      : "high-low";
   const showTargets = getBooleanParameter(input.parameters, "showTargets", true);
   const showTargetLabels = getBooleanParameter(input.parameters, "showTargetLabels", true);
   const bullColor = getColorParameter(input.parameters, "bullColor", "#089981");
   const bearColor = getColorParameter(input.parameters, "bearColor", "#f23645");
   const neutralColor = getColorParameter(input.parameters, "neutralColor", "#5b9cf6");
-  const backgroundTransparency = Math.min(100, Math.max(0, getNumberParameter(input.parameters, "backgroundTransparency", 85)));
+  const backgroundTransparency = Math.min(
+    100,
+    Math.max(0, getNumberParameter(input.parameters, "backgroundTransparency", 85)),
+  );
   const signalLabelSize = getStringParameter(input.parameters, "signalLabelSize", "small");
   const signalTextSize: StrategyVisualBase["textSize"] =
     signalLabelSize === "tiny" || signalLabelSize === "small" || signalLabelSize === "large"
@@ -1119,32 +1223,56 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
     (transparencyOffset) =>
       (100 - Math.min(100, Math.max(0, backgroundTransparency + transparencyOffset))) / 100,
   );
-  const extensionType = getStringParameter(input.parameters, "extensionType", "multiples") === "fibonacci" ? "fibonacci" : "multiples";
-  const extensionMultipliers = extensionType === "fibonacci"
-    ? [0.382, 0.618, 1]
-    : [
-        Math.max(0, getNumberParameter(input.parameters, "extensionMultiplierOne", 1)),
-        Math.max(0, getNumberParameter(input.parameters, "extensionMultiplierTwo", 2)),
-        Math.max(0, getNumberParameter(input.parameters, "extensionMultiplierThree", 3)),
-      ];
+  const extensionType =
+    getStringParameter(input.parameters, "extensionType", "multiples") === "fibonacci"
+      ? "fibonacci"
+      : "multiples";
+  const extensionMultipliers =
+    extensionType === "fibonacci"
+      ? [0.382, 0.618, 1]
+      : [
+          Math.max(0, getNumberParameter(input.parameters, "extensionMultiplierOne", 1)),
+          Math.max(0, getNumberParameter(input.parameters, "extensionMultiplierTwo", 2)),
+          Math.max(0, getNumberParameter(input.parameters, "extensionMultiplierThree", 3)),
+        ];
   const showVolumeProfile = getBooleanParameter(input.parameters, "showVolumeProfile", true);
-  const volumeProfileRows = Math.min(50, Math.max(5, Math.round(getPositiveNumberParameter(input.parameters, "volumeProfileRows", 14))));
-  const volumeProfileWidthPercent = Math.min(100, Math.max(1, getPositiveNumberParameter(input.parameters, "volumeProfileWidthPercent", 30)));
+  const volumeProfileRows = Math.min(
+    50,
+    Math.max(5, Math.round(getPositiveNumberParameter(input.parameters, "volumeProfileRows", 14))),
+  );
+  const volumeProfileWidthPercent = Math.min(
+    100,
+    Math.max(1, getPositiveNumberParameter(input.parameters, "volumeProfileWidthPercent", 30)),
+  );
   const volumeProfileColor = getColorParameter(input.parameters, "volumeProfileColor", "#5b9cf6");
   const stopPlotting = getBooleanParameter(input.parameters, "stopPlotting", true);
   const plottingEndType = getStringParameter(input.parameters, "plottingEndType", "new-york-close");
-  const manualEndHour = Math.min(23, Math.max(0, Math.round(getNumberParameter(input.parameters, "manualEndHour", 16))));
-  const manualEndMinute = Math.min(59, Math.max(0, Math.round(getNumberParameter(input.parameters, "manualEndMinute", 0))));
-  const plottingEndMinutes = plottingEndType === "london-close"
-    ? 11 * 60 + 30
-    : plottingEndType === "manual"
-      ? manualEndHour * 60 + manualEndMinute
-      : plottingEndType === "end-of-day"
-        ? 23 * 60 + 59
-        : 17 * 60;
+  const manualEndHour = Math.min(
+    23,
+    Math.max(0, Math.round(getNumberParameter(input.parameters, "manualEndHour", 16))),
+  );
+  const manualEndMinute = Math.min(
+    59,
+    Math.max(0, Math.round(getNumberParameter(input.parameters, "manualEndMinute", 0))),
+  );
+  const plottingEndMinutes =
+    plottingEndType === "london-close"
+      ? 11 * 60 + 30
+      : plottingEndType === "manual"
+        ? manualEndHour * 60 + manualEndMinute
+        : plottingEndType === "end-of-day"
+          ? 23 * 60 + 59
+          : 17 * 60;
   const showTrailingStop = getBooleanParameter(input.parameters, "showTrailingStop", false);
-  const trailingStopAtrMultiplier = getPositiveNumberParameter(input.parameters, "trailingStopAtrMultiplier", 2);
-  const trailingStopAtrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "trailingStopAtrPeriod", 14)));
+  const trailingStopAtrMultiplier = getPositiveNumberParameter(
+    input.parameters,
+    "trailingStopAtrMultiplier",
+    2,
+  );
+  const trailingStopAtrPeriod = Math.max(
+    1,
+    Math.round(getPositiveNumberParameter(input.parameters, "trailingStopAtrPeriod", 14)),
+  );
   const showOptimizer = getBooleanParameter(input.parameters, "showOptimizer", false);
 
   if (!enabled) {
@@ -1161,7 +1289,10 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
 
   const bars = [...input.bars].sort((left, right) => left.timestamp - right.timestamp);
   const atr = pineAtr(bars, trailingStopAtrPeriod);
-  const volumeAverage = sma(bars.map((bar) => bar.volume), 20);
+  const volumeAverage = sma(
+    bars.map((bar) => bar.volume),
+    20,
+  );
   const elements: StrategyVisualElement[] = [];
   const signals: StrategySignal[] = [];
   const targetAlerts: string[] = [];
@@ -1207,7 +1338,11 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       return { year, month, day: dayOfMonth };
     }
     const local = new Date(timestamp + timezoneOffset);
-    return { year: local.getUTCFullYear(), month: local.getUTCMonth() + 1, day: local.getUTCDate() };
+    return {
+      year: local.getUTCFullYear(),
+      month: local.getUTCMonth() + 1,
+      day: local.getUTCDate(),
+    };
   };
 
   const localDateTimeToTimestamp = (
@@ -1284,7 +1419,12 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   };
 
   const addSessionElements = () => {
-    if (sessionKey === null || lastSessionRendered === sessionKey || openingRangeHigh <= openingRangeLow) return;
+    if (
+      sessionKey === null ||
+      lastSessionRendered === sessionKey ||
+      openingRangeHigh <= openingRangeLow
+    )
+      return;
     const range = openingRangeHigh - openingRangeLow;
     const upper = extensionMultipliers.map((multiplier) => openingRangeHigh + range * multiplier);
     const lower = extensionMultipliers.map((multiplier) => openingRangeLow - range * multiplier);
@@ -1458,21 +1598,37 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       addSessionElements();
     }
 
-    const hasRange = sessionKey !== null && Number.isFinite(openingRangeHigh) && Number.isFinite(openingRangeLow) && openingRangeHigh > openingRangeLow;
+    const hasRange =
+      sessionKey !== null &&
+      Number.isFinite(openingRangeHigh) &&
+      Number.isFinite(openingRangeLow) &&
+      openingRangeHigh > openingRangeLow;
     const range = hasRange ? openingRangeHigh - openingRangeLow : 0;
-    const upperTargets = extensionMultipliers.map((multiplier) => openingRangeHigh + range * multiplier);
-    const lowerTargets = extensionMultipliers.map((multiplier) => openingRangeLow - range * multiplier);
-    const displayAllowed = !stopPlotting || (sessionKey !== null && bar.timestamp >= sessionStartTimestamp && bar.timestamp <= plottingEndTimestamp);
+    const upperTargets = extensionMultipliers.map(
+      (multiplier) => openingRangeHigh + range * multiplier,
+    );
+    const lowerTargets = extensionMultipliers.map(
+      (multiplier) => openingRangeLow - range * multiplier,
+    );
+    const displayAllowed =
+      !stopPlotting ||
+      (sessionKey !== null &&
+        bar.timestamp >= sessionStartTimestamp &&
+        bar.timestamp <= plottingEndTimestamp);
 
     if (hasRange && previousClose !== null && previousUpperTargetThree !== null) {
-      const crossedUpperTarget = (bar.close > upperTargets[2] && previousClose <= previousUpperTargetThree) ||
+      const crossedUpperTarget =
+        (bar.close > upperTargets[2] && previousClose <= previousUpperTargetThree) ||
         (bar.close < upperTargets[2] && previousClose >= previousUpperTargetThree);
-      if (crossedUpperTarget) targetAlerts.push(`最终向上目标已触及：${upperTargets[2].toFixed(2)}`);
+      if (crossedUpperTarget)
+        targetAlerts.push(`最终向上目标已触及：${upperTargets[2].toFixed(2)}`);
     }
     if (hasRange && previousClose !== null && previousLowerTargetThree !== null) {
-      const crossedLowerTarget = (bar.close > lowerTargets[2] && previousClose <= previousLowerTargetThree) ||
+      const crossedLowerTarget =
+        (bar.close > lowerTargets[2] && previousClose <= previousLowerTargetThree) ||
         (bar.close < lowerTargets[2] && previousClose >= previousLowerTargetThree);
-      if (crossedLowerTarget) targetAlerts.push(`最终向下目标已触及：${lowerTargets[2].toFixed(2)}`);
+      if (crossedLowerTarget)
+        targetAlerts.push(`最终向下目标已触及：${lowerTargets[2].toFixed(2)}`);
     }
 
     if (sessionEnded && hasRange) {
@@ -1490,8 +1646,22 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       });
     }
 
-    const breakoutUp = !inSession && sessionEnded && hasRange && displayAllowed && previousClose !== null && previousClose <= openingRangeHigh && bar.close > openingRangeHigh;
-    const breakoutDown = !inSession && sessionEnded && hasRange && displayAllowed && previousClose !== null && previousClose >= openingRangeLow && bar.close < openingRangeLow;
+    const breakoutUp =
+      !inSession &&
+      sessionEnded &&
+      hasRange &&
+      displayAllowed &&
+      previousClose !== null &&
+      previousClose <= openingRangeHigh &&
+      bar.close > openingRangeHigh;
+    const breakoutDown =
+      !inSession &&
+      sessionEnded &&
+      hasRange &&
+      displayAllowed &&
+      previousClose !== null &&
+      previousClose >= openingRangeLow &&
+      bar.close < openingRangeLow;
     const highVolume = isSeriesNumber(volumeAverage[index]) && bar.volume > volumeAverage[index]!;
     const volumeSuffix = highVolume ? "（高量）" : "（低量）";
     const currentAtr = atr[index];
@@ -1522,10 +1692,14 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       if (activeDirection === 0) {
         activeDirection = 1;
         entryPrice = openingRangeHigh;
-        trailStop = isSeriesNumber(currentAtr) ? bar.low - currentAtr * trailingStopAtrMultiplier : null;
+        trailStop = isSeriesNumber(currentAtr)
+          ? bar.low - currentAtr * trailingStopAtrMultiplier
+          : null;
         optimizerMultipliers.forEach((multiplier, optimizerIndex) => {
           optimizerDirections[optimizerIndex] = 1;
-          optimizerStops[optimizerIndex] = isSeriesNumber(currentAtr) ? bar.low - currentAtr * multiplier : null;
+          optimizerStops[optimizerIndex] = isSeriesNumber(currentAtr)
+            ? bar.low - currentAtr * multiplier
+            : null;
         });
       }
     }
@@ -1556,18 +1730,29 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       if (activeDirection === 0) {
         activeDirection = -1;
         entryPrice = openingRangeLow;
-        trailStop = isSeriesNumber(currentAtr) ? bar.high + currentAtr * trailingStopAtrMultiplier : null;
+        trailStop = isSeriesNumber(currentAtr)
+          ? bar.high + currentAtr * trailingStopAtrMultiplier
+          : null;
         optimizerMultipliers.forEach((multiplier, optimizerIndex) => {
           optimizerDirections[optimizerIndex] = -1;
-          optimizerStops[optimizerIndex] = isSeriesNumber(currentAtr) ? bar.high + currentAtr * multiplier : null;
+          optimizerStops[optimizerIndex] = isSeriesNumber(currentAtr)
+            ? bar.high + currentAtr * multiplier
+            : null;
         });
       }
     }
 
     if (activeDirection !== 0 && isSeriesNumber(currentAtr)) {
-      trailStop = activeDirection > 0
-        ? Math.max(trailStop ?? bar.low - currentAtr * trailingStopAtrMultiplier, bar.low - currentAtr * trailingStopAtrMultiplier)
-        : Math.min(trailStop ?? bar.high + currentAtr * trailingStopAtrMultiplier, bar.high + currentAtr * trailingStopAtrMultiplier);
+      trailStop =
+        activeDirection > 0
+          ? Math.max(
+              trailStop ?? bar.low - currentAtr * trailingStopAtrMultiplier,
+              bar.low - currentAtr * trailingStopAtrMultiplier,
+            )
+          : Math.min(
+              trailStop ?? bar.high + currentAtr * trailingStopAtrMultiplier,
+              bar.high + currentAtr * trailingStopAtrMultiplier,
+            );
       if (trailSegmentDirection !== activeDirection) {
         flushTrailSegment();
         trailSegmentDirection = activeDirection;
@@ -1603,14 +1788,17 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       optimizerMultipliers.forEach((multiplier, optimizerIndex) => {
         const direction = optimizerDirections[optimizerIndex];
         if (direction === 0) return;
-        const candidate = direction > 0 ? bar.low - currentAtr * multiplier : bar.high + currentAtr * multiplier;
-        const nextStop = direction > 0
-          ? Math.max(optimizerStops[optimizerIndex] ?? candidate, candidate)
-          : Math.min(optimizerStops[optimizerIndex] ?? candidate, candidate);
+        const candidate =
+          direction > 0 ? bar.low - currentAtr * multiplier : bar.high + currentAtr * multiplier;
+        const nextStop =
+          direction > 0
+            ? Math.max(optimizerStops[optimizerIndex] ?? candidate, candidate)
+            : Math.min(optimizerStops[optimizerIndex] ?? candidate, candidate);
         optimizerStops[optimizerIndex] = nextStop;
         const stopped = direction > 0 ? bar.close < nextStop : bar.close > nextStop;
         if (stopped || !displayAllowed) {
-          optimizerProfits[optimizerIndex] += direction > 0 ? bar.close - entryPrice : entryPrice - bar.close;
+          optimizerProfits[optimizerIndex] +=
+            direction > 0 ? bar.close - entryPrice : entryPrice - bar.close;
           optimizerDirections[optimizerIndex] = 0;
         }
       });
@@ -1629,36 +1817,43 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
     const maximumVolume = Math.max(...latestVolumeProfile.values());
     const maximumWidth = openingRangeDuration * (volumeProfileWidthPercent / 100);
     const profileEndTimestamp = bars.at(-1)!.timestamp;
-    [...latestVolumeProfile.entries()].sort(([left], [right]) => left - right).forEach(([price, volume], index) => {
-      const width = maximumWidth * (volume / Math.max(1, maximumVolume));
-      elements.push({
-        id: `utorb-volume-profile-${index}`,
-        kind: "band",
-        fromPrice: price - latestTickSize / 2,
-        toPrice: price + latestTickSize / 2,
-        label: volume === maximumVolume ? "POC" : undefined,
-        tone: "range",
-        fillColor: volumeProfileColor,
-        borderColor: volumeProfileColor,
-        opacity: 0.1,
-        fromTimestamp: profileEndTimestamp - width,
-        toTimestamp: profileEndTimestamp,
+    [...latestVolumeProfile.entries()]
+      .sort(([left], [right]) => left - right)
+      .forEach(([price, volume], index) => {
+        const width = maximumWidth * (volume / Math.max(1, maximumVolume));
+        elements.push({
+          id: `utorb-volume-profile-${index}`,
+          kind: "band",
+          fromPrice: price - latestTickSize / 2,
+          toPrice: price + latestTickSize / 2,
+          label: volume === maximumVolume ? "POC" : undefined,
+          tone: "range",
+          fillColor: volumeProfileColor,
+          borderColor: volumeProfileColor,
+          opacity: 0.1,
+          fromTimestamp: profileEndTimestamp - width,
+          toTimestamp: profileEndTimestamp,
+        });
       });
-    });
   }
 
   const openingRange = Math.max(0, openingRangeHigh - openingRangeLow);
-  const upperTargets = extensionMultipliers.map((multiplier) => openingRangeHigh + openingRange * multiplier);
-  const lowerTargets = extensionMultipliers.map((multiplier) => openingRangeLow - openingRange * multiplier);
+  const upperTargets = extensionMultipliers.map(
+    (multiplier) => openingRangeHigh + openingRange * multiplier,
+  );
+  const lowerTargets = extensionMultipliers.map(
+    (multiplier) => openingRangeLow - openingRange * multiplier,
+  );
   const bestOptimizerIndex = optimizerProfits.reduce(
-    (best, profit, index) => profit > optimizerProfits[best] ? index : best,
+    (best, profit, index) => (profit > optimizerProfits[best] ? index : best),
     0,
   );
-  const hitRate = (hits: number) => totalSessions > 0 ? (hits / totalSessions) * 100 : 0;
+  const hitRate = (hits: number) => (totalSessions > 0 ? (hits / totalSessions) * 100 : 0);
   const latestSessionSuffix = sessionKey === null ? null : `-${sessionKey}`;
   elements.forEach((element) => {
     if (element.kind !== "price-line") return;
-    const isLatestSession = latestSessionSuffix !== null && element.id.endsWith(latestSessionSuffix);
+    const isLatestSession =
+      latestSessionSuffix !== null && element.id.endsWith(latestSessionSuffix);
     if (!isLatestSession || !showTargetLabels) {
       element.label = undefined;
       return;
@@ -1674,11 +1869,14 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
     const targetMatch = /^utorb-target-(up|down)-([1-3])-/.exec(element.id);
     if (!targetMatch) return;
     const targetIndex = Number(targetMatch[2]) - 1;
-    const hits = targetMatch[1] === "up" ? targetHits.upper[targetIndex] : targetHits.lower[targetIndex];
+    const hits =
+      targetMatch[1] === "up" ? targetHits.upper[targetIndex] : targetHits.lower[targetIndex];
     element.label = `目标 ${targetIndex + 1} (${Math.round(hitRate(hits))}%)`;
   });
 
-  const directionalSignalCount = signals.filter((signal) => signal.type === "buy" || signal.type === "sell").length;
+  const directionalSignalCount = signals.filter(
+    (signal) => signal.type === "buy" || signal.type === "sell",
+  ).length;
 
   return {
     signals,
@@ -1728,19 +1926,53 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   };
 }
 
-function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyInput): StrategyOutput {
+function runTrendTargetsStrategy(
+  strategy: StrategyDefinition,
+  input: StrategyInput,
+): StrategyOutput {
   const enabled = input.enabled ?? true;
   const supertrendFactor = getPositiveNumberParameter(input.parameters, "supertrendFactor", 12);
-  const supertrendAtrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "supertrendAtrPeriod", 90)));
-  const wmaLength = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "wmaLength", 40)));
-  const emaLength = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "emaLength", 14)));
-  const confirmationCount = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "confirmationCount", 3)));
+  const supertrendAtrPeriod = Math.max(
+    1,
+    Math.round(getPositiveNumberParameter(input.parameters, "supertrendAtrPeriod", 90)),
+  );
+  const wmaLength = Math.max(
+    1,
+    Math.round(getPositiveNumberParameter(input.parameters, "wmaLength", 40)),
+  );
+  const emaLength = Math.max(
+    1,
+    Math.round(getPositiveNumberParameter(input.parameters, "emaLength", 14)),
+  );
+  const confirmationCount = Math.max(
+    1,
+    Math.round(getPositiveNumberParameter(input.parameters, "confirmationCount", 3)),
+  );
   const showTargets = getBooleanParameter(input.parameters, "showTargets", true);
-  const atrPeriod = Math.max(1, Math.round(getPositiveNumberParameter(input.parameters, "atrPeriod", 14)));
-  const stopLossAtrMultiplier = getPositiveNumberParameter(input.parameters, "stopLossAtrMultiplier", 5);
-  const targetOneMultiplier = getPositiveNumberParameter(input.parameters, "targetOneMultiplier", 0.5);
-  const targetTwoMultiplier = getPositiveNumberParameter(input.parameters, "targetTwoMultiplier", 1);
-  const targetThreeMultiplier = getPositiveNumberParameter(input.parameters, "targetThreeMultiplier", 1.5);
+  const atrPeriod = Math.max(
+    1,
+    Math.round(getPositiveNumberParameter(input.parameters, "atrPeriod", 14)),
+  );
+  const stopLossAtrMultiplier = getPositiveNumberParameter(
+    input.parameters,
+    "stopLossAtrMultiplier",
+    5,
+  );
+  const targetOneMultiplier = getPositiveNumberParameter(
+    input.parameters,
+    "targetOneMultiplier",
+    0.5,
+  );
+  const targetTwoMultiplier = getPositiveNumberParameter(
+    input.parameters,
+    "targetTwoMultiplier",
+    1,
+  );
+  const targetThreeMultiplier = getPositiveNumberParameter(
+    input.parameters,
+    "targetThreeMultiplier",
+    1.5,
+  );
   const showStopLoss = getBooleanParameter(input.parameters, "showStopLoss", true);
   const bullColor = getColorParameter(input.parameters, "bullColor", "#00ffbb");
   const bearColor = getColorParameter(input.parameters, "bearColor", "#ff1100");
@@ -1771,12 +2003,14 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
     const previousLower = lowerBand[index - 1] ?? 0;
     const previousUpper = upperBand[index - 1] ?? 0;
     const previousClose = bars[index - 1]?.close ?? bar.close;
-    const nextLower = isSeriesNumber(rawLower) && (rawLower > previousLower || previousClose < previousLower)
-      ? rawLower
-      : previousLower;
-    const nextUpper = isSeriesNumber(rawUpper) && (rawUpper < previousUpper || previousClose > previousUpper)
-      ? rawUpper
-      : previousUpper;
+    const nextLower =
+      isSeriesNumber(rawLower) && (rawLower > previousLower || previousClose < previousLower)
+        ? rawLower
+        : previousLower;
+    const nextUpper =
+      isSeriesNumber(rawUpper) && (rawUpper < previousUpper || previousClose > previousUpper)
+        ? rawUpper
+        : previousUpper;
 
     lowerBand.push(nextLower);
     upperBand.push(nextUpper);
@@ -1801,10 +2035,18 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
     const previousValue = baseline[index - 1];
     const previousPreviousValue = baseline[index - 2];
     const previousTrend = currentTrend;
-    const turnedBullish = isSeriesNumber(value) && isSeriesNumber(previousValue) && isSeriesNumber(previousPreviousValue) &&
-      value > previousValue && previousValue <= previousPreviousValue;
-    const turnedBearish = isSeriesNumber(value) && isSeriesNumber(previousValue) && isSeriesNumber(previousPreviousValue) &&
-      value < previousValue && previousValue >= previousPreviousValue;
+    const turnedBullish =
+      isSeriesNumber(value) &&
+      isSeriesNumber(previousValue) &&
+      isSeriesNumber(previousPreviousValue) &&
+      value > previousValue &&
+      previousValue <= previousPreviousValue;
+    const turnedBearish =
+      isSeriesNumber(value) &&
+      isSeriesNumber(previousValue) &&
+      isSeriesNumber(previousPreviousValue) &&
+      value < previousValue &&
+      previousValue >= previousPreviousValue;
 
     if (turnedBullish) currentTrend = 1;
     if (turnedBearish) currentTrend = -1;
@@ -1832,7 +2074,12 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
 
     const trendChanged = currentTrend !== previousTrend;
     if (previousTrend <= 0 && currentTrend > 0) {
-      signals.push({ timestamp: bar.timestamp, type: "buy", price: bar.close, label: "向上趋势转变" });
+      signals.push({
+        timestamp: bar.timestamp,
+        type: "buy",
+        price: bar.close,
+        label: "向上趋势转变",
+      });
       elements.push({
         id: `trend-targets-buy-${bar.timestamp}`,
         kind: "signal-marker",
@@ -1845,7 +2092,12 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         placement: "over-candles",
       });
     } else if (previousTrend >= 0 && currentTrend < 0) {
-      signals.push({ timestamp: bar.timestamp, type: "sell", price: bar.close, label: "向下趋势转变" });
+      signals.push({
+        timestamp: bar.timestamp,
+        type: "sell",
+        price: bar.close,
+        label: "向下趋势转变",
+      });
       elements.push({
         id: `trend-targets-sell-${bar.timestamp}`,
         kind: "signal-marker",
@@ -1859,7 +2111,8 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
       });
     }
 
-    const rejected = isSeriesNumber(value) && currentTrend !== 0 && bar.high > value && bar.low < value;
+    const rejected =
+      isSeriesNumber(value) && currentTrend !== 0 && bar.high > value && bar.low < value;
     if (rejected) rejectionCount += 1;
     if (trendChanged || (!rejected && rejectionCount > 0)) rejectionCount = 0;
 
@@ -1894,12 +2147,19 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
     }
   });
 
-  const directionalSignals = signals.filter((signal) => signal.type === "buy" || signal.type === "sell");
+  const directionalSignals = signals.filter(
+    (signal) => signal.type === "buy" || signal.type === "sell",
+  );
   const latestSignal = directionalSignals[directionalSignals.length - 1];
-  const latestSignalBar = latestSignal ? bars.find((bar) => bar.timestamp === latestSignal.timestamp) : undefined;
+  const latestSignalBar = latestSignal
+    ? bars.find((bar) => bar.timestamp === latestSignal.timestamp)
+    : undefined;
   const projectionIndex = latestSignalBar ? bars.indexOf(latestSignalBar) : -1;
   const volatility = pineAtr(bars, atrPeriod);
-  const riskRange = projectionIndex >= 0 && isSeriesNumber(volatility[projectionIndex]) ? volatility[projectionIndex] : 0;
+  const riskRange =
+    projectionIndex >= 0 && isSeriesNumber(volatility[projectionIndex])
+      ? volatility[projectionIndex]
+      : 0;
   const entryPrice = latestSignalBar?.close ?? 0;
   const setupSide = latestSignal?.type === "sell" ? "sell" : "buy";
   const stopPrice = latestSignalBar
@@ -1908,9 +2168,18 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
       : latestSignalBar.high + riskRange * stopLossAtrMultiplier
     : 0;
   const riskDistance = Math.abs(entryPrice - stopPrice);
-  const targetOne = setupSide === "buy" ? entryPrice + riskDistance * targetOneMultiplier : entryPrice - riskDistance * targetOneMultiplier;
-  const targetTwo = setupSide === "buy" ? entryPrice + riskDistance * targetTwoMultiplier : entryPrice - riskDistance * targetTwoMultiplier;
-  const targetThree = setupSide === "buy" ? entryPrice + riskDistance * targetThreeMultiplier : entryPrice - riskDistance * targetThreeMultiplier;
+  const targetOne =
+    setupSide === "buy"
+      ? entryPrice + riskDistance * targetOneMultiplier
+      : entryPrice - riskDistance * targetOneMultiplier;
+  const targetTwo =
+    setupSide === "buy"
+      ? entryPrice + riskDistance * targetTwoMultiplier
+      : entryPrice - riskDistance * targetTwoMultiplier;
+  const targetThree =
+    setupSide === "buy"
+      ? entryPrice + riskDistance * targetThreeMultiplier
+      : entryPrice - riskDistance * targetThreeMultiplier;
   const setupAlerts: string[] = [];
   const targetTouched = [false, false, false];
   let stopTouched = false;
@@ -1937,8 +2206,10 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
         setupAlerts.push("价格下穿风险线 - 潜在下行趋势");
       }
 
-      const rejectedBearish = bar.high > stopPrice && previousBar.high <= stopPrice && bar.close < stopPrice;
-      const rejectedBullish = bar.low < stopPrice && previousBar.low >= stopPrice && bar.close > stopPrice;
+      const rejectedBearish =
+        bar.high > stopPrice && previousBar.high <= stopPrice && bar.close < stopPrice;
+      const rejectedBullish =
+        bar.low < stopPrice && previousBar.low >= stopPrice && bar.close > stopPrice;
       if (rejectedBearish) setupAlerts.push("价格在风险线被拒绝 - 向下拒绝信号");
       if (rejectedBullish) setupAlerts.push("价格在风险线被拒绝 - 向上拒绝信号");
       previousBar = bar;
@@ -2030,7 +2301,8 @@ function runTrendTargetsStrategy(strategy: StrategyDefinition, input: StrategyIn
   }
 
   const lastBaseline = [...baseline].reverse().find(isSeriesNumber) ?? 0;
-  const previousBaseline = [...baseline.slice(0, -1)].reverse().find(isSeriesNumber) ?? lastBaseline;
+  const previousBaseline =
+    [...baseline.slice(0, -1)].reverse().find(isSeriesNumber) ?? lastBaseline;
   const slope = lastBaseline - previousBaseline;
   const direction = (trend[trend.length - 1] ?? 0) >= 0 ? "bullish" : "bearish";
 
@@ -2078,7 +2350,8 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
     key: "utorb",
     name: "UTORB 开盘区间突破",
     version: "1.0.0",
-    description: "按 Pine Script 复刻的逐日开盘区间突破策略，包含扩展目标、量能分类、成交量分布与 ATR 移动风险线。",
+    description:
+      "按 Pine Script 复刻的逐日开盘区间突破策略，包含扩展目标、量能分类、成交量分布与 ATR 移动风险线。",
     sourceType: "preset",
     sourceFile: "trading-strategies/utorb.md",
     supportedMarkets: ["US", "HK", "CN"],
@@ -2180,8 +2453,18 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       },
       { key: "showVolumeProfile", label: "显示成交量分布", type: "boolean", defaultValue: true },
       { key: "volumeProfileRows", label: "成交量分布行数", type: "number", defaultValue: 14 },
-      { key: "volumeProfileWidthPercent", label: "成交量分布宽度 (%)", type: "number", defaultValue: 30 },
-      { key: "volumeProfileColor", label: "成交量分布颜色", type: "color", defaultValue: "#5b9cf6" },
+      {
+        key: "volumeProfileWidthPercent",
+        label: "成交量分布宽度 (%)",
+        type: "number",
+        defaultValue: 30,
+      },
+      {
+        key: "volumeProfileColor",
+        label: "成交量分布颜色",
+        type: "color",
+        defaultValue: "#5b9cf6",
+      },
       { key: "stopPlotting", label: "限制绘制时长", type: "boolean", defaultValue: true },
       {
         key: "plottingEndType",
@@ -2198,8 +2481,18 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
       { key: "manualEndHour", label: "手动结束小时", type: "number", defaultValue: 16 },
       { key: "manualEndMinute", label: "手动结束分钟", type: "number", defaultValue: 0 },
       { key: "showTrailingStop", label: "显示移动风险线", type: "boolean", defaultValue: false },
-      { key: "trailingStopAtrMultiplier", label: "移动风险线 ATR 倍数", type: "number", defaultValue: 2 },
-      { key: "trailingStopAtrPeriod", label: "移动风险线 ATR 周期", type: "number", defaultValue: 14 },
+      {
+        key: "trailingStopAtrMultiplier",
+        label: "移动风险线 ATR 倍数",
+        type: "number",
+        defaultValue: 2,
+      },
+      {
+        key: "trailingStopAtrPeriod",
+        label: "移动风险线 ATR 周期",
+        type: "number",
+        defaultValue: 14,
+      },
       { key: "showOptimizer", label: "计算风险线优化器", type: "boolean", defaultValue: false },
     ],
     run: (input) => runUtorbStrategy(utorbStrategy, input),
@@ -2209,7 +2502,8 @@ export function createPresetStrategyRegistry(): StrategyRegistry {
     key: "trend-targets",
     name: "Trend Targets 趋势目标",
     version: "1.0.0",
-    description: "按 Pine Script 复刻 Supertrend 中线、WMA/EMA 平滑、趋势转变、拒绝确认与 ATR 目标位。",
+    description:
+      "按 Pine Script 复刻 Supertrend 中线、WMA/EMA 平滑、趋势转变、拒绝确认与 ATR 目标位。",
     sourceType: "preset",
     sourceFile: "trading-strategies/trend-targets.md",
     supportedMarkets: ["US", "HK", "CN"],

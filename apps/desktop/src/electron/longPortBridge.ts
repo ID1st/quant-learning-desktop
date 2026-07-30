@@ -8,7 +8,10 @@ import {
   type LongPortMarketDataBar,
   type LongPortVerificationSummary,
 } from "../../../../packages/api-client/src/longport.ts";
-import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
+import type {
+  MarketQuoteSnapshot,
+  MarketWatchlistItem,
+} from "../features/marketData/marketDataSyncService.ts";
 
 export type LongPortBridgeVerificationResult =
   | {
@@ -76,10 +79,13 @@ const maxLongPortHistoricalBarCount = 5_000;
 const longPortRateLimitRetryDelayMs = 200;
 
 function redactSecrets(message: string, credentials: LongPortApiCredentials) {
-  return [credentials.appKey, credentials.appSecret, credentials.accessToken].reduce((currentMessage, secret) => {
-    const normalized = secret.trim();
-    return normalized ? currentMessage.replaceAll(normalized, "********") : currentMessage;
-  }, message);
+  return [credentials.appKey, credentials.appSecret, credentials.accessToken].reduce(
+    (currentMessage, secret) => {
+      const normalized = secret.trim();
+      return normalized ? currentMessage.replaceAll(normalized, "********") : currentMessage;
+    },
+    message,
+  );
 }
 
 function toSafeLongPortError(error: unknown, credentials: LongPortApiCredentials, action = "验证") {
@@ -92,10 +98,15 @@ function toSafeLongPortError(error: unknown, credentials: LongPortApiCredentials
 
 function createLongPortQuoteContext(credentials: LongPortApiCredentials) {
   const normalizedCredentials = normalizeLongPortApiCredentials(credentials);
-  const config = Config.fromApikey(normalizedCredentials.appKey, normalizedCredentials.appSecret, normalizedCredentials.accessToken, {
-    httpUrl: normalizedCredentials.apiUrl,
-    language: 0,
-  });
+  const config = Config.fromApikey(
+    normalizedCredentials.appKey,
+    normalizedCredentials.appSecret,
+    normalizedCredentials.accessToken,
+    {
+      httpUrl: normalizedCredentials.apiUrl,
+      language: 0,
+    },
+  );
 
   return QuoteContext.new(config);
 }
@@ -150,7 +161,10 @@ function getDefaultLongPortBarCount(timeframe: Timeframe) {
 }
 
 export function sanitizeLongPortCandlestickCount(timeframe: Timeframe, count?: number) {
-  const requestedCount = typeof count === "number" && Number.isFinite(count) ? count : getDefaultLongPortBarCount(timeframe);
+  const requestedCount =
+    typeof count === "number" && Number.isFinite(count)
+      ? count
+      : getDefaultLongPortBarCount(timeframe);
   return Math.max(1, Math.min(maxLongPortCandlestickCount, Math.round(requestedCount)));
 }
 
@@ -168,21 +182,34 @@ interface CollectLongPortHistoricalCandlesticksOptions {
 
 function isLongPortRateLimitError(error: unknown) {
   const message = error instanceof Error ? error.message.toLowerCase() : "";
-  return message.includes("429") || message.includes("rate limit") || message.includes("too many requests");
+  return (
+    message.includes("429") ||
+    message.includes("rate limit") ||
+    message.includes("too many requests")
+  );
 }
 
 export async function collectLongPortHistoricalCandlesticks(
   options: CollectLongPortHistoricalCandlesticksOptions,
 ): Promise<LongPortCandlestickLike[]> {
-  const targetCount = Math.max(1, Math.min(maxLongPortHistoricalBarCount, Math.round(options.count)));
-  const wait = options.wait ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  const targetCount = Math.max(
+    1,
+    Math.min(maxLongPortHistoricalBarCount, Math.round(options.count)),
+  );
+  const wait =
+    options.wait ??
+    ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const random = options.random ?? Math.random;
   const byTimestamp = new Map<number, LongPortCandlestickLike>();
   const maximumPages = Math.min(8, Math.ceil(targetCount / maxLongPortCandlestickCount) + 2);
   let cursorTimestamp = options.endTime;
   let previousCursorTimestamp = Number.POSITIVE_INFINITY;
 
-  for (let pageIndex = 0; pageIndex < maximumPages && byTimestamp.size < targetCount; pageIndex += 1) {
+  for (
+    let pageIndex = 0;
+    pageIndex < maximumPages && byTimestamp.size < targetCount;
+    pageIndex += 1
+  ) {
     let page: readonly LongPortCandlestickLike[];
     try {
       page = await options.fetchPage(
@@ -229,7 +256,11 @@ export async function collectLongPortHistoricalCandlesticks(
 }
 
 function getLongPortMarketTimeZone(market: LongPortBarRequest["market"]) {
-  return market === "US" ? "America/New_York" : market === "HK" ? "Asia/Hong_Kong" : "Asia/Shanghai";
+  return market === "US"
+    ? "America/New_York"
+    : market === "HK"
+      ? "Asia/Hong_Kong"
+      : "Asia/Shanghai";
 }
 
 function toLongPortNaiveDatetime(timestamp: number, market: LongPortBarRequest["market"]) {
@@ -257,7 +288,8 @@ export function mapLongPortCandlesticksToBars(
   request: LongPortBarRequest,
 ): LongPortMarketDataBar[] {
   const timeframe = request.timeframe === "1m" ? "realtime" : request.timeframe;
-  const startTime = typeof request.startTime === "number" ? request.startTime : Number.NEGATIVE_INFINITY;
+  const startTime =
+    typeof request.startTime === "number" ? request.startTime : Number.NEGATIVE_INFINITY;
   const endTime = typeof request.endTime === "number" ? request.endTime : Number.POSITIVE_INFINITY;
 
   return candlesticks
@@ -320,7 +352,8 @@ export async function fetchLongPortQuoteSnapshotsWithSdk(
     const snapshots = quotes.map<MarketQuoteSnapshot>((quote) => {
       const lastPrice = decimalToNumber(quote.lastDone);
       const previousClose = decimalToNumber(quote.prevClose);
-      const changePercent = previousClose === 0 ? 0 : ((lastPrice - previousClose) / previousClose) * 100;
+      const changePercent =
+        previousClose === 0 ? 0 : ((lastPrice - previousClose) / previousClose) * 100;
 
       return {
         symbol: quote.symbol,
@@ -378,7 +411,9 @@ export async function fetchLongPortHistoricalBarsWithSdk(
           mapTimeframeToLongPortPeriod(request.timeframe),
           longPortNoAdjust,
           false,
-          cursorTimestamp === undefined ? null : toLongPortNaiveDatetime(cursorTimestamp, request.market),
+          cursorTimestamp === undefined
+            ? null
+            : toLongPortNaiveDatetime(cursorTimestamp, request.market),
           sanitizeLongPortCandlestickCount(request.timeframe, count),
           longPortAllTradeSessions,
         ),

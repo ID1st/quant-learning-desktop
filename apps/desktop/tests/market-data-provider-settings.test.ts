@@ -5,7 +5,10 @@ import {
   readMarketDataProviderSettings,
   writeMarketDataProviderSettings,
 } from "../src/features/marketData/marketDataProviderSettings.ts";
-import { createMemoryStorageDriver, LocalDatabase } from "../src/features/persistence/localDatabase.ts";
+import {
+  createMemoryStorageDriver,
+  LocalDatabase,
+} from "../src/features/persistence/localDatabase.ts";
 
 describe("market data provider settings", () => {
   it("keeps stock-sdk primary enabled by default", () => {

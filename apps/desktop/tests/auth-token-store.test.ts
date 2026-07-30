@@ -25,8 +25,7 @@ function createMemoryPersistence(): AuthEncryptedPersistence & {
 
 const crypto: AuthTokenCrypto = {
   isEncryptionAvailable: () => true,
-  encrypt: async (plaintext) =>
-    Buffer.from(`sealed:${plaintext}`, "utf8").toString("base64"),
+  encrypt: async (plaintext) => Buffer.from(`sealed:${plaintext}`, "utf8").toString("base64"),
   decrypt: async (ciphertext) => {
     const plaintext = Buffer.from(ciphertext, "base64").toString("utf8");
     if (!plaintext.startsWith("sealed:")) {

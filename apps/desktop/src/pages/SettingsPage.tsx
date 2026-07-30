@@ -1,11 +1,33 @@
-import { AlertTriangle, Boxes, CalendarClock, CheckCircle2, DatabaseZap, FileInput, KeyRound, LogOut, PackageCheck, PlugZap, Power, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Boxes,
+  CalendarClock,
+  CheckCircle2,
+  DatabaseZap,
+  FileInput,
+  KeyRound,
+  LogOut,
+  PackageCheck,
+  PlugZap,
+  Power,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createLocalPluginInstallBridge, type PluginManifestPreflightResult } from "@quant/api-client";
+import {
+  createLocalPluginInstallBridge,
+  type PluginManifestPreflightResult,
+} from "@quant/api-client";
 import { type PluginCapability, type PluginPermission } from "@quant/plugin-loader";
 import { getMarketBarCacheRepository } from "../features/marketData/marketBarCacheClient";
 import type { MarketBarCacheSummary } from "../features/marketData/marketBarCacheService";
 import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
-import { authErrorMessage, getAuthBridge, normalizeInviteInput } from "../features/auth/authService";
+import {
+  authErrorMessage,
+  getAuthBridge,
+  normalizeInviteInput,
+} from "../features/auth/authService";
 import { useAuthStore } from "../features/auth/authStore";
 import { LogoutConfirmationDialog } from "../features/auth/LogoutConfirmationDialog";
 import { useAppStore } from "../state/appStore";
@@ -152,11 +174,16 @@ export function SettingsPage() {
   }, []);
 
   const previewManifest = manifestPreview.ok ? manifestPreview.manifest : null;
-  const capabilitySummary = (["strategy", "indicator", "data-source", "export"] as PluginCapability[]).map((capability) => ({
+  const capabilitySummary = (
+    ["strategy", "indicator", "data-source", "export"] as PluginCapability[]
+  ).map((capability) => ({
     capability,
-    count: registeredPlugins.filter((plugin) => plugin.manifest.capabilities.includes(capability)).length,
+    count: registeredPlugins.filter((plugin) => plugin.manifest.capabilities.includes(capability))
+      .length,
   }));
-  const largestCacheEntries = [...cacheSummary.entries].sort((left, right) => right.estimatedBytes - left.estimatedBytes).slice(0, 4);
+  const largestCacheEntries = [...cacheSummary.entries]
+    .sort((left, right) => right.estimatedBytes - left.estimatedBytes)
+    .slice(0, 4);
 
   const refreshCacheSummary = async () => {
     setCacheSummary(await getMarketBarCacheRepository().summary());
@@ -167,7 +194,9 @@ export function SettingsPage() {
     try {
       const result = await getMarketBarCacheRepository().prune();
       await refreshCacheSummary();
-      setCacheMessage(`已按保留策略清理 ${result.removedBars} 根 K 线，移除 ${result.removedEntries} 个空缓存。`);
+      setCacheMessage(
+        `已按保留策略清理 ${result.removedBars} 根 K 线，移除 ${result.removedEntries} 个空缓存。`,
+      );
     } catch {
       setCacheMessage("行情缓存清理失败，请稍后重试。");
     } finally {
@@ -202,9 +231,7 @@ export function SettingsPage() {
         return;
       }
       if (!result.ok) {
-        setRenewMessage(
-          authErrorMessage(result.error.code, result.error.retryAfterSeconds),
-        );
+        setRenewMessage(authErrorMessage(result.error.code, result.error.retryAfterSeconds));
         return;
       }
       setRenewInviteCode("");
@@ -246,7 +273,9 @@ export function SettingsPage() {
       <header className="module-header">
         <p>系统设置</p>
         <h1>插件与本地扩展</h1>
-        <span>统一管理策略插件、指标插件、数据源插件和导出插件。当前桌面版支持本地策略与指标插件的安装、启停和卸载；第三方插件执行将在隔离宿主完成后恢复。</span>
+        <span>
+          统一管理策略插件、指标插件、数据源插件和导出插件。当前桌面版支持本地策略与指标插件的安装、启停和卸载；第三方插件执行将在隔离宿主完成后恢复。
+        </span>
       </header>
 
       {authSession && (
@@ -269,11 +298,19 @@ export function SettingsPage() {
             </div>
             <div>
               <dt>到期时间</dt>
-              <dd>{new Date(authSession.entitlementEndsAt).toLocaleString("zh-CN", { hour12: false })}</dd>
+              <dd>
+                {new Date(authSession.entitlementEndsAt).toLocaleString("zh-CN", { hour12: false })}
+              </dd>
             </div>
             <div>
               <dt>剩余天数</dt>
-              <dd>{Math.max(0, Math.ceil((Date.parse(authSession.entitlementEndsAt) - Date.now()) / 86_400_000))} 天</dd>
+              <dd>
+                {Math.max(
+                  0,
+                  Math.ceil((Date.parse(authSession.entitlementEndsAt) - Date.now()) / 86_400_000),
+                )}{" "}
+                天
+              </dd>
             </div>
             <div>
               <dt>授权状态</dt>
@@ -346,7 +383,10 @@ export function SettingsPage() {
           <DatabaseZap size={20} />
           <div>
             <h2>行情缓存治理</h2>
-            <p>本地 K 线缓存按市场、标的和周期建立索引，短周期数据使用更短保留策略，避免缓存长期膨胀。</p>
+            <p>
+              本地 K
+              线缓存按市场、标的和周期建立索引，短周期数据使用更短保留策略，避免缓存长期膨胀。
+            </p>
           </div>
         </div>
 
@@ -372,7 +412,10 @@ export function SettingsPage() {
         <div className="cache-entry-list" aria-label="行情缓存条目">
           {largestCacheEntries.length > 0 ? (
             largestCacheEntries.map((entry) => (
-              <div className="cache-entry-row" key={`${entry.market}-${entry.symbol}-${entry.timeframe}`}>
+              <div
+                className="cache-entry-row"
+                key={`${entry.market}-${entry.symbol}-${entry.timeframe}`}
+              >
                 <span>
                   <strong>{entry.symbol}</strong>
                   <small>
@@ -384,7 +427,9 @@ export function SettingsPage() {
               </div>
             ))
           ) : (
-            <div className="cache-empty-state">暂无 K 线缓存。完成数据源绑定和初始同步后，这里会显示缓存治理状态。</div>
+            <div className="cache-empty-state">
+              暂无 K 线缓存。完成数据源绑定和初始同步后，这里会显示缓存治理状态。
+            </div>
           )}
         </div>
 
@@ -393,7 +438,12 @@ export function SettingsPage() {
             <RefreshCw size={15} />
             按策略清理
           </button>
-          <button className="danger" disabled={isCacheOperationPending || cacheSummary.entries.length === 0} onClick={handleClearCache} type="button">
+          <button
+            className="danger"
+            disabled={isCacheOperationPending || cacheSummary.entries.length === 0}
+            onClick={handleClearCache}
+            type="button"
+          >
             <Trash2 size={15} />
             清空行情缓存
           </button>
@@ -414,8 +464,15 @@ export function SettingsPage() {
           <div className="plugin-drop-zone">
             <PlugZap size={24} />
             <strong>选择插件包</strong>
-            <span>选择包含 plugin.json 的本地目录。桌面主进程会校验清单、入口和权限后复制到受控插件目录。</span>
-            <button disabled={pluginRuntimeStatus === "loading" || pluginRuntimeStatus === "unavailable"} onClick={handleInstallPlugin} type="button">
+            <span>
+              选择包含 plugin.json
+              的本地目录。桌面主进程会校验清单、入口和权限后复制到受控插件目录。
+            </span>
+            <button
+              disabled={pluginRuntimeStatus === "loading" || pluginRuntimeStatus === "unavailable"}
+              onClick={handleInstallPlugin}
+              type="button"
+            >
               {pluginRuntimeStatus === "loading" ? "正在处理…" : "选择本地插件目录"}
             </button>
           </div>
@@ -447,7 +504,10 @@ export function SettingsPage() {
 
           <div className="settings-note warning">
             <AlertTriangle size={16} />
-            <span>插件包可先安装和管理，但当前不会执行。后续仅在独立 Worker 或工具进程中通过能力消息开放运行，交易凭证不会交给插件。</span>
+            <span>
+              插件包可先安装和管理，但当前不会执行。后续仅在独立 Worker
+              或工具进程中通过能力消息开放运行，交易凭证不会交给插件。
+            </span>
           </div>
         </div>
       </section>
@@ -457,14 +517,22 @@ export function SettingsPage() {
           <FileInput size={20} />
           <div>
             <h2>插件清单预检</h2>
-              <p>先验证 plugin.json 的结构、权限、能力与版本要求。桌面安装时会对实际选择目录再次执行同一套校验。</p>
+            <p>
+              先验证 plugin.json
+              的结构、权限、能力与版本要求。桌面安装时会对实际选择目录再次执行同一套校验。
+            </p>
           </div>
         </div>
 
         <div className="manifest-preview-grid">
           <label className="manifest-editor">
             <span>plugin.json</span>
-            <textarea aria-label="插件清单 JSON" onChange={(event) => setManifestDraft(event.target.value)} spellCheck={false} value={manifestDraft} />
+            <textarea
+              aria-label="插件清单 JSON"
+              onChange={(event) => setManifestDraft(event.target.value)}
+              spellCheck={false}
+              value={manifestDraft}
+            />
           </label>
 
           <div className={manifestPreview.ok ? "manifest-result valid" : "manifest-result invalid"}>
@@ -496,10 +564,20 @@ export function SettingsPage() {
                   ))}
                 </div>
                 <div className="plugin-confirm-actions">
-                  <button disabled={pluginRuntimeStatus === "loading" || pluginRuntimeStatus === "unavailable"} onClick={handleInstallPlugin} type="button">
+                  <button
+                    disabled={
+                      pluginRuntimeStatus === "loading" || pluginRuntimeStatus === "unavailable"
+                    }
+                    onClick={handleInstallPlugin}
+                    type="button"
+                  >
                     安装本地插件目录
                   </button>
-                  <small>{manifestPreview.summary.requiresPermissionApproval ? "安装时会复核目录中的清单与权限。" : "该插件未声明额外权限。"}</small>
+                  <small>
+                    {manifestPreview.summary.requiresPermissionApproval
+                      ? "安装时会复核目录中的清单与权限。"
+                      : "该插件未声明额外权限。"}
+                  </small>
                 </div>
               </>
             ) : (
@@ -521,8 +599,14 @@ export function SettingsPage() {
             <p>第三方插件执行已暂停，等待独立运行宿主、资源限制和终止控制完成。</p>
           </div>
         </div>
-        <div className={`settings-note ${pluginRuntimeStatus === "error" || pluginRuntimeStatus === "degraded" ? "warning" : ""}`}>
-          {pluginRuntimeStatus === "error" || pluginRuntimeStatus === "degraded" ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+        <div
+          className={`settings-note ${pluginRuntimeStatus === "error" || pluginRuntimeStatus === "degraded" ? "warning" : ""}`}
+        >
+          {pluginRuntimeStatus === "error" || pluginRuntimeStatus === "degraded" ? (
+            <AlertTriangle size={16} />
+          ) : (
+            <CheckCircle2 size={16} />
+          )}
           <span>{pluginRuntimeMessage}</span>
         </div>
       </section>
@@ -537,31 +621,50 @@ export function SettingsPage() {
         </div>
 
         <div className="plugin-registry-list">
-          {registeredPlugins.length > 0 ? registeredPlugins.map((plugin) => (
-            <div className="plugin-registry-row" key={plugin.manifest.id}>
-              <CheckCircle2 size={17} />
-              <span>
-                <strong>{plugin.manifest.name}</strong>
-                <small>{plugin.manifest.id}</small>
-              </span>
-              <em>{plugin.manifest.version}</em>
-              <div>
-                {plugin.manifest.capabilities.map((capability) => (
-                  <b key={capability}>{capabilityLabels[capability]}</b>
-                ))}
+          {registeredPlugins.length > 0 ? (
+            registeredPlugins.map((plugin) => (
+              <div className="plugin-registry-row" key={plugin.manifest.id}>
+                <CheckCircle2 size={17} />
+                <span>
+                  <strong>{plugin.manifest.name}</strong>
+                  <small>{plugin.manifest.id}</small>
+                </span>
+                <em>{plugin.manifest.version}</em>
+                <div>
+                  {plugin.manifest.capabilities.map((capability) => (
+                    <b key={capability}>{capabilityLabels[capability]}</b>
+                  ))}
+                </div>
+                <small>
+                  {plugin.status === "enabled"
+                    ? "已启用"
+                    : plugin.status === "disabled"
+                      ? "已停用"
+                      : "运行异常"}
+                </small>
+                <button
+                  onClick={() =>
+                    void setPluginEnabled(plugin.manifest.id, plugin.status !== "enabled")
+                  }
+                  type="button"
+                >
+                  <Power size={14} />
+                  {plugin.status === "enabled" ? "停用" : "启用"}
+                </button>
+                <button
+                  className="danger"
+                  onClick={() => handleUninstallPlugin(plugin.manifest.id, plugin.manifest.name)}
+                  type="button"
+                >
+                  <Trash2 size={14} />
+                  卸载
+                </button>
               </div>
-              <small>{plugin.status === "enabled" ? "已启用" : plugin.status === "disabled" ? "已停用" : "运行异常"}</small>
-              <button onClick={() => void setPluginEnabled(plugin.manifest.id, plugin.status !== "enabled")} type="button">
-                <Power size={14} />
-                {plugin.status === "enabled" ? "停用" : "启用"}
-              </button>
-              <button className="danger" onClick={() => handleUninstallPlugin(plugin.manifest.id, plugin.manifest.name)} type="button">
-                <Trash2 size={14} />
-                卸载
-              </button>
+            ))
+          ) : (
+            <div className="plugin-empty-state">
+              暂无已安装插件。请选择一个受信任的本地插件目录。
             </div>
-          )) : (
-            <div className="plugin-empty-state">暂无已安装插件。请选择一个受信任的本地插件目录。</div>
           )}
         </div>
       </section>

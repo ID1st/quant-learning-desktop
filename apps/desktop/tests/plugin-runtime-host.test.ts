@@ -28,9 +28,16 @@ function createManager(): PluginManager {
     list: () => [record],
     installFromDirectory: async () => record,
     setEnabled: async () => record,
-    recordRuntimeFailure: async (_id, message) => ({ ...record, status: "degraded" as const, failureCount: 1, lastError: message }),
+    recordRuntimeFailure: async (_id, message) => ({
+      ...record,
+      status: "degraded" as const,
+      failureCount: 1,
+      lastError: message,
+    }),
     uninstall: async () => undefined,
-    readEnabledRuntimeModules: async () => [{ plugin: record, source: "export function activate() {}" }],
+    readEnabledRuntimeModules: async () => [
+      { plugin: record, source: "export function activate() {}" },
+    ],
   };
 }
 

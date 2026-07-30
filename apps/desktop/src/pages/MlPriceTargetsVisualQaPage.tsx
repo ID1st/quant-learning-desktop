@@ -39,7 +39,10 @@ export function MlPriceTargetsVisualQaPage() {
         canvasWidth={2026}
         candles={fixtureBars.map((bar) => ({
           ...bar,
-          time: new Date(bar.timestamp).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+          time: new Date(bar.timestamp).toLocaleTimeString("zh-CN", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
         }))}
         context={{ symbol: "BTC/USDT", market: "US", timeframe: "realtime" }}
         displayMode="candlestick"

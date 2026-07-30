@@ -1,18 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
-import {
-  chmod,
-  mkdir,
-  readdir,
-  stat,
-  unlink,
-  writeFile,
-} from "node:fs/promises";
+import { chmod, mkdir, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import {
-  parseInviteBatchArguments,
-  type EntitlementDurationDays,
-} from "../domain/authDomain.ts";
+import { parseInviteBatchArguments, type EntitlementDurationDays } from "../domain/authDomain.ts";
 import {
   digestInviteCode,
   generateInviteCode,
@@ -83,25 +73,12 @@ function generateUniqueCodes(
   return codes;
 }
 
-function buildCsv(
-  batchId: string,
-  claimExpiresAt: Date,
-  codes: GeneratedInviteCode[],
-): string {
+function buildCsv(batchId: string, claimExpiresAt: Date, codes: GeneratedInviteCode[]): string {
   const rows = codes.map((code) =>
-    [
-      batchId,
-      code.plaintextCode,
-      code.durationDays,
-      claimExpiresAt.toISOString(),
-    ].join(","),
+    [batchId, code.plaintextCode, code.durationDays, claimExpiresAt.toISOString()].join(","),
   );
 
-  return [
-    "batch_id,invite_code,duration_days,claim_expires_at",
-    ...rows,
-    "",
-  ].join("\n");
+  return ["batch_id,invite_code,duration_days,claim_expires_at", ...rows, ""].join("\n");
 }
 
 export async function createInviteBatchExport(
@@ -110,8 +87,7 @@ export async function createInviteBatchExport(
   const argumentsResult = parseInviteBatchArguments(input.argumentsList);
   const batchId = randomUUID();
   const claimExpiresAt = new Date(
-    input.now.getTime() +
-      argumentsResult.claimDays * 24 * 60 * 60 * 1_000,
+    input.now.getTime() + argumentsResult.claimDays * 24 * 60 * 60 * 1_000,
   );
   const codes = generateUniqueCodes(argumentsResult.entries);
   const csv = buildCsv(batchId, claimExpiresAt, codes);
@@ -121,10 +97,7 @@ export async function createInviteBatchExport(
     recursive: true,
     mode: 0o700,
   });
-  const filePath = join(
-    input.outputDirectory,
-    `invite-batch-${batchId}.csv`,
-  );
+  const filePath = join(input.outputDirectory, `invite-batch-${batchId}.csv`);
   await writeFile(filePath, csv, {
     encoding: "utf8",
     flag: "wx",
@@ -137,10 +110,7 @@ export async function createInviteBatchExport(
       batchId,
       claimExpiresAt,
       codes: codes.map((code) => ({
-        codeDigest: digestInviteCode(
-          normalizeInviteCode(code.plaintextCode),
-          input.pepper,
-        ),
+        codeDigest: digestInviteCode(normalizeInviteCode(code.plaintextCode), input.pepper),
         durationDays: code.durationDays,
         claimExpiresAt,
       })),
@@ -170,19 +140,13 @@ export async function cleanupExpiredInviteExports(
   let removedCount = 0;
 
   for (const entry of entries) {
-    if (
-      !entry.isFile() ||
-      !/^invite-batch-[0-9a-f-]{36}\.csv$/.test(entry.name)
-    ) {
+    if (!entry.isFile() || !/^invite-batch-[0-9a-f-]{36}\.csv$/.test(entry.name)) {
       continue;
     }
 
     const filePath = join(outputDirectory, entry.name);
     const fileStats = await stat(filePath);
-    if (
-      now.getTime() - fileStats.mtime.getTime() <
-      INVITE_EXPORT_MAX_AGE_MILLISECONDS
-    ) {
+    if (now.getTime() - fileStats.mtime.getTime() < INVITE_EXPORT_MAX_AGE_MILLISECONDS) {
       continue;
     }
 

@@ -35,19 +35,13 @@ export interface CloudSessionValidation {
   offlineLease: string;
 }
 
-export type CloudRenewalResult =
-  | CloudSessionBundle
-  | CloudSessionValidation;
+export type CloudRenewalResult = CloudSessionBundle | CloudSessionValidation;
 
 export class CloudAuthClientError extends Error {
   public readonly code: AuthErrorCode;
   public readonly retryAfterSeconds?: number;
 
-  public constructor(
-    code: AuthErrorCode,
-    message: string,
-    retryAfterSeconds?: number,
-  ) {
+  public constructor(code: AuthErrorCode, message: string, retryAfterSeconds?: number) {
     super(message);
     this.name = "CloudAuthClientError";
     this.code = code;
@@ -62,9 +56,7 @@ export class CloudAuthClientError extends Error {
     return {
       code: this.code,
       message: this.message,
-      ...(this.retryAfterSeconds
-        ? { retryAfterSeconds: this.retryAfterSeconds }
-        : {}),
+      ...(this.retryAfterSeconds ? { retryAfterSeconds: this.retryAfterSeconds } : {}),
     };
   }
 }
@@ -83,9 +75,7 @@ interface RequestOptions {
 }
 
 export interface CloudAuthClient {
-  requestRegistrationCode(input: {
-    email: string;
-  }): Promise<EmailCodeRequestResult>;
+  requestRegistrationCode(input: { email: string }): Promise<EmailCodeRequestResult>;
   register(input: {
     email: string;
     emailCode: string;
@@ -107,14 +97,9 @@ export interface CloudAuthClient {
     },
     device: CloudAuthDevice,
   ): Promise<CloudRenewalResult>;
-  refreshSession(
-    refreshToken: string,
-    device: CloudAuthDevice,
-  ): Promise<CloudSessionBundle>;
+  refreshSession(refreshToken: string, device: CloudAuthDevice): Promise<CloudSessionBundle>;
   logout(accessToken: string): Promise<{ signedOut: true }>;
-  requestPasswordReset(input: {
-    email: string;
-  }): Promise<EmailCodeRequestResult>;
+  requestPasswordReset(input: { email: string }): Promise<EmailCodeRequestResult>;
   resetPassword(input: {
     email: string;
     emailCode: string;
@@ -126,9 +111,7 @@ export interface CloudAuthClient {
 function normalizeBaseUrl(rawBaseUrl: string): string {
   const url = new URL(rawBaseUrl);
   const isLoopback =
-    url.hostname === "127.0.0.1" ||
-    url.hostname === "localhost" ||
-    url.hostname === "::1";
+    url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1";
   if (url.protocol !== "https:" && !(isLoopback && url.protocol === "http:")) {
     throw new Error("Remote authentication endpoints must use HTTPS");
   }
@@ -151,16 +134,10 @@ function safeMessage(code: AuthErrorCode): string {
 type UnknownRecord = Record<string, unknown>;
 
 function invalidResponse(): never {
-  throw new CloudAuthClientError(
-    "SERVICE_UNAVAILABLE",
-    safeMessage("SERVICE_UNAVAILABLE"),
-  );
+  throw new CloudAuthClientError("SERVICE_UNAVAILABLE", safeMessage("SERVICE_UNAVAILABLE"));
 }
 
-function requireExactRecord(
-  value: unknown,
-  keys: readonly string[],
-): UnknownRecord {
+function requireExactRecord(value: unknown, keys: readonly string[]): UnknownRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return invalidResponse();
   }
@@ -181,23 +158,14 @@ function requireBoundedString(
   minimumLength: number,
   maximumLength: number,
 ): string {
-  if (
-    typeof value !== "string" ||
-    value.length < minimumLength ||
-    value.length > maximumLength
-  ) {
+  if (typeof value !== "string" || value.length < minimumLength || value.length > maximumLength) {
     return invalidResponse();
   }
   return value;
 }
 
-function parseEmailCodeRequestResult(
-  value: unknown,
-): EmailCodeRequestResult {
-  const record = requireExactRecord(value, [
-    "accepted",
-    "retryAfterSeconds",
-  ]);
+function parseEmailCodeRequestResult(value: unknown): EmailCodeRequestResult {
+  const record = requireExactRecord(value, ["accepted", "retryAfterSeconds"]);
   if (
     record.accepted !== true ||
     !Number.isInteger(record.retryAfterSeconds) ||
@@ -272,9 +240,7 @@ function parseSessionBundle(value: unknown): CloudSessionBundle {
 function parseSessionValidation(value: unknown): CloudSessionValidation {
   const record = requireExactRecord(value, ["offlineLease", "session"]);
   const offlineLease = requireBoundedString(record.offlineLease, 64, 8_192);
-  if (
-    offlineLease.split(".").length !== 2
-  ) {
+  if (offlineLease.split(".").length !== 2) {
     return invalidResponse();
   }
   return {
@@ -296,25 +262,14 @@ function parseLoginResult(value: unknown): CloudLoginResult {
     };
   }
   if (kind === "INVITE_REQUIRED") {
-    const record = requireExactRecord(value, [
-      "kind",
-      "loginChallenge",
-    ]);
+    const record = requireExactRecord(value, ["kind", "loginChallenge"]);
     return {
       kind,
-      loginChallenge: requireBoundedString(
-        record.loginChallenge,
-        32,
-        2_048,
-      ),
+      loginChallenge: requireBoundedString(record.loginChallenge, 32, 2_048),
     };
   }
   if (kind === "ENTITLEMENT_EXPIRED") {
-    const record = requireExactRecord(value, [
-      "kind",
-      "expiredAt",
-      "loginChallenge",
-    ]);
+    const record = requireExactRecord(value, ["kind", "expiredAt", "loginChallenge"]);
     const expiredAt = requireBoundedString(record.expiredAt, 20, 64);
     if (!Number.isFinite(Date.parse(expiredAt))) {
       return invalidResponse();
@@ -322,11 +277,7 @@ function parseLoginResult(value: unknown): CloudLoginResult {
     return {
       kind,
       expiredAt,
-      loginChallenge: requireBoundedString(
-        record.loginChallenge,
-        32,
-        2_048,
-      ),
+      loginChallenge: requireBoundedString(record.loginChallenge, 32, 2_048),
     };
   }
   if (kind === "ACCESS_DENIED") {
@@ -337,12 +288,7 @@ function parseLoginResult(value: unknown): CloudLoginResult {
 }
 
 function parseRenewalResult(value: unknown): CloudRenewalResult {
-  if (
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    "accessToken" in value
-  ) {
+  if (value && typeof value === "object" && !Array.isArray(value) && "accessToken" in value) {
     return parseSessionBundle(value);
   }
   return parseSessionValidation(value);
@@ -356,9 +302,7 @@ function parseLogoutResult(value: unknown): { signedOut: true } {
   return { signedOut: true };
 }
 
-export function createCloudAuthClient(
-  options: CloudAuthClientOptions,
-): CloudAuthClient {
+export function createCloudAuthClient(options: CloudAuthClientOptions): CloudAuthClient {
   const baseUrl = normalizeBaseUrl(options.baseUrl);
   const fetcher = options.fetcher ?? fetch;
   const timeoutMilliseconds = options.timeoutMilliseconds ?? 10_000;
@@ -381,10 +325,7 @@ export function createCloudAuthClient(
         headers.set("content-type", "application/json");
       }
       if (requestOptions.accessToken) {
-        headers.set(
-          "authorization",
-          `Bearer ${requestOptions.accessToken}`,
-        );
+        headers.set("authorization", `Bearer ${requestOptions.accessToken}`);
       }
       if (requestOptions.device) {
         headers.set("x-device-id", requestOptions.device.deviceId);
@@ -394,17 +335,11 @@ export function createCloudAuthClient(
       response = await fetcher(`${baseUrl}${path}`, {
         method: requestOptions.method ?? "GET",
         headers,
-        body:
-          requestOptions.body === undefined
-            ? undefined
-            : JSON.stringify(requestOptions.body),
+        body: requestOptions.body === undefined ? undefined : JSON.stringify(requestOptions.body),
         signal: controller.signal,
       });
     } catch {
-      throw new CloudAuthClientError(
-        "NETWORK_UNAVAILABLE",
-        safeMessage("NETWORK_UNAVAILABLE"),
-      );
+      throw new CloudAuthClientError("NETWORK_UNAVAILABLE", safeMessage("NETWORK_UNAVAILABLE"));
     } finally {
       clearTimeout(timer);
     }
@@ -432,14 +367,8 @@ export function createCloudAuthClient(
             ? "RATE_LIMITED"
             : "ACCESS_DENIED";
       const retryAfterSeconds =
-        typeof rawError?.retryAfterSeconds === "number"
-          ? rawError.retryAfterSeconds
-          : undefined;
-      throw new CloudAuthClientError(
-        code,
-        safeMessage(code),
-        retryAfterSeconds,
-      );
+        typeof rawError?.retryAfterSeconds === "number" ? rawError.retryAfterSeconds : undefined;
+      throw new CloudAuthClientError(code, safeMessage(code), retryAfterSeconds);
     }
 
     if (!payload || typeof payload !== "object" || !("data" in payload)) {
@@ -450,14 +379,10 @@ export function createCloudAuthClient(
 
   return {
     requestRegistrationCode: (input) =>
-      request(
-        "/v1/auth/email-code-requests",
-        parseEmailCodeRequestResult,
-        {
-          method: "POST",
-          body: input,
-        },
-      ),
+      request("/v1/auth/email-code-requests", parseEmailCodeRequestResult, {
+        method: "POST",
+        body: input,
+      }),
     register: (input) =>
       request("/v1/auth/registrations", parseRegistrationResult, {
         method: "POST",
@@ -480,9 +405,7 @@ export function createCloudAuthClient(
         method: "POST",
         body: {
           inviteCode: input.inviteCode,
-          ...(input.loginChallenge
-            ? { loginChallenge: input.loginChallenge }
-            : {}),
+          ...(input.loginChallenge ? { loginChallenge: input.loginChallenge } : {}),
         },
         accessToken: input.accessToken,
         device,
@@ -499,14 +422,10 @@ export function createCloudAuthClient(
         accessToken,
       }),
     requestPasswordReset: (input) =>
-      request(
-        "/v1/auth/password-reset-requests",
-        parseEmailCodeRequestResult,
-        {
-          method: "POST",
-          body: input,
-        },
-      ),
+      request("/v1/auth/password-reset-requests", parseEmailCodeRequestResult, {
+        method: "POST",
+        body: input,
+      }),
     resetPassword: (input) =>
       request("/v1/auth/password-resets", parsePasswordResetResult, {
         method: "POST",

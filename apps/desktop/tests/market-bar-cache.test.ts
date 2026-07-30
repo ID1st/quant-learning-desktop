@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { LocalDatabase, createMemoryStorageDriver } from "../src/features/persistence/localDatabase.ts";
+import {
+  LocalDatabase,
+  createMemoryStorageDriver,
+} from "../src/features/persistence/localDatabase.ts";
 import {
   clearAllMarketBarCache,
   pruneMarketBarCache,
@@ -383,10 +386,11 @@ test("readMarketBarCache discards a historical cache with a multi-month data dis
     provider: "stock-sdk",
   });
 
-  writeMarketBarCache(key, [
-    createBar(Date.UTC(2021, 8, 23), 28.89),
-    createBar(Date.UTC(2026, 6, 10), 145.3),
-  ], { database });
+  writeMarketBarCache(
+    key,
+    [createBar(Date.UTC(2021, 8, 23), 28.89), createBar(Date.UTC(2026, 6, 10), 145.3)],
+    { database },
+  );
 
   assert.deepEqual(readMarketBarCache(key, { database }), []);
   assert.equal(readMarketBarCacheSummary(database).entries.length, 0);
@@ -480,34 +484,47 @@ test("historical cache isolates adjustment modes and drops legacy unadjusted ent
     provider: "stock-sdk",
   };
   database.writeDocument("market-bars:US:AAPL.US:1d", 1, [legacyBar]);
-  database.writeDocument("market-bars:index", 1, [{
-    symbol: "AAPL.US",
-    market: "US",
-    timeframe: "1d",
-    provider: "stock-sdk",
-    firstTimestamp: legacyBar.timestamp,
-    lastTimestamp: legacyBar.timestamp,
-    barCount: 1,
-    estimatedBytes: 100,
-    retentionDays: 1825,
-    updatedAt: "2026-07-11T00:00:00.000Z",
-  }]);
+  database.writeDocument("market-bars:index", 1, [
+    {
+      symbol: "AAPL.US",
+      market: "US",
+      timeframe: "1d",
+      provider: "stock-sdk",
+      firstTimestamp: legacyBar.timestamp,
+      lastTimestamp: legacyBar.timestamp,
+      barCount: 1,
+      estimatedBytes: 100,
+      retentionDays: 1825,
+      updatedAt: "2026-07-11T00:00:00.000Z",
+    },
+  ]);
 
-  const rawKey = { symbol: "AAPL.US", market: "US" as const, timeframe: "1d" as const, adjust: "none" as const };
+  const rawKey = {
+    symbol: "AAPL.US",
+    market: "US" as const,
+    timeframe: "1d" as const,
+    adjust: "none" as const,
+  };
   const forwardKey = { ...rawKey, adjust: "forward" as const };
 
   assert.deepEqual(readMarketBarCache(rawKey, { database }), []);
   assert.equal(readMarketBarCacheSummary(database).entries.length, 0);
 
   writeMarketBarCache(rawKey, [{ ...legacyBar, close: 285, upstream: "tencent" }], { database });
-  writeMarketBarCache(forwardKey, [{
-    ...legacyBar,
-    open: 250,
-    high: 255,
-    low: 245,
-    close: 250,
-    upstream: "tencent",
-  }], { database });
+  writeMarketBarCache(
+    forwardKey,
+    [
+      {
+        ...legacyBar,
+        open: 250,
+        high: 255,
+        low: 245,
+        close: 250,
+        upstream: "tencent",
+      },
+    ],
+    { database },
+  );
 
   assert.equal(readMarketBarCache(rawKey, { database })[0]?.close, 285);
   assert.equal(readMarketBarCache(forwardKey, { database })[0]?.close, 250);

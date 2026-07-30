@@ -2,16 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const styles = readFileSync(
-  new URL("../src/styles.css", import.meta.url),
-  "utf8",
-);
+const styles = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 
 function cssRule(selector: string): string {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = styles.match(
-    new RegExp(`${escapedSelector}\\s*\\{([^}]+)\\}`),
-  );
+  const match = styles.match(new RegExp(`${escapedSelector}\\s*\\{([^}]+)\\}`));
   assert.ok(match, `Missing CSS rule for ${selector}`);
   return match[1];
 }

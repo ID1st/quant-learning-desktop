@@ -13,14 +13,19 @@ test("utility runtime fails closed without evaluating plugin source", async () =
   await runtime({
     id: "refresh",
     type: "refresh",
-    modules: [{
-      plugin: { manifest: { id: pluginId } },
-      source: "globalThis.pluginSourceExecuted = true; export function activate() {}",
-    } as never],
+    modules: [
+      {
+        plugin: { manifest: { id: pluginId } },
+        source: "globalThis.pluginSourceExecuted = true; export function activate() {}",
+      } as never,
+    ],
   });
 
   const result = responses.pop();
   assert.equal(result?.ok, false);
-  assert.match(result && !result.ok ? result.message : "", /disabled until a no-Node sandbox is available/i);
+  assert.match(
+    result && !result.ok ? result.message : "",
+    /disabled until a no-Node sandbox is available/i,
+  );
   assert.equal((globalThis as { pluginSourceExecuted?: boolean }).pluginSourceExecuted, undefined);
 });

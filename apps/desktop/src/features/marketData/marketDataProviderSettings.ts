@@ -10,7 +10,9 @@ const defaultSettings: MarketDataProviderSettings = {
   stockSdkPrimaryEnabled: true,
 };
 
-export function readMarketDataProviderSettings(database: LocalDatabase = appLocalDatabase): MarketDataProviderSettings {
+export function readMarketDataProviderSettings(
+  database: LocalDatabase = appLocalDatabase,
+): MarketDataProviderSettings {
   return database.readDocument(COLLECTION_KEY, {
     version: STORAGE_VERSION,
     fallback: defaultSettings,

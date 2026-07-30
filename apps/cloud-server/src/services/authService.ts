@@ -26,10 +26,7 @@ import {
   generateEmailCode,
   generateOpaqueToken,
 } from "../security/tokens.ts";
-import {
-  digestInviteCode,
-  normalizeInviteCode,
-} from "../security/inviteCodes.ts";
+import { digestInviteCode, normalizeInviteCode } from "../security/inviteCodes.ts";
 
 export interface AuthRequestContext {
   now: Date;
@@ -100,22 +97,14 @@ function normalizeEmail(email: string): string {
     normalized.length > 254 ||
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
   ) {
-    throw new AuthDomainError(
-      "ACCESS_DENIED",
-      "Email address is invalid",
-      400,
-    );
+    throw new AuthDomainError("ACCESS_DENIED", "Email address is invalid", 400);
   }
   return normalized;
 }
 
 function assertEmailCode(code: string): void {
   if (!/^\d{6}$/.test(code)) {
-    throw new AuthDomainError(
-      "EMAIL_CODE_INVALID",
-      "Email verification code is invalid",
-      400,
-    );
+    throw new AuthDomainError("EMAIL_CODE_INVALID", "Email verification code is invalid", 400);
   }
 }
 
@@ -125,11 +114,7 @@ function assertDevice(device: DeviceContext): void {
     device.deviceLabel.trim().length < 1 ||
     device.deviceLabel.trim().length > 128
   ) {
-    throw new AuthDomainError(
-      "ACCESS_DENIED",
-      "Device identity is invalid",
-      400,
-    );
+    throw new AuthDomainError("ACCESS_DENIED", "Device identity is invalid", 400);
   }
 }
 
@@ -145,10 +130,7 @@ function assertPassword(password: string): void {
 
 function calculateOfflineUntil(now: Date, entitlementEndsAt: Date): Date {
   return new Date(
-    Math.min(
-      now.getTime() + OFFLINE_LEASE_LIFETIME_MILLISECONDS,
-      entitlementEndsAt.getTime(),
-    ),
+    Math.min(now.getTime() + OFFLINE_LEASE_LIFETIME_MILLISECONDS, entitlementEndsAt.getTime()),
   );
 }
 
@@ -196,9 +178,7 @@ export class AuthService {
         this.dependencies.config.emailCodePepper,
       ),
       plaintextCode,
-      expiresAt: new Date(
-        context.now.getTime() + EMAIL_CODE_LIFETIME_MILLISECONDS,
-      ),
+      expiresAt: new Date(context.now.getTime() + EMAIL_CODE_LIFETIME_MILLISECONDS),
       requestedIp: context.sourceIp,
       now: context.now,
     });
@@ -226,9 +206,7 @@ export class AuthService {
     assertEmailCode(input.emailCode);
     assertPassword(input.password);
 
-    const passwordHash = await this.dependencies.passwordHasher.hash(
-      input.password,
-    );
+    const passwordHash = await this.dependencies.passwordHasher.hash(input.password);
     const result = await this.dependencies.repository.registerUser({
       email,
       observedCodeDigest: digestEmailCode(
@@ -241,17 +219,11 @@ export class AuthService {
       now: context.now,
     });
     if (result === "EXPIRED") {
-      throw new AuthDomainError(
-        "EMAIL_CODE_EXPIRED",
-        "Email verification code has expired",
-        400,
-      );
+      throw new AuthDomainError("EMAIL_CODE_EXPIRED", "Email verification code has expired", 400);
     }
     if (result !== "CONSUMED") {
       throw new AuthDomainError(
-        result === "USER_ALREADY_EXISTS"
-          ? "ACCOUNT_ALREADY_EXISTS"
-          : "EMAIL_CODE_INVALID",
+        result === "USER_ALREADY_EXISTS" ? "ACCOUNT_ALREADY_EXISTS" : "EMAIL_CODE_INVALID",
         result === "USER_ALREADY_EXISTS"
           ? "Account already exists"
           : "Registration could not be completed",
@@ -276,39 +248,22 @@ export class AuthService {
   }): Promise<CloudSessionBundle> {
     const accessToken = generateOpaqueToken("qat");
     const refreshToken = generateOpaqueToken("qrt");
-    const accessExpiresAt = new Date(
-      input.now.getTime() + ACCESS_TOKEN_LIFETIME_MILLISECONDS,
-    );
-    const refreshExpiresAt = new Date(
-      input.now.getTime() + REFRESH_TOKEN_LIFETIME_MILLISECONDS,
-    );
+    const accessExpiresAt = new Date(input.now.getTime() + ACCESS_TOKEN_LIFETIME_MILLISECONDS);
+    const refreshExpiresAt = new Date(input.now.getTime() + REFRESH_TOKEN_LIFETIME_MILLISECONDS);
     const issuedSession = await this.dependencies.repository.issueSession({
       userId: input.userId,
       deviceId: input.device.deviceId,
       deviceLabel: input.device.deviceLabel.trim(),
-      accessTokenDigest: digestOpaqueToken(
-        accessToken,
-        this.dependencies.config.tokenPepper,
-      ),
-      refreshTokenDigest: digestOpaqueToken(
-        refreshToken,
-        this.dependencies.config.tokenPepper,
-      ),
+      accessTokenDigest: digestOpaqueToken(accessToken, this.dependencies.config.tokenPepper),
+      refreshTokenDigest: digestOpaqueToken(refreshToken, this.dependencies.config.tokenPepper),
       accessExpiresAt,
       refreshExpiresAt,
       now: input.now,
     });
     if (!issuedSession) {
-      throw new AuthDomainError(
-        "ACCESS_DENIED",
-        "The account is no longer authorized",
-        403,
-      );
+      throw new AuthDomainError("ACCESS_DENIED", "The account is no longer authorized", 403);
     }
-    const offlineUntil = calculateOfflineUntil(
-      input.now,
-      input.entitlement.endsAt,
-    );
+    const offlineUntil = calculateOfflineUntil(input.now, input.entitlement.endsAt);
     const session: AuthSessionSnapshot = {
       userId: input.userId,
       email: input.email,
@@ -361,11 +316,7 @@ export class AuthService {
         deviceId: device.deviceId,
         metadata: { reason: "INVALID_CREDENTIALS" },
       });
-      throw new AuthDomainError(
-        "INVALID_CREDENTIALS",
-        "Email or password is incorrect",
-        401,
-      );
+      throw new AuthDomainError("INVALID_CREDENTIALS", "Email or password is incorrect", 401);
     }
     if (user.disabledAt) {
       await this.safeAudit({
@@ -428,17 +379,10 @@ export class AuthService {
   }
 
   private mapInviteError(
-    result: Exclude<
-      Awaited<ReturnType<AuthRepository["redeemInvite"]>>,
-      { kind: "REDEEMED" }
-    >,
+    result: Exclude<Awaited<ReturnType<AuthRepository["redeemInvite"]>>, { kind: "REDEEMED" }>,
   ): never {
     if (result.kind === "EXPIRED") {
-      throw new AuthDomainError(
-        "INVITE_EXPIRED",
-        "Invite code has expired",
-        400,
-      );
+      throw new AuthDomainError("INVITE_EXPIRED", "Invite code has expired", 400);
     }
     if (result.kind === "ALREADY_REDEEMED") {
       throw new AuthDomainError(
@@ -447,11 +391,7 @@ export class AuthService {
         409,
       );
     }
-    throw new AuthDomainError(
-      "INVITE_INVALID",
-      "Invite code is invalid",
-      400,
-    );
+    throw new AuthDomainError("INVITE_INVALID", "Invite code is invalid", 400);
   }
 
   private async redeemForUser(input: {
@@ -463,18 +403,11 @@ export class AuthService {
     try {
       normalizedCode = normalizeInviteCode(input.rawInviteCode);
     } catch {
-      throw new AuthDomainError(
-        "INVITE_INVALID",
-        "Invite code is invalid",
-        400,
-      );
+      throw new AuthDomainError("INVITE_INVALID", "Invite code is invalid", 400);
     }
     const result = await this.dependencies.repository.redeemInvite({
       userId: input.userId,
-      codeDigest: digestInviteCode(
-        normalizedCode,
-        this.dependencies.config.inviteCodePepper,
-      ),
+      codeDigest: digestInviteCode(normalizedCode, this.dependencies.config.inviteCodePepper),
       now: input.now,
     });
     if (result.kind !== "REDEEMED") {
@@ -497,27 +430,17 @@ export class AuthService {
         context.now,
       );
     } catch {
-      throw new AuthDomainError(
-        "ACCESS_DENIED",
-        "Login challenge is invalid or expired",
-        401,
-      );
+      throw new AuthDomainError("ACCESS_DENIED", "Login challenge is invalid or expired", 401);
     }
 
-    const currentUser = await this.dependencies.repository.findUserByEmail(
-      claims.email,
-    );
+    const currentUser = await this.dependencies.repository.findUserByEmail(claims.email);
     if (
       !currentUser ||
       currentUser.id !== claims.userId ||
       currentUser.disabledAt ||
       currentUser.authVersion !== claims.authVersion
     ) {
-      throw new AuthDomainError(
-        "ACCESS_DENIED",
-        "Login challenge is no longer authorized",
-        403,
-      );
+      throw new AuthDomainError("ACCESS_DENIED", "Login challenge is no longer authorized", 403);
     }
 
     const entitlement = await this.redeemForUser({
@@ -547,20 +470,12 @@ export class AuthService {
     accessToken: string,
     context: AuthRequestContext,
   ): Promise<SessionIdentityRecord> {
-    const identity =
-      await this.dependencies.repository.findSessionByAccessDigest(
-        digestOpaqueToken(
-          accessToken,
-          this.dependencies.config.tokenPepper,
-        ),
-        context.now,
-      );
+    const identity = await this.dependencies.repository.findSessionByAccessDigest(
+      digestOpaqueToken(accessToken, this.dependencies.config.tokenPepper),
+      context.now,
+    );
     if (!identity) {
-      throw new AuthDomainError(
-        "SESSION_REVOKED",
-        "Session is invalid or has been revoked",
-        401,
-      );
+      throw new AuthDomainError("SESSION_REVOKED", "Session is invalid or has been revoked", 401);
     }
     if (identity.disabledAt) {
       await this.dependencies.repository.revokeSession(
@@ -570,20 +485,13 @@ export class AuthService {
       );
       throw new AuthDomainError("ACCESS_DENIED", "Access is denied", 403);
     }
-    if (
-      !identity.entitlement ||
-      identity.entitlement.endsAt.getTime() <= context.now.getTime()
-    ) {
+    if (!identity.entitlement || identity.entitlement.endsAt.getTime() <= context.now.getTime()) {
       await this.dependencies.repository.revokeSession(
         identity.sessionId,
         "ENTITLEMENT_EXPIRED",
         context.now,
       );
-      throw new AuthDomainError(
-        "ENTITLEMENT_EXPIRED",
-        "Entitlement has expired",
-        403,
-      );
+      throw new AuthDomainError("ENTITLEMENT_EXPIRED", "Entitlement has expired", 403);
     }
     return identity;
   }
@@ -593,10 +501,7 @@ export class AuthService {
     context: AuthRequestContext,
   ): Promise<{ session: AuthSessionSnapshot; offlineLease: string }> {
     const entitlement = identity.entitlement!;
-    const offlineUntil = calculateOfflineUntil(
-      context.now,
-      entitlement.endsAt,
-    );
+    const offlineUntil = calculateOfflineUntil(context.now, entitlement.endsAt);
     const session: AuthSessionSnapshot = {
       userId: identity.userId,
       email: identity.email,
@@ -605,11 +510,10 @@ export class AuthService {
       entitlementEndsAt: entitlement.endsAt.toISOString(),
       offlineUntil: offlineUntil.toISOString(),
       deviceId: identity.deviceId,
-      activeDeviceCount:
-        await this.dependencies.repository.countActiveDevices(
-          identity.userId,
-          context.now,
-        ),
+      activeDeviceCount: await this.dependencies.repository.countActiveDevices(
+        identity.userId,
+        context.now,
+      ),
       lastValidatedAt: context.now.toISOString(),
       isOffline: false,
     };
@@ -634,10 +538,7 @@ export class AuthService {
     accessToken: string,
     context: AuthRequestContext,
   ): Promise<{ session: AuthSessionSnapshot; offlineLease: string }> {
-    return this.createValidationBundle(
-      await this.authorize(accessToken, context),
-      context,
-    );
+    return this.createValidationBundle(await this.authorize(accessToken, context), context);
   }
 
   public async renewEntitlement(
@@ -650,10 +551,7 @@ export class AuthService {
       rawInviteCode: input.inviteCode,
       now: context.now,
     });
-    return this.createValidationBundle(
-      { ...identity, entitlement },
-      context,
-    );
+    return this.createValidationBundle({ ...identity, entitlement }, context);
   }
 
   public async refreshSession(
@@ -670,28 +568,14 @@ export class AuthService {
         this.dependencies.config.tokenPepper,
       ),
       deviceId: device.deviceId,
-      nextAccessTokenDigest: digestOpaqueToken(
-        accessToken,
-        this.dependencies.config.tokenPepper,
-      ),
-      nextRefreshTokenDigest: digestOpaqueToken(
-        refreshToken,
-        this.dependencies.config.tokenPepper,
-      ),
-      accessExpiresAt: new Date(
-        context.now.getTime() + ACCESS_TOKEN_LIFETIME_MILLISECONDS,
-      ),
-      refreshExpiresAt: new Date(
-        context.now.getTime() + REFRESH_TOKEN_LIFETIME_MILLISECONDS,
-      ),
+      nextAccessTokenDigest: digestOpaqueToken(accessToken, this.dependencies.config.tokenPepper),
+      nextRefreshTokenDigest: digestOpaqueToken(refreshToken, this.dependencies.config.tokenPepper),
+      accessExpiresAt: new Date(context.now.getTime() + ACCESS_TOKEN_LIFETIME_MILLISECONDS),
+      refreshExpiresAt: new Date(context.now.getTime() + REFRESH_TOKEN_LIFETIME_MILLISECONDS),
       now: context.now,
     });
     if (!identity) {
-      throw new AuthDomainError(
-        "SESSION_REVOKED",
-        "Session is invalid or has been revoked",
-        401,
-      );
+      throw new AuthDomainError("SESSION_REVOKED", "Session is invalid or has been revoked", 401);
     }
     if (
       identity.disabledAt ||
@@ -722,14 +606,10 @@ export class AuthService {
     accessToken: string,
     context: AuthRequestContext,
   ): Promise<{ signedOut: true }> {
-    const identity =
-      await this.dependencies.repository.findSessionByAccessDigest(
-        digestOpaqueToken(
-          accessToken,
-          this.dependencies.config.tokenPepper,
-        ),
-        context.now,
-      );
+    const identity = await this.dependencies.repository.findSessionByAccessDigest(
+      digestOpaqueToken(accessToken, this.dependencies.config.tokenPepper),
+      context.now,
+    );
     if (identity) {
       await this.dependencies.repository.revokeSession(
         identity.sessionId,
@@ -763,9 +643,7 @@ export class AuthService {
     const email = normalizeEmail(input.email);
     assertEmailCode(input.emailCode);
     assertPassword(input.password);
-    const passwordHash = await this.dependencies.passwordHasher.hash(
-      input.password,
-    );
+    const passwordHash = await this.dependencies.passwordHasher.hash(input.password);
     const result = await this.dependencies.repository.resetPassword({
       email,
       observedCodeDigest: digestEmailCode(
@@ -778,18 +656,10 @@ export class AuthService {
       now: context.now,
     });
     if (result === "EXPIRED") {
-      throw new AuthDomainError(
-        "EMAIL_CODE_EXPIRED",
-        "Email verification code has expired",
-        400,
-      );
+      throw new AuthDomainError("EMAIL_CODE_EXPIRED", "Email verification code has expired", 400);
     }
     if (result !== "CONSUMED") {
-      throw new AuthDomainError(
-        "EMAIL_CODE_INVALID",
-        "Email verification code is invalid",
-        400,
-      );
+      throw new AuthDomainError("EMAIL_CODE_INVALID", "Email verification code is invalid", 400);
     }
     await this.safeAudit({
       eventType: "PASSWORD_RESET_COMPLETED",
@@ -803,8 +673,6 @@ export class AuthService {
 export async function createAuthService(
   input: Omit<AuthServiceDependencies, "dummyPasswordHash">,
 ): Promise<AuthService> {
-  const dummyPasswordHash = await input.passwordHasher.hash(
-    "Dummy#Password2026",
-  );
+  const dummyPasswordHash = await input.passwordHasher.hash("Dummy#Password2026");
   return new AuthService({ ...input, dummyPasswordHash });
 }

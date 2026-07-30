@@ -8,7 +8,10 @@ import {
   formatMarketDataProviderStatus,
   summarizeMarketDataProviderHealth,
 } from "../src/features/marketData/marketDataProviderDiagnostics.ts";
-import type { MarketDataProviderCapability, MarketDataProviderHealthView } from "../src/features/marketData/marketDataProviderGateway.ts";
+import type {
+  MarketDataProviderCapability,
+  MarketDataProviderHealthView,
+} from "../src/features/marketData/marketDataProviderGateway.ts";
 
 const capability: MarketDataProviderCapability = {
   realtimeQuote: true,
@@ -21,7 +24,9 @@ const capability: MarketDataProviderCapability = {
   delayLevel: "realtime",
 };
 
-function createHealth(overrides: Partial<MarketDataProviderHealthView> = {}): MarketDataProviderHealthView {
+function createHealth(
+  overrides: Partial<MarketDataProviderHealthView> = {},
+): MarketDataProviderHealthView {
   return {
     provider: "stock-sdk",
     status: "healthy",
@@ -52,14 +57,23 @@ describe("market data provider diagnostics", () => {
   });
 
   it("describes fallback when a higher priority provider was tried first", () => {
-    const summary = summarizeMarketDataProviderHealth(createHealth({ provider: "alphafeed-rest", status: "degraded" }), {
-      capability: "realtimeQuote",
-      triedProviders: ["stock-sdk", "alphafeed-rest"],
-      message: "fallback ok",
-    });
+    const summary = summarizeMarketDataProviderHealth(
+      createHealth({ provider: "alphafeed-rest", status: "degraded" }),
+      {
+        capability: "realtimeQuote",
+        triedProviders: ["stock-sdk", "alphafeed-rest"],
+        message: "fallback ok",
+      },
+    );
 
-    assert.equal(formatFallbackLabel("alphafeed-rest", ["stock-sdk", "alphafeed-rest"]), "已从 Stock SDK 降级");
+    assert.equal(
+      formatFallbackLabel("alphafeed-rest", ["stock-sdk", "alphafeed-rest"]),
+      "已从 Stock SDK 降级",
+    );
     assert.equal(summary.fallbackLabel, "已从 Stock SDK 降级");
-    assert.equal(summary.message, "实时快照：AlphaFeed REST · 降级可用 · 已从 Stock SDK 降级 · fallback ok");
+    assert.equal(
+      summary.message,
+      "实时快照：AlphaFeed REST · 降级可用 · 已从 Stock SDK 降级 · fallback ok",
+    );
   });
 });

@@ -1,8 +1,4 @@
-import type {
-  CandlePoint,
-  ChartPaneModel,
-  ChartRenderLayer,
-} from "@quant/chart";
+import type { CandlePoint, ChartPaneModel, ChartRenderLayer } from "@quant/chart";
 import type { Market } from "@quant/shared";
 import {
   calculateBbi,
@@ -65,7 +61,9 @@ export interface ChartIndicatorInstanceSettings {
   readonly available: boolean;
   readonly enabled: boolean;
   readonly visible: boolean;
-  readonly parametersByConvention: Readonly<Record<IndicatorConvention, Readonly<Record<string, ChartIndicatorParameterValue>>>>;
+  readonly parametersByConvention: Readonly<
+    Record<IndicatorConvention, Readonly<Record<string, ChartIndicatorParameterValue>>>
+  >;
 }
 
 export interface ChartIndicatorSettings {
@@ -74,8 +72,18 @@ export interface ChartIndicatorSettings {
 }
 
 export type ChartIndicatorEvaluation =
-  | { readonly id: string; readonly placement: "overlay"; readonly visible: boolean; readonly layer: ChartRenderLayer }
-  | { readonly id: string; readonly placement: "pane"; readonly visible: boolean; readonly pane: ChartPaneModel };
+  | {
+      readonly id: string;
+      readonly placement: "overlay";
+      readonly visible: boolean;
+      readonly layer: ChartRenderLayer;
+    }
+  | {
+      readonly id: string;
+      readonly placement: "pane";
+      readonly visible: boolean;
+      readonly pane: ChartPaneModel;
+    };
 
 const overlayColors = ["#f5c451", "#58a6ff", "#b48efa", "#42c7b9"];
 const paneColors = ["#f5c451", "#58a6ff", "#b48efa"];
@@ -84,12 +92,18 @@ const linePoints = (points: readonly IndicatorValuePoint[]) =>
   points.map((point) => ({ timestamp: point.timestamp, price: point.value }));
 
 const latestValue = (points: readonly IndicatorValuePoint[]) => points.at(-1)?.value;
-const formatValue = (value: number | undefined, digits = 2) => Number.isFinite(value) ? value!.toFixed(digits) : "--";
+const formatValue = (value: number | undefined, digits = 2) =>
+  Number.isFinite(value) ? value!.toFixed(digits) : "--";
 
 function lineLayer(
   id: string,
   name: string,
-  series: readonly { readonly id: string; readonly label: string; readonly color: string; readonly points: readonly IndicatorValuePoint[] }[],
+  series: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly color: string;
+    readonly points: readonly IndicatorValuePoint[];
+  }[],
 ): ChartIndicatorEvaluationResult {
   return {
     placement: "overlay",
@@ -107,7 +121,11 @@ function lineLayer(
         color: item.color,
         points: linePoints(item.points),
       })),
-      legendValues: series.map((item) => ({ label: item.label, value: formatValue(latestValue(item.points)), color: item.color })),
+      legendValues: series.map((item) => ({
+        label: item.label,
+        value: formatValue(latestValue(item.points)),
+        color: item.color,
+      })),
     },
   };
 }
@@ -138,7 +156,8 @@ function createPane(
   };
 }
 
-const numeric = (parameters: Readonly<Record<string, ChartIndicatorParameterValue>>, key: string) => Number(parameters[key]);
+const numeric = (parameters: Readonly<Record<string, ChartIndicatorParameterValue>>, key: string) =>
+  Number(parameters[key]);
 
 export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition[] = [
   {
@@ -156,12 +175,16 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     })),
     evaluate: (candles, parameters) => {
       const periods = [1, 2, 3, 4].map((index) => numeric(parameters, `period${index}`));
-      return lineLayer("ma", "MA", periods.map((period, index) => ({
-        id: String(period),
-        label: `MA${period}`,
-        color: overlayColors[index]!,
-        points: calculateMa(candles, period),
-      })));
+      return lineLayer(
+        "ma",
+        "MA",
+        periods.map((period, index) => ({
+          id: String(period),
+          label: `MA${period}`,
+          color: overlayColors[index]!,
+          points: calculateMa(candles, period),
+        })),
+      );
     },
   },
   {
@@ -169,8 +192,24 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     name: "BOLL",
     placement: "overlay",
     parameters: [
-      { key: "period", label: "周期", type: "number", defaultValue: 20, minimum: 2, maximum: 240, step: 1 },
-      { key: "multiplier", label: "标准差倍数", type: "number", defaultValue: 2, minimum: 0.1, maximum: 6, step: 0.1 },
+      {
+        key: "period",
+        label: "周期",
+        type: "number",
+        defaultValue: 20,
+        minimum: 2,
+        maximum: 240,
+        step: 1,
+      },
+      {
+        key: "multiplier",
+        label: "标准差倍数",
+        type: "number",
+        defaultValue: 2,
+        minimum: 0.1,
+        maximum: 6,
+        step: 0.1,
+      },
     ],
     evaluate: (candles, parameters) => {
       const period = numeric(parameters, "period");
@@ -185,17 +224,19 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
           enabled: true,
           visible: true,
           zIndex: 18,
-          elements: [{
-            id: "boll-channel",
-            kind: "channel",
-            upper: bands.map((point) => ({ timestamp: point.timestamp, price: point.upper })),
-            middle: bands.map((point) => ({ timestamp: point.timestamp, price: point.mid })),
-            lower: bands.map((point) => ({ timestamp: point.timestamp, price: point.lower })),
-            upperTone: "bearish",
-            middleTone: "neutral",
-            lowerTone: "bullish",
-            fillColor: "rgba(88,166,255,.07)",
-          }],
+          elements: [
+            {
+              id: "boll-channel",
+              kind: "channel",
+              upper: bands.map((point) => ({ timestamp: point.timestamp, price: point.upper })),
+              middle: bands.map((point) => ({ timestamp: point.timestamp, price: point.mid })),
+              lower: bands.map((point) => ({ timestamp: point.timestamp, price: point.lower })),
+              upperTone: "bearish",
+              middleTone: "neutral",
+              lowerTone: "bullish",
+              fillColor: "rgba(88,166,255,.07)",
+            },
+          ],
           legendValues: [
             { label: "UP", value: formatValue(bands.at(-1)?.upper), color: "#e06c75" },
             { label: "MID", value: formatValue(bands.at(-1)?.mid), color: "#f5c451" },
@@ -220,12 +261,16 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     })),
     evaluate: (candles, parameters) => {
       const periods = [1, 2, 3, 4].map((index) => numeric(parameters, `period${index}`));
-      return lineLayer("ema", "EMA", periods.map((period, index) => ({
-        id: String(period),
-        label: `EMA${period}`,
-        color: overlayColors[index]!,
-        points: calculateEma(candles, period),
-      })));
+      return lineLayer(
+        "ema",
+        "EMA",
+        periods.map((period, index) => ({
+          id: String(period),
+          label: `EMA${period}`,
+          color: overlayColors[index]!,
+          points: calculateEma(candles, period),
+        })),
+      );
     },
   },
   {
@@ -243,7 +288,9 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     })),
     evaluate: (candles, parameters) => {
       const periods = [1, 2, 3, 4].map((index) => numeric(parameters, `period${index}`));
-      return lineLayer("bbi", "BBI", [{ id: "line", label: "BBI", color: "#b48efa", points: calculateBbi(candles, periods) }]);
+      return lineLayer("bbi", "BBI", [
+        { id: "line", label: "BBI", color: "#b48efa", points: calculateBbi(candles, periods) },
+      ]);
     },
   },
   {
@@ -251,12 +298,41 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     name: "ENE",
     placement: "overlay",
     parameters: [
-      { key: "period", label: "周期", type: "number", defaultValue: 10, minimum: 2, maximum: 240, step: 1 },
-      { key: "upperPercent", label: "上轨百分比", type: "number", defaultValue: 11, minimum: 0, maximum: 100, step: 0.1 },
-      { key: "lowerPercent", label: "下轨百分比", type: "number", defaultValue: 9, minimum: 0, maximum: 100, step: 0.1 },
+      {
+        key: "period",
+        label: "周期",
+        type: "number",
+        defaultValue: 10,
+        minimum: 2,
+        maximum: 240,
+        step: 1,
+      },
+      {
+        key: "upperPercent",
+        label: "上轨百分比",
+        type: "number",
+        defaultValue: 11,
+        minimum: 0,
+        maximum: 100,
+        step: 0.1,
+      },
+      {
+        key: "lowerPercent",
+        label: "下轨百分比",
+        type: "number",
+        defaultValue: 9,
+        minimum: 0,
+        maximum: 100,
+        step: 0.1,
+      },
     ],
     evaluate: (candles, parameters) => {
-      const bands = calculateEne(candles, numeric(parameters, "period"), numeric(parameters, "upperPercent"), numeric(parameters, "lowerPercent"));
+      const bands = calculateEne(
+        candles,
+        numeric(parameters, "period"),
+        numeric(parameters, "upperPercent"),
+        numeric(parameters, "lowerPercent"),
+      );
       return {
         placement: "overlay",
         layer: {
@@ -266,16 +342,18 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
           enabled: true,
           visible: true,
           zIndex: 18,
-          elements: [{
-            id: "ene-channel",
-            kind: "channel",
-            upper: bands.map((point) => ({ timestamp: point.timestamp, price: point.upper })),
-            middle: bands.map((point) => ({ timestamp: point.timestamp, price: point.mid })),
-            lower: bands.map((point) => ({ timestamp: point.timestamp, price: point.lower })),
-            upperTone: "bearish",
-            middleTone: "neutral",
-            lowerTone: "bullish",
-          }],
+          elements: [
+            {
+              id: "ene-channel",
+              kind: "channel",
+              upper: bands.map((point) => ({ timestamp: point.timestamp, price: point.upper })),
+              middle: bands.map((point) => ({ timestamp: point.timestamp, price: point.mid })),
+              lower: bands.map((point) => ({ timestamp: point.timestamp, price: point.lower })),
+              upperTone: "bearish",
+              middleTone: "neutral",
+              lowerTone: "bullish",
+            },
+          ],
           legendValues: [
             { label: "UP", value: formatValue(bands.at(-1)?.upper), color: "#e06c75" },
             { label: "ENE", value: formatValue(bands.at(-1)?.mid), color: "#f5c451" },
@@ -290,12 +368,41 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     name: "SAR",
     placement: "overlay",
     parameters: [
-      { key: "start", label: "起始加速因子", type: "number", defaultValue: 0.02, minimum: 0.001, maximum: 1, step: 0.01 },
-      { key: "step", label: "加速步长", type: "number", defaultValue: 0.02, minimum: 0.001, maximum: 1, step: 0.01 },
-      { key: "maximum", label: "最大加速因子", type: "number", defaultValue: 0.2, minimum: 0.01, maximum: 1, step: 0.01 },
+      {
+        key: "start",
+        label: "起始加速因子",
+        type: "number",
+        defaultValue: 0.02,
+        minimum: 0.001,
+        maximum: 1,
+        step: 0.01,
+      },
+      {
+        key: "step",
+        label: "加速步长",
+        type: "number",
+        defaultValue: 0.02,
+        minimum: 0.001,
+        maximum: 1,
+        step: 0.01,
+      },
+      {
+        key: "maximum",
+        label: "最大加速因子",
+        type: "number",
+        defaultValue: 0.2,
+        minimum: 0.01,
+        maximum: 1,
+        step: 0.01,
+      },
     ],
     evaluate: (candles, parameters) => {
-      const points = calculateSar(candles, numeric(parameters, "start"), numeric(parameters, "step"), numeric(parameters, "maximum"));
+      const points = calculateSar(
+        candles,
+        numeric(parameters, "start"),
+        numeric(parameters, "step"),
+        numeric(parameters, "maximum"),
+      );
       return {
         placement: "overlay",
         layer: {
@@ -305,8 +412,19 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
           enabled: true,
           visible: true,
           zIndex: 22,
-          elements: [{ id: "sar-points", kind: "point-series", tone: "neutral", color: "#f5c451", radius: 2.2, points: linePoints(points) }],
-          legendValues: [{ label: "SAR", value: formatValue(latestValue(points)), color: "#f5c451" }],
+          elements: [
+            {
+              id: "sar-points",
+              kind: "point-series",
+              tone: "neutral",
+              color: "#f5c451",
+              radius: 2.2,
+              points: linePoints(points),
+            },
+          ],
+          legendValues: [
+            { label: "SAR", value: formatValue(latestValue(points)), color: "#f5c451" },
+          ],
         },
       };
     },
@@ -316,17 +434,63 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     name: "MAVOL",
     placement: "pane",
     parameters: [
-      { key: "period1", label: "短周期", type: "number", defaultValue: 5, minimum: 2, maximum: 240, step: 1 },
-      { key: "period2", label: "长周期", type: "number", defaultValue: 10, minimum: 2, maximum: 240, step: 1 },
+      {
+        key: "period1",
+        label: "短周期",
+        type: "number",
+        defaultValue: 5,
+        minimum: 2,
+        maximum: 240,
+        step: 1,
+      },
+      {
+        key: "period2",
+        label: "长周期",
+        type: "number",
+        defaultValue: 10,
+        minimum: 2,
+        maximum: 240,
+        step: 1,
+      },
     ],
     evaluate: (candles, parameters) => {
       const period1 = numeric(parameters, "period1");
       const period2 = numeric(parameters, "period2");
-      return createPane("mavol", "MAVOL", `${period1}, ${period2}`, [
-        { id: "volume", name: "VOL", type: "columns", color: "#42c7b9", negativeColor: "#e06c75", values: candles.map((candle, index) => ({ timestamp: candle.timestamp ?? index, value: Math.max(0, Number.isFinite(candle.volume) ? candle.volume : 0), tone: candle.close >= candle.open ? "positive" : "negative" })) },
-        { id: "ma1", name: `MA${period1}`, type: "line", color: paneColors[0]!, values: calculateVolumeMa(candles, period1) },
-        { id: "ma2", name: `MA${period2}`, type: "line", color: paneColors[1]!, values: calculateVolumeMa(candles, period2) },
-      ], undefined, { minimum: 0, includeZero: true });
+      return createPane(
+        "mavol",
+        "MAVOL",
+        `${period1}, ${period2}`,
+        [
+          {
+            id: "volume",
+            name: "VOL",
+            type: "columns",
+            color: "#42c7b9",
+            negativeColor: "#e06c75",
+            values: candles.map((candle, index) => ({
+              timestamp: candle.timestamp ?? index,
+              value: Math.max(0, Number.isFinite(candle.volume) ? candle.volume : 0),
+              tone: candle.close >= candle.open ? "positive" : "negative",
+            })),
+          },
+          {
+            id: "ma1",
+            name: `MA${period1}`,
+            type: "line",
+            color: paneColors[0]!,
+            values: calculateVolumeMa(candles, period1),
+          },
+          {
+            id: "ma2",
+            name: `MA${period2}`,
+            type: "line",
+            color: paneColors[1]!,
+            values: calculateVolumeMa(candles, period2),
+          },
+        ],
+        undefined,
+        { minimum: 0, includeZero: true },
+      );
     },
   },
   {
@@ -334,20 +498,74 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     name: "MACD",
     placement: "pane",
     parameters: [
-      { key: "fast", label: "快线周期", type: "number", defaultValue: 12, minimum: 2, maximum: 240, step: 1 },
-      { key: "slow", label: "慢线周期", type: "number", defaultValue: 26, minimum: 2, maximum: 240, step: 1 },
-      { key: "signal", label: "信号周期", type: "number", defaultValue: 9, minimum: 2, maximum: 240, step: 1 },
+      {
+        key: "fast",
+        label: "快线周期",
+        type: "number",
+        defaultValue: 12,
+        minimum: 2,
+        maximum: 240,
+        step: 1,
+      },
+      {
+        key: "slow",
+        label: "慢线周期",
+        type: "number",
+        defaultValue: 26,
+        minimum: 2,
+        maximum: 240,
+        step: 1,
+      },
+      {
+        key: "signal",
+        label: "信号周期",
+        type: "number",
+        defaultValue: 9,
+        minimum: 2,
+        maximum: 240,
+        step: 1,
+      },
     ],
     evaluate: (candles, parameters, convention = "cross-market") => {
       const fast = numeric(parameters, "fast");
       const slow = numeric(parameters, "slow");
       const signal = numeric(parameters, "signal");
       const points = calculateMacd(candles, fast, slow, signal, convention);
-      return createPane("macd", "MACD", `${fast}, ${slow}, ${signal}`, [
-        { id: "histogram", name: "MACD", type: "histogram", color: "#42c7b9", negativeColor: "#e06c75", values: points.map((point) => ({ timestamp: point.timestamp, value: point.histogram, tone: point.histogram >= 0 ? "positive" : "negative" })) },
-        { id: "dif", name: "DIF", type: "line", color: paneColors[0]!, values: points.map((point) => ({ timestamp: point.timestamp, value: point.dif })) },
-        { id: "dea", name: "DEA", type: "line", color: paneColors[1]!, values: points.map((point) => ({ timestamp: point.timestamp, value: point.dea })) },
-      ], [{ id: "zero", value: 0 }], { includeZero: true });
+      return createPane(
+        "macd",
+        "MACD",
+        `${fast}, ${slow}, ${signal}`,
+        [
+          {
+            id: "histogram",
+            name: "MACD",
+            type: "histogram",
+            color: "#42c7b9",
+            negativeColor: "#e06c75",
+            values: points.map((point) => ({
+              timestamp: point.timestamp,
+              value: point.histogram,
+              tone: point.histogram >= 0 ? "positive" : "negative",
+            })),
+          },
+          {
+            id: "dif",
+            name: "DIF",
+            type: "line",
+            color: paneColors[0]!,
+            values: points.map((point) => ({ timestamp: point.timestamp, value: point.dif })),
+          },
+          {
+            id: "dea",
+            name: "DEA",
+            type: "line",
+            color: paneColors[1]!,
+            values: points.map((point) => ({ timestamp: point.timestamp, value: point.dea })),
+          },
+        ],
+        [{ id: "zero", value: 0 }],
+        { includeZero: true },
+      );
     },
   },
   {
@@ -355,27 +573,61 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     name: "VOL",
     placement: "pane",
     parameters: [],
-    evaluate: (candles) => createPane("vol", "VOL", "成交量", [{
-      id: "volume",
-      name: "VOL",
-      type: "columns",
-      color: "#42c7b9",
-      negativeColor: "#e06c75",
-      values: candles.map((candle, index) => ({
-        timestamp: candle.timestamp ?? index,
-        value: Math.max(0, Number.isFinite(candle.volume) ? candle.volume : 0),
-        tone: candle.close >= candle.open ? "positive" : "negative",
-      })),
-    }], undefined, { minimum: 0, includeZero: true }),
+    evaluate: (candles) =>
+      createPane(
+        "vol",
+        "VOL",
+        "成交量",
+        [
+          {
+            id: "volume",
+            name: "VOL",
+            type: "columns",
+            color: "#42c7b9",
+            negativeColor: "#e06c75",
+            values: candles.map((candle, index) => ({
+              timestamp: candle.timestamp ?? index,
+              value: Math.max(0, Number.isFinite(candle.volume) ? candle.volume : 0),
+              tone: candle.close >= candle.open ? "positive" : "negative",
+            })),
+          },
+        ],
+        undefined,
+        { minimum: 0, includeZero: true },
+      ),
   },
   {
     id: "kdj",
     name: "KDJ",
     placement: "pane",
     parameters: [
-      { key: "period", label: "RSV 周期", type: "number", defaultValue: 9, minimum: 2, maximum: 240, step: 1 },
-      { key: "kSmoothing", label: "K 平滑", type: "number", defaultValue: 3, minimum: 1, maximum: 30, step: 1 },
-      { key: "dSmoothing", label: "D 平滑", type: "number", defaultValue: 3, minimum: 1, maximum: 30, step: 1 },
+      {
+        key: "period",
+        label: "RSV 周期",
+        type: "number",
+        defaultValue: 9,
+        minimum: 2,
+        maximum: 240,
+        step: 1,
+      },
+      {
+        key: "kSmoothing",
+        label: "K 平滑",
+        type: "number",
+        defaultValue: 3,
+        minimum: 1,
+        maximum: 30,
+        step: 1,
+      },
+      {
+        key: "dSmoothing",
+        label: "D 平滑",
+        type: "number",
+        defaultValue: 3,
+        minimum: 1,
+        maximum: 30,
+        step: 1,
+      },
     ],
     evaluate: (candles, parameters) => {
       const period = numeric(parameters, "period");
@@ -383,9 +635,27 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
       const dSmoothing = numeric(parameters, "dSmoothing");
       const points = calculateKdj(candles, period, kSmoothing, dSmoothing);
       return createPane("kdj", "KDJ", `${period}, ${kSmoothing}, ${dSmoothing}`, [
-        { id: "k", name: "K", type: "line", color: paneColors[0]!, values: points.map((point) => ({ timestamp: point.timestamp, value: point.k })) },
-        { id: "d", name: "D", type: "line", color: paneColors[1]!, values: points.map((point) => ({ timestamp: point.timestamp, value: point.d })) },
-        { id: "j", name: "J", type: "line", color: paneColors[2]!, values: points.map((point) => ({ timestamp: point.timestamp, value: point.j })) },
+        {
+          id: "k",
+          name: "K",
+          type: "line",
+          color: paneColors[0]!,
+          values: points.map((point) => ({ timestamp: point.timestamp, value: point.k })),
+        },
+        {
+          id: "d",
+          name: "D",
+          type: "line",
+          color: paneColors[1]!,
+          values: points.map((point) => ({ timestamp: point.timestamp, value: point.d })),
+        },
+        {
+          id: "j",
+          name: "J",
+          type: "line",
+          color: paneColors[2]!,
+          values: points.map((point) => ({ timestamp: point.timestamp, value: point.j })),
+        },
       ]);
     },
   },
@@ -394,23 +664,61 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     name: "RSI",
     placement: "pane",
     parameters: [
-      { key: "period1", label: "周期 1", type: "number", defaultValue: 14, aShareDefaultValue: 6, minimum: 2, maximum: 240, step: 1 },
-      { key: "period2", label: "周期 2", type: "number", defaultValue: 0, aShareDefaultValue: 12, minimum: 0, maximum: 240, step: 1 },
-      { key: "period3", label: "周期 3", type: "number", defaultValue: 0, aShareDefaultValue: 24, minimum: 0, maximum: 240, step: 1 },
+      {
+        key: "period1",
+        label: "周期 1",
+        type: "number",
+        defaultValue: 14,
+        aShareDefaultValue: 6,
+        minimum: 2,
+        maximum: 240,
+        step: 1,
+      },
+      {
+        key: "period2",
+        label: "周期 2",
+        type: "number",
+        defaultValue: 0,
+        aShareDefaultValue: 12,
+        minimum: 0,
+        maximum: 240,
+        step: 1,
+      },
+      {
+        key: "period3",
+        label: "周期 3",
+        type: "number",
+        defaultValue: 0,
+        aShareDefaultValue: 24,
+        minimum: 0,
+        maximum: 240,
+        step: 1,
+      },
     ],
     evaluate: (candles, parameters, convention = "cross-market") => {
-      const periods = [numeric(parameters, "period1"), numeric(parameters, "period2"), numeric(parameters, "period3")].filter((period) => period >= 2);
+      const periods = [
+        numeric(parameters, "period1"),
+        numeric(parameters, "period2"),
+        numeric(parameters, "period3"),
+      ].filter((period) => period >= 2);
       const thresholds = convention === "a-share" ? [20, 80] : [30, 70];
-      return createPane("rsi", "RSI", periods.join(", "), periods.map((period, index) => ({
-        id: String(period),
-        name: `RSI${period}`,
-        type: "line",
-        color: paneColors[index]!,
-        values: calculateRsi(candles, period),
-      })), [
-        { id: "lower", value: thresholds[0]!, label: String(thresholds[0]) },
-        { id: "upper", value: thresholds[1]!, label: String(thresholds[1]) },
-      ], { minimum: 0, maximum: 100 });
+      return createPane(
+        "rsi",
+        "RSI",
+        periods.join(", "),
+        periods.map((period, index) => ({
+          id: String(period),
+          name: `RSI${period}`,
+          type: "line",
+          color: paneColors[index]!,
+          values: calculateRsi(candles, period),
+        })),
+        [
+          { id: "lower", value: thresholds[0]!, label: String(thresholds[0]) },
+          { id: "upper", value: thresholds[1]!, label: String(thresholds[1]) },
+        ],
+        { minimum: 0, maximum: 100 },
+      );
     },
   },
   {
@@ -418,21 +726,48 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     name: "WR",
     placement: "pane",
     parameters: [
-      { key: "period1", label: "周期 1", type: "number", defaultValue: 14, aShareDefaultValue: 10, minimum: 2, maximum: 240, step: 1 },
-      { key: "period2", label: "周期 2", type: "number", defaultValue: 0, aShareDefaultValue: 6, minimum: 0, maximum: 240, step: 1 },
+      {
+        key: "period1",
+        label: "周期 1",
+        type: "number",
+        defaultValue: 14,
+        aShareDefaultValue: 10,
+        minimum: 2,
+        maximum: 240,
+        step: 1,
+      },
+      {
+        key: "period2",
+        label: "周期 2",
+        type: "number",
+        defaultValue: 0,
+        aShareDefaultValue: 6,
+        minimum: 0,
+        maximum: 240,
+        step: 1,
+      },
     ],
     evaluate: (candles, parameters) => {
-      const periods = [numeric(parameters, "period1"), numeric(parameters, "period2")].filter((period) => period >= 2);
-      return createPane("wr", "WR", periods.join(", "), periods.map((period, index) => ({
-        id: String(period),
-        name: `WR${period}`,
-        type: "line",
-        color: paneColors[index]!,
-        values: calculateWr(candles, period),
-      })), [
-        { id: "lower", value: -80, label: "-80" },
-        { id: "upper", value: -20, label: "-20" },
-      ], { minimum: -100, maximum: 0 });
+      const periods = [numeric(parameters, "period1"), numeric(parameters, "period2")].filter(
+        (period) => period >= 2,
+      );
+      return createPane(
+        "wr",
+        "WR",
+        periods.join(", "),
+        periods.map((period, index) => ({
+          id: String(period),
+          name: `WR${period}`,
+          type: "line",
+          color: paneColors[index]!,
+          values: calculateWr(candles, period),
+        })),
+        [
+          { id: "lower", value: -80, label: "-80" },
+          { id: "upper", value: -20, label: "-20" },
+        ],
+        { minimum: -100, maximum: 0 },
+      );
     },
   },
   {
@@ -440,37 +775,68 @@ export const builtInChartIndicatorDefinitions: readonly ChartIndicatorDefinition
     name: "CCI",
     placement: "pane",
     parameters: [
-      { key: "period", label: "周期", type: "number", defaultValue: 14, minimum: 2, maximum: 240, step: 1 },
-      { key: "constant", label: "常数", type: "number", defaultValue: 0.015, minimum: 0.001, maximum: 1, step: 0.001 },
+      {
+        key: "period",
+        label: "周期",
+        type: "number",
+        defaultValue: 14,
+        minimum: 2,
+        maximum: 240,
+        step: 1,
+      },
+      {
+        key: "constant",
+        label: "常数",
+        type: "number",
+        defaultValue: 0.015,
+        minimum: 0.001,
+        maximum: 1,
+        step: 0.001,
+      },
     ],
     evaluate: (candles, parameters) => {
       const period = numeric(parameters, "period");
       const constant = numeric(parameters, "constant");
-      return createPane("cci", "CCI", `${period}, ${constant}`, [{
-        id: "cci",
-        name: "CCI",
-        type: "line",
-        color: paneColors[0]!,
-        values: calculateCci(candles, period, constant),
-      }], [
-        { id: "lower", value: -100, label: "-100" },
-        { id: "upper", value: 100, label: "100" },
-      ], { includeZero: true });
+      return createPane(
+        "cci",
+        "CCI",
+        `${period}, ${constant}`,
+        [
+          {
+            id: "cci",
+            name: "CCI",
+            type: "line",
+            color: paneColors[0]!,
+            values: calculateCci(candles, period, constant),
+          },
+        ],
+        [
+          { id: "lower", value: -100, label: "-100" },
+          { id: "upper", value: 100, label: "100" },
+        ],
+        { includeZero: true },
+      );
     },
   },
 ];
 
-const builtInById = new Map(builtInChartIndicatorDefinitions.map((definition) => [definition.id, definition]));
+const builtInById = new Map(
+  builtInChartIndicatorDefinitions.map((definition) => [definition.id, definition]),
+);
 
 export const defaultChartIndicatorSettings: ChartIndicatorSettings = {
   conventionMode: "auto",
-  instances: Object.fromEntries(builtInChartIndicatorDefinitions.map((definition) => [
-    definition.id,
-    createDefaultIndicatorInstance(definition),
-  ])),
+  instances: Object.fromEntries(
+    builtInChartIndicatorDefinitions.map((definition) => [
+      definition.id,
+      createDefaultIndicatorInstance(definition),
+    ]),
+  ),
 };
 
-export function createChartIndicatorRegistry(initialDefinitions: readonly ChartIndicatorDefinition[] = []): ChartIndicatorRegistry {
+export function createChartIndicatorRegistry(
+  initialDefinitions: readonly ChartIndicatorDefinition[] = [],
+): ChartIndicatorRegistry {
   const definitions = new Map<string, ChartIndicatorDefinition>();
   initialDefinitions.forEach((definition) => definitions.set(definition.id, definition));
   return {
@@ -484,13 +850,20 @@ export function createChartIndicatorRegistry(initialDefinitions: readonly ChartI
 }
 
 function defaultParameters(definition: ChartIndicatorDefinition, convention: IndicatorConvention) {
-  return Object.fromEntries(definition.parameters.map((parameter) => [
-    parameter.key,
-    convention === "a-share" ? parameter.aShareDefaultValue ?? parameter.defaultValue : parameter.defaultValue,
-  ]));
+  return Object.fromEntries(
+    definition.parameters.map((parameter) => [
+      parameter.key,
+      convention === "a-share"
+        ? (parameter.aShareDefaultValue ?? parameter.defaultValue)
+        : parameter.defaultValue,
+    ]),
+  );
 }
 
-export function createDefaultIndicatorInstance(definition: ChartIndicatorDefinition, enabled = false): ChartIndicatorInstanceSettings {
+export function createDefaultIndicatorInstance(
+  definition: ChartIndicatorDefinition,
+  enabled = false,
+): ChartIndicatorInstanceSettings {
   return {
     available: true,
     enabled,
@@ -507,19 +880,31 @@ export function getIndicatorInstance(
   indicatorId: string,
   definition?: ChartIndicatorDefinition,
 ): ChartIndicatorInstanceSettings {
-  const instances = settings && typeof settings === "object" && settings.instances && typeof settings.instances === "object" ? settings.instances : {};
+  const instances =
+    settings &&
+    typeof settings === "object" &&
+    settings.instances &&
+    typeof settings.instances === "object"
+      ? settings.instances
+      : {};
   const resolvedDefinition = definition ?? builtInById.get(indicatorId);
-  return instances[indicatorId] ?? (resolvedDefinition
-    ? createDefaultIndicatorInstance(resolvedDefinition)
-    : {
-      available: true,
-      enabled: false,
-      visible: true,
-      parametersByConvention: { "a-share": {}, "cross-market": {} },
-    });
+  return (
+    instances[indicatorId] ??
+    (resolvedDefinition
+      ? createDefaultIndicatorInstance(resolvedDefinition)
+      : {
+          available: true,
+          enabled: false,
+          visible: true,
+          parametersByConvention: { "a-share": {}, "cross-market": {} },
+        })
+  );
 }
 
-export function resolveIndicatorConvention(mode: IndicatorConventionMode, market: Market): IndicatorConvention {
+export function resolveIndicatorConvention(
+  mode: IndicatorConventionMode,
+  market: Market,
+): IndicatorConvention {
   if (mode !== "auto") return mode;
   return market === "CN" ? "a-share" : "cross-market";
 }
@@ -547,7 +932,8 @@ export function setIndicatorEnabled(
   enabled: boolean,
   definitions: readonly ChartIndicatorDefinition[] = builtInChartIndicatorDefinitions,
 ): ChartIndicatorSettings {
-  const definition = definitions.find((item) => item.id === indicatorId) ?? builtInById.get(indicatorId);
+  const definition =
+    definitions.find((item) => item.id === indicatorId) ?? builtInById.get(indicatorId);
   let instances = { ...settings.instances };
   if (enabled && definition?.placement === "pane") {
     definitions
@@ -572,13 +958,22 @@ export function updateIndicatorParameter(
 ): ChartIndicatorSettings {
   const definition = definitionOverride ?? builtInById.get(indicatorId);
   if (!definition) return settings;
-  return updateIndicatorInstance(settings, indicatorId, (current) => ({
-    ...current,
-    parametersByConvention: {
-      ...current.parametersByConvention,
-      [convention]: sanitizeIndicatorParameters({ ...current.parametersByConvention[convention], [key]: value }, definition, convention),
-    },
-  }), definition);
+  return updateIndicatorInstance(
+    settings,
+    indicatorId,
+    (current) => ({
+      ...current,
+      parametersByConvention: {
+        ...current.parametersByConvention,
+        [convention]: sanitizeIndicatorParameters(
+          { ...current.parametersByConvention[convention], [key]: value },
+          definition,
+          convention,
+        ),
+      },
+    }),
+    definition,
+  );
 }
 
 export function ensureChartIndicatorSettings(
@@ -590,12 +985,14 @@ export function ensureChartIndicatorSettings(
     instances[definition.id] = sanitizeIndicatorInstance(instances[definition.id], definition);
   });
   let paneFound = false;
-  definitions.filter((definition) => definition.placement === "pane").forEach((definition) => {
-    const instance = instances[definition.id]!;
-    if (!instance.enabled) return;
-    instances[definition.id] = { ...instance, enabled: !paneFound };
-    paneFound = true;
-  });
+  definitions
+    .filter((definition) => definition.placement === "pane")
+    .forEach((definition) => {
+      const instance = instances[definition.id]!;
+      if (!instance.enabled) return;
+      instances[definition.id] = { ...instance, enabled: !paneFound };
+      paneFound = true;
+    });
   return {
     conventionMode: sanitizeConventionMode(settings.conventionMode),
     instances,
@@ -606,8 +1003,12 @@ function normalizeEvaluation(
   result: ChartIndicatorEvaluationResult | ChartRenderLayer,
   definition: ChartIndicatorDefinition,
 ): ChartIndicatorEvaluationResult {
-  if ("placement" in result && (result.placement === "overlay" || result.placement === "pane")) return result as ChartIndicatorEvaluationResult;
-  return { placement: definition.placement === "pane" ? "pane" : "overlay", layer: result as ChartRenderLayer } as ChartIndicatorEvaluationResult;
+  if ("placement" in result && (result.placement === "overlay" || result.placement === "pane"))
+    return result as ChartIndicatorEvaluationResult;
+  return {
+    placement: definition.placement === "pane" ? "pane" : "overlay",
+    layer: result as ChartRenderLayer,
+  } as ChartIndicatorEvaluationResult;
 }
 
 export function createChartIndicatorEvaluations(
@@ -623,13 +1024,22 @@ export function createChartIndicatorEvaluations(
     try {
       const evaluated = definition.evaluate(
         candles,
-        sanitizeIndicatorParameters(getIndicatorParameters(instance, convention), definition, convention),
+        sanitizeIndicatorParameters(
+          getIndicatorParameters(instance, convention),
+          definition,
+          convention,
+        ),
         convention,
       );
       if (!evaluated) return;
       const result = normalizeEvaluation(evaluated, definition);
       if (result.placement === "pane") {
-        evaluations.push({ id: definition.id, placement: "pane", visible: instance.visible, pane: result.pane });
+        evaluations.push({
+          id: definition.id,
+          placement: "pane",
+          visible: instance.visible,
+          pane: result.pane,
+        });
         return;
       }
       evaluations.push({
@@ -651,8 +1061,9 @@ export function createChartIndicatorLayers(
   definitions: readonly ChartIndicatorDefinition[] = builtInChartIndicatorDefinitions,
   convention: IndicatorConvention = "cross-market",
 ): ChartRenderLayer[] {
-  return createChartIndicatorEvaluations(candles, settings, convention, definitions)
-    .flatMap((evaluation) => evaluation.placement === "overlay" ? [evaluation.layer] : []);
+  return createChartIndicatorEvaluations(candles, settings, convention, definitions).flatMap(
+    (evaluation) => (evaluation.placement === "overlay" ? [evaluation.layer] : []),
+  );
 }
 
 export function createChartSecondaryPane(
@@ -661,8 +1072,15 @@ export function createChartSecondaryPane(
   convention: IndicatorConvention,
   definitions: readonly ChartIndicatorDefinition[] = builtInChartIndicatorDefinitions,
 ): ChartPaneModel | undefined {
-  const evaluation = createChartIndicatorEvaluations(candles, settings, convention, definitions)
-    .find((item): item is Extract<ChartIndicatorEvaluation, { placement: "pane" }> => item.placement === "pane" && item.visible);
+  const evaluation = createChartIndicatorEvaluations(
+    candles,
+    settings,
+    convention,
+    definitions,
+  ).find(
+    (item): item is Extract<ChartIndicatorEvaluation, { placement: "pane" }> =>
+      item.placement === "pane" && item.visible,
+  );
   return evaluation?.pane;
 }
 
@@ -678,39 +1096,70 @@ export function createPluginIndicatorLayers(
 export function sanitizeChartIndicatorSettings(value: unknown): ChartIndicatorSettings {
   if (value && typeof value === "object" && "instances" in value) {
     const parsed = value as { conventionMode?: unknown; instances?: unknown };
-    const rawInstances = parsed.instances && typeof parsed.instances === "object" && !Array.isArray(parsed.instances)
-      ? parsed.instances as Record<string, unknown>
-      : {};
+    const rawInstances =
+      parsed.instances && typeof parsed.instances === "object" && !Array.isArray(parsed.instances)
+        ? (parsed.instances as Record<string, unknown>)
+        : {};
     const migratedInstances = { ...rawInstances };
-    if (!migratedInstances.ma && migratedInstances.sma) migratedInstances.ma = migrateSmaInstance(migratedInstances.sma);
+    if (!migratedInstances.ma && migratedInstances.sma)
+      migratedInstances.ma = migrateSmaInstance(migratedInstances.sma);
     migratedInstances.ema = migrateLegacyWindowParameters(migratedInstances.ema, "ema");
     migratedInstances.boll = migrateLegacyWindowParameters(migratedInstances.boll, "boll");
-    const instances = Object.fromEntries(builtInChartIndicatorDefinitions.map((definition) => [
-      definition.id,
-      sanitizeIndicatorInstance(migratedInstances[definition.id], definition),
-    ]));
+    const instances = Object.fromEntries(
+      builtInChartIndicatorDefinitions.map((definition) => [
+        definition.id,
+        sanitizeIndicatorInstance(migratedInstances[definition.id], definition),
+      ]),
+    );
     Object.entries(migratedInstances).forEach(([id, instance]) => {
-      if (id !== "sma" && !builtInById.has(id)) instances[id] = sanitizeUnknownIndicatorInstance(instance);
+      if (id !== "sma" && !builtInById.has(id))
+        instances[id] = sanitizeUnknownIndicatorInstance(instance);
     });
-    return ensureChartIndicatorSettings({
-      conventionMode: sanitizeConventionMode(parsed.conventionMode),
-      instances,
-    }, builtInChartIndicatorDefinitions);
+    return ensureChartIndicatorSettings(
+      {
+        conventionMode: sanitizeConventionMode(parsed.conventionMode),
+        instances,
+      },
+      builtInChartIndicatorDefinitions,
+    );
   }
 
-  const legacy = value && typeof value === "object" ? value as {
-    movingAverage?: Partial<{ available: boolean; enabled: boolean; visible: boolean; window: number }>;
-    bollingerBands?: Partial<{ available: boolean; enabled: boolean; visible: boolean; window: number; multiplier: number }>;
-  } : {};
-  const instances = Object.fromEntries(builtInChartIndicatorDefinitions.map((definition) => [
-    definition.id,
-    createDefaultIndicatorInstance(definition),
-  ]));
-  if (legacy.movingAverage) instances.ma = sanitizeIndicatorInstance(migrateSmaInstance(legacy.movingAverage), builtInById.get("ma")!);
+  const legacy =
+    value && typeof value === "object"
+      ? (value as {
+          movingAverage?: Partial<{
+            available: boolean;
+            enabled: boolean;
+            visible: boolean;
+            window: number;
+          }>;
+          bollingerBands?: Partial<{
+            available: boolean;
+            enabled: boolean;
+            visible: boolean;
+            window: number;
+            multiplier: number;
+          }>;
+        })
+      : {};
+  const instances = Object.fromEntries(
+    builtInChartIndicatorDefinitions.map((definition) => [
+      definition.id,
+      createDefaultIndicatorInstance(definition),
+    ]),
+  );
+  if (legacy.movingAverage)
+    instances.ma = sanitizeIndicatorInstance(
+      migrateSmaInstance(legacy.movingAverage),
+      builtInById.get("ma")!,
+    );
   if (legacy.bollingerBands) {
     const legacyBoll = {
       ...legacy.bollingerBands,
-      parameters: { period: legacy.bollingerBands.window, multiplier: legacy.bollingerBands.multiplier },
+      parameters: {
+        period: legacy.bollingerBands.window,
+        multiplier: legacy.bollingerBands.multiplier,
+      },
     };
     instances.boll = sanitizeIndicatorInstance(legacyBoll, builtInById.get("boll")!);
   }
@@ -718,14 +1167,21 @@ export function sanitizeChartIndicatorSettings(value: unknown): ChartIndicatorSe
 }
 
 function migrateSmaInstance(value: unknown) {
-  const parsed = value && typeof value === "object" ? value as {
-    available?: boolean;
-    enabled?: boolean;
-    visible?: boolean;
-    window?: number;
-    parameters?: { window?: number };
-  } : {};
-  const first = Number.isFinite(parsed.parameters?.window) ? parsed.parameters!.window! : Number.isFinite(parsed.window) ? parsed.window! : 5;
+  const parsed =
+    value && typeof value === "object"
+      ? (value as {
+          available?: boolean;
+          enabled?: boolean;
+          visible?: boolean;
+          window?: number;
+          parameters?: { window?: number };
+        })
+      : {};
+  const first = Number.isFinite(parsed.parameters?.window)
+    ? parsed.parameters!.window!
+    : Number.isFinite(parsed.window)
+      ? parsed.window!
+      : 5;
   const periods = [first, 10, 20, 60].filter((period, index, all) => all.indexOf(period) === index);
   [5, 10, 20, 60].forEach((period) => {
     if (periods.length < 4 && !periods.includes(period)) periods.push(period);
@@ -734,7 +1190,9 @@ function migrateSmaInstance(value: unknown) {
     available: parsed.available,
     enabled: parsed.enabled,
     visible: parsed.visible,
-    parameters: Object.fromEntries(periods.slice(0, 4).map((period, index) => [`period${index + 1}`, period])),
+    parameters: Object.fromEntries(
+      periods.slice(0, 4).map((period, index) => [`period${index + 1}`, period]),
+    ),
   };
 }
 
@@ -744,10 +1202,16 @@ function migrateLegacyWindowParameters(value: unknown, indicatorId: "ema" | "bol
     parameters?: Readonly<Record<string, unknown>>;
     parametersByConvention?: unknown;
   };
-  if (parsed.parametersByConvention || !parsed.parameters || !Number.isFinite(parsed.parameters.window)) return value;
-  const parameters = indicatorId === "ema"
-    ? { period1: parsed.parameters.window, period2: 10, period3: 20, period4: 60 }
-    : { period: parsed.parameters.window, multiplier: parsed.parameters.multiplier };
+  if (
+    parsed.parametersByConvention ||
+    !parsed.parameters ||
+    !Number.isFinite(parsed.parameters.window)
+  )
+    return value;
+  const parameters =
+    indicatorId === "ema"
+      ? { period1: parsed.parameters.window, period2: 10, period3: 20, period4: 60 }
+      : { period: parsed.parameters.window, multiplier: parsed.parameters.multiplier };
   return { ...parsed, parameters };
 }
 
@@ -756,17 +1220,27 @@ function sanitizeConventionMode(value: unknown): IndicatorConventionMode {
 }
 
 function sanitizeUnknownIndicatorInstance(value: unknown): ChartIndicatorInstanceSettings {
-  const parsed = value && typeof value === "object" ? value as {
-    available?: unknown;
-    enabled?: unknown;
-    visible?: unknown;
-    parameters?: unknown;
-    parametersByConvention?: Partial<Record<IndicatorConvention, unknown>>;
-  } : {};
-  const sanitizeParameters = (parameters: unknown) => parameters && typeof parameters === "object" && !Array.isArray(parameters)
-    ? Object.fromEntries(Object.entries(parameters).flatMap(([key, candidate]) =>
-      typeof candidate === "boolean" || (typeof candidate === "number" && Number.isFinite(candidate)) ? [[key, candidate]] : []))
-    : {};
+  const parsed =
+    value && typeof value === "object"
+      ? (value as {
+          available?: unknown;
+          enabled?: unknown;
+          visible?: unknown;
+          parameters?: unknown;
+          parametersByConvention?: Partial<Record<IndicatorConvention, unknown>>;
+        })
+      : {};
+  const sanitizeParameters = (parameters: unknown) =>
+    parameters && typeof parameters === "object" && !Array.isArray(parameters)
+      ? Object.fromEntries(
+          Object.entries(parameters).flatMap(([key, candidate]) =>
+            typeof candidate === "boolean" ||
+            (typeof candidate === "number" && Number.isFinite(candidate))
+              ? [[key, candidate]]
+              : [],
+          ),
+        )
+      : {};
   const legacy = sanitizeParameters(parsed.parameters);
   return {
     available: typeof parsed.available === "boolean" ? parsed.available : true,
@@ -779,22 +1253,38 @@ function sanitizeUnknownIndicatorInstance(value: unknown): ChartIndicatorInstanc
   };
 }
 
-function sanitizeIndicatorInstance(value: unknown, definition: ChartIndicatorDefinition): ChartIndicatorInstanceSettings {
-  const parsed = value && typeof value === "object" ? value as {
-    available?: unknown;
-    enabled?: unknown;
-    visible?: unknown;
-    parameters?: Readonly<Record<string, unknown>>;
-    parametersByConvention?: Partial<Record<IndicatorConvention, Readonly<Record<string, unknown>>>>;
-  } : {};
+function sanitizeIndicatorInstance(
+  value: unknown,
+  definition: ChartIndicatorDefinition,
+): ChartIndicatorInstanceSettings {
+  const parsed =
+    value && typeof value === "object"
+      ? (value as {
+          available?: unknown;
+          enabled?: unknown;
+          visible?: unknown;
+          parameters?: Readonly<Record<string, unknown>>;
+          parametersByConvention?: Partial<
+            Record<IndicatorConvention, Readonly<Record<string, unknown>>>
+          >;
+        })
+      : {};
   const legacyParameters = parsed.parameters ?? {};
   return {
     available: typeof parsed.available === "boolean" ? parsed.available : true,
     enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : false,
     visible: typeof parsed.visible === "boolean" ? parsed.visible : true,
     parametersByConvention: {
-      "a-share": sanitizeIndicatorParameters(parsed.parametersByConvention?.["a-share"] ?? legacyParameters, definition, "a-share"),
-      "cross-market": sanitizeIndicatorParameters(parsed.parametersByConvention?.["cross-market"] ?? legacyParameters, definition, "cross-market"),
+      "a-share": sanitizeIndicatorParameters(
+        parsed.parametersByConvention?.["a-share"] ?? legacyParameters,
+        definition,
+        "a-share",
+      ),
+      "cross-market": sanitizeIndicatorParameters(
+        parsed.parametersByConvention?.["cross-market"] ?? legacyParameters,
+        definition,
+        "cross-market",
+      ),
     },
   };
 }
@@ -804,11 +1294,24 @@ function sanitizeIndicatorParameters(
   definition: ChartIndicatorDefinition,
   convention: IndicatorConvention,
 ): Record<string, ChartIndicatorParameterValue> {
-  return Object.fromEntries(definition.parameters.map((parameter) => {
-    const fallback = convention === "a-share" ? parameter.aShareDefaultValue ?? parameter.defaultValue : parameter.defaultValue;
-    const candidate = value[parameter.key];
-    if (parameter.type === "boolean") return [parameter.key, typeof candidate === "boolean" ? candidate : fallback];
-    const number = typeof candidate === "number" && Number.isFinite(candidate) ? candidate : Number(fallback);
-    return [parameter.key, Math.min(parameter.maximum ?? Number.POSITIVE_INFINITY, Math.max(parameter.minimum ?? Number.NEGATIVE_INFINITY, number))];
-  }));
+  return Object.fromEntries(
+    definition.parameters.map((parameter) => {
+      const fallback =
+        convention === "a-share"
+          ? (parameter.aShareDefaultValue ?? parameter.defaultValue)
+          : parameter.defaultValue;
+      const candidate = value[parameter.key];
+      if (parameter.type === "boolean")
+        return [parameter.key, typeof candidate === "boolean" ? candidate : fallback];
+      const number =
+        typeof candidate === "number" && Number.isFinite(candidate) ? candidate : Number(fallback);
+      return [
+        parameter.key,
+        Math.min(
+          parameter.maximum ?? Number.POSITIVE_INFINITY,
+          Math.max(parameter.minimum ?? Number.NEGATIVE_INFINITY, number),
+        ),
+      ];
+    }),
+  );
 }

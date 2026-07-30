@@ -32,15 +32,24 @@ describe("normalizeAlphaFeedApiCredentials", () => {
 
   it("rejects unsafe endpoints and short API keys", () => {
     assert.throws(
-      () => normalizeAlphaFeedApiCredentials({ apiUrl: "file:///tmp/key", apiKey: "alpha-key-1234" }),
+      () =>
+        normalizeAlphaFeedApiCredentials({ apiUrl: "file:///tmp/key", apiKey: "alpha-key-1234" }),
       /http 或 https/,
     );
-    assert.throws(() => normalizeAlphaFeedApiCredentials({ apiUrl: ALPHAFEED_DEFAULT_API_URL, apiKey: "short" }), /至少需要 8 位/);
+    assert.throws(
+      () =>
+        normalizeAlphaFeedApiCredentials({ apiUrl: ALPHAFEED_DEFAULT_API_URL, apiKey: "short" }),
+      /至少需要 8 位/,
+    );
   });
 
   it("rejects remote plaintext HTTP but permits loopback development endpoints", () => {
     assert.throws(
-      () => normalizeAlphaFeedApiCredentials({ apiUrl: "http://api.example.com", apiKey: "alpha-key-1234" }),
+      () =>
+        normalizeAlphaFeedApiCredentials({
+          apiUrl: "http://api.example.com",
+          apiKey: "alpha-key-1234",
+        }),
       /远程地址必须使用 https/,
     );
 
@@ -53,7 +62,11 @@ describe("normalizeAlphaFeedApiCredentials", () => {
 
   it("rejects HTTPS endpoints outside the AlphaFeed allowlist", () => {
     assert.throws(
-      () => normalizeAlphaFeedApiCredentials({ apiUrl: "https://example.invalid", apiKey: "alpha-key-123" }),
+      () =>
+        normalizeAlphaFeedApiCredentials({
+          apiUrl: "https://example.invalid",
+          apiKey: "alpha-key-123",
+        }),
       /官方服务地址或本机开发地址/u,
     );
   });
@@ -118,7 +131,8 @@ describe("fetchAlphaFeedQuoteSnapshots", () => {
           { apiUrl: ALPHAFEED_DEFAULT_API_URL, apiKey: "alpha-key-1234" },
           [{ symbol: "600519.SH", market: "CN" }],
           {
-            fetcher: async () => createJsonResponse({ code: 403, message: "forbidden" }, { status: 403 }),
+            fetcher: async () =>
+              createJsonResponse({ code: 403, message: "forbidden" }, { status: 403 }),
           },
         ),
       /套餐无此功能或市场权限/,
@@ -356,5 +370,8 @@ it("marks a window contract unsupported and filters out-of-range rows", async ()
   );
 
   assert.equal(getAlphaFeedHistoricalPagingCapability(credentials), "unsupported");
-  assert.deepEqual(bars.map((bar) => bar.timestamp), [1_800_000_000_000]);
+  assert.deepEqual(
+    bars.map((bar) => bar.timestamp),
+    [1_800_000_000_000],
+  );
 });

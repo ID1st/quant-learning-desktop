@@ -65,10 +65,7 @@ test("CN and HK lunch breaks are closed at the completed morning segment", () =>
 });
 
 test("calendar outside the bundled range fails closed", () => {
-  const window = getIntradayHistoryWindow(
-    "CN",
-    Date.UTC(2035, 0, 2, 4, 0),
-  );
+  const window = getIntradayHistoryWindow("CN", Date.UTC(2035, 0, 2, 4, 0));
 
   assert.equal(window.isMarketOpen, false);
   assert.equal(window.errorCode, "CALENDAR_OUT_OF_RANGE");

@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChartViewport, type ChartDisplayMode, type ChartLayer, type ChartLayerElement } from "@quant/chart";
+import {
+  ChartViewport,
+  type ChartDisplayMode,
+  type ChartLayer,
+  type ChartLayerElement,
+} from "@quant/chart";
 import type { Market, Timeframe } from "@quant/shared";
 import {
   createEmptyStrategyRegistry,
@@ -29,7 +34,12 @@ import {
 } from "../features/marketData/chartBarAdapter";
 import { getMarketBarCacheRepository } from "../features/marketData/marketBarCacheClient";
 import type { MarketDataBar } from "../features/marketData/marketBarCacheService";
-import { readMarketWatchlist, writeMarketWatchlist, type MarketQuoteSnapshot, type MarketWatchlistItem } from "../features/marketData/marketDataSyncService";
+import {
+  readMarketWatchlist,
+  writeMarketWatchlist,
+  type MarketQuoteSnapshot,
+  type MarketWatchlistItem,
+} from "../features/marketData/marketDataSyncService";
 import {
   createQuotePollingBatches,
   createSnapshotCacheWriteGate,
@@ -97,7 +107,12 @@ import {
   createStrategyQuickMenuItems,
   toggleStrategyFromQuickMenu,
 } from "../features/chartWorkspace/strategyQuickMenu";
-import { drawingsToLayer, readChartDrawings, writeChartDrawings, type ChartDrawing } from "../features/chartDrawings/chartDrawingStore";
+import {
+  drawingsToLayer,
+  readChartDrawings,
+  writeChartDrawings,
+  type ChartDrawing,
+} from "../features/chartDrawings/chartDrawingStore";
 import {
   createChartDrawingCommandState,
   executeChartDrawingCommand,
@@ -147,25 +162,64 @@ import {
   Redo2,
 } from "lucide-react";
 
-const symbols: Array<{ symbol: string; dataSymbol: string; name: string; market: Market; price: string; change: string }> = [
-  { symbol: "AAPL", dataSymbol: "AAPL.US", name: "Apple Inc.", market: "US", price: "219.48", change: "+1.03%" },
-  { symbol: "09988.HK", dataSymbol: "09988.HK", name: "阿里巴巴", market: "HK", price: "83.20", change: "+1.49%" },
-  { symbol: "600519", dataSymbol: "600519.SH", name: "贵州茅台", market: "CN", price: "1468.10", change: "+0.54%" },
-  { symbol: "TSLA", dataSymbol: "TSLA.US", name: "Tesla", market: "US", price: "188.14", change: "-0.82%" },
+const symbols: Array<{
+  symbol: string;
+  dataSymbol: string;
+  name: string;
+  market: Market;
+  price: string;
+  change: string;
+}> = [
+  {
+    symbol: "AAPL",
+    dataSymbol: "AAPL.US",
+    name: "Apple Inc.",
+    market: "US",
+    price: "219.48",
+    change: "+1.03%",
+  },
+  {
+    symbol: "09988.HK",
+    dataSymbol: "09988.HK",
+    name: "阿里巴巴",
+    market: "HK",
+    price: "83.20",
+    change: "+1.49%",
+  },
+  {
+    symbol: "600519",
+    dataSymbol: "600519.SH",
+    name: "贵州茅台",
+    market: "CN",
+    price: "1468.10",
+    change: "+0.54%",
+  },
+  {
+    symbol: "TSLA",
+    dataSymbol: "TSLA.US",
+    name: "Tesla",
+    market: "US",
+    price: "188.14",
+    change: "-0.82%",
+  },
 ];
 
 type ChartWatchlistItem = (typeof symbols)[number];
 
 function toChartWatchlistItem(item: MarketWatchlistItem): ChartWatchlistItem {
-  const defaultItem = symbols.find((candidate) => candidate.dataSymbol === item.symbol && candidate.market === item.market);
-  return defaultItem ?? {
-    symbol: item.symbol.replace(/\.(US|HK|SH|SZ)$/u, ""),
-    dataSymbol: item.symbol,
-    name: item.name,
-    market: item.market,
-    price: "--",
-    change: "--",
-  };
+  const defaultItem = symbols.find(
+    (candidate) => candidate.dataSymbol === item.symbol && candidate.market === item.market,
+  );
+  return (
+    defaultItem ?? {
+      symbol: item.symbol.replace(/\.(US|HK|SH|SZ)$/u, ""),
+      dataSymbol: item.symbol,
+      name: item.name,
+      market: item.market,
+      price: "--",
+      change: "--",
+    }
+  );
 }
 
 function readChartWatchlist() {
@@ -231,7 +285,10 @@ function getDefaultParameters(strategy: StrategyDefinition) {
   }, {});
 }
 
-function getDefaultStrategyState(strategy: StrategyDefinition, index: number): StrategyWorkspaceState {
+function getDefaultStrategyState(
+  strategy: StrategyDefinition,
+  index: number,
+): StrategyWorkspaceState {
   return {
     enabled: strategy.defaultEnabled ?? index === 0,
     showLayer: true,
@@ -251,10 +308,13 @@ function createDefaultWorkspacePreferences(): ChartWorkspacePreferences {
     showCurrentPriceLine: true,
     intradayDisplayMode: "line",
     realtimePollIntervalMs: defaultRealtimePollIntervalMs,
-    strategies: presetStrategies.reduce<Record<string, StrategyWorkspaceState>>((settings, strategy, index) => {
-      settings[strategy.key] = getDefaultStrategyState(strategy, index);
-      return settings;
-    }, {}),
+    strategies: presetStrategies.reduce<Record<string, StrategyWorkspaceState>>(
+      (settings, strategy, index) => {
+        settings[strategy.key] = getDefaultStrategyState(strategy, index);
+        return settings;
+      },
+      {},
+    ),
   };
 }
 
@@ -265,15 +325,20 @@ function sanitizeParameterValue(parameter: StrategyParameterDefinition, value: u
 
   if (parameter.type === "select") {
     const optionValues = parameter.options?.map((option) => option.value) ?? [];
-    return typeof value === "string" && optionValues.includes(value) ? value : parameter.defaultValue;
+    return typeof value === "string" && optionValues.includes(value)
+      ? value
+      : parameter.defaultValue;
   }
 
   if (parameter.type === "color") {
-    return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : parameter.defaultValue;
+    return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)
+      ? value.toUpperCase()
+      : parameter.defaultValue;
   }
 
   if (parameter.type === "number") {
-    const numericValue = typeof value === "number" && Number.isFinite(value) ? value : Number(parameter.defaultValue);
+    const numericValue =
+      typeof value === "number" && Number.isFinite(value) ? value : Number(parameter.defaultValue);
     const minimumValue = Number(getNumberInputMinimum(parameter.key));
     const maximumValue = Number(getNumberInputMaximum(parameter.key));
     return Math.min(maximumValue, Math.max(minimumValue, numericValue));
@@ -283,14 +348,32 @@ function sanitizeParameterValue(parameter: StrategyParameterDefinition, value: u
 }
 
 function isFractionalStrategyParameter(parameterKey: string) {
-  return ["supertrendFactor", "bandwidth", "stopLossAtrMultiplier", "targetOneMultiplier", "targetTwoMultiplier", "targetThreeMultiplier", "trailingStopAtrMultiplier", "equalHighLowThreshold"].includes(
-    parameterKey,
-  );
+  return [
+    "supertrendFactor",
+    "bandwidth",
+    "stopLossAtrMultiplier",
+    "targetOneMultiplier",
+    "targetTwoMultiplier",
+    "targetThreeMultiplier",
+    "trailingStopAtrMultiplier",
+    "equalHighLowThreshold",
+  ].includes(parameterKey);
 }
 
 function getNumberInputMinimum(parameterKey: string) {
   if (parameterKey === "timezoneOffsetHours") return "-12";
-  if (["sessionStartHour", "sessionStartMinute", "manualEndHour", "manualEndMinute", "extensionMultiplierOne", "extensionMultiplierTwo", "extensionMultiplierThree"].includes(parameterKey)) return "0";
+  if (
+    [
+      "sessionStartHour",
+      "sessionStartMinute",
+      "manualEndHour",
+      "manualEndMinute",
+      "extensionMultiplierOne",
+      "extensionMultiplierTwo",
+      "extensionMultiplierThree",
+    ].includes(parameterKey)
+  )
+    return "0";
   if (parameterKey === "volumeProfileRows") return "5";
   if (parameterKey === "fairValueGapExtend") return "0";
   if (parameterKey === "bandwidth") return "2";
@@ -315,17 +398,27 @@ function getNumberInputStep(parameterKey: string) {
   return isFractionalStrategyParameter(parameterKey) ? "0.1" : "1";
 }
 
-function normalizeStrategyState(strategy: StrategyDefinition, index: number, state?: Partial<StrategyWorkspaceState>): StrategyWorkspaceState {
+function normalizeStrategyState(
+  strategy: StrategyDefinition,
+  index: number,
+  state?: Partial<StrategyWorkspaceState>,
+): StrategyWorkspaceState {
   const defaultState = getDefaultStrategyState(strategy, index);
   const incomingParameters = state?.parameters ?? {};
 
   return {
     enabled: typeof state?.enabled === "boolean" ? state.enabled : defaultState.enabled,
     showLayer: typeof state?.showLayer === "boolean" ? state.showLayer : defaultState.showLayer,
-    parameters: strategy.parameterSchema.reduce<Record<string, unknown>>((parameters, parameter) => {
-      parameters[parameter.key] = sanitizeParameterValue(parameter, incomingParameters[parameter.key]);
-      return parameters;
-    }, {}),
+    parameters: strategy.parameterSchema.reduce<Record<string, unknown>>(
+      (parameters, parameter) => {
+        parameters[parameter.key] = sanitizeParameterValue(
+          parameter,
+          incomingParameters[parameter.key],
+        );
+        return parameters;
+      },
+      {},
+    ),
   };
 }
 
@@ -363,9 +456,14 @@ function readWorkspacePreferences(): ChartWorkspacePreferences {
 
       return {
         ...defaultPreferences,
-        showSignals: typeof parsed.showSignals === "boolean" ? parsed.showSignals : defaultPreferences.showSignals,
+        showSignals:
+          typeof parsed.showSignals === "boolean"
+            ? parsed.showSignals
+            : defaultPreferences.showSignals,
         showStrategyLayers:
-          typeof parsed.showStrategyLayers === "boolean" ? parsed.showStrategyLayers : defaultPreferences.showStrategyLayers,
+          typeof parsed.showStrategyLayers === "boolean"
+            ? parsed.showStrategyLayers
+            : defaultPreferences.showStrategyLayers,
         showCrosshair: defaultPreferences.showCrosshair,
         showGrid: defaultPreferences.showGrid,
         secondaryPaneRatio: defaultPreferences.secondaryPaneRatio,
@@ -377,29 +475,57 @@ function readWorkspacePreferences(): ChartWorkspacePreferences {
       };
     }
 
-    if (parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4 && parsed.version !== 5 && parsed.version !== 6) {
+    if (
+      parsed.version !== 2 &&
+      parsed.version !== 3 &&
+      parsed.version !== 4 &&
+      parsed.version !== 5 &&
+      parsed.version !== 6
+    ) {
       return defaultPreferences;
     }
 
     return {
       version: 6,
-      showSignals: typeof parsed.showSignals === "boolean" ? parsed.showSignals : defaultPreferences.showSignals,
+      showSignals:
+        typeof parsed.showSignals === "boolean"
+          ? parsed.showSignals
+          : defaultPreferences.showSignals,
       showStrategyLayers:
-        typeof parsed.showStrategyLayers === "boolean" ? parsed.showStrategyLayers : defaultPreferences.showStrategyLayers,
-      showCrosshair: typeof parsed.showCrosshair === "boolean" ? parsed.showCrosshair : defaultPreferences.showCrosshair,
-      showGrid: typeof parsed.showGrid === "boolean" ? parsed.showGrid : defaultPreferences.showGrid,
-      secondaryPaneRatio: typeof parsed.secondaryPaneRatio === "number"
-        ? Math.min(0.45, Math.max(0.18, parsed.secondaryPaneRatio))
-        : defaultPreferences.secondaryPaneRatio,
-      showPriceLabels: typeof parsed.showPriceLabels === "boolean" ? parsed.showPriceLabels : defaultPreferences.showPriceLabels,
+        typeof parsed.showStrategyLayers === "boolean"
+          ? parsed.showStrategyLayers
+          : defaultPreferences.showStrategyLayers,
+      showCrosshair:
+        typeof parsed.showCrosshair === "boolean"
+          ? parsed.showCrosshair
+          : defaultPreferences.showCrosshair,
+      showGrid:
+        typeof parsed.showGrid === "boolean" ? parsed.showGrid : defaultPreferences.showGrid,
+      secondaryPaneRatio:
+        typeof parsed.secondaryPaneRatio === "number"
+          ? Math.min(0.45, Math.max(0.18, parsed.secondaryPaneRatio))
+          : defaultPreferences.secondaryPaneRatio,
+      showPriceLabels:
+        typeof parsed.showPriceLabels === "boolean"
+          ? parsed.showPriceLabels
+          : defaultPreferences.showPriceLabels,
       showCurrentPriceLine:
-        typeof parsed.showCurrentPriceLine === "boolean" ? parsed.showCurrentPriceLine : defaultPreferences.showCurrentPriceLine,
+        typeof parsed.showCurrentPriceLine === "boolean"
+          ? parsed.showCurrentPriceLine
+          : defaultPreferences.showCurrentPriceLine,
       intradayDisplayMode: sanitizeChartDisplayMode(parsed.intradayDisplayMode),
       realtimePollIntervalMs: sanitizeRealtimePollIntervalMs(parsed.realtimePollIntervalMs),
-      strategies: presetStrategies.reduce<Record<string, StrategyWorkspaceState>>((settings, strategy, index) => {
-        settings[strategy.key] = normalizeStrategyState(strategy, index, parsed.strategies?.[strategy.key]);
-        return settings;
-      }, {}),
+      strategies: presetStrategies.reduce<Record<string, StrategyWorkspaceState>>(
+        (settings, strategy, index) => {
+          settings[strategy.key] = normalizeStrategyState(
+            strategy,
+            index,
+            parsed.strategies?.[strategy.key],
+          );
+          return settings;
+        },
+        {},
+      ),
     };
   } catch {
     return defaultPreferences;
@@ -485,7 +611,14 @@ function getTimeZoneOffsetMs(date: Date, timeZone: string) {
     hour12: false,
   }).formatToParts(date);
   const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
-  const zonedAsUtc = Date.UTC(value("year"), value("month") - 1, value("day"), value("hour"), value("minute"), value("second"));
+  const zonedAsUtc = Date.UTC(
+    value("year"),
+    value("month") - 1,
+    value("day"),
+    value("hour"),
+    value("minute"),
+    value("second"),
+  );
 
   return zonedAsUtc - date.getTime();
 }
@@ -499,11 +632,17 @@ function getMarketSessionOpenTimestamp(market: Market, quoteTime: Date) {
   return utcGuess - getTimeZoneOffsetMs(new Date(firstPass), timeZone);
 }
 
-function mergeRealtimeDailyBar(bars: MarketDataBar[], key: { symbol: string; market: Market }, snapshot: MarketQuoteSnapshot): MarketDataBar[] {
+function mergeRealtimeDailyBar(
+  bars: MarketDataBar[],
+  key: { symbol: string; market: Market },
+  snapshot: MarketQuoteSnapshot,
+): MarketDataBar[] {
   const quoteTime = new Date(snapshot.quoteTime);
   const timestamp = getMarketSessionOpenTimestamp(key.market, quoteTime);
   const dateKey = getUtcDateKey(timestamp);
-  const existingBar = bars.find((bar) => bar.timeframe === "1d" && getUtcDateKey(bar.timestamp) === dateKey);
+  const existingBar = bars.find(
+    (bar) => bar.timeframe === "1d" && getUtcDateKey(bar.timestamp) === dateKey,
+  );
   const open = snapshot.openPrice ?? existingBar?.open ?? snapshot.lastPrice;
   const close = snapshot.lastPrice;
   const high = Math.max(snapshot.highPrice ?? close, existingBar?.high ?? close, open, close);
@@ -522,9 +661,10 @@ function mergeRealtimeDailyBar(bars: MarketDataBar[], key: { symbol: string; mar
     provider: snapshot.provider,
   };
 
-  return [...bars.filter((bar) => !(bar.timeframe === "1d" && getUtcDateKey(bar.timestamp) === dateKey)), realtimeBar].sort(
-    (left, right) => left.timestamp - right.timestamp,
-  );
+  return [
+    ...bars.filter((bar) => !(bar.timeframe === "1d" && getUtcDateKey(bar.timestamp) === dateKey)),
+    realtimeBar,
+  ].sort((left, right) => left.timestamp - right.timestamp);
 }
 
 interface RealtimeProviderHealthView {
@@ -535,7 +675,10 @@ interface RealtimeProviderHealthView {
   nextRetryAt?: string;
 }
 
-function createRealtimeHealthView(status: RealtimeProviderHealthView["status"], message: string): RealtimeProviderHealthView {
+function createRealtimeHealthView(
+  status: RealtimeProviderHealthView["status"],
+  message: string,
+): RealtimeProviderHealthView {
   return {
     status,
     message,
@@ -552,7 +695,10 @@ function createRealtimeHealthViewFromGateway(
     fallbackFrom?: GatewayMarketDataProviderId;
   } = {},
 ): RealtimeProviderHealthView {
-  const statusMap: Record<MarketDataProviderHealthView["status"], RealtimeProviderHealthView["status"]> = {
+  const statusMap: Record<
+    MarketDataProviderHealthView["status"],
+    RealtimeProviderHealthView["status"]
+  > = {
     healthy: "ok",
     delayed: "ok",
     degraded: "ok",
@@ -698,7 +844,10 @@ function formatTimeframeLabel(timeframe: Timeframe) {
   return timeframe === "realtime" ? "分时" : timeframe;
 }
 
-function formatRealtimeGapStatus(bars: MarketDataBar[], key: { symbol: string; market: Market; timeframe: "realtime" }) {
+function formatRealtimeGapStatus(
+  bars: MarketDataBar[],
+  key: { symbol: string; market: Market; timeframe: "realtime" },
+) {
   const gap = analyzeRealtimeHistoryGap(bars, key, Date.now(), longPortRealtimeDelayWarningMs);
 
   if (!gap.hasGap) {
@@ -760,7 +909,9 @@ export function ChartWorkspacePage() {
   const runPluginStrategies = usePluginRuntimeStore((state) => state.runStrategies);
   const strategySettings = useChartStudySettingsStore((state) => state.strategies);
   const indicatorSettings = useChartStudySettingsStore((state) => state.indicators);
-  const initializeStudyStrategies = useChartStudySettingsStore((state) => state.initializeStrategies);
+  const initializeStudyStrategies = useChartStudySettingsStore(
+    (state) => state.initializeStrategies,
+  );
   const updateStudyStrategy = useChartStudySettingsStore((state) => state.updateStrategy);
   const updateIndicatorSettings = useChartStudySettingsStore((state) => state.updateIndicators);
   useEffect(() => {
@@ -792,43 +943,67 @@ export function ChartWorkspacePage() {
     initializeStudyStrategies(chartStrategies);
   }, [chartStrategies, initializeStudyStrategies]);
   const [watchlist, setWatchlist] = useState<ChartWatchlistItem[]>(readChartWatchlist);
-  const [activeSymbol, setActiveSymbol] = useState<ChartWatchlistItem>(() => readChartWatchlist()[0] ?? symbols[0]);
+  const [activeSymbol, setActiveSymbol] = useState<ChartWatchlistItem>(
+    () => readChartWatchlist()[0] ?? symbols[0],
+  );
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const marketBarCacheRepository = getMarketBarCacheRepository();
   const [cachedMarketBars, setCachedMarketBars] = useState<MarketDataBar[]>([]);
-  const [dailyStrategyBars, setDailyStrategyBars] = useState<ReturnType<typeof marketBarsToStrategyBars>>([]);
-  const [weeklyStrategyBars, setWeeklyStrategyBars] = useState<ReturnType<typeof marketBarsToStrategyBars>>([]);
+  const [dailyStrategyBars, setDailyStrategyBars] = useState<
+    ReturnType<typeof marketBarsToStrategyBars>
+  >([]);
+  const [weeklyStrategyBars, setWeeklyStrategyBars] = useState<
+    ReturnType<typeof marketBarsToStrategyBars>
+  >([]);
   const snapshotCacheWriteGateRef = useRef(createSnapshotCacheWriteGate());
   const [chartLoadState, setChartLoadState] = useState<ChartLoadState>(() => {
     const item = readChartWatchlist()[0] ?? symbols[0];
     return createChartLoadState("cache", item.symbol, "1d", 0);
   });
-  const [watchlistDataStatusByKey, setWatchlistDataStatusByKey] = useState<Record<string, WatchlistDataStatus>>({});
+  const [watchlistDataStatusByKey, setWatchlistDataStatusByKey] = useState<
+    Record<string, WatchlistDataStatus>
+  >({});
   const [realtimeStatus, setRealtimeStatus] = useState("REST 轮询待命");
   const [mlptHistoryStatus, setMlptHistoryStatus] = useState<string | null>(null);
   const [realtimeHealth, setRealtimeHealth] = useState<RealtimeProviderHealthView>(() =>
     createRealtimeHealthView("idle", "REST 轮询待命"),
   );
-  const [quoteSnapshotsByKey, setQuoteSnapshotsByKey] = useState<Record<string, MarketQuoteSnapshot>>({});
+  const [quoteSnapshotsByKey, setQuoteSnapshotsByKey] = useState<
+    Record<string, MarketQuoteSnapshot>
+  >({});
   const quoteSnapshotsByKeyRef = useRef<Record<string, MarketQuoteSnapshot>>({});
   const [showSignals, setShowSignals] = useState(workspacePreferences.showSignals);
-  const [showStrategyLayers, setShowStrategyLayers] = useState(workspacePreferences.showStrategyLayers);
+  const [showStrategyLayers, setShowStrategyLayers] = useState(
+    workspacePreferences.showStrategyLayers,
+  );
   const [isStrategyMenuOpen, setIsStrategyMenuOpen] = useState(false);
   const [activeIndicatorConfigId, setActiveIndicatorConfigId] = useState<string | null>(null);
   const [showCrosshair, setShowCrosshair] = useState(workspacePreferences.showCrosshair);
   const [showGrid, setShowGrid] = useState(workspacePreferences.showGrid);
-  const [secondaryPaneRatio, setSecondaryPaneRatio] = useState(workspacePreferences.secondaryPaneRatio);
+  const [secondaryPaneRatio, setSecondaryPaneRatio] = useState(
+    workspacePreferences.secondaryPaneRatio,
+  );
   const [showPriceLabels, setShowPriceLabels] = useState(workspacePreferences.showPriceLabels);
-  const [showCurrentPriceLine, setShowCurrentPriceLine] = useState(workspacePreferences.showCurrentPriceLine);
-  const [intradayDisplayMode, setIntradayDisplayMode] = useState<ChartDisplayMode>(workspacePreferences.intradayDisplayMode);
-  const [realtimePollIntervalMs, setRealtimePollIntervalMs] = useState(workspacePreferences.realtimePollIntervalMs);
+  const [showCurrentPriceLine, setShowCurrentPriceLine] = useState(
+    workspacePreferences.showCurrentPriceLine,
+  );
+  const [intradayDisplayMode, setIntradayDisplayMode] = useState<ChartDisplayMode>(
+    workspacePreferences.intradayDisplayMode,
+  );
+  const [realtimePollIntervalMs, setRealtimePollIntervalMs] = useState(
+    workspacePreferences.realtimePollIntervalMs,
+  );
   const [activeConfigStrategyKey, setActiveConfigStrategyKey] = useState<string | null>(null);
   const [isWatchlistCollapsed, setIsWatchlistCollapsed] = useState(false);
   const [isInstrumentSearchOpen, setIsInstrumentSearchOpen] = useState(false);
   const [instrumentSearchQuery, setInstrumentSearchQuery] = useState("");
-  const [instrumentSearchState, setInstrumentSearchState] = useState<"idle" | "loading" | "error" | "empty">("idle");
+  const [instrumentSearchState, setInstrumentSearchState] = useState<
+    "idle" | "loading" | "error" | "empty"
+  >("idle");
   const [instrumentSearchMessage, setInstrumentSearchMessage] = useState("");
-  const [instrumentSearchResults, setInstrumentSearchResults] = useState<readonly { symbol: string; name: string; market: Market }[]>([]);
+  const [instrumentSearchResults, setInstrumentSearchResults] = useState<
+    readonly { symbol: string; name: string; market: Market }[]
+  >([]);
   const [bottomTab, setBottomTab] = useState<ChartBottomTab>("layers");
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [isBottomDockExpanded, setIsBottomDockExpanded] = useState(false);
@@ -838,14 +1013,31 @@ export function ChartWorkspacePage() {
   const [chartFocusLatestKey, setChartFocusLatestKey] = useState(0);
   const [isPriceScaleLocked, setIsPriceScaleLocked] = useState(false);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
-  const [providerDiagnostics, setProviderDiagnostics] = useState<readonly MarketDataProviderHealthView[]>([]);
-  const [diagnosticTimeline, setDiagnosticTimeline] = useState<readonly MarketDataRuntimeEvent[]>([]);
+  const [providerDiagnostics, setProviderDiagnostics] = useState<
+    readonly MarketDataProviderHealthView[]
+  >([]);
+  const [diagnosticTimeline, setDiagnosticTimeline] = useState<readonly MarketDataRuntimeEvent[]>(
+    [],
+  );
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
-  const [drawings, setDrawings] = useState<ChartDrawing[]>(() => readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }));
-  const [drawingCommandState, setDrawingCommandState] = useState(() => createChartDrawingCommandState(readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe })));
+  const [drawings, setDrawings] = useState<ChartDrawing[]>(() =>
+    readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }),
+  );
+  const [drawingCommandState, setDrawingCommandState] = useState(() =>
+    createChartDrawingCommandState(
+      readChartDrawings({
+        market: activeSymbol.market,
+        symbol: activeSymbol.dataSymbol,
+        timeframe,
+      }),
+    ),
+  );
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const [activeDrawingTool, setActiveDrawingTool] = useState<ChartDrawing["type"] | null>(null);
-  const [pendingTrendPoint, setPendingTrendPoint] = useState<{ timestamp: number; price: number } | null>(null);
+  const [pendingTrendPoint, setPendingTrendPoint] = useState<{
+    timestamp: number;
+    price: number;
+  } | null>(null);
   const strategyMenuRef = useRef<HTMLDivElement>(null);
   const strategyMenuButtonRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -872,8 +1064,19 @@ export function ChartWorkspacePage() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isStrategyMenuOpen]);
-  const recordMarketEvent = (kind: MarketDataRuntimeEvent["kind"], message: string, detail?: string) => {
-    setDiagnosticTimeline((current) => appendMarketDataRuntimeEvent(current, { kind, timestamp: new Date().toISOString(), message, detail }));
+  const recordMarketEvent = (
+    kind: MarketDataRuntimeEvent["kind"],
+    message: string,
+    detail?: string,
+  ) => {
+    setDiagnosticTimeline((current) =>
+      appendMarketDataRuntimeEvent(current, {
+        kind,
+        timestamp: new Date().toISOString(),
+        message,
+        detail,
+      }),
+    );
   };
   const activeContextMarketBars = useMemo(
     () =>
@@ -892,11 +1095,17 @@ export function ChartWorkspacePage() {
     [activeContextMarketBars, intradayDisplayMode, timeframe],
   );
   const strategyMarketBars = useMemo(
-    () => timeframe === "realtime" ? aggregateRealtimePointBarsToMinuteCandles(activeContextMarketBars) : activeContextMarketBars,
+    () =>
+      timeframe === "realtime"
+        ? aggregateRealtimePointBarsToMinuteCandles(activeContextMarketBars)
+        : activeContextMarketBars,
     [activeContextMarketBars, timeframe],
   );
   const chartRenderBars = useMemo(
-    () => timeframe === "realtime" ? sampleIntradayBarsForRendering(displayedMarketBars) : displayedMarketBars,
+    () =>
+      timeframe === "realtime"
+        ? sampleIntradayBarsForRendering(displayedMarketBars)
+        : displayedMarketBars,
     [displayedMarketBars, timeframe],
   );
   const chartHasRenderableData = hasRenderableChartData(timeframe, chartRenderBars.length, {
@@ -910,7 +1119,13 @@ export function ChartWorkspacePage() {
       }
     : undefined;
   const currentRealtimeWatchlist = useMemo<MarketWatchlistItem[]>(
-    () => watchlist.map((item) => ({ symbol: item.dataSymbol, name: item.name, market: item.market, source: "user" })),
+    () =>
+      watchlist.map((item) => ({
+        symbol: item.dataSymbol,
+        name: item.name,
+        market: item.market,
+        source: "user",
+      })),
     [watchlist],
   );
   const cachedCandles = useMemo(() => marketBarsToCandles(chartRenderBars), [chartRenderBars]);
@@ -918,30 +1133,45 @@ export function ChartWorkspacePage() {
     () => [...builtInChartIndicatorDefinitions, ...pluginIndicators],
     [pluginIndicators],
   );
-  const indicatorConvention = resolveIndicatorConvention(indicatorSettings.conventionMode, activeSymbol.market);
+  const indicatorConvention = resolveIndicatorConvention(
+    indicatorSettings.conventionMode,
+    activeSymbol.market,
+  );
   const indicatorEvaluations = useMemo(
-    () => createChartIndicatorEvaluations(
-      cachedCandles,
-      indicatorSettings,
-      indicatorConvention,
-      allIndicatorDefinitions,
-    ),
+    () =>
+      createChartIndicatorEvaluations(
+        cachedCandles,
+        indicatorSettings,
+        indicatorConvention,
+        allIndicatorDefinitions,
+      ),
     [allIndicatorDefinitions, cachedCandles, indicatorConvention, indicatorSettings],
   );
   const overlayIndicatorEvaluations = useMemo(
-    () => indicatorEvaluations.filter(
-      (evaluation): evaluation is Extract<(typeof indicatorEvaluations)[number], { placement: "overlay" }> =>
-        evaluation.placement === "overlay",
-    ),
+    () =>
+      indicatorEvaluations.filter(
+        (
+          evaluation,
+        ): evaluation is Extract<(typeof indicatorEvaluations)[number], { placement: "overlay" }> =>
+          evaluation.placement === "overlay",
+      ),
     [indicatorEvaluations],
   );
-  const indicatorLayers = useMemo(() => overlayIndicatorEvaluations.map((evaluation) => evaluation.layer), [overlayIndicatorEvaluations]);
+  const indicatorLayers = useMemo(
+    () => overlayIndicatorEvaluations.map((evaluation) => evaluation.layer),
+    [overlayIndicatorEvaluations],
+  );
   const secondaryIndicatorEvaluation = indicatorEvaluations.find(
-    (evaluation): evaluation is Extract<(typeof indicatorEvaluations)[number], { placement: "pane" }> =>
+    (
+      evaluation,
+    ): evaluation is Extract<(typeof indicatorEvaluations)[number], { placement: "pane" }> =>
       evaluation.placement === "pane" && evaluation.visible,
   );
   const drawingLayer = useMemo(() => drawingsToLayer(drawings), [drawings]);
-  const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(strategyMarketBars), [strategyMarketBars]);
+  const cachedStrategyBars = useMemo(
+    () => marketBarsToStrategyBars(strategyMarketBars),
+    [strategyMarketBars],
+  );
   const renderedCandles = cachedCandles;
   const strategyInputBars = cachedStrategyBars;
   useEffect(() => {
@@ -1001,7 +1231,17 @@ export function ChartWorkspacePage() {
             ? Math.floor(Date.now() / 60_000) * 60_000 - 60_000
             : undefined,
       }),
-    [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, chartStrategyRegistry, strategyInputBars, strategySeriesByTimeframe, strategySettings, timeframe],
+    [
+      activeSymbol.dataSymbol,
+      activeSymbol.market,
+      chartHasRenderableData,
+      chartStrategies,
+      chartStrategyRegistry,
+      strategyInputBars,
+      strategySeriesByTimeframe,
+      strategySettings,
+      timeframe,
+    ],
   );
   const mlptChartNotice = getMlptChartNotice(strategyRuns);
   const pluginStrategyRunSignature = useMemo(() => {
@@ -1012,19 +1252,36 @@ export function ChartWorkspacePage() {
       timeframe,
       barCount: chartHasRenderableData ? strategyInputBars.length : 0,
       lastBar,
-      strategies: chartStrategies.filter((strategy) => strategy.sourceType === "plugin").map((strategy) => ({
-        key: strategy.key,
-        enabled: strategySettings[strategy.key]?.enabled ?? false,
-        parameters: strategySettings[strategy.key]?.parameters ?? {},
-      })),
+      strategies: chartStrategies
+        .filter((strategy) => strategy.sourceType === "plugin")
+        .map((strategy) => ({
+          key: strategy.key,
+          enabled: strategySettings[strategy.key]?.enabled ?? false,
+          parameters: strategySettings[strategy.key]?.parameters ?? {},
+        })),
     });
-  }, [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, strategyInputBars, strategySettings, timeframe]);
+  }, [
+    activeSymbol.dataSymbol,
+    activeSymbol.market,
+    chartHasRenderableData,
+    chartStrategies,
+    strategyInputBars,
+    strategySettings,
+    timeframe,
+  ]);
   const lastPluginStrategyRunSignatureRef = useRef("");
   useEffect(() => {
-    if (pluginStrategyRunSignature === lastPluginStrategyRunSignatureRef.current || !chartHasRenderableData) return;
+    if (
+      pluginStrategyRunSignature === lastPluginStrategyRunSignatureRef.current ||
+      !chartHasRenderableData
+    )
+      return;
     lastPluginStrategyRunSignatureRef.current = pluginStrategyRunSignature;
     const requests = chartStrategies
-      .filter((strategy) => strategy.sourceType === "plugin" && strategy.supportedTimeframes.includes(timeframe))
+      .filter(
+        (strategy) =>
+          strategy.sourceType === "plugin" && strategy.supportedTimeframes.includes(timeframe),
+      )
       .map((strategy) => ({
         strategy,
         input: createStrategyInput(strategy, {
@@ -1040,7 +1297,18 @@ export function ChartWorkspacePage() {
         }),
       }));
     void runPluginStrategies(requests);
-  }, [activeSymbol.dataSymbol, activeSymbol.market, chartHasRenderableData, chartStrategies, pluginStrategyRunSignature, runPluginStrategies, strategyInputBars, strategySeriesByTimeframe, strategySettings, timeframe]);
+  }, [
+    activeSymbol.dataSymbol,
+    activeSymbol.market,
+    chartHasRenderableData,
+    chartStrategies,
+    pluginStrategyRunSignature,
+    runPluginStrategies,
+    strategyInputBars,
+    strategySeriesByTimeframe,
+    strategySettings,
+    timeframe,
+  ]);
   const strategyLayers = useMemo<ChartLayer[]>(
     () =>
       strategyRuns.map(({ result, settings }) => ({
@@ -1050,28 +1318,75 @@ export function ChartWorkspacePage() {
       })),
     [strategyRuns],
   );
-  const availableLayerIds = useMemo(() => [...strategyLayers.map((layer) => layer.strategyId), ...indicatorLayers.map((layer) => layer.id), drawingLayer.id], [drawingLayer.id, indicatorLayers, strategyLayers]);
-  const effectiveLayerOrder = useMemo(() => [...layerOrder.filter((id) => availableLayerIds.includes(id)), ...availableLayerIds.filter((id) => !layerOrder.includes(id))], [availableLayerIds, layerOrder]);
-  const orderedStrategyLayers = useMemo(() => strategyLayers.map((layer) => ({ ...layer, zIndex: (effectiveLayerOrder.indexOf(layer.strategyId) + 1) * 10 })), [effectiveLayerOrder, strategyLayers]);
-  const orderedExtraLayers = useMemo(() => [drawingLayer, ...indicatorLayers].map((layer) => ({ ...layer, zIndex: (effectiveLayerOrder.indexOf(layer.id) + 1) * 10 })), [drawingLayer, effectiveLayerOrder, indicatorLayers]);
+  const availableLayerIds = useMemo(
+    () => [
+      ...strategyLayers.map((layer) => layer.strategyId),
+      ...indicatorLayers.map((layer) => layer.id),
+      drawingLayer.id,
+    ],
+    [drawingLayer.id, indicatorLayers, strategyLayers],
+  );
+  const effectiveLayerOrder = useMemo(
+    () => [
+      ...layerOrder.filter((id) => availableLayerIds.includes(id)),
+      ...availableLayerIds.filter((id) => !layerOrder.includes(id)),
+    ],
+    [availableLayerIds, layerOrder],
+  );
+  const orderedStrategyLayers = useMemo(
+    () =>
+      strategyLayers.map((layer) => ({
+        ...layer,
+        zIndex: (effectiveLayerOrder.indexOf(layer.strategyId) + 1) * 10,
+      })),
+    [effectiveLayerOrder, strategyLayers],
+  );
+  const orderedExtraLayers = useMemo(
+    () =>
+      [drawingLayer, ...indicatorLayers].map((layer) => ({
+        ...layer,
+        zIndex: (effectiveLayerOrder.indexOf(layer.id) + 1) * 10,
+      })),
+    [drawingLayer, effectiveLayerOrder, indicatorLayers],
+  );
   const canShowStrategyLayers = showStrategyLayers;
-  const strategyLayerElementCount = strategyLayers.reduce((total, layer) => total + (layer.enabled ? layer.elements.length : 0), 0);
+  const strategyLayerElementCount = strategyLayers.reduce(
+    (total, layer) => total + (layer.enabled ? layer.elements.length : 0),
+    0,
+  );
   const enabledStrategyCount = strategyRuns.filter(({ settings }) => settings.enabled).length;
-  const totalSignalCount = strategyRuns.reduce((total, { result }) => total + result.output.signals.length, 0);
-  const activeConfigStrategyRun = strategyRuns.find(({ strategy }) => strategy.key === activeConfigStrategyKey);
+  const totalSignalCount = strategyRuns.reduce(
+    (total, { result }) => total + result.output.signals.length,
+    0,
+  );
+  const activeConfigStrategyRun = strategyRuns.find(
+    ({ strategy }) => strategy.key === activeConfigStrategyKey,
+  );
   const strategyQuickMenuItems = useMemo(
     () => createStrategyQuickMenuItems(chartStrategies, strategySettings),
     [chartStrategies, strategySettings],
   );
   const strategyLogTime = formatLogTime(Date.now());
-  const strategyLogItems = buildChartStrategyLogItems(strategyRuns, { symbol: activeSymbol.symbol, timeframe });
+  const strategyLogItems = buildChartStrategyLogItems(strategyRuns, {
+    symbol: activeSymbol.symbol,
+    timeframe,
+  });
   const signalRows = buildChartStrategySignalRows(strategyRuns);
   const selectedSignal = signalRows.find((signal) => signal.id === selectedSignalId) ?? null;
-  const selectedSignalRun = selectedSignal ? strategyRuns.find(({ strategy }) => strategy.key === selectedSignal.strategyKey) ?? null : null;
-  const updateStrategyState = (strategyKey: string, updater: (state: StrategyWorkspaceState) => StrategyWorkspaceState) => {
+  const selectedSignalRun = selectedSignal
+    ? (strategyRuns.find(({ strategy }) => strategy.key === selectedSignal.strategyKey) ?? null)
+    : null;
+  const updateStrategyState = (
+    strategyKey: string,
+    updater: (state: StrategyWorkspaceState) => StrategyWorkspaceState,
+  ) => {
     updateStudyStrategy(strategyKey, updater);
   };
-  const updateStrategyParameter = (strategy: StrategyDefinition, parameter: StrategyParameterDefinition, value: unknown) => {
+  const updateStrategyParameter = (
+    strategy: StrategyDefinition,
+    parameter: StrategyParameterDefinition,
+    value: unknown,
+  ) => {
     updateStrategyState(strategy.key, (state) => ({
       ...state,
       parameters: {
@@ -1115,7 +1430,11 @@ export function ChartWorkspacePage() {
       );
     }
 
-    return mergeRealtimeDailyBar(currentBars, { symbol: activeSymbol.dataSymbol, market: activeSymbol.market }, snapshot);
+    return mergeRealtimeDailyBar(
+      currentBars,
+      { symbol: activeSymbol.dataSymbol, market: activeSymbol.market },
+      snapshot,
+    );
   };
   const writeActiveSnapshotBars = (bars: MarketDataBar[]) => {
     const contextKey = `${activeSymbol.market}:${activeSymbol.dataSymbol}:${timeframe}`;
@@ -1155,7 +1474,9 @@ export function ChartWorkspacePage() {
         );
         setWatchlistDataStatusByKey((current) => ({
           ...current,
-          [getWatchlistDataKey(activeSymbol)]: hasRenderableChartData(timeframe, bars.length) ? "cache" : "syncing",
+          [getWatchlistDataKey(activeSymbol)]: hasRenderableChartData(timeframe, bars.length)
+            ? "cache"
+            : "syncing",
         }));
       })
       .catch(() => {
@@ -1166,26 +1487,41 @@ export function ChartWorkspacePage() {
     return () => {
       cancelled = true;
     };
-  }, [activeSymbol.dataSymbol, activeSymbol.market, marketBarCacheRepository, marketDataProviderSettings.stockSdkPrimaryEnabled, timeframe]);
+  }, [
+    activeSymbol.dataSymbol,
+    activeSymbol.market,
+    marketBarCacheRepository,
+    marketDataProviderSettings.stockSdkPrimaryEnabled,
+    timeframe,
+  ]);
 
   useEffect(() => {
-    const nextDrawings = readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe });
+    const nextDrawings = readChartDrawings({
+      market: activeSymbol.market,
+      symbol: activeSymbol.dataSymbol,
+      timeframe,
+    });
     setDrawings(nextDrawings);
     setDrawingCommandState(createChartDrawingCommandState(nextDrawings));
     setSelectedDrawingId(null);
   }, [activeSymbol.dataSymbol, activeSymbol.market, timeframe]);
 
   useEffect(() => {
-    const kind = realtimeHealth.status === "rate_limited"
-      ? "rate-limited"
-      : realtimeHealth.status === "ok" || realtimeHealth.status === "idle" || realtimeHealth.status === "paused"
-        ? "sync-completed"
-        : "error";
-    setDiagnosticTimeline((current) => appendMarketDataRuntimeEvent(current, {
-      kind,
-      timestamp: realtimeHealth.checkedAt ?? new Date().toISOString(),
-      message: formatRealtimeHealthDetail(realtimeHealth),
-    }));
+    const kind =
+      realtimeHealth.status === "rate_limited"
+        ? "rate-limited"
+        : realtimeHealth.status === "ok" ||
+            realtimeHealth.status === "idle" ||
+            realtimeHealth.status === "paused"
+          ? "sync-completed"
+          : "error";
+    setDiagnosticTimeline((current) =>
+      appendMarketDataRuntimeEvent(current, {
+        kind,
+        timestamp: realtimeHealth.checkedAt ?? new Date().toISOString(),
+        message: formatRealtimeHealthDetail(realtimeHealth),
+      }),
+    );
   }, [realtimeHealth]);
 
   useEffect(() => {
@@ -1194,7 +1530,11 @@ export function ChartWorkspacePage() {
     const loadMarketDataHistory = async () => {
       const isRealtimeHistory = timeframe === "realtime";
       const windowRange = isRealtimeHistory
-        ? getIntradayHistoryWindow(activeSymbol.market, Date.now(), realtimeHistoryRequirement.sessionCount)
+        ? getIntradayHistoryWindow(
+            activeSymbol.market,
+            Date.now(),
+            realtimeHistoryRequirement.sessionCount,
+          )
         : null;
       const cacheTimeframe = getChartCacheTimeframe(timeframe);
       const initialCachedBars = await marketBarCacheRepository.read({
@@ -1210,24 +1550,31 @@ export function ChartWorkspacePage() {
         isRealtimeHistory &&
         isMlptEnabled &&
         knownConfirmedTimestamps.length < mlptMinimumHistoryBars;
-      const cacheMetadata = (await marketBarCacheRepository.summary()).entries.find((entry) =>
-        entry.symbol === activeSymbol.dataSymbol && entry.market === activeSymbol.market && entry.timeframe === cacheTimeframe,
+      const cacheMetadata = (await marketBarCacheRepository.summary()).entries.find(
+        (entry) =>
+          entry.symbol === activeSymbol.dataSymbol &&
+          entry.market === activeSymbol.market &&
+          entry.timeframe === cacheTimeframe,
       );
       const cacheFreshness = evaluateMarketCacheFreshness(cacheTimeframe, cacheMetadata?.updatedAt);
       const sessionStatus = getMarketRuntimeSessionStatus(activeSymbol.market);
       recordMarketEvent(
-        initialCachedBars.length > 0 && cacheFreshness.state === "fresh" ? "cache-hit" : cacheFreshness.state === "stale" ? "cache-stale" : "sync-started",
-        initialCachedBars.length > 0 ? `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 缓存 ${cacheFreshness.state === "fresh" ? "命中" : "已过期"}，共 ${initialCachedBars.length} 根` : `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 开始同步`,
+        initialCachedBars.length > 0 && cacheFreshness.state === "fresh"
+          ? "cache-hit"
+          : cacheFreshness.state === "stale"
+            ? "cache-stale"
+            : "sync-started",
+        initialCachedBars.length > 0
+          ? `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 缓存 ${cacheFreshness.state === "fresh" ? "命中" : "已过期"}，共 ${initialCachedBars.length} 根`
+          : `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 开始同步`,
       );
       setChartLoadState(
-        createChartLoadState(
-          "history",
-          activeSymbol.symbol,
-          timeframe,
-          initialCachedBars.length,
-        ),
+        createChartLoadState("history", activeSymbol.symbol, timeframe, initialCachedBars.length),
       );
-      setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "syncing" }));
+      setWatchlistDataStatusByKey((current) => ({
+        ...current,
+        [getWatchlistDataKey(activeSymbol)]: "syncing",
+      }));
 
       if (
         !isRealtimeHistory &&
@@ -1236,9 +1583,23 @@ export function ChartWorkspacePage() {
         hasRenderableChartData(timeframe, initialCachedBars.length) &&
         hasSufficientHistoricalChartCache(timeframe, initialCachedBars.length)
       ) {
-        setChartLoadState(createChartLoadState("ready", activeSymbol.symbol, timeframe, initialCachedBars.length, `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 市场已收盘，使用有效本地缓存。`));
-        setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "cache" }));
-        recordMarketEvent("market-closed", `${activeSymbol.symbol} 市场已收盘，历史缓存仍有效，跳过远端刷新`);
+        setChartLoadState(
+          createChartLoadState(
+            "ready",
+            activeSymbol.symbol,
+            timeframe,
+            initialCachedBars.length,
+            `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 市场已收盘，使用有效本地缓存。`,
+          ),
+        );
+        setWatchlistDataStatusByKey((current) => ({
+          ...current,
+          [getWatchlistDataKey(activeSymbol)]: "cache",
+        }));
+        recordMarketEvent(
+          "market-closed",
+          `${activeSymbol.symbol} 市场已收盘，历史缓存仍有效，跳过远端刷新`,
+        );
         return;
       }
 
@@ -1252,15 +1613,32 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        if (isRealtimeHistory ? !marketDataAccess.hasIntradaySource : !marketDataAccess.hasHistoricalSource) {
+        if (
+          isRealtimeHistory
+            ? !marketDataAccess.hasIntradaySource
+            : !marketDataAccess.hasHistoricalSource
+        ) {
           const waitingHealth = createRealtimeHealthView(
             "waiting",
-            isRealtimeHistory ? "等待主行情源或备用源以加载历史分时" : "等待主行情源或备用源以加载历史 K 线",
+            isRealtimeHistory
+              ? "等待主行情源或备用源以加载历史分时"
+              : "等待主行情源或备用源以加载历史 K 线",
           );
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
-          setChartLoadState(createChartLoadState("error", activeSymbol.symbol, timeframe, initialCachedBars.length, waitingHealth.message));
-          setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "error" }));
+          setChartLoadState(
+            createChartLoadState(
+              "error",
+              activeSymbol.symbol,
+              timeframe,
+              initialCachedBars.length,
+              waitingHealth.message,
+            ),
+          );
+          setWatchlistDataStatusByKey((current) => ({
+            ...current,
+            [getWatchlistDataKey(activeSymbol)]: "error",
+          }));
           return;
         }
 
@@ -1270,7 +1648,11 @@ export function ChartWorkspacePage() {
           timeframe: isRealtimeHistory ? ("1m" as const) : timeframe,
           startTime: windowRange?.startTime,
           endTime: windowRange?.endTime,
-          count: isRealtimeHistory ? realtimeHistoryRequirement.preferredBars : timeframe === "1w" ? 260 : 600,
+          count: isRealtimeHistory
+            ? realtimeHistoryRequirement.preferredBars
+            : timeframe === "1w"
+              ? 260
+              : 600,
         };
         const providerCapability = isRealtimeHistory ? "intradayBars" : "historicalBars";
         const result = await fetchChartBars({
@@ -1297,9 +1679,10 @@ export function ChartWorkspacePage() {
             market: activeSymbol.market,
             timeframe: cacheTimeframe,
           });
-          const failureMessage = cachedBars.length > 0
-            ? `${result.error.message}；已保留本地缓存 ${cachedBars.length} 条，后台将继续重试。`
-            : result.error.message;
+          const failureMessage =
+            cachedBars.length > 0
+              ? `${result.error.message}；已保留本地缓存 ${cachedBars.length} 条，后台将继续重试。`
+              : result.error.message;
           const errorHealth =
             result.health[0] !== undefined
               ? createRealtimeHealthViewFromGateway(result.health[0], failureMessage, {
@@ -1309,17 +1692,41 @@ export function ChartWorkspacePage() {
               : createRealtimeHealthView("error", failureMessage);
           setRealtimeHealth(errorHealth);
           setRealtimeStatus(errorHealth.message);
-          recordMarketEvent(result.health[0]?.status === "rateLimited" ? "rate-limited" : hasRenderableChartData(timeframe, cachedBars.length) ? "cache-retained" : "error", failureMessage);
+          recordMarketEvent(
+            result.health[0]?.status === "rateLimited"
+              ? "rate-limited"
+              : hasRenderableChartData(timeframe, cachedBars.length)
+                ? "cache-retained"
+                : "error",
+            failureMessage,
+          );
           const hasCache = hasRenderableChartData(timeframe, cachedBars.length);
-          setChartLoadState(createChartLoadState(hasCache ? "degraded" : "error", activeSymbol.symbol, timeframe, cachedBars.length, errorHealth.message));
-          setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: hasCache ? "degraded" : "error" }));
+          setChartLoadState(
+            createChartLoadState(
+              hasCache ? "degraded" : "error",
+              activeSymbol.symbol,
+              timeframe,
+              cachedBars.length,
+              errorHealth.message,
+            ),
+          );
+          setWatchlistDataStatusByKey((current) => ({
+            ...current,
+            [getWatchlistDataKey(activeSymbol)]: hasCache ? "degraded" : "error",
+          }));
           return;
         }
 
-        const resultBars = gatewayBarsToMarketDataBars(result.data, isRealtimeHistory ? "realtime" : undefined);
+        const resultBars = gatewayBarsToMarketDataBars(
+          result.data,
+          isRealtimeHistory ? "realtime" : undefined,
+        );
 
         if (resultBars.length < result.data.length) {
-          recordMarketEvent("data-invalid", `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 已拒绝 ${result.data.length - resultBars.length} 条异常行情数据`);
+          recordMarketEvent(
+            "data-invalid",
+            `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 已拒绝 ${result.data.length - resultBars.length} 条异常行情数据`,
+          );
         }
 
         if (resultBars.length === 0) {
@@ -1332,24 +1739,44 @@ export function ChartWorkspacePage() {
           setRealtimeHealth(emptyHealth);
           setRealtimeStatus(emptyHealth.message);
           recordMarketEvent("error", emptyHealth.message);
-          setChartLoadState(createChartLoadState("error", activeSymbol.symbol, timeframe, initialCachedBars.length, emptyHealth.message));
-          setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "error" }));
+          setChartLoadState(
+            createChartLoadState(
+              "error",
+              activeSymbol.symbol,
+              timeframe,
+              initialCachedBars.length,
+              emptyHealth.message,
+            ),
+          );
+          setWatchlistDataStatusByKey((current) => ({
+            ...current,
+            [getWatchlistDataKey(activeSymbol)]: "error",
+          }));
           return;
         }
 
         const cacheTimeframe: Timeframe = isRealtimeHistory ? "realtime" : timeframe;
-        const cacheKey = { symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe };
+        const cacheKey = {
+          symbol: activeSymbol.dataSymbol,
+          market: activeSymbol.market,
+          timeframe: cacheTimeframe,
+        };
         const currentCachedBars = await marketBarCacheRepository.read(cacheKey);
         const prioritizedHistoryBars =
           isRealtimeHistory && isMlptEnabled
             ? mergeMlptBarsByProviderPriority([...currentCachedBars, ...resultBars])
             : resultBars;
         const mergedBars = isRealtimeHistory
-          ? mergeHistoricalRealtimeBarsWithLiveBars(prioritizedHistoryBars, currentCachedBars, {
-            symbol: activeSymbol.dataSymbol,
-            market: activeSymbol.market,
-            timeframe: "realtime",
-            }, realtimeHistoryRequirement.sessionCount)
+          ? mergeHistoricalRealtimeBarsWithLiveBars(
+              prioritizedHistoryBars,
+              currentCachedBars,
+              {
+                symbol: activeSymbol.dataSymbol,
+                market: activeSymbol.market,
+                timeframe: "realtime",
+              },
+              realtimeHistoryRequirement.sessionCount,
+            )
           : resultBars;
         const written = await marketBarCacheRepository.write(cacheKey, mergedBars, {
           mergeExisting: !isRealtimeHistory,
@@ -1363,8 +1790,13 @@ export function ChartWorkspacePage() {
             : undefined,
         });
         setCachedMarketBars(written);
-        setChartLoadState(createChartLoadState("layers", activeSymbol.symbol, timeframe, written.length));
-        setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: "ready" }));
+        setChartLoadState(
+          createChartLoadState("layers", activeSymbol.symbol, timeframe, written.length),
+        );
+        setWatchlistDataStatusByKey((current) => ({
+          ...current,
+          [getWatchlistDataKey(activeSymbol)]: "ready",
+        }));
         const gapStatus =
           isRealtimeHistory && windowRange?.isMarketOpen
             ? formatRealtimeGapStatus(written, {
@@ -1373,16 +1805,19 @@ export function ChartWorkspacePage() {
                 timeframe: "realtime",
               })
             : null;
-        recordMarketEvent("sync-completed", `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 同步完成，共 ${written.length} 根`);
+        recordMarketEvent(
+          "sync-completed",
+          `${activeSymbol.symbol} ${formatTimeframeLabel(timeframe)} 同步完成，共 ${written.length} 根`,
+        );
         if (gapStatus) recordMarketEvent("delayed-gap", gapStatus);
 
         const historicalMessage = gapStatus
           ? gapStatus
           : isRealtimeHistory && windowRange
-          ? windowRange.isMarketOpen
-            ? `历史分时已加载 ${written.length} 点，实时源继续补充走势`
-            : `历史分时已加载 ${written.length} 点，收盘后停止追加`
-          : `历史 K 线已加载 ${written.length} 根`;
+            ? windowRange.isMarketOpen
+              ? `历史分时已加载 ${written.length} 点，实时源继续补充走势`
+              : `历史分时已加载 ${written.length} 点，收盘后停止追加`
+            : `历史 K 线已加载 ${written.length} 根`;
         const healthView = createRealtimeHealthViewFromGateway(result.health, historicalMessage, {
           capability: providerCapability,
           triedProviders: result.triedProviders,
@@ -1390,7 +1825,9 @@ export function ChartWorkspacePage() {
         setRealtimeHealth(healthView);
         setRealtimeStatus(formatRealtimeHealthDetail(healthView));
         if (isRealtimeHistory && isMlptEnabled) {
-          const confirmedBars = written.filter((bar) => bar.timestamp <= confirmedThroughTimestamp).length;
+          const confirmedBars = written.filter(
+            (bar) => bar.timestamp <= confirmedThroughTimestamp,
+          ).length;
           const contributionText = result.historicalCompletion?.contributions
             .map((item) => `${item.provider} ${item.bars}`)
             .join(" + ");
@@ -1405,7 +1842,9 @@ export function ChartWorkspacePage() {
               confirmedBars >= mlptMinimumHistoryBars
                 ? "MLPT 历史最低要求已满足"
                 : `MLPT 历史仍不足 ${confirmedBars}/${mlptMinimumHistoryBars}`;
-            setMlptHistoryStatus(`${minimumCoverageStatus}，后台补全 ${confirmedBars}/${mlptPreferredHistoryBars}`);
+            setMlptHistoryStatus(
+              `${minimumCoverageStatus}，后台补全 ${confirmedBars}/${mlptPreferredHistoryBars}`,
+            );
             void fetchChartBars({
               capability: "intradayBars",
               request: {
@@ -1421,64 +1860,68 @@ export function ChartWorkspacePage() {
                   .map((bar) => bar.timestamp),
               },
               marketDataAccess,
-            }).then(async (backfillResult) => {
-              if (cancelled || !backfillResult.ok) return;
-              const backfillBars = gatewayBarsToMarketDataBars(backfillResult.data, "realtime");
-              const latestCachedBars = await marketBarCacheRepository.read(cacheKey);
-              const prioritizedBars = mergeMlptBarsByProviderPriority([
-                ...latestCachedBars,
-                ...backfillBars,
-              ]);
-              const completedBars = mergeHistoricalRealtimeBarsWithLiveBars(
-                prioritizedBars,
-                latestCachedBars,
-                {
-                  symbol: activeSymbol.dataSymbol,
-                  market: activeSymbol.market,
-                  timeframe: "realtime",
-                },
-                realtimeHistoryRequirement.sessionCount,
-              );
-              const completed = await marketBarCacheRepository.write(cacheKey, completedBars, {
-                historicalCompletion: backfillResult.historicalCompletion
-                  ? {
-                      targetBars: backfillResult.historicalCompletion.targetBars,
-                      confirmedBars: backfillResult.historicalCompletion.confirmedBars,
-                      targetSatisfied: backfillResult.historicalCompletion.targetSatisfied,
-                      stopReason: backfillResult.historicalCompletion.stopReason,
-                    }
-                  : undefined,
-              });
-              setCachedMarketBars(completed);
-              const completedConfirmedBars = completed.filter(
-                (bar) => bar.timestamp <= confirmedThroughTimestamp,
-              ).length;
-              const completedContributions = backfillResult.historicalCompletion?.contributions
-                .map((item) => `${item.provider} ${item.bars}`)
-                .join(" + ");
-              setMlptHistoryStatus(
-                `${completedContributions ? `${completedContributions}，` : ""}MLPT 历史 ${completedConfirmedBars}/${mlptPreferredHistoryBars}`,
-              );
-              recordMarketEvent(
-                "sync-completed",
-                `${activeSymbol.symbol} MLPT 历史补全至 ${completedConfirmedBars} 根`,
-              );
-            }).catch(() => {
-              if (!cancelled) {
-                setMlptHistoryStatus(
-                  confirmedBars >= mlptMinimumHistoryBars
-                    ? `MLPT 历史最低要求已满足，暂未补全至 ${mlptPreferredHistoryBars} 根`
-                    : `MLPT 历史仍不足 ${confirmedBars}/${mlptMinimumHistoryBars}`,
+            })
+              .then(async (backfillResult) => {
+                if (cancelled || !backfillResult.ok) return;
+                const backfillBars = gatewayBarsToMarketDataBars(backfillResult.data, "realtime");
+                const latestCachedBars = await marketBarCacheRepository.read(cacheKey);
+                const prioritizedBars = mergeMlptBarsByProviderPriority([
+                  ...latestCachedBars,
+                  ...backfillBars,
+                ]);
+                const completedBars = mergeHistoricalRealtimeBarsWithLiveBars(
+                  prioritizedBars,
+                  latestCachedBars,
+                  {
+                    symbol: activeSymbol.dataSymbol,
+                    market: activeSymbol.market,
+                    timeframe: "realtime",
+                  },
+                  realtimeHistoryRequirement.sessionCount,
                 );
-              }
-            });
+                const completed = await marketBarCacheRepository.write(cacheKey, completedBars, {
+                  historicalCompletion: backfillResult.historicalCompletion
+                    ? {
+                        targetBars: backfillResult.historicalCompletion.targetBars,
+                        confirmedBars: backfillResult.historicalCompletion.confirmedBars,
+                        targetSatisfied: backfillResult.historicalCompletion.targetSatisfied,
+                        stopReason: backfillResult.historicalCompletion.stopReason,
+                      }
+                    : undefined,
+                });
+                setCachedMarketBars(completed);
+                const completedConfirmedBars = completed.filter(
+                  (bar) => bar.timestamp <= confirmedThroughTimestamp,
+                ).length;
+                const completedContributions = backfillResult.historicalCompletion?.contributions
+                  .map((item) => `${item.provider} ${item.bars}`)
+                  .join(" + ");
+                setMlptHistoryStatus(
+                  `${completedContributions ? `${completedContributions}，` : ""}MLPT 历史 ${completedConfirmedBars}/${mlptPreferredHistoryBars}`,
+                );
+                recordMarketEvent(
+                  "sync-completed",
+                  `${activeSymbol.symbol} MLPT 历史补全至 ${completedConfirmedBars} 根`,
+                );
+              })
+              .catch(() => {
+                if (!cancelled) {
+                  setMlptHistoryStatus(
+                    confirmedBars >= mlptMinimumHistoryBars
+                      ? `MLPT 历史最低要求已满足，暂未补全至 ${mlptPreferredHistoryBars} 根`
+                      : `MLPT 历史仍不足 ${confirmedBars}/${mlptMinimumHistoryBars}`,
+                  );
+                }
+              });
           }
         } else {
           setMlptHistoryStatus(null);
         }
         window.requestAnimationFrame(() => {
           if (!cancelled) {
-            setChartLoadState(createChartLoadState("ready", activeSymbol.symbol, timeframe, written.length));
+            setChartLoadState(
+              createChartLoadState("ready", activeSymbol.symbol, timeframe, written.length),
+            );
           }
         });
       } catch (error) {
@@ -1492,8 +1935,19 @@ export function ChartWorkspacePage() {
           timeframe: cacheTimeframe,
         });
         const hasCache = hasRenderableChartData(timeframe, cachedBars.length);
-        setChartLoadState(createChartLoadState(hasCache ? "degraded" : "error", activeSymbol.symbol, timeframe, cachedBars.length, errorHealth.message));
-        setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: hasCache ? "degraded" : "error" }));
+        setChartLoadState(
+          createChartLoadState(
+            hasCache ? "degraded" : "error",
+            activeSymbol.symbol,
+            timeframe,
+            cachedBars.length,
+            errorHealth.message,
+          ),
+        );
+        setWatchlistDataStatusByKey((current) => ({
+          ...current,
+          [getWatchlistDataKey(activeSymbol)]: hasCache ? "degraded" : "error",
+        }));
       }
     };
 
@@ -1535,25 +1989,49 @@ export function ChartWorkspacePage() {
           marketBarCacheRepository.summary(),
         ]);
         const metadata = cacheSummary.entries.find(
-          (entry) => entry.symbol === cacheKey.symbol && entry.market === cacheKey.market && entry.timeframe === cacheKey.timeframe,
+          (entry) =>
+            entry.symbol === cacheKey.symbol &&
+            entry.market === cacheKey.market &&
+            entry.timeframe === cacheKey.timeframe,
         );
         const isFresh = isChartWarmupCacheFresh(cacheTimeframe, metadata?.updatedAt);
 
-        if (isFresh && hasRenderableChartData(task.timeframe, cachedBars.length) && hasSufficientHistoricalChartCache(task.timeframe, cachedBars.length)) {
-          setWatchlistDataStatusByKey((current) => ({ ...current, [`${task.market}:${task.symbol}`]: "cache" }));
+        if (
+          isFresh &&
+          hasRenderableChartData(task.timeframe, cachedBars.length) &&
+          hasSufficientHistoricalChartCache(task.timeframe, cachedBars.length)
+        ) {
+          setWatchlistDataStatusByKey((current) => ({
+            ...current,
+            [`${task.market}:${task.symbol}`]: "cache",
+          }));
           continue;
         }
 
-        setWatchlistDataStatusByKey((current) => ({ ...current, [`${task.market}:${task.symbol}`]: "syncing" }));
+        setWatchlistDataStatusByKey((current) => ({
+          ...current,
+          [`${task.market}:${task.symbol}`]: "syncing",
+        }));
         const isIntraday = task.timeframe === "realtime";
         const historyWindow = isIntraday
-          ? getIntradayHistoryWindow(task.market, Date.now(), realtimeHistoryRequirement.sessionCount)
+          ? getIntradayHistoryWindow(
+              task.market,
+              Date.now(),
+              realtimeHistoryRequirement.sessionCount,
+            )
           : null;
 
-        if (isIntraday ? !marketDataAccess.hasIntradaySource : !marketDataAccess.hasHistoricalSource) {
+        if (
+          isIntraday ? !marketDataAccess.hasIntradaySource : !marketDataAccess.hasHistoricalSource
+        ) {
           setWatchlistDataStatusByKey((current) => ({
             ...current,
-            [`${task.market}:${task.symbol}`]: hasRenderableChartData(task.timeframe, cachedBars.length) ? "degraded" : "error",
+            [`${task.market}:${task.symbol}`]: hasRenderableChartData(
+              task.timeframe,
+              cachedBars.length,
+            )
+              ? "degraded"
+              : "error",
           }));
           continue;
         }
@@ -1567,7 +2045,11 @@ export function ChartWorkspacePage() {
             timeframe: isIntraday ? "1m" : task.timeframe,
             startTime: historyWindow?.startTime,
             endTime: historyWindow?.endTime,
-            count: isIntraday ? realtimeHistoryRequirement.preferredBars : task.timeframe === "1w" ? 260 : 600,
+            count: isIntraday
+              ? realtimeHistoryRequirement.preferredBars
+              : task.timeframe === "1w"
+                ? 260
+                : 600,
           },
         });
 
@@ -1576,19 +2058,36 @@ export function ChartWorkspacePage() {
         if (!result.ok) {
           setWatchlistDataStatusByKey((current) => ({
             ...current,
-            [`${task.market}:${task.symbol}`]: hasRenderableChartData(task.timeframe, cachedBars.length) ? "degraded" : "error",
+            [`${task.market}:${task.symbol}`]: hasRenderableChartData(
+              task.timeframe,
+              cachedBars.length,
+            )
+              ? "degraded"
+              : "error",
           }));
           continue;
         }
 
-        const resultBars = gatewayBarsToMarketDataBars(result.data, isIntraday ? "realtime" : undefined);
+        const resultBars = gatewayBarsToMarketDataBars(
+          result.data,
+          isIntraday ? "realtime" : undefined,
+        );
         const nextBars = isIntraday
-          ? mergeHistoricalRealtimeBarsWithLiveBars(resultBars, cachedBars, cacheKey, realtimeHistoryRequirement.sessionCount)
+          ? mergeHistoricalRealtimeBarsWithLiveBars(
+              resultBars,
+              cachedBars,
+              cacheKey,
+              realtimeHistoryRequirement.sessionCount,
+            )
           : resultBars;
-        const written = await marketBarCacheRepository.write(cacheKey, nextBars, { mergeExisting: !isIntraday });
+        const written = await marketBarCacheRepository.write(cacheKey, nextBars, {
+          mergeExisting: !isIntraday,
+        });
         setWatchlistDataStatusByKey((current) => ({
           ...current,
-          [`${task.market}:${task.symbol}`]: hasRenderableChartData(task.timeframe, written.length) ? "ready" : "error",
+          [`${task.market}:${task.symbol}`]: hasRenderableChartData(task.timeframe, written.length)
+            ? "ready"
+            : "error",
         }));
       }
     };
@@ -1615,7 +2114,11 @@ export function ChartWorkspacePage() {
     }
 
     const loadIntradayHistory = async () => {
-      const windowRange = getIntradayHistoryWindow(activeSymbol.market, Date.now(), realtimeHistoryRequirement.sessionCount);
+      const windowRange = getIntradayHistoryWindow(
+        activeSymbol.market,
+        Date.now(),
+        realtimeHistoryRequirement.sessionCount,
+      );
 
       try {
         const marketDataAccess = await createChartMarketDataAccess({
@@ -1656,7 +2159,9 @@ export function ChartWorkspacePage() {
           const healthView = gatewayHealth
             ? createRealtimeHealthViewFromGateway(
                 gatewayHealth,
-                gatewayHealth.status === "unauthorized" ? "AlphaFeed 当前套餐无 1m 历史分时权限" : result.error.message,
+                gatewayHealth.status === "unauthorized"
+                  ? "AlphaFeed 当前套餐无 1m 历史分时权限"
+                  : result.error.message,
                 {
                   capability: "intradayBars",
                   triedProviders: result.triedProviders,
@@ -1798,8 +2303,12 @@ export function ChartWorkspacePage() {
           }
 
           if (streamResult.ok && streamResult.snapshots.length > 0) {
-            const nextQuoteSnapshotsByKey = mergeQuoteSnapshots(quoteSnapshotsByKeyRef.current, Array.from(streamResult.snapshots));
-            const snapshot = nextQuoteSnapshotsByKey[`${activeSymbol.market}:${activeSymbol.dataSymbol}`];
+            const nextQuoteSnapshotsByKey = mergeQuoteSnapshots(
+              quoteSnapshotsByKeyRef.current,
+              Array.from(streamResult.snapshots),
+            );
+            const snapshot =
+              nextQuoteSnapshotsByKey[`${activeSymbol.market}:${activeSymbol.dataSymbol}`];
             quoteSnapshotsByKeyRef.current = nextQuoteSnapshotsByKey;
             setQuoteSnapshotsByKey(nextQuoteSnapshotsByKey);
 
@@ -1822,9 +2331,16 @@ export function ChartWorkspacePage() {
           }
 
           if (!marketDataAccess.hasQuoteSource) {
-            const streamGatewayHealth = streamResult.ok ? streamResult.health : streamResult.health[0] ?? connectHealth;
+            const streamGatewayHealth = streamResult.ok
+              ? streamResult.health
+              : (streamResult.health[0] ?? connectHealth);
             const streamHealth = streamGatewayHealth
-              ? createRealtimeHealthViewFromGateway(streamGatewayHealth, streamResult.ok ? "WebSocket 正在连接，等待首批快照" : streamGatewayHealth.message)
+              ? createRealtimeHealthViewFromGateway(
+                  streamGatewayHealth,
+                  streamResult.ok
+                    ? "WebSocket 正在连接，等待首批快照"
+                    : streamGatewayHealth.message,
+                )
               : createRealtimeHealthView("waiting", "WebSocket 正在连接，等待首批快照");
             setRealtimeHealth(streamHealth);
             setRealtimeStatus(formatRealtimeHealthDetail(streamHealth));
@@ -1834,7 +2350,10 @@ export function ChartWorkspacePage() {
         }
 
         if (!marketDataAccess.hasQuoteSource) {
-          const waitingHealth = createRealtimeHealthView("waiting", "等待主行情源或备用 REST 实时源");
+          const waitingHealth = createRealtimeHealthView(
+            "waiting",
+            "等待主行情源或备用 REST 实时源",
+          );
           setRealtimeHealth(waitingHealth);
           setRealtimeStatus(waitingHealth.message);
           timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
@@ -1859,13 +2378,21 @@ export function ChartWorkspacePage() {
           if (!result.ok) {
             const health = result.health[0];
             const isRateLimited = health?.status === "rateLimited";
-            const nextRetryAt = health?.nextRetryAt ? new Date(health.nextRetryAt).getTime() : Date.now() + realtimeRateLimitBackoffMs;
-            const nextDelay = isRateLimited ? Math.max(realtimePollIntervalMs, nextRetryAt - Date.now()) : realtimePollIntervalMs;
+            const nextRetryAt = health?.nextRetryAt
+              ? new Date(health.nextRetryAt).getTime()
+              : Date.now() + realtimeRateLimitBackoffMs;
+            const nextDelay = isRateLimited
+              ? Math.max(realtimePollIntervalMs, nextRetryAt - Date.now())
+              : realtimePollIntervalMs;
             const healthView = health
-              ? createRealtimeHealthViewFromGateway(health, isRateLimited ? "AlphaFeed 限频，已自动退避" : result.error.message, {
-                  capability: "realtimeQuote",
-                  triedProviders: result.triedProviders,
-                })
+              ? createRealtimeHealthViewFromGateway(
+                  health,
+                  isRateLimited ? "AlphaFeed 限频，已自动退避" : result.error.message,
+                  {
+                    capability: "realtimeQuote",
+                    triedProviders: result.triedProviders,
+                  },
+                )
               : createRealtimeHealthView("error", result.error.message);
             setRealtimeHealth(healthView);
             setRealtimeStatus(formatRealtimeHealthDetail(healthView));
@@ -1882,8 +2409,12 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        const nextQuoteSnapshotsByKey = mergeQuoteSnapshots(quoteSnapshotsByKeyRef.current, snapshots);
-        const snapshot = nextQuoteSnapshotsByKey[`${activeSymbol.market}:${activeSymbol.dataSymbol}`];
+        const nextQuoteSnapshotsByKey = mergeQuoteSnapshots(
+          quoteSnapshotsByKeyRef.current,
+          snapshots,
+        );
+        const snapshot =
+          nextQuoteSnapshotsByKey[`${activeSymbol.market}:${activeSymbol.dataSymbol}`];
         quoteSnapshotsByKeyRef.current = nextQuoteSnapshotsByKey;
         setQuoteSnapshotsByKey(nextQuoteSnapshotsByKey);
 
@@ -1914,7 +2445,10 @@ export function ChartWorkspacePage() {
             : createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功");
           const healthView: RealtimeProviderHealthView = {
             ...baseHealth,
-            message: snapshots.length > 0 ? `${baseHealth.message} · 当前标的暂无快照，已保留上一轮缓存` : `${baseHealth.message} · 暂无快照`,
+            message:
+              snapshots.length > 0
+                ? `${baseHealth.message} · 当前标的暂无快照，已保留上一轮缓存`
+                : `${baseHealth.message} · 暂无快照`,
           };
           setRealtimeHealth(healthView);
           setRealtimeStatus(formatRealtimeHealthDetail(healthView));
@@ -2013,10 +2547,20 @@ export function ChartWorkspacePage() {
 
   const addInstrumentToWatchlist = (item: { symbol: string; name: string; market: Market }) => {
     const nextItem = toChartWatchlistItem({ ...item, source: "user" });
-    const nextWatchlist = watchlist.some((candidate) => candidate.market === nextItem.market && candidate.dataSymbol === nextItem.dataSymbol)
+    const nextWatchlist = watchlist.some(
+      (candidate) =>
+        candidate.market === nextItem.market && candidate.dataSymbol === nextItem.dataSymbol,
+    )
       ? watchlist
       : [...watchlist, nextItem];
-    writeMarketWatchlist(nextWatchlist.map((candidate) => ({ symbol: candidate.dataSymbol, name: candidate.name, market: candidate.market, source: "user" })));
+    writeMarketWatchlist(
+      nextWatchlist.map((candidate) => ({
+        symbol: candidate.dataSymbol,
+        name: candidate.name,
+        market: candidate.market,
+        source: "user",
+      })),
+    );
     setWatchlist(nextWatchlist);
     setActiveSymbol(nextItem);
     setIsInstrumentSearchOpen(false);
@@ -2026,8 +2570,17 @@ export function ChartWorkspacePage() {
     if (watchlist.length <= 1) {
       return;
     }
-    const nextWatchlist = watchlist.filter((candidate) => candidate.market !== item.market || candidate.dataSymbol !== item.dataSymbol);
-    writeMarketWatchlist(nextWatchlist.map((candidate) => ({ symbol: candidate.dataSymbol, name: candidate.name, market: candidate.market, source: "user" })));
+    const nextWatchlist = watchlist.filter(
+      (candidate) => candidate.market !== item.market || candidate.dataSymbol !== item.dataSymbol,
+    );
+    writeMarketWatchlist(
+      nextWatchlist.map((candidate) => ({
+        symbol: candidate.dataSymbol,
+        name: candidate.name,
+        market: candidate.market,
+        source: "user",
+      })),
+    );
     setWatchlist(nextWatchlist);
     if (activeSymbol.market === item.market && activeSymbol.dataSymbol === item.dataSymbol) {
       setActiveSymbol(nextWatchlist[0]!);
@@ -2035,7 +2588,10 @@ export function ChartWorkspacePage() {
   };
 
   const updateDrawings = (nextDrawings: ChartDrawing[]) => {
-    writeChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe }, nextDrawings);
+    writeChartDrawings(
+      { market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe },
+      nextDrawings,
+    );
     setDrawings(nextDrawings);
   };
   const executeDrawingCommand = (command: ChartDrawingCommand) => {
@@ -2063,7 +2619,11 @@ export function ChartWorkspacePage() {
         setPendingTrendPoint(null);
         return;
       }
-      if ((event.key === "Delete" || event.key === "Backspace") && selectedDrawingId && document.activeElement?.tagName !== "INPUT") {
+      if (
+        (event.key === "Delete" || event.key === "Backspace") &&
+        selectedDrawingId &&
+        document.activeElement?.tagName !== "INPUT"
+      ) {
         event.preventDefault();
         deleteDrawing(selectedDrawingId);
         return;
@@ -2071,7 +2631,8 @@ export function ChartWorkspacePage() {
       if (!(event.ctrlKey || event.metaKey)) return;
       if (event.key.toLowerCase() === "z") {
         event.preventDefault();
-        if (event.shiftKey) redoDrawingCommand(); else undoDrawingCommand();
+        if (event.shiftKey) redoDrawingCommand();
+        else undoDrawingCommand();
       }
       if (event.key.toLowerCase() === "y") {
         event.preventDefault();
@@ -2088,11 +2649,29 @@ export function ChartWorkspacePage() {
     if (!last || !previous) return;
     const createdAt = new Date().toISOString();
     const id = `drawing-${Date.now()}`;
-    const drawing: ChartDrawing = type === "trend-line"
-      ? { id, type, visible: true, createdAt, points: [{ timestamp: previous.timestamp ?? 0, price: previous.close }, { timestamp: last.timestamp ?? 0, price: last.close }] }
-      : type === "horizontal-line"
-        ? { id, type, visible: true, createdAt, price: last.close, label: "参考线" }
-        : { id, type, visible: true, createdAt, timestamp: last.timestamp ?? 0, price: last.close, text: "标注" };
+    const drawing: ChartDrawing =
+      type === "trend-line"
+        ? {
+            id,
+            type,
+            visible: true,
+            createdAt,
+            points: [
+              { timestamp: previous.timestamp ?? 0, price: previous.close },
+              { timestamp: last.timestamp ?? 0, price: last.close },
+            ],
+          }
+        : type === "horizontal-line"
+          ? { id, type, visible: true, createdAt, price: last.close, label: "参考线" }
+          : {
+              id,
+              type,
+              visible: true,
+              createdAt,
+              timestamp: last.timestamp ?? 0,
+              price: last.close,
+              text: "标注",
+            };
     executeDrawingCommand({ type: "add", drawing });
     setSelectedDrawingId(id);
   };
@@ -2104,40 +2683,86 @@ export function ChartWorkspacePage() {
         setPendingTrendPoint(point);
         return;
       }
-      const drawing: ChartDrawing = { id: `drawing-${Date.now()}`, type: "trend-line", visible: true, createdAt, points: [pendingTrendPoint, point] };
+      const drawing: ChartDrawing = {
+        id: `drawing-${Date.now()}`,
+        type: "trend-line",
+        visible: true,
+        createdAt,
+        points: [pendingTrendPoint, point],
+      };
       executeDrawingCommand({ type: "add", drawing });
       setSelectedDrawingId(drawing.id);
       setPendingTrendPoint(null);
       setActiveDrawingTool(null);
       return;
     }
-    const drawing: ChartDrawing = activeDrawingTool === "horizontal-line"
-      ? { id: `drawing-${Date.now()}`, type: "horizontal-line", visible: true, createdAt, price: point.price, label: "参考线" }
-      : { id: `drawing-${Date.now()}`, type: "text", visible: true, createdAt, timestamp: point.timestamp, price: point.price, text: "标注" };
+    const drawing: ChartDrawing =
+      activeDrawingTool === "horizontal-line"
+        ? {
+            id: `drawing-${Date.now()}`,
+            type: "horizontal-line",
+            visible: true,
+            createdAt,
+            price: point.price,
+            label: "参考线",
+          }
+        : {
+            id: `drawing-${Date.now()}`,
+            type: "text",
+            visible: true,
+            createdAt,
+            timestamp: point.timestamp,
+            price: point.price,
+            text: "标注",
+          };
     executeDrawingCommand({ type: "add", drawing });
     setSelectedDrawingId(drawing.id);
     setActiveDrawingTool(null);
   };
-  const moveDrawing = (drawingId: string, pointIndex: number | null, point: { timestamp: number; price: number }) => {
+  const moveDrawing = (
+    drawingId: string,
+    pointIndex: number | null,
+    point: { timestamp: number; price: number },
+  ) => {
     const drawing = drawings.find((item) => item.id === drawingId);
     if (!drawing) return;
     if (drawing.type === "trend-line" && pointIndex !== null) {
-      const points = [...drawing.points] as [{ timestamp: number; price: number }, { timestamp: number; price: number }];
+      const points = [...drawing.points] as [
+        { timestamp: number; price: number },
+        { timestamp: number; price: number },
+      ];
       points[pointIndex] = point;
-      updateDrawings(drawings.map((item) => item.id === drawingId ? { ...drawing, points } : item));
+      updateDrawings(
+        drawings.map((item) => (item.id === drawingId ? { ...drawing, points } : item)),
+      );
       return;
     }
-    if (drawing.type === "horizontal-line") updateDrawings(drawings.map((item) => item.id === drawingId ? { ...drawing, price: point.price } : item));
-    if (drawing.type === "text") updateDrawings(drawings.map((item) => item.id === drawingId ? { ...drawing, timestamp: point.timestamp, price: point.price } : item));
+    if (drawing.type === "horizontal-line")
+      updateDrawings(
+        drawings.map((item) => (item.id === drawingId ? { ...drawing, price: point.price } : item)),
+      );
+    if (drawing.type === "text")
+      updateDrawings(
+        drawings.map((item) =>
+          item.id === drawingId
+            ? { ...drawing, timestamp: point.timestamp, price: point.price }
+            : item,
+        ),
+      );
   };
 
   const toggleDrawingVisibility = (drawingId: string) => {
     const drawing = drawings.find((item) => item.id === drawingId);
-    if (drawing) executeDrawingCommand({ type: "update", drawingId, drawing: { ...drawing, visible: !drawing.visible } });
+    if (drawing)
+      executeDrawingCommand({
+        type: "update",
+        drawingId,
+        drawing: { ...drawing, visible: !drawing.visible },
+      });
   };
   const deleteDrawing = (drawingId: string) => {
     executeDrawingCommand({ type: "delete", drawingId });
-    setSelectedDrawingId((current) => current === drawingId ? null : current);
+    setSelectedDrawingId((current) => (current === drawingId ? null : current));
   };
 
   const editDrawing = (drawingId: string) => {
@@ -2150,11 +2775,20 @@ export function ChartWorkspacePage() {
     }
     if (drawing.type === "horizontal-line") {
       const price = Number(window.prompt("参考线价格", String(drawing.price)));
-      if (Number.isFinite(price) && price > 0) executeDrawingCommand({ type: "update", drawingId, drawing: { ...drawing, price } });
+      if (Number.isFinite(price) && price > 0)
+        executeDrawingCommand({ type: "update", drawingId, drawing: { ...drawing, price } });
       return;
     }
     const endpoint = Number(window.prompt("趋势线终点价格", String(drawing.points[1].price)));
-    if (Number.isFinite(endpoint) && endpoint > 0) executeDrawingCommand({ type: "update", drawingId, drawing: { ...drawing, points: [drawing.points[0], { ...drawing.points[1], price: endpoint }] } });
+    if (Number.isFinite(endpoint) && endpoint > 0)
+      executeDrawingCommand({
+        type: "update",
+        drawingId,
+        drawing: {
+          ...drawing,
+          points: [drawing.points[0], { ...drawing.points[1], price: endpoint }],
+        },
+      });
   };
 
   const openDiagnostics = async () => {
@@ -2170,7 +2804,10 @@ export function ChartWorkspacePage() {
 
   const moveLayer = (layerId: string, direction: -1 | 1) => {
     setLayerOrder((current) => {
-      const ordered = [...current.filter((id) => availableLayerIds.includes(id)), ...availableLayerIds.filter((id) => !current.includes(id))];
+      const ordered = [
+        ...current.filter((id) => availableLayerIds.includes(id)),
+        ...availableLayerIds.filter((id) => !current.includes(id)),
+      ];
       const index = ordered.indexOf(layerId);
       const target = index + direction;
       if (index < 0 || target < 0 || target >= ordered.length) return ordered;
@@ -2180,13 +2817,19 @@ export function ChartWorkspacePage() {
   };
 
   return (
-    <section className={isBottomDockExpanded ? "chart-workspace-page bottom-dock-expanded" : "chart-workspace-page"}>
+    <section
+      className={
+        isBottomDockExpanded ? "chart-workspace-page bottom-dock-expanded" : "chart-workspace-page"
+      }
+    >
       <header className="chart-topbar">
         <div className="symbol-search">
           <span>{activeSymbol.market}</span>
           <strong>{activeSymbol.symbol}</strong>
           <small>{activeSymbol.name}</small>
-          <em className={cachedCandles.length > 0 ? "data-source-badge live" : "data-source-badge"}>{cachedCandles.length > 0 ? "本地缓存" : "等待数据"}</em>
+          <em className={cachedCandles.length > 0 ? "data-source-badge live" : "data-source-badge"}>
+            {cachedCandles.length > 0 ? "本地缓存" : "等待数据"}
+          </em>
           <em
             aria-label={formatRealtimeHealthDetail(realtimeHealth)}
             className={`${getRealtimeHealthBadgeClass(realtimeHealth.status)} chart-provider-status`}
@@ -2198,7 +2841,12 @@ export function ChartWorkspacePage() {
 
         <div className="timeframe-tabs" aria-label="周期选择">
           {timeframes.map((item) => (
-            <button className={item === timeframe ? "active" : ""} key={item} onClick={() => setTimeframe(item)} type="button">
+            <button
+              className={item === timeframe ? "active" : ""}
+              key={item}
+              onClick={() => setTimeframe(item)}
+              type="button"
+            >
               {formatTimeframeLabel(item)}
             </button>
           ))}
@@ -2210,7 +2858,11 @@ export function ChartWorkspacePage() {
               aria-controls="chart-strategy-quick-menu"
               aria-expanded={isStrategyMenuOpen}
               aria-haspopup="dialog"
-              className={isStrategyMenuOpen ? "active strategy-quick-menu-trigger" : "strategy-quick-menu-trigger"}
+              className={
+                isStrategyMenuOpen
+                  ? "active strategy-quick-menu-trigger"
+                  : "strategy-quick-menu-trigger"
+              }
               onClick={() => setIsStrategyMenuOpen((value) => !value)}
               ref={strategyMenuButtonRef}
               type="button"
@@ -2231,16 +2883,32 @@ export function ChartWorkspacePage() {
                 <header>
                   <span>
                     <strong>可用策略</strong>
-                    <small>{strategyQuickMenuItems.length} 个策略 · {enabledStrategyCount} 个已打开</small>
+                    <small>
+                      {strategyQuickMenuItems.length} 个策略 · {enabledStrategyCount} 个已打开
+                    </small>
                   </span>
                 </header>
 
                 <div className="strategy-quick-menu-list" role="list">
                   {strategyQuickMenuItems.map((item) => (
-                    <div className={item.enabled ? "strategy-quick-menu-item active" : "strategy-quick-menu-item"} key={item.key} role="listitem">
+                    <div
+                      className={
+                        item.enabled
+                          ? "strategy-quick-menu-item active"
+                          : "strategy-quick-menu-item"
+                      }
+                      key={item.key}
+                      role="listitem"
+                    >
                       <span>
                         <strong>{item.name}</strong>
-                        <small>{item.sourceType === "preset" ? "内置策略" : item.sourceType === "user" ? "用户策略" : "插件策略"}</small>
+                        <small>
+                          {item.sourceType === "preset"
+                            ? "内置策略"
+                            : item.sourceType === "user"
+                              ? "用户策略"
+                              : "插件策略"}
+                        </small>
                       </span>
                       <div>
                         <button
@@ -2279,7 +2947,11 @@ export function ChartWorkspacePage() {
             settings={indicatorSettings}
             updateSettings={updateIndicatorSettings}
           />
-          <button className={showSignals ? "active" : ""} onClick={() => setShowSignals((value) => !value)} type="button">
+          <button
+            className={showSignals ? "active" : ""}
+            onClick={() => setShowSignals((value) => !value)}
+            type="button"
+          >
             <Gauge size={16} />
             <span>信号</span>
           </button>
@@ -2291,7 +2963,11 @@ export function ChartWorkspacePage() {
             <Layers3 size={16} />
             <span>策略图层</span>
           </button>
-          <button className={isChartSettingsOpen ? "active" : ""} onClick={() => setIsChartSettingsOpen((value) => !value)} type="button">
+          <button
+            className={isChartSettingsOpen ? "active" : ""}
+            onClick={() => setIsChartSettingsOpen((value) => !value)}
+            type="button"
+          >
             <Settings2 size={16} />
             <span>图表设置</span>
           </button>
@@ -2309,7 +2985,9 @@ export function ChartWorkspacePage() {
               <span>分时形态</span>
               <select
                 aria-label="分时图表形态"
-                onChange={(event) => setIntradayDisplayMode(sanitizeChartDisplayMode(event.currentTarget.value))}
+                onChange={(event) =>
+                  setIntradayDisplayMode(sanitizeChartDisplayMode(event.currentTarget.value))
+                }
                 value={intradayDisplayMode}
               >
                 <option value="line">折线</option>
@@ -2321,7 +2999,11 @@ export function ChartWorkspacePage() {
             <span>轮询</span>
             <select
               aria-label="AlphaFeed REST 轮询频率"
-              onChange={(event) => setRealtimePollIntervalMs(sanitizeRealtimePollIntervalMs(Number(event.currentTarget.value)))}
+              onChange={(event) =>
+                setRealtimePollIntervalMs(
+                  sanitizeRealtimePollIntervalMs(Number(event.currentTarget.value)),
+                )
+              }
               value={realtimePollIntervalMs}
             >
               {realtimePollIntervalOptionsMs.map((intervalMs) => (
@@ -2334,7 +3016,11 @@ export function ChartWorkspacePage() {
         </div>
       </header>
 
-      <div className={isWatchlistCollapsed ? "chart-workspace-grid watchlist-collapsed" : "chart-workspace-grid"}>
+      <div
+        className={
+          isWatchlistCollapsed ? "chart-workspace-grid watchlist-collapsed" : "chart-workspace-grid"
+        }
+      >
         <aside className="chart-tool-rail" aria-label="画线工具">
           <button className="active" type="button" title="光标">
             <MousePointer2 size={18} />
@@ -2342,19 +3028,92 @@ export function ChartWorkspacePage() {
           <button type="button" title="十字光标">
             <Crosshair size={18} />
           </button>
-          <button className={activeDrawingTool === "trend-line" ? "active" : ""} onClick={() => { setActiveDrawingTool("trend-line"); setPendingTrendPoint(null); }} type="button" title="绘制趋势线">
+          <button
+            className={activeDrawingTool === "trend-line" ? "active" : ""}
+            onClick={() => {
+              setActiveDrawingTool("trend-line");
+              setPendingTrendPoint(null);
+            }}
+            type="button"
+            title="绘制趋势线"
+          >
             <PencilLine size={18} />
           </button>
-          <button className={activeDrawingTool === "horizontal-line" ? "active" : ""} onClick={() => { setActiveDrawingTool("horizontal-line"); setPendingTrendPoint(null); }} type="button" title="绘制水平线">
+          <button
+            className={activeDrawingTool === "horizontal-line" ? "active" : ""}
+            onClick={() => {
+              setActiveDrawingTool("horizontal-line");
+              setPendingTrendPoint(null);
+            }}
+            type="button"
+            title="绘制水平线"
+          >
             <Ruler size={18} />
           </button>
-          <button className={activeDrawingTool === "text" ? "active" : ""} onClick={() => { setActiveDrawingTool("text"); setPendingTrendPoint(null); }} type="button" title="添加文字标注"><Type size={18} /></button>
-          <button disabled={!activeDrawingTool} onClick={() => { setActiveDrawingTool(null); setPendingTrendPoint(null); }} type="button" title="取消当前绘图工具"><X size={18} /></button>
-          <button onClick={() => setChartFocusLatestKey((value) => value + 1)} type="button" title="回到最新数据"><RotateCcw size={18} /></button>
-          <button className={isPriceScaleLocked ? "active" : ""} onClick={() => setIsPriceScaleLocked((value) => !value)} type="button" title={isPriceScaleLocked ? "解锁价格比例" : "锁定价格比例"}><Ruler size={18} /></button>
-          <button disabled={drawingCommandState.undoStack.length === 0} onClick={undoDrawingCommand} type="button" title="撤销绘图"><Undo2 size={18} /></button>
-          <button disabled={drawingCommandState.redoStack.length === 0} onClick={redoDrawingCommand} type="button" title="重做绘图"><Redo2 size={18} /></button>
-          <button disabled={drawings.length === 0} onClick={() => { executeDrawingCommand({ type: "clear" }); setSelectedDrawingId(null); }} type="button" title="清空当前标的和周期的绘图"><Trash2 size={18} /></button>
+          <button
+            className={activeDrawingTool === "text" ? "active" : ""}
+            onClick={() => {
+              setActiveDrawingTool("text");
+              setPendingTrendPoint(null);
+            }}
+            type="button"
+            title="添加文字标注"
+          >
+            <Type size={18} />
+          </button>
+          <button
+            disabled={!activeDrawingTool}
+            onClick={() => {
+              setActiveDrawingTool(null);
+              setPendingTrendPoint(null);
+            }}
+            type="button"
+            title="取消当前绘图工具"
+          >
+            <X size={18} />
+          </button>
+          <button
+            onClick={() => setChartFocusLatestKey((value) => value + 1)}
+            type="button"
+            title="回到最新数据"
+          >
+            <RotateCcw size={18} />
+          </button>
+          <button
+            className={isPriceScaleLocked ? "active" : ""}
+            onClick={() => setIsPriceScaleLocked((value) => !value)}
+            type="button"
+            title={isPriceScaleLocked ? "解锁价格比例" : "锁定价格比例"}
+          >
+            <Ruler size={18} />
+          </button>
+          <button
+            disabled={drawingCommandState.undoStack.length === 0}
+            onClick={undoDrawingCommand}
+            type="button"
+            title="撤销绘图"
+          >
+            <Undo2 size={18} />
+          </button>
+          <button
+            disabled={drawingCommandState.redoStack.length === 0}
+            onClick={redoDrawingCommand}
+            type="button"
+            title="重做绘图"
+          >
+            <Redo2 size={18} />
+          </button>
+          <button
+            disabled={drawings.length === 0}
+            onClick={() => {
+              executeDrawingCommand({ type: "clear" });
+              setSelectedDrawingId(null);
+            }}
+            type="button"
+            title="清空当前标的和周期的绘图"
+          >
+            <Trash2 size={18} />
+          </button>
           <button
             className={isChartSettingsOpen ? "active" : ""}
             onClick={() => setIsChartSettingsOpen((value) => !value)}
@@ -2391,11 +3150,19 @@ export function ChartWorkspacePage() {
             onSecondaryPaneRatioChange={setSecondaryPaneRatio}
             onSecondaryPaneClose={() => {
               if (secondaryIndicatorEvaluation) {
-                updateIndicatorSettings((current) => setIndicatorEnabled(current, secondaryIndicatorEvaluation.id, false, allIndicatorDefinitions));
+                updateIndicatorSettings((current) =>
+                  setIndicatorEnabled(
+                    current,
+                    secondaryIndicatorEvaluation.id,
+                    false,
+                    allIndicatorDefinitions,
+                  ),
+                );
               }
             }}
             onSecondaryPaneSettings={() => {
-              if (secondaryIndicatorEvaluation) setActiveIndicatorConfigId(secondaryIndicatorEvaluation.id);
+              if (secondaryIndicatorEvaluation)
+                setActiveIndicatorConfigId(secondaryIndicatorEvaluation.id);
             }}
             resetViewKey={chartResetViewKey}
             focusLatestKey={chartFocusLatestKey}
@@ -2414,42 +3181,75 @@ export function ChartWorkspacePage() {
               <span>{mlptChartNotice}</span>
             </div>
           )}
-          {activeIndicatorConfigId && (() => {
-            const definition = allIndicatorDefinitions.find((item) => item.id === activeIndicatorConfigId);
-            if (!definition) return null;
-            const instance = getIndicatorInstance(indicatorSettings, definition.id, definition);
-            const parameters = getIndicatorParameters(instance, indicatorConvention);
-            return (
-              <section className="chart-settings-popover indicator-settings-popover" aria-label={`${definition.name} 参数`}>
-                <div className="chart-settings-heading">
-                  <span><strong>{definition.name} 参数</strong><small>{indicatorConvention === "a-share" ? "A 股口径" : "跨市场口径"}</small></span>
-                  <button onClick={() => setActiveIndicatorConfigId(null)} type="button">关闭</button>
-                </div>
-                {definition.parameters.map((parameter) => (
-                  <label key={parameter.key}>
-                    <span>{parameter.label}</span>
+          {activeIndicatorConfigId &&
+            (() => {
+              const definition = allIndicatorDefinitions.find(
+                (item) => item.id === activeIndicatorConfigId,
+              );
+              if (!definition) return null;
+              const instance = getIndicatorInstance(indicatorSettings, definition.id, definition);
+              const parameters = getIndicatorParameters(instance, indicatorConvention);
+              return (
+                <section
+                  className="chart-settings-popover indicator-settings-popover"
+                  aria-label={`${definition.name} 参数`}
+                >
+                  <div className="chart-settings-heading">
+                    <span>
+                      <strong>{definition.name} 参数</strong>
+                      <small>{indicatorConvention === "a-share" ? "A 股口径" : "跨市场口径"}</small>
+                    </span>
+                    <button onClick={() => setActiveIndicatorConfigId(null)} type="button">
+                      关闭
+                    </button>
+                  </div>
+                  {definition.parameters.map((parameter) => (
+                    <label key={parameter.key}>
+                      <span>{parameter.label}</span>
+                      <input
+                        max={parameter.maximum}
+                        min={parameter.minimum}
+                        onChange={(event) =>
+                          updateIndicatorSettings((current) =>
+                            updateIndicatorParameter(
+                              current,
+                              definition.id,
+                              indicatorConvention,
+                              parameter.key,
+                              Number(event.currentTarget.value),
+                              definition,
+                            ),
+                          )
+                        }
+                        step={parameter.step}
+                        type="number"
+                        value={Number(parameters[parameter.key])}
+                      />
+                    </label>
+                  ))}
+                  <label className="parameter-toggle">
+                    <span>
+                      <strong>指标状态</strong>
+                      <small>{definition.placement === "pane" ? "副图单选" : "主图可多选"}</small>
+                    </span>
                     <input
-                      max={parameter.maximum}
-                      min={parameter.minimum}
-                      onChange={(event) => updateIndicatorSettings((current) =>
-                        updateIndicatorParameter(current, definition.id, indicatorConvention, parameter.key, Number(event.currentTarget.value), definition))}
-                      step={parameter.step}
-                      type="number"
-                      value={Number(parameters[parameter.key])}
+                      checked={instance.enabled}
+                      onChange={(event) =>
+                        updateIndicatorSettings((current) =>
+                          setIndicatorEnabled(
+                            current,
+                            definition.id,
+                            event.currentTarget.checked,
+                            allIndicatorDefinitions,
+                          ),
+                        )
+                      }
+                      type="checkbox"
                     />
                   </label>
-                ))}
-                <label className="parameter-toggle">
-                  <span><strong>指标状态</strong><small>{definition.placement === "pane" ? "副图单选" : "主图可多选"}</small></span>
-                  <input
-                    checked={instance.enabled}
-                    onChange={(event) => updateIndicatorSettings((current) => setIndicatorEnabled(current, definition.id, event.currentTarget.checked, allIndicatorDefinitions))}
-                    type="checkbox"
-                  />
-                </label>
-              </section>
-            );
-          })()}
+                </section>
+              );
+            })()}
           {isChartSettingsOpen && (
             <section className="chart-settings-popover" aria-label="图表设置">
               <div className="chart-settings-heading">
@@ -2460,15 +3260,27 @@ export function ChartWorkspacePage() {
               </div>
               <label>
                 <span>网格</span>
-                <input checked={showGrid} onChange={(event) => setShowGrid(event.currentTarget.checked)} type="checkbox" />
+                <input
+                  checked={showGrid}
+                  onChange={(event) => setShowGrid(event.currentTarget.checked)}
+                  type="checkbox"
+                />
               </label>
               <label>
                 <span>十字光标</span>
-                <input checked={showCrosshair} onChange={(event) => setShowCrosshair(event.currentTarget.checked)} type="checkbox" />
+                <input
+                  checked={showCrosshair}
+                  onChange={(event) => setShowCrosshair(event.currentTarget.checked)}
+                  type="checkbox"
+                />
               </label>
               <label>
                 <span>价格标签</span>
-                <input checked={showPriceLabels} onChange={(event) => setShowPriceLabels(event.currentTarget.checked)} type="checkbox" />
+                <input
+                  checked={showPriceLabels}
+                  onChange={(event) => setShowPriceLabels(event.currentTarget.checked)}
+                  type="checkbox"
+                />
               </label>
               <label>
                 <span>当前价线</span>
@@ -2483,7 +3295,9 @@ export function ChartWorkspacePage() {
                   <span>分时形态</span>
                   <select
                     aria-label="分时图表形态"
-                    onChange={(event) => setIntradayDisplayMode(sanitizeChartDisplayMode(event.currentTarget.value))}
+                    onChange={(event) =>
+                      setIntradayDisplayMode(sanitizeChartDisplayMode(event.currentTarget.value))
+                    }
                     value={intradayDisplayMode}
                   >
                     <option value="line">折线</option>
@@ -2495,7 +3309,11 @@ export function ChartWorkspacePage() {
                 <span>刷新频率</span>
                 <select
                   aria-label="实时行情刷新频率"
-                  onChange={(event) => setRealtimePollIntervalMs(sanitizeRealtimePollIntervalMs(Number(event.currentTarget.value)))}
+                  onChange={(event) =>
+                    setRealtimePollIntervalMs(
+                      sanitizeRealtimePollIntervalMs(Number(event.currentTarget.value)),
+                    )
+                  }
                   value={realtimePollIntervalMs}
                 >
                   {realtimePollIntervalOptionsMs.map((intervalMs) => (
@@ -2598,15 +3416,23 @@ export function ChartWorkspacePage() {
                   className={item.symbol === activeSymbol.symbol ? "active" : ""}
                   key={item.symbol}
                 >
-                  <button className="watchlist-item-select" onClick={() => selectActiveSymbol(item)} type="button">
+                  <button
+                    className="watchlist-item-select"
+                    onClick={() => selectActiveSymbol(item)}
+                    type="button"
+                  >
                     <span>
                       <strong>{item.symbol}</strong>
                       <small>{item.name}</small>
-                      <em className={`watchlist-data-status ${dataStatus ?? "syncing"}`}>{formatWatchlistDataStatus(dataStatus)}</em>
+                      <em className={`watchlist-data-status ${dataStatus ?? "syncing"}`}>
+                        {formatWatchlistDataStatus(dataStatus)}
+                      </em>
                     </span>
                     <span>
                       <strong>{formatQuotePrice(snapshot, item.price)}</strong>
-                      <small className={change.startsWith("+") ? "positive" : "negative"}>{change}</small>
+                      <small className={change.startsWith("+") ? "positive" : "negative"}>
+                        {change}
+                      </small>
                     </span>
                   </button>
                   <button
@@ -2627,28 +3453,79 @@ export function ChartWorkspacePage() {
       </div>
 
       {isInstrumentSearchOpen && (
-        <div className="strategy-config-backdrop instrument-search-backdrop" role="presentation" onClick={() => setIsInstrumentSearchOpen(false)}>
-          <section aria-label="搜索证券" className="instrument-search-dialog" role="dialog" onClick={(event) => event.stopPropagation()}>
+        <div
+          className="strategy-config-backdrop instrument-search-backdrop"
+          role="presentation"
+          onClick={() => setIsInstrumentSearchOpen(false)}
+        >
+          <section
+            aria-label="搜索证券"
+            className="instrument-search-dialog"
+            role="dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="strategy-config-heading">
               <div>
                 <p>证券搜索</p>
                 <strong>添加到观察列表</strong>
               </div>
-              <button aria-label="关闭搜索" onClick={() => setIsInstrumentSearchOpen(false)} type="button"><X size={16} /></button>
+              <button
+                aria-label="关闭搜索"
+                onClick={() => setIsInstrumentSearchOpen(false)}
+                type="button"
+              >
+                <X size={16} />
+              </button>
             </div>
-            <form className="instrument-search-form" onSubmit={(event) => { event.preventDefault(); void runInstrumentSearch(); }}>
-              <input autoFocus onChange={(event) => setInstrumentSearchQuery(event.currentTarget.value)} placeholder="代码、名称或拼音" value={instrumentSearchQuery} />
-              <button type="submit"><Search size={16} />搜索</button>
+            <form
+              className="instrument-search-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void runInstrumentSearch();
+              }}
+            >
+              <input
+                autoFocus
+                onChange={(event) => setInstrumentSearchQuery(event.currentTarget.value)}
+                placeholder="代码、名称或拼音"
+                value={instrumentSearchQuery}
+              />
+              <button type="submit">
+                <Search size={16} />
+                搜索
+              </button>
             </form>
-            {instrumentSearchState === "loading" && <p className="instrument-search-state"><LoaderCircle className="spin" size={16} /> 正在查询主行情源</p>}
-            {instrumentSearchMessage && <p className={`instrument-search-state ${instrumentSearchState}`}>{instrumentSearchMessage}</p>}
+            {instrumentSearchState === "loading" && (
+              <p className="instrument-search-state">
+                <LoaderCircle className="spin" size={16} /> 正在查询主行情源
+              </p>
+            )}
+            {instrumentSearchMessage && (
+              <p className={`instrument-search-state ${instrumentSearchState}`}>
+                {instrumentSearchMessage}
+              </p>
+            )}
             <div className="instrument-search-results">
               {instrumentSearchResults.map((item) => {
-                const added = watchlist.some((candidate) => candidate.market === item.market && candidate.dataSymbol === item.symbol);
+                const added = watchlist.some(
+                  (candidate) =>
+                    candidate.market === item.market && candidate.dataSymbol === item.symbol,
+                );
                 return (
                   <div key={`${item.market}:${item.symbol}`}>
-                    <span><strong>{item.symbol.replace(/\.(US|HK|SH|SZ)$/u, "")}</strong><small>{item.name} · {item.market}</small></span>
-                    <button disabled={added} onClick={() => addInstrumentToWatchlist(item)} type="button">{added ? "已添加" : "添加"}</button>
+                    <span>
+                      <strong>{item.symbol.replace(/\.(US|HK|SH|SZ)$/u, "")}</strong>
+                      <small>
+                        {item.name} · {item.market}
+                      </small>
+                    </span>
+                    <button
+                      disabled={added}
+                      onClick={() => addInstrumentToWatchlist(item)}
+                      type="button"
+                    >
+                      {added ? "已添加" : "添加"}
+                    </button>
                   </div>
                 );
               })}
@@ -2658,7 +3535,11 @@ export function ChartWorkspacePage() {
       )}
 
       {activeConfigStrategyRun && (
-        <div className="strategy-config-backdrop" role="presentation" onClick={() => setActiveConfigStrategyKey(null)}>
+        <div
+          className="strategy-config-backdrop"
+          role="presentation"
+          onClick={() => setActiveConfigStrategyKey(null)}
+        >
           <section
             aria-label={`${activeConfigStrategyRun.strategy.name} 参数配置`}
             className="strategy-config-dialog"
@@ -2685,80 +3566,125 @@ export function ChartWorkspacePage() {
             <div className="strategy-config-grid">
               {activeConfigStrategyRun.strategy.parameterSchema.length > 0 ? (
                 activeConfigStrategyRun.strategy.parameterSchema.map((parameter) => {
-                const value = activeConfigStrategyRun.settings.parameters[parameter.key] ?? parameter.defaultValue;
+                  const value =
+                    activeConfigStrategyRun.settings.parameters[parameter.key] ??
+                    parameter.defaultValue;
 
-                if (parameter.type === "boolean") {
+                  if (parameter.type === "boolean") {
+                    return (
+                      <label
+                        className="parameter-toggle"
+                        htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
+                        key={parameter.key}
+                      >
+                        <span>
+                          <strong>{parameter.label}</strong>
+                          <small>{value ? "已开启" : "已关闭"}</small>
+                        </span>
+                        <input
+                          checked={Boolean(value)}
+                          id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
+                          onChange={(event) =>
+                            updateStrategyParameter(
+                              activeConfigStrategyRun.strategy,
+                              parameter,
+                              event.currentTarget.checked,
+                            )
+                          }
+                          type="checkbox"
+                        />
+                      </label>
+                    );
+                  }
+
+                  if (parameter.type === "select") {
+                    return (
+                      <label
+                        className="parameter-control"
+                        htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
+                        key={parameter.key}
+                      >
+                        <span>{parameter.label}</span>
+                        <select
+                          id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
+                          onChange={(event) =>
+                            updateStrategyParameter(
+                              activeConfigStrategyRun.strategy,
+                              parameter,
+                              event.currentTarget.value,
+                            )
+                          }
+                          value={String(value)}
+                        >
+                          {parameter.options?.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  }
+
+                  if (parameter.type === "color") {
+                    return (
+                      <label
+                        className="parameter-control parameter-color-control"
+                        htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
+                        key={parameter.key}
+                      >
+                        <span>{parameter.label}</span>
+                        <span className="parameter-color-field">
+                          <input
+                            id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
+                            onChange={(event) =>
+                              updateStrategyParameter(
+                                activeConfigStrategyRun.strategy,
+                                parameter,
+                                event.currentTarget.value,
+                              )
+                            }
+                            type="color"
+                            value={String(value)}
+                          />
+                          <code>{String(value).toUpperCase()}</code>
+                        </span>
+                      </label>
+                    );
+                  }
+
                   return (
-                    <label className="parameter-toggle" htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`} key={parameter.key}>
-                      <span>
-                        <strong>{parameter.label}</strong>
-                        <small>{value ? "已开启" : "已关闭"}</small>
-                      </span>
+                    <label
+                      className="parameter-control"
+                      htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
+                      key={parameter.key}
+                    >
+                      <span>{parameter.label}</span>
                       <input
-                        checked={Boolean(value)}
                         id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
-                        onChange={(event) => updateStrategyParameter(activeConfigStrategyRun.strategy, parameter, event.currentTarget.checked)}
-                        type="checkbox"
+                        max={getNumberInputMaximum(parameter.key)}
+                        min={getNumberInputMinimum(parameter.key)}
+                        onChange={(event) =>
+                          updateStrategyParameter(
+                            activeConfigStrategyRun.strategy,
+                            parameter,
+                            event.currentTarget.valueAsNumber,
+                          )
+                        }
+                        step={getNumberInputStep(parameter.key)}
+                        type="number"
+                        value={Number(value)}
                       />
                     </label>
                   );
-                }
-
-                if (parameter.type === "select") {
-                  return (
-                    <label className="parameter-control" htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`} key={parameter.key}>
-                      <span>{parameter.label}</span>
-                      <select
-                        id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
-                        onChange={(event) => updateStrategyParameter(activeConfigStrategyRun.strategy, parameter, event.currentTarget.value)}
-                        value={String(value)}
-                      >
-                        {parameter.options?.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  );
-                }
-
-                if (parameter.type === "color") {
-                  return (
-                    <label className="parameter-control parameter-color-control" htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`} key={parameter.key}>
-                      <span>{parameter.label}</span>
-                      <span className="parameter-color-field">
-                        <input
-                          id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
-                          onChange={(event) => updateStrategyParameter(activeConfigStrategyRun.strategy, parameter, event.currentTarget.value)}
-                          type="color"
-                          value={String(value)}
-                        />
-                        <code>{String(value).toUpperCase()}</code>
-                      </span>
-                    </label>
-                  );
-                }
-
-                return (
-                  <label className="parameter-control" htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`} key={parameter.key}>
-                    <span>{parameter.label}</span>
-                    <input
-                      id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
-                      max={getNumberInputMaximum(parameter.key)}
-                      min={getNumberInputMinimum(parameter.key)}
-                      onChange={(event) => updateStrategyParameter(activeConfigStrategyRun.strategy, parameter, event.currentTarget.valueAsNumber)}
-                      step={getNumberInputStep(parameter.key)}
-                      type="number"
-                      value={Number(value)}
-                    />
-                  </label>
-                );
                 })
               ) : (
                 <div className="strategy-config-empty-state">
                   <strong>暂无可配置参数</strong>
-                  <span>该策略当前使用 Pine 最小子集生成的默认运行定义，后续可在策略管理中扩展参数 Schema。</span>
+                  <span>
+                    该策略当前使用 Pine 最小子集生成的默认运行定义，后续可在策略管理中扩展参数
+                    Schema。
+                  </span>
                 </div>
               )}
             </div>
@@ -2766,14 +3692,30 @@ export function ChartWorkspacePage() {
         </div>
       )}
 
-      <footer className={isBottomDockExpanded ? "chart-bottom-panel expanded" : "chart-bottom-panel"}>
+      <footer
+        className={isBottomDockExpanded ? "chart-bottom-panel expanded" : "chart-bottom-panel"}
+      >
         <div className="bottom-status-strip" aria-label="行情状态">
-          <span className={getRealtimeHealthBadgeClass(realtimeHealth.status)}>{realtimeHealth.status}</span>
-          <strong>{cachedCandles.length > 0 ? `${cachedCandles.length} 根K线` : "等待行情数据"}</strong>
+          <span className={getRealtimeHealthBadgeClass(realtimeHealth.status)}>
+            {realtimeHealth.status}
+          </span>
+          <strong>
+            {cachedCandles.length > 0 ? `${cachedCandles.length} 根K线` : "等待行情数据"}
+          </strong>
           <em>{formatRealtimeHealthDetail(realtimeHealth)}</em>
-          {mlptHistoryStatus && !mlptChartNotice && <small role="status">{mlptHistoryStatus}</small>}
+          {mlptHistoryStatus && !mlptChartNotice && (
+            <small role="status">{mlptHistoryStatus}</small>
+          )}
           <small>更新 {formatStatusClock(realtimeHealth.checkedAt)}</small>
-          <button aria-label="打开数据诊断" onClick={() => void openDiagnostics()} title="数据诊断" type="button"><Activity size={14} />诊断</button>
+          <button
+            aria-label="打开数据诊断"
+            onClick={() => void openDiagnostics()}
+            title="数据诊断"
+            type="button"
+          >
+            <Activity size={14} />
+            诊断
+          </button>
         </div>
 
         <div className="bottom-tabbar" role="tablist" aria-label="图表底部面板">
@@ -2829,7 +3771,11 @@ export function ChartWorkspacePage() {
             <div className="bottom-strategy-panel">
               <div className="bottom-panel-heading">
                 <strong>{enabledStrategyCount} 个策略启用</strong>
-                <span>{canShowStrategyLayers ? `${totalSignalCount} 个信号，${strategyLayerElementCount} 个图层元素` : "策略图层已隐藏"}</span>
+                <span>
+                  {canShowStrategyLayers
+                    ? `${totalSignalCount} 个信号，${strategyLayerElementCount} 个图层元素`
+                    : "策略图层已隐藏"}
+                </span>
                 <button
                   aria-label={showStrategyLayers ? "隐藏策略图层" : "显示策略图层"}
                   onClick={() => setShowStrategyLayers((value) => !value)}
@@ -2840,20 +3786,48 @@ export function ChartWorkspacePage() {
               </div>
               <div className="bottom-layer-list">
                 <div className="layer-item active">
-                  <span><strong>K 线 / 价格<em className="strategy-source-badge system">基础图层</em></strong><small>主图价格序列</small></span>
-                  <div className="layer-actions"><button className="active" disabled type="button">显示</button></div>
+                  <span>
+                    <strong>
+                      K 线 / 价格<em className="strategy-source-badge system">基础图层</em>
+                    </strong>
+                    <small>主图价格序列</small>
+                  </span>
+                  <div className="layer-actions">
+                    <button className="active" disabled type="button">
+                      显示
+                    </button>
+                  </div>
                 </div>
                 {strategyRuns.map(({ strategy, settings, result }) => {
-                  const layerStatus = getStrategyLayerStatus(strategy, settings, result, timeframe, strategyInputBars.length);
-                  const isLayerVisible = settings.enabled && canShowStrategyLayers && settings.showLayer && layerStatus.className === "active";
+                  const layerStatus = getStrategyLayerStatus(
+                    strategy,
+                    settings,
+                    result,
+                    timeframe,
+                    strategyInputBars.length,
+                  );
+                  const isLayerVisible =
+                    settings.enabled &&
+                    canShowStrategyLayers &&
+                    settings.showLayer &&
+                    layerStatus.className === "active";
 
                   return (
-                    <div className={isLayerVisible ? "layer-item active" : `layer-item ${layerStatus.className}`} key={strategy.key}>
+                    <div
+                      className={
+                        isLayerVisible ? "layer-item active" : `layer-item ${layerStatus.className}`
+                      }
+                      key={strategy.key}
+                    >
                       <span>
                         <strong>
                           {strategy.name}
-                          <em className={`strategy-source-badge ${strategy.sourceType}`}>{formatStrategySource(strategy)}</em>
-                          <em className={`layer-status-badge ${layerStatus.className}`}>{layerStatus.label}</em>
+                          <em className={`strategy-source-badge ${strategy.sourceType}`}>
+                            {formatStrategySource(strategy)}
+                          </em>
+                          <em className={`layer-status-badge ${layerStatus.className}`}>
+                            {layerStatus.label}
+                          </em>
                         </strong>
                         <small>{`${result.output.render.elements.length} 个元素 · z${result.output.render.zIndex}`}</small>
                       </span>
@@ -2861,7 +3835,13 @@ export function ChartWorkspacePage() {
                         <button
                           aria-pressed={settings.enabled}
                           className={settings.enabled ? "active" : ""}
-                          onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, enabled: !state.enabled, showLayer: !state.enabled }))}
+                          onClick={() =>
+                            updateStrategyState(strategy.key, (state) => ({
+                              ...state,
+                              enabled: !state.enabled,
+                              showLayer: !state.enabled,
+                            }))
+                          }
                           type="button"
                         >
                           启用
@@ -2870,50 +3850,180 @@ export function ChartWorkspacePage() {
                           aria-pressed={settings.showLayer}
                           className={settings.showLayer ? "active" : ""}
                           disabled={!settings.enabled}
-                          onClick={() => updateStrategyState(strategy.key, (state) => ({ ...state, showLayer: !state.showLayer }))}
+                          onClick={() =>
+                            updateStrategyState(strategy.key, (state) => ({
+                              ...state,
+                              showLayer: !state.showLayer,
+                            }))
+                          }
                           type="button"
                         >
                           图层
                         </button>
-                        <button onClick={() => setActiveConfigStrategyKey(strategy.key)} type="button">
+                        <button
+                          onClick={() => setActiveConfigStrategyKey(strategy.key)}
+                          type="button"
+                        >
                           <SlidersHorizontal size={13} />
                           参数
                         </button>
-                        <button aria-label={`${strategy.name} 上移图层`} onClick={() => moveLayer(strategy.key, -1)} title="上移图层" type="button">上移</button>
-                        <button aria-label={`${strategy.name} 下移图层`} onClick={() => moveLayer(strategy.key, 1)} title="下移图层" type="button">下移</button>
+                        <button
+                          aria-label={`${strategy.name} 上移图层`}
+                          onClick={() => moveLayer(strategy.key, -1)}
+                          title="上移图层"
+                          type="button"
+                        >
+                          上移
+                        </button>
+                        <button
+                          aria-label={`${strategy.name} 下移图层`}
+                          onClick={() => moveLayer(strategy.key, 1)}
+                          title="下移图层"
+                          type="button"
+                        >
+                          下移
+                        </button>
                       </div>
                     </div>
                   );
                 })}
                 {overlayIndicatorEvaluations.map((evaluation) => (
                   <div className="layer-item active" key={evaluation.layer.id}>
-                    <span><strong>{evaluation.layer.name}<em className="strategy-source-badge plugin">指标</em></strong><small>{evaluation.layer.elements.length} 个渲染元素</small></span>
+                    <span>
+                      <strong>
+                        {evaluation.layer.name}
+                        <em className="strategy-source-badge plugin">指标</em>
+                      </strong>
+                      <small>{evaluation.layer.elements.length} 个渲染元素</small>
+                    </span>
                     <div className="layer-actions">
-                      {allIndicatorDefinitions.some((definition) => definition.id === evaluation.id && definition.parameters.length > 0) && (
-                        <button onClick={() => setActiveIndicatorConfigId(evaluation.id)} type="button"><SlidersHorizontal size={13} />参数</button>
+                      {allIndicatorDefinitions.some(
+                        (definition) =>
+                          definition.id === evaluation.id && definition.parameters.length > 0,
+                      ) && (
+                        <button
+                          onClick={() => setActiveIndicatorConfigId(evaluation.id)}
+                          type="button"
+                        >
+                          <SlidersHorizontal size={13} />
+                          参数
+                        </button>
                       )}
-                      <button onClick={() => updateIndicatorSettings((current) => setIndicatorEnabled(current, evaluation.id, false, allIndicatorDefinitions))} type="button">关闭</button>
-                      <button onClick={() => moveLayer(evaluation.layer.id, -1)} title="上移图层" type="button">上移</button>
-                      <button onClick={() => moveLayer(evaluation.layer.id, 1)} title="下移图层" type="button">下移</button>
+                      <button
+                        onClick={() =>
+                          updateIndicatorSettings((current) =>
+                            setIndicatorEnabled(
+                              current,
+                              evaluation.id,
+                              false,
+                              allIndicatorDefinitions,
+                            ),
+                          )
+                        }
+                        type="button"
+                      >
+                        关闭
+                      </button>
+                      <button
+                        onClick={() => moveLayer(evaluation.layer.id, -1)}
+                        title="上移图层"
+                        type="button"
+                      >
+                        上移
+                      </button>
+                      <button
+                        onClick={() => moveLayer(evaluation.layer.id, 1)}
+                        title="下移图层"
+                        type="button"
+                      >
+                        下移
+                      </button>
                     </div>
                   </div>
                 ))}
                 {secondaryIndicatorEvaluation && (
                   <div className="layer-item active">
                     <span>
-                      <strong>{secondaryIndicatorEvaluation.pane.name}<em className="strategy-source-badge plugin">副图指标</em></strong>
+                      <strong>
+                        {secondaryIndicatorEvaluation.pane.name}
+                        <em className="strategy-source-badge plugin">副图指标</em>
+                      </strong>
                       <small>{secondaryIndicatorEvaluation.pane.parameterSummary} · 独立纵轴</small>
                     </span>
                     <div className="layer-actions">
-                      <button onClick={() => setActiveIndicatorConfigId(secondaryIndicatorEvaluation.id)} type="button"><SlidersHorizontal size={13} />参数</button>
-                      <button onClick={() => updateIndicatorSettings((current) => setIndicatorEnabled(current, secondaryIndicatorEvaluation.id, false, allIndicatorDefinitions))} type="button">关闭</button>
+                      <button
+                        onClick={() => setActiveIndicatorConfigId(secondaryIndicatorEvaluation.id)}
+                        type="button"
+                      >
+                        <SlidersHorizontal size={13} />
+                        参数
+                      </button>
+                      <button
+                        onClick={() =>
+                          updateIndicatorSettings((current) =>
+                            setIndicatorEnabled(
+                              current,
+                              secondaryIndicatorEvaluation.id,
+                              false,
+                              allIndicatorDefinitions,
+                            ),
+                          )
+                        }
+                        type="button"
+                      >
+                        关闭
+                      </button>
                     </div>
                   </div>
                 )}
                 {drawings.map((drawing) => (
-                  <div className={selectedDrawingId === drawing.id ? "layer-item active" : "layer-item"} key={drawing.id} onClick={() => setSelectedDrawingId((current) => current === drawing.id ? null : drawing.id)}>
-                    <span><strong>{drawing.type === "trend-line" ? "趋势线" : drawing.type === "horizontal-line" ? "水平线" : "文字标注"}<em className="strategy-source-badge user">绘图</em></strong><small>{drawing.visible ? "显示中" : "已隐藏"}</small></span>
-                    <div className="layer-actions"><button onClick={() => toggleDrawingVisibility(drawing.id)} type="button">{drawing.visible ? "隐藏" : "显示"}</button><button onClick={() => editDrawing(drawing.id)} type="button">编辑</button><button onClick={() => moveLayer(drawingLayer.id, -1)} title="上移图层" type="button">上移</button><button onClick={() => moveLayer(drawingLayer.id, 1)} title="下移图层" type="button">下移</button><button onClick={() => deleteDrawing(drawing.id)} type="button">删除</button></div>
+                  <div
+                    className={
+                      selectedDrawingId === drawing.id ? "layer-item active" : "layer-item"
+                    }
+                    key={drawing.id}
+                    onClick={() =>
+                      setSelectedDrawingId((current) =>
+                        current === drawing.id ? null : drawing.id,
+                      )
+                    }
+                  >
+                    <span>
+                      <strong>
+                        {drawing.type === "trend-line"
+                          ? "趋势线"
+                          : drawing.type === "horizontal-line"
+                            ? "水平线"
+                            : "文字标注"}
+                        <em className="strategy-source-badge user">绘图</em>
+                      </strong>
+                      <small>{drawing.visible ? "显示中" : "已隐藏"}</small>
+                    </span>
+                    <div className="layer-actions">
+                      <button onClick={() => toggleDrawingVisibility(drawing.id)} type="button">
+                        {drawing.visible ? "隐藏" : "显示"}
+                      </button>
+                      <button onClick={() => editDrawing(drawing.id)} type="button">
+                        编辑
+                      </button>
+                      <button
+                        onClick={() => moveLayer(drawingLayer.id, -1)}
+                        title="上移图层"
+                        type="button"
+                      >
+                        上移
+                      </button>
+                      <button
+                        onClick={() => moveLayer(drawingLayer.id, 1)}
+                        title="下移图层"
+                        type="button"
+                      >
+                        下移
+                      </button>
+                      <button onClick={() => deleteDrawing(drawing.id)} type="button">
+                        删除
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -2923,18 +4033,28 @@ export function ChartWorkspacePage() {
           {bottomTab === "signals" && (
             <div className="bottom-single-panel">
               <div className="bottom-panel-heading">
-                <strong>{signalRows.length > 0 ? `${signalRows.length} 个策略信号` : "暂无策略信号"}</strong>
+                <strong>
+                  {signalRows.length > 0 ? `${signalRows.length} 个策略信号` : "暂无策略信号"}
+                </strong>
                 <span>仅展示当前标的和周期下的策略输出</span>
               </div>
               {signalRows.length > 0 ? (
                 <div className="signal-detail-list" aria-label="策略信号明细">
                   {signalRows.map((signal) => (
-                    <button aria-pressed={selectedSignal?.id === signal.id} className={`signal-detail-row ${signal.tone}${selectedSignal?.id === signal.id ? " active" : ""}`} key={signal.id} onClick={() => setSelectedSignalId(signal.id)} type="button">
+                    <button
+                      aria-pressed={selectedSignal?.id === signal.id}
+                      className={`signal-detail-row ${signal.tone}${selectedSignal?.id === signal.id ? " active" : ""}`}
+                      key={signal.id}
+                      onClick={() => setSelectedSignalId(signal.id)}
+                      type="button"
+                    >
                       <ShieldCheck size={14} />
                       <span>{signal.time}</span>
                       <strong>{signal.direction}</strong>
                       <small>{signal.price}</small>
-                      <em>{signal.strategyName} / {signal.label}</em>
+                      <em>
+                        {signal.strategyName} / {signal.label}
+                      </em>
                     </button>
                   ))}
                 </div>
@@ -2943,11 +4063,37 @@ export function ChartWorkspacePage() {
               )}
               {selectedSignal && selectedSignalRun && (
                 <aside className="signal-research-inspector" aria-label="策略信号研究详情">
-                  <div><strong>{selectedSignal.strategyName}</strong><button onClick={() => setSelectedSignalId(null)} type="button">关闭</button></div>
-                  <span>{selectedSignal.direction} · {selectedSignal.price} · {selectedSignal.time}</span>
+                  <div>
+                    <strong>{selectedSignal.strategyName}</strong>
+                    <button onClick={() => setSelectedSignalId(null)} type="button">
+                      关闭
+                    </button>
+                  </div>
+                  <span>
+                    {selectedSignal.direction} · {selectedSignal.price} · {selectedSignal.time}
+                  </span>
                   <small>{selectedSignal.label}</small>
-                  <dl><dt>参数</dt><dd>{Object.entries(selectedSignalRun.settings.parameters).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") || "默认参数"}</dd><dt>日志</dt><dd>{selectedSignalRun.result.output.logs.at(-1) ?? "当前运行未产生额外日志"}</dd></dl>
-                  <button onClick={() => { setActiveConfigStrategyKey(selectedSignal.strategyKey); setBottomTab("layers"); }} type="button">查看策略配置</button>
+                  <dl>
+                    <dt>参数</dt>
+                    <dd>
+                      {Object.entries(selectedSignalRun.settings.parameters)
+                        .map(([key, value]) => `${key}: ${String(value)}`)
+                        .join(" · ") || "默认参数"}
+                    </dd>
+                    <dt>日志</dt>
+                    <dd>
+                      {selectedSignalRun.result.output.logs.at(-1) ?? "当前运行未产生额外日志"}
+                    </dd>
+                  </dl>
+                  <button
+                    onClick={() => {
+                      setActiveConfigStrategyKey(selectedSignal.strategyKey);
+                      setBottomTab("layers");
+                    }}
+                    type="button"
+                  >
+                    查看策略配置
+                  </button>
                 </aside>
               )}
             </div>
@@ -2980,10 +4126,63 @@ export function ChartWorkspacePage() {
 
       {isDiagnosticsOpen && (
         <aside className="chart-diagnostics-drawer" aria-label="数据诊断">
-          <div className="chart-settings-heading"><strong>数据诊断</strong><button onClick={() => setIsDiagnosticsOpen(false)} type="button">关闭</button></div>
-          <section><p>当前状态</p><strong className={getRealtimeHealthBadgeClass(realtimeHealth.status)}>{realtimeHealth.status}</strong><small>{formatRealtimeHealthDetail(realtimeHealth)}</small></section>
-          <section><p>供应商健康</p>{providerDiagnostics.length > 0 ? providerDiagnostics.map((health) => <div className="diagnostic-provider-row" key={health.provider}><span><strong>{health.provider}</strong><small>{health.message}</small></span><em className={getRealtimeHealthBadgeClass(health.status === "healthy" || health.status === "delayed" || health.status === "degraded" ? "ok" : health.status === "rateLimited" ? "rate_limited" : "network_error")}>{health.status}</em></div>) : <small>当前运行环境未暴露桌面诊断桥。图表仍会显示实时状态。</small>}</section>
-          <section><p>最近事件</p>{diagnosticTimeline.map((entry) => <div className={`diagnostic-timeline-row ${entry.kind}`} key={`${entry.timestamp}-${entry.kind}-${entry.message}`}><time>{formatStatusClock(entry.timestamp)}</time><span><strong>{formatMarketDataRuntimeEventKind(entry.kind)}</strong>{entry.message}{entry.detail ? ` · ${entry.detail}` : ""}</span></div>)}</section>
+          <div className="chart-settings-heading">
+            <strong>数据诊断</strong>
+            <button onClick={() => setIsDiagnosticsOpen(false)} type="button">
+              关闭
+            </button>
+          </div>
+          <section>
+            <p>当前状态</p>
+            <strong className={getRealtimeHealthBadgeClass(realtimeHealth.status)}>
+              {realtimeHealth.status}
+            </strong>
+            <small>{formatRealtimeHealthDetail(realtimeHealth)}</small>
+          </section>
+          <section>
+            <p>供应商健康</p>
+            {providerDiagnostics.length > 0 ? (
+              providerDiagnostics.map((health) => (
+                <div className="diagnostic-provider-row" key={health.provider}>
+                  <span>
+                    <strong>{health.provider}</strong>
+                    <small>{health.message}</small>
+                  </span>
+                  <em
+                    className={getRealtimeHealthBadgeClass(
+                      health.status === "healthy" ||
+                        health.status === "delayed" ||
+                        health.status === "degraded"
+                        ? "ok"
+                        : health.status === "rateLimited"
+                          ? "rate_limited"
+                          : "network_error",
+                    )}
+                  >
+                    {health.status}
+                  </em>
+                </div>
+              ))
+            ) : (
+              <small>当前运行环境未暴露桌面诊断桥。图表仍会显示实时状态。</small>
+            )}
+          </section>
+          <section>
+            <p>最近事件</p>
+            {diagnosticTimeline.map((entry) => (
+              <div
+                className={`diagnostic-timeline-row ${entry.kind}`}
+                key={`${entry.timestamp}-${entry.kind}-${entry.message}`}
+              >
+                <time>{formatStatusClock(entry.timestamp)}</time>
+                <span>
+                  <strong>{formatMarketDataRuntimeEventKind(entry.kind)}</strong>
+                  {entry.message}
+                  {entry.detail ? ` · ${entry.detail}` : ""}
+                </span>
+              </div>
+            ))}
+          </section>
         </aside>
       )}
     </section>

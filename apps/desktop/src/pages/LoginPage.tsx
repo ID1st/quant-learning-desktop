@@ -8,13 +8,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-  type PropsWithChildren,
-} from "react";
+import { useEffect, useRef, useState, type FormEvent, type PropsWithChildren } from "react";
 
 import type { AuthOperationError } from "@quant/shared";
 
@@ -43,9 +37,7 @@ function AuthLayout({ children }: PropsWithChildren) {
           <aside className="login-brand-panel" aria-label="产品介绍">
             <p>TradingView + Quant Learning Workstation</p>
             <h1>专业量化学习工作台</h1>
-            <span>
-              账号验证在云端完成；行情凭据、策略草稿和研究数据继续保留在本机。
-            </span>
+            <span>账号验证在云端完成；行情凭据、策略草稿和研究数据继续保留在本机。</span>
           </aside>
           {children}
         </div>
@@ -54,13 +46,7 @@ function AuthLayout({ children }: PropsWithChildren) {
   );
 }
 
-function AuthMessage({
-  error,
-  status,
-}: {
-  error: string;
-  status: string;
-}) {
+function AuthMessage({ error, status }: { error: string; status: string }) {
   return (
     <div aria-live="polite" className="auth-message-stack">
       {error && (
@@ -84,10 +70,7 @@ function useCountdown() {
     if (seconds <= 0) {
       return;
     }
-    const timer = window.setTimeout(
-      () => setSeconds((current) => Math.max(0, current - 1)),
-      1_000,
-    );
+    const timer = window.setTimeout(() => setSeconds((current) => Math.max(0, current - 1)), 1_000);
     return () => window.clearTimeout(timer);
   }, [seconds]);
   return { seconds, start: (value = 60) => setSeconds(value) };
@@ -228,24 +211,12 @@ function LoginForm({
           />
         </div>
       </label>
-      <PasswordInput
-        autoComplete="current-password"
-        onChange={setPassword}
-        value={password}
-      />
-      <button
-        className="auth-link-button"
-        onClick={() => setPhase("RESET_REQUEST")}
-        type="button"
-      >
+      <PasswordInput autoComplete="current-password" onChange={setPassword} value={password} />
+      <button className="auth-link-button" onClick={() => setPhase("RESET_REQUEST")} type="button">
         忘记密码
       </button>
       <AuthMessage error={error} status={status || notice} />
-      <button
-        className="primary-auth-action"
-        disabled={isSubmitting}
-        type="submit"
-      >
+      <button className="primary-auth-action" disabled={isSubmitting} type="submit">
         {isSubmitting ? "正在验证…" : "登录"}
       </button>
       <div className="auth-secondary-row">
@@ -296,9 +267,7 @@ function RegistrationForm({
         return;
       }
       start(result.data.retryAfterSeconds);
-      setStatus(
-        "验证码已发送，请检查邮箱；验证码 10 分钟内有效。已注册邮箱验证后会引导您登录。",
-      );
+      setStatus("验证码已发送，请检查邮箱；验证码 10 分钟内有效。已注册邮箱验证后会引导您登录。");
     } finally {
       setRequestingCode(false);
     }
@@ -377,9 +346,7 @@ function RegistrationForm({
             <input
               inputMode="numeric"
               maxLength={6}
-              onChange={(event) =>
-                setEmailCode(event.currentTarget.value.replace(/\D/g, ""))
-              }
+              onChange={(event) => setEmailCode(event.currentTarget.value.replace(/\D/g, ""))}
               value={emailCode}
             />
           </div>
@@ -388,19 +355,11 @@ function RegistrationForm({
             onClick={() => void requestCode()}
             type="button"
           >
-            {isRequestingCode
-              ? "正在发送…"
-              : seconds > 0
-                ? `${seconds} 秒`
-                : "发送验证码"}
+            {isRequestingCode ? "正在发送…" : seconds > 0 ? `${seconds} 秒` : "发送验证码"}
           </button>
         </div>
       </label>
-      <PasswordInput
-        autoComplete="new-password"
-        onChange={setPassword}
-        value={password}
-      />
+      <PasswordInput autoComplete="new-password" onChange={setPassword} value={password} />
       <PasswordInput
         autoComplete="new-password"
         label="确认密码"
@@ -411,11 +370,7 @@ function RegistrationForm({
       <AuthMessage error={error} status={status} />
       {accountAlreadyExists ? (
         <>
-          <button
-            className="primary-auth-action"
-            onClick={() => setPhase("LOGIN")}
-            type="button"
-          >
+          <button className="primary-auth-action" onClick={() => setPhase("LOGIN")} type="button">
             直接登录
           </button>
           <button
@@ -428,18 +383,10 @@ function RegistrationForm({
         </>
       ) : (
         <>
-          <button
-            className="primary-auth-action"
-            disabled={isSubmitting}
-            type="submit"
-          >
+          <button className="primary-auth-action" disabled={isSubmitting} type="submit">
             {isSubmitting ? "正在创建…" : "完成注册"}
           </button>
-          <button
-            className="secondary-auth-action"
-            onClick={() => setPhase("LOGIN")}
-            type="button"
-          >
+          <button className="secondary-auth-action" onClick={() => setPhase("LOGIN")} type="button">
             已有账号，返回登录
           </button>
         </>
@@ -495,9 +442,7 @@ function InviteForm({
     <form className="auth-card auth-blocking-card" onSubmit={submit}>
       <div className="auth-card-header">
         <p>{expired ? "测试资格已到期" : "首次登录验证"}</p>
-        <h2 tabIndex={-1}>
-          {expired ? "使用新邀请码续期" : "验证测试用户邀请码"}
-        </h2>
+        <h2 tabIndex={-1}>{expired ? "使用新邀请码续期" : "验证测试用户邀请码"}</h2>
         <span>
           {expired
             ? "邮箱和密码已验证，但测试资格已经失效。"
@@ -534,11 +479,7 @@ function InviteForm({
         </div>
       </label>
       <AuthMessage error={error} status={status} />
-      <button
-        className="primary-auth-action"
-        disabled={isSubmitting}
-        type="submit"
-      >
+      <button className="primary-auth-action" disabled={isSubmitting} type="submit">
         {isSubmitting ? "正在核验…" : expired ? "续期并登录" : "验证并进入"}
       </button>
       <div className="auth-secondary-row">
@@ -547,10 +488,7 @@ function InviteForm({
             忘记密码
           </button>
         )}
-        <button
-          onClick={() => void getAuthBridge()?.logout()}
-          type="button"
-        >
+        <button onClick={() => void getAuthBridge()?.logout()} type="button">
           退出账号
         </button>
       </div>
@@ -630,9 +568,7 @@ function PasswordResetFlow({
         setError(errorText(result.error));
         return;
       }
-      onResetCompleted(
-        "密码已重置，所有设备均已退出。请使用新密码登录。",
-      );
+      onResetCompleted("密码已重置，所有设备均已退出。请使用新密码登录。");
     } finally {
       setSubmitting(false);
     }
@@ -652,9 +588,7 @@ function PasswordResetFlow({
     >
       <div className="auth-card-header">
         <p>找回账号</p>
-        <h2 tabIndex={-1}>
-          {phase === "RESET_REQUEST" ? "请求重置验证码" : "设置新密码"}
-        </h2>
+        <h2 tabIndex={-1}>{phase === "RESET_REQUEST" ? "请求重置验证码" : "设置新密码"}</h2>
         <span>验证码 10 分钟内有效，最多可以尝试 5 次。</span>
       </div>
       <label className="auth-field">
@@ -681,9 +615,7 @@ function PasswordResetFlow({
               <input
                 inputMode="numeric"
                 maxLength={6}
-                onChange={(event) =>
-                  setEmailCode(event.currentTarget.value.replace(/\D/g, ""))
-                }
+                onChange={(event) => setEmailCode(event.currentTarget.value.replace(/\D/g, ""))}
                 value={emailCode}
               />
             </div>
@@ -704,11 +636,7 @@ function PasswordResetFlow({
         </>
       )}
       <AuthMessage error={error} status={status} />
-      <button
-        className="primary-auth-action"
-        disabled={isSubmitting}
-        type="submit"
-      >
+      <button className="primary-auth-action" disabled={isSubmitting} type="submit">
         {phase === "RESET_REQUEST"
           ? isSubmitting
             ? "正在发送…"
@@ -730,11 +658,7 @@ function PasswordResetFlow({
           重新发送验证码
         </button>
       )}
-      <button
-        className="secondary-auth-action"
-        onClick={() => setPhase("LOGIN")}
-        type="button"
-      >
+      <button className="secondary-auth-action" onClick={() => setPhase("LOGIN")} type="button">
         返回登录
       </button>
     </form>
@@ -777,11 +701,7 @@ function ServiceUnavailable() {
   );
 }
 
-export function LoginPage({
-  initialExpiredAt = "",
-}: {
-  initialExpiredAt?: string;
-}) {
+export function LoginPage({ initialExpiredAt = "" }: { initialExpiredAt?: string }) {
   const phase = useAuthStore((state) => state.phase);
   const session = useAuthStore((state) => state.session);
   const [flowEmail, setFlowEmail] = useState("");
@@ -795,21 +715,12 @@ export function LoginPage({
 
   let content;
   if (phase === "REGISTERING") {
-    content = (
-      <RegistrationForm
-        initialEmail={flowEmail}
-        onEmailRemembered={setFlowEmail}
-      />
-    );
+    content = <RegistrationForm initialEmail={flowEmail} onEmailRemembered={setFlowEmail} />;
   } else if (phase === "INVITE_REQUIRED") {
     content = <InviteForm email={flowEmail} expired={false} />;
   } else if (phase === "ENTITLEMENT_EXPIRED") {
     content = (
-      <InviteForm
-        email={flowEmail || session?.email || ""}
-        expired
-        expiredAt={expiredAt}
-      />
+      <InviteForm email={flowEmail || session?.email || ""} expired expiredAt={expiredAt} />
     );
   } else if (phase === "RESET_REQUEST" || phase === "RESET_PASSWORD") {
     content = (

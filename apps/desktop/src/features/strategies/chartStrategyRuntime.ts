@@ -38,7 +38,10 @@ export interface RunChartStrategiesOptions {
   readonly strategies: readonly StrategyDefinition[];
   readonly registry: StrategyRegistry;
   readonly settingsByStrategyKey: Record<string, ChartStrategyWorkspaceState>;
-  readonly resolveDefaultSettings: (strategy: StrategyDefinition, index: number) => ChartStrategyWorkspaceState;
+  readonly resolveDefaultSettings: (
+    strategy: StrategyDefinition,
+    index: number,
+  ) => ChartStrategyWorkspaceState;
   readonly symbol: string;
   readonly market: Market;
   readonly timeframe: Timeframe;
@@ -47,10 +50,7 @@ export interface RunChartStrategiesOptions {
   readonly confirmedThroughTimestamp?: number;
 }
 
-const mlptOutputCache = new WeakMap<
-  StrategyDefinition,
-  { key: string; output: StrategyOutput }
->();
+const mlptOutputCache = new WeakMap<StrategyDefinition, { key: string; output: StrategyOutput }>();
 const hashBuffer = new ArrayBuffer(8);
 const hashView = new DataView(hashBuffer);
 
@@ -75,11 +75,10 @@ function hashConfirmedBars(bars: readonly Bar[], confirmedThroughTimestamp?: num
   return `${count}:${primaryHash >>> 0}:${secondaryHash >>> 0}`;
 }
 
-function createMlptCacheKey(
-  strategy: StrategyDefinition,
-  request: StrategyRunRequest,
-) {
-  const parameters = Object.entries(request.parameters ?? {}).sort(([left], [right]) => left.localeCompare(right));
+function createMlptCacheKey(strategy: StrategyDefinition, request: StrategyRunRequest) {
+  const parameters = Object.entries(request.parameters ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
   return [
     strategy.version,
     request.symbol,
@@ -98,7 +97,8 @@ export function getRealtimeStrategyHistoryRequirement(
 ) {
   return strategies.reduce(
     (requirement, strategy) => {
-      const enabled = settingsByStrategyKey[strategy.key]?.enabled ?? strategy.defaultEnabled ?? false;
+      const enabled =
+        settingsByStrategyKey[strategy.key]?.enabled ?? strategy.defaultEnabled ?? false;
       const next = enabled ? strategy.realtimeHistoryRequirement : undefined;
       return next
         ? {
@@ -113,8 +113,10 @@ export function getRealtimeStrategyHistoryRequirement(
 }
 
 export function getMlptChartNotice(runs: readonly ChartStrategyRunItem[]) {
-  const mlptRun = runs.find(({ strategy, settings }) =>
-    strategy.key === "machine-learning-price-targets" && settings.enabled);
+  const mlptRun = runs.find(
+    ({ strategy, settings }) =>
+      strategy.key === "machine-learning-price-targets" && settings.enabled,
+  );
   if (!mlptRun || mlptRun.result.output.metrics.modelReady === 1) {
     return null;
   }
@@ -131,7 +133,9 @@ export function getMlptChartNotice(runs: readonly ChartStrategyRunItem[]) {
 
 export function runChartStrategies(options: RunChartStrategiesOptions): ChartStrategyRunItem[] {
   return options.strategies.map((strategy, index) => {
-    const settings = options.settingsByStrategyKey[strategy.key] ?? options.resolveDefaultSettings(strategy, index);
+    const settings =
+      options.settingsByStrategyKey[strategy.key] ??
+      options.resolveDefaultSettings(strategy, index);
     let result: StrategyRunResult;
 
     try {
@@ -209,7 +213,9 @@ export function buildChartStrategyLogItems(
   );
 }
 
-export function buildChartStrategySignalRows(runs: readonly ChartStrategyRunItem[]): ChartStrategySignalRow[] {
+export function buildChartStrategySignalRows(
+  runs: readonly ChartStrategyRunItem[],
+): ChartStrategySignalRow[] {
   return runs.flatMap(({ result }) =>
     result.output.signals.map((signal, index) => ({
       id: `${result.strategy.key}-${signal.type}-${signal.timestamp}-${index}`,

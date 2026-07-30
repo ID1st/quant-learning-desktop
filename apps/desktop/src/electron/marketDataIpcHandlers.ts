@@ -10,7 +10,10 @@ import {
   fetchAlphaFeedIntradayBarsWithRest,
   fetchAlphaFeedQuoteSnapshotsWithRest,
 } from "./alphaFeedBridge.ts";
-import { fetchLongPortHistoricalBarsWithSdk, fetchLongPortQuoteSnapshotsWithSdk } from "./longPortBridge.ts";
+import {
+  fetchLongPortHistoricalBarsWithSdk,
+  fetchLongPortQuoteSnapshotsWithSdk,
+} from "./longPortBridge.ts";
 import {
   createMarketDataIpcShellHandlers,
   marketDataIpcDefaultProviderPriority,
@@ -60,13 +63,17 @@ export interface MarketDataIpcHandlerDependencies {
   readonly mlptHistoricalSources?: readonly MlptHistoricalBackfillSource[];
 }
 
-export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDependencies = {}): MarketDataIpcHandlers {
+export function createMarketDataIpcHandlers(
+  dependencies: MarketDataIpcHandlerDependencies = {},
+): MarketDataIpcHandlers {
   const shell = createMarketDataIpcShellHandlers();
   const credentialStore = dependencies.credentialStore;
   const streamSession = dependencies.streamSession ?? createAlphaFeedStreamSession();
-  const stockSdkOperations = dependencies.stockSdkOperations ?? createStockSdkGatewayProviderOperations(undefined, {
-    tencentBars: dependencies.tencentFinanceBars ?? createTencentFinanceBarsOperations(),
-  });
+  const stockSdkOperations =
+    dependencies.stockSdkOperations ??
+    createStockSdkGatewayProviderOperations(undefined, {
+      tencentBars: dependencies.tencentFinanceBars ?? createTencentFinanceBarsOperations(),
+    });
 
   if (!credentialStore && !dependencies.mlptHistoricalSources) {
     return shell;
@@ -104,23 +111,34 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       };
     },
     async fetchQuoteSnapshot(request) {
-      const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
-        credentialStore,
-        stockSdkOperations,
-        yahooFinanceProvider: dependencies.yahooFinanceProvider,
-      });
-      const priority = createQuoteSnapshotPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true);
-      const gateway = createMarketDataGateway(createMarketDataProviderRegistry(providers), priority);
+      const providers = createMarketDataProviders(
+        request.providerPolicy?.stockSdkPrimaryEnabled ?? true,
+        {
+          credentialStore,
+          stockSdkOperations,
+          yahooFinanceProvider: dependencies.yahooFinanceProvider,
+        },
+      );
+      const priority = createQuoteSnapshotPriority(
+        request.providerPolicy?.stockSdkPrimaryEnabled ?? true,
+      );
+      const gateway = createMarketDataGateway(
+        createMarketDataProviderRegistry(providers),
+        priority,
+      );
       const result = await gateway.fetchQuoteSnapshot(request.items);
 
       return toIpcGatewayResult(result);
     },
     async fetchHistoricalBars(request) {
-      const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
-        credentialStore,
-        stockSdkOperations,
-        yahooFinanceProvider: dependencies.yahooFinanceProvider,
-      });
+      const providers = createMarketDataProviders(
+        request.providerPolicy?.stockSdkPrimaryEnabled ?? true,
+        {
+          credentialStore,
+          stockSdkOperations,
+          yahooFinanceProvider: dependencies.yahooFinanceProvider,
+        },
+      );
       const gateway = createMarketDataGateway(
         createMarketDataProviderRegistry(providers),
         createHistoricalBarsPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true),
@@ -130,11 +148,14 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       return toIpcGatewayResult(result);
     },
     async fetchIntradayBars(request) {
-      const providers = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
-        credentialStore,
-        stockSdkOperations,
-        yahooFinanceProvider: dependencies.yahooFinanceProvider,
-      });
+      const providers = createMarketDataProviders(
+        request.providerPolicy?.stockSdkPrimaryEnabled ?? true,
+        {
+          credentialStore,
+          stockSdkOperations,
+          yahooFinanceProvider: dependencies.yahooFinanceProvider,
+        },
+      );
       if (request.providerPolicy?.mlptHistory) {
         return fetchMlptHistoricalBars(
           request,
@@ -154,7 +175,9 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
         enabled: true,
         delayLevel: "unknown",
       });
-      const gateway = createMarketDataGateway(createMarketDataProviderRegistry([searchProvider]), ["stock-sdk"]);
+      const gateway = createMarketDataGateway(createMarketDataProviderRegistry([searchProvider]), [
+        "stock-sdk",
+      ]);
       const searchResult = await gateway.searchInstruments(request.query, request.markets);
       if (searchResult.ok) {
         return toIpcGatewayResult(searchResult);
@@ -170,11 +193,14 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       // of making the user wait for the name-search endpoint to recover.
       // Use a separate provider instance: a failed optional search has already
       // marked the search provider unhealthy and must not suppress quote lookup.
-      const quoteProviders = createMarketDataProviders(request.providerPolicy?.stockSdkPrimaryEnabled ?? true, {
-        credentialStore,
-        stockSdkOperations,
-        yahooFinanceProvider: dependencies.yahooFinanceProvider,
-      });
+      const quoteProviders = createMarketDataProviders(
+        request.providerPolicy?.stockSdkPrimaryEnabled ?? true,
+        {
+          credentialStore,
+          stockSdkOperations,
+          yahooFinanceProvider: dependencies.yahooFinanceProvider,
+        },
+      );
       const quoteGateway = createMarketDataGateway(
         createMarketDataProviderRegistry(quoteProviders),
         createQuoteSnapshotPriority(request.providerPolicy?.stockSdkPrimaryEnabled ?? true),
@@ -189,19 +215,23 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       }
       return {
         ok: true,
-        data: [{
-          provider: quoteResult.provider,
-          market: exactSymbol.market,
-          symbol: exactSymbol.symbol,
-          name: quote.name ?? exactSymbol.name ?? exactSymbol.symbol,
-        }],
+        data: [
+          {
+            provider: quoteResult.provider,
+            market: exactSymbol.market,
+            symbol: exactSymbol.symbol,
+            name: quote.name ?? exactSymbol.name ?? exactSymbol.symbol,
+          },
+        ],
         meta: {
           provider: quoteResult.provider,
           health: quoteResult.health,
           servedAt: new Date().toISOString(),
           fallback: {
             activeProvider: quoteResult.provider,
-            fallbackFrom: quoteResult.triedProviders.find((provider) => provider !== quoteResult.provider),
+            fallbackFrom: quoteResult.triedProviders.find(
+              (provider) => provider !== quoteResult.provider,
+            ),
             triedProviders: quoteResult.triedProviders,
           },
         },
@@ -211,7 +241,9 @@ export function createMarketDataIpcHandlers(dependencies: MarketDataIpcHandlerDe
       const credentials = credentialStore.readAlphaFeedStreamCredentials();
 
       if (!credentials) {
-        return createProviderUnavailableResult("AlphaFeed WebSocket credentials are not configured.");
+        return createProviderUnavailableResult(
+          "AlphaFeed WebSocket credentials are not configured.",
+        );
       }
 
       const result = await streamSession.connect({
@@ -248,14 +280,17 @@ function createMlptHistoricalSources(
   const providerById = new Map(providers.map((provider) => [provider.id, provider]));
   return (["stock-sdk", "longbridge", "alphafeed-rest"] as const).flatMap((providerId) => {
     const provider = providerById.get(providerId);
-    if (!provider || typeof (provider as IntradayBarProvider).fetchIntradayBars !== "function") return [];
+    if (!provider || typeof (provider as IntradayBarProvider).fetchIntradayBars !== "function")
+      return [];
     const intradayProvider = provider as IntradayBarProvider;
-    return [{
-      provider: providerId,
-      fetchBars: (request: Parameters<IntradayBarProvider["fetchIntradayBars"]>[0]) =>
-        intradayProvider.fetchIntradayBars(request),
-      getHealth: () => provider.getHealth(),
-    }];
+    return [
+      {
+        provider: providerId,
+        fetchBars: (request: Parameters<IntradayBarProvider["fetchIntradayBars"]>[0]) =>
+          intradayProvider.fetchIntradayBars(request),
+        getHealth: () => provider.getHealth(),
+      },
+    ];
   });
 }
 
@@ -281,7 +316,8 @@ async function fetchMlptHistoricalBars(
     );
   }
   const activeSource = sources.find((source) => source.provider === activeProvider);
-  const health = await activeSource?.getHealth?.().catch(() => undefined) ??
+  const health =
+    (await activeSource?.getHealth?.().catch(() => undefined)) ??
     createMlptHistoricalHealth(activeProvider, result.coverage.targetSatisfied);
 
   return {
@@ -345,10 +381,13 @@ function createMarketDataProviders(
 
   if (stockSdkPrimaryEnabled) {
     providers.push(
-      createStockSdkGatewayProvider(dependencies.stockSdkOperations ?? createStockSdkGatewayProviderOperations(), {
-        enabled: true,
-        delayLevel: "unknown",
-      }),
+      createStockSdkGatewayProvider(
+        dependencies.stockSdkOperations ?? createStockSdkGatewayProviderOperations(),
+        {
+          enabled: true,
+          delayLevel: "unknown",
+        },
+      ),
     );
   }
 
@@ -356,9 +395,12 @@ function createMarketDataProviders(
   if (alphaFeedCredentials) {
     providers.push(
       createAlphaFeedRestGatewayProvider({
-        fetchQuoteSnapshot: (items) => fetchAlphaFeedQuoteSnapshotsWithRest(alphaFeedCredentials, toWatchlistItems(items)),
-        fetchHistoricalBars: (barRequest) => fetchAlphaFeedHistoricalBarsWithRest(alphaFeedCredentials, barRequest),
-        fetchIntradayBars: (barRequest) => fetchAlphaFeedIntradayBarsWithRest(alphaFeedCredentials, barRequest),
+        fetchQuoteSnapshot: (items) =>
+          fetchAlphaFeedQuoteSnapshotsWithRest(alphaFeedCredentials, toWatchlistItems(items)),
+        fetchHistoricalBars: (barRequest) =>
+          fetchAlphaFeedHistoricalBarsWithRest(alphaFeedCredentials, barRequest),
+        fetchIntradayBars: (barRequest) =>
+          fetchAlphaFeedIntradayBarsWithRest(alphaFeedCredentials, barRequest),
       }),
     );
   }
@@ -367,8 +409,10 @@ function createMarketDataProviders(
   if (longPortCredentials) {
     providers.push(
       createLongBridgeGatewayProvider({
-        fetchQuoteSnapshot: (items) => fetchLongPortQuoteSnapshotsWithSdk(longPortCredentials, toWatchlistItems(items)),
-        fetchHistoricalBars: (barRequest) => fetchLongPortHistoricalBarsWithSdk(longPortCredentials, barRequest),
+        fetchQuoteSnapshot: (items) =>
+          fetchLongPortQuoteSnapshotsWithSdk(longPortCredentials, toWatchlistItems(items)),
+        fetchHistoricalBars: (barRequest) =>
+          fetchLongPortHistoricalBarsWithSdk(longPortCredentials, barRequest),
       }),
     );
   }
@@ -378,8 +422,12 @@ function createMarketDataProviders(
   return providers;
 }
 
-function createQuoteSnapshotPriority(stockSdkPrimaryEnabled: boolean): readonly GatewayMarketDataProviderId[] {
-  return stockSdkPrimaryEnabled ? marketDataIpcDefaultProviderPriority : ["alphafeed-rest", "longbridge"];
+function createQuoteSnapshotPriority(
+  stockSdkPrimaryEnabled: boolean,
+): readonly GatewayMarketDataProviderId[] {
+  return stockSdkPrimaryEnabled
+    ? marketDataIpcDefaultProviderPriority
+    : ["alphafeed-rest", "longbridge"];
 }
 
 function createHistoricalBarsPriority(
@@ -398,7 +446,10 @@ function createIntradayBarsPriority(
     : ["alphafeed-rest", "longbridge", "yahoo-finance"];
 }
 
-function toExactSearchCandidate(query: string, markets?: readonly ("US" | "HK" | "CN")[]): MarketDataProviderRequestItem | null {
+function toExactSearchCandidate(
+  query: string,
+  markets?: readonly ("US" | "HK" | "CN")[],
+): MarketDataProviderRequestItem | null {
   const input = query.trim();
   if (!input || (input !== input.toUpperCase() && input !== input.toLowerCase())) {
     return null;
@@ -409,7 +460,8 @@ function toExactSearchCandidate(query: string, markets?: readonly ("US" | "HK" |
 
   if (allowedMarkets.includes("CN") && /^\d{6}(?:\.(?:SH|SZ))?$/u.test(value)) {
     const code = value.replace(/\.(?:SH|SZ)$/u, "");
-    const exchange = value.endsWith(".SZ") || code.startsWith("0") || code.startsWith("3") ? "SZ" : "SH";
+    const exchange =
+      value.endsWith(".SZ") || code.startsWith("0") || code.startsWith("3") ? "SZ" : "SH";
     return { market: "CN", symbol: `${code}.${exchange}`, name: code };
   }
 
@@ -455,12 +507,16 @@ function toIpcGatewayError(
   health: readonly MarketDataProviderHealthView[],
   triedProviders: readonly GatewayMarketDataProviderId[],
 ): MarketDataIpcError {
-  const providerHealth = error.provider ? health.find((item) => item.provider === error.provider) : undefined;
+  const providerHealth = error.provider
+    ? health.find((item) => item.provider === error.provider)
+    : undefined;
   return {
     code: mapGatewayErrorCode(error, providerHealth),
     message: providerHealth?.message ?? error.message,
     provider: error.provider,
-    retryAfterMs: providerHealth?.nextRetryAt ? Math.max(0, new Date(providerHealth.nextRetryAt).getTime() - Date.now()) : undefined,
+    retryAfterMs: providerHealth?.nextRetryAt
+      ? Math.max(0, new Date(providerHealth.nextRetryAt).getTime() - Date.now())
+      : undefined,
     fallback: {
       activeProvider: error.provider,
       triedProviders,
@@ -540,7 +596,10 @@ function mapStreamState(state: AlphaFeedStreamConnectionState) {
   return "fallback" as const;
 }
 
-function mapStreamHealthStatus(status: AlphaFeedProviderHealth["status"], state: AlphaFeedStreamConnectionState): MarketDataProviderHealthView["status"] {
+function mapStreamHealthStatus(
+  status: AlphaFeedProviderHealth["status"],
+  state: AlphaFeedStreamConnectionState,
+): MarketDataProviderHealthView["status"] {
   if (status === "ok" && state === "fallback") {
     return "degraded";
   }
@@ -580,7 +639,10 @@ function mapStreamQuoteSnapshot(snapshot: MarketQuoteSnapshot) {
   };
 }
 
-function mapGatewayErrorCode(error: MarketDataGatewayError, health?: MarketDataProviderHealthView): MarketDataIpcError["code"] {
+function mapGatewayErrorCode(
+  error: MarketDataGatewayError,
+  health?: MarketDataProviderHealthView,
+): MarketDataIpcError["code"] {
   if (error.code === "NO_CAPABLE_PROVIDER") {
     return "NO_CAPABLE_PROVIDER";
   }

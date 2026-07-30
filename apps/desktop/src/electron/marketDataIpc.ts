@@ -20,7 +20,10 @@ import {
   assertTrustedIpcSender,
   type DesktopRendererSecurityPolicy,
 } from "./electronSecurity.ts";
-export { createMarketDataIpcHandlers, type MarketDataIpcHandlerDependencies } from "./marketDataIpcHandlers.ts";
+export {
+  createMarketDataIpcHandlers,
+  type MarketDataIpcHandlerDependencies,
+} from "./marketDataIpcHandlers.ts";
 
 export function registerMarketDataIpcHandlers(
   securityPolicy: DesktopRendererSecurityPolicy,
@@ -36,14 +39,11 @@ export function registerMarketDataIpcHandlers(
     assertMarketDataRequestEnvelope(request, true);
     return handlers.fetchQuoteSnapshot(request as unknown as MarketDataIpcQuoteSnapshotRequest);
   });
-  ipcMain.handle(
-    marketDataIpcChannels.fetchHistoricalBars,
-    (event, request: unknown) => {
-      assertTrustedIpcSender(event, securityPolicy);
-      assertMarketDataBarRequestEnvelope(request);
-      return handlers.fetchHistoricalBars(request as Omit<MarketDataIpcBarRequest, "capability">);
-    },
-  );
+  ipcMain.handle(marketDataIpcChannels.fetchHistoricalBars, (event, request: unknown) => {
+    assertTrustedIpcSender(event, securityPolicy);
+    assertMarketDataBarRequestEnvelope(request);
+    return handlers.fetchHistoricalBars(request as Omit<MarketDataIpcBarRequest, "capability">);
+  });
   ipcMain.handle(marketDataIpcChannels.fetchIntradayBars, (event, request: unknown) => {
     assertTrustedIpcSender(event, securityPolicy);
     assertMarketDataBarRequestEnvelope(request);

@@ -15,31 +15,14 @@ import { sanitizeMarketDataProviderId } from "../features/marketData/marketDataP
 import { isMarketDataBarQualityValid } from "../features/marketData/marketDataQuality.ts";
 
 const markets = new Set(["US", "HK", "CN"]);
-const timeframes = new Set([
-  "realtime",
-  "1m",
-  "5m",
-  "15m",
-  "30m",
-  "1h",
-  "1d",
-  "1w",
-]);
+const timeframes = new Set(["realtime", "1m", "5m", "15m", "30m", "1h", "1d", "1w"]);
 const adjustments = new Set(["none", "forward", "backward"]);
-const upstreams = new Set([
-  "tencent",
-  "eastmoney",
-  "alphafeed",
-  "longbridge",
-  "yahoo-finance",
-]);
+const upstreams = new Set(["tencent", "eastmoney", "alphafeed", "longbridge", "yahoo-finance"]);
 const maximumWriteBars = 1_000;
 const maximumReadBars = 50_000;
 
 export type MarketBarCacheIpcErrorCode =
-  | "INVALID_REQUEST"
-  | "STORAGE_UNAVAILABLE"
-  | "MIGRATION_FAILED";
+  "INVALID_REQUEST" | "STORAGE_UNAVAILABLE" | "MIGRATION_FAILED";
 
 export type MarketBarCacheIpcResult<T> =
   | { readonly ok: true; readonly data: T }
@@ -82,13 +65,9 @@ export interface MarketBarCacheIpcBridge {
   prune(
     request?: MarketBarCachePruneRequest,
   ): Promise<MarketBarCacheIpcResult<MarketBarCachePruneResult>>;
-  clear(
-    key: MarketBarCacheKey,
-  ): Promise<MarketBarCacheIpcResult<boolean>>;
+  clear(key: MarketBarCacheKey): Promise<MarketBarCacheIpcResult<boolean>>;
   clearAll(): Promise<MarketBarCacheIpcResult<number>>;
-  legacyMigrationState(): Promise<
-    MarketBarCacheIpcResult<LegacyMarketCacheMigrationState>
-  >;
+  legacyMigrationState(): Promise<MarketBarCacheIpcResult<LegacyMarketCacheMigrationState>>;
   recordLegacyMigration(
     request: LegacyMarketCacheMigrationRecordRequest,
   ): Promise<MarketBarCacheIpcResult<null>>;
@@ -107,10 +86,7 @@ export const marketBarCacheIpcChannels = {
   recordLegacyMigration: "marketBarCache:recordLegacyMigration",
 } as const;
 
-function assertRecord(
-  value: unknown,
-  name: string,
-): asserts value is Record<string, unknown> {
+function assertRecord(value: unknown, name: string): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError(`${name} must be an object.`);
   }
@@ -122,15 +98,8 @@ function assertFiniteRange(
   minimum: number,
   maximum: number,
 ): asserts value is number {
-  if (
-    typeof value !== "number" ||
-    !Number.isFinite(value) ||
-    value < minimum ||
-    value > maximum
-  ) {
-    throw new TypeError(
-      `${name} must be a finite number between ${minimum} and ${maximum}.`,
-    );
+  if (typeof value !== "number" || !Number.isFinite(value) || value < minimum || value > maximum) {
+    throw new TypeError(`${name} must be a finite number between ${minimum} and ${maximum}.`);
   }
 }
 
@@ -146,9 +115,7 @@ function assertIntegerRange(
   }
 }
 
-export function assertMarketBarCacheKey(
-  value: unknown,
-): asserts value is MarketBarCacheKey {
+export function assertMarketBarCacheKey(value: unknown): asserts value is MarketBarCacheKey {
   assertRecord(value, "key");
   if (!markets.has(String(value.market))) {
     throw new TypeError("key.market is invalid.");
@@ -163,20 +130,11 @@ export function assertMarketBarCacheKey(
   if (!timeframes.has(String(value.timeframe))) {
     throw new TypeError("key.timeframe is invalid.");
   }
-  if (
-    value.adjust !== undefined &&
-    !adjustments.has(String(value.adjust))
-  ) {
+  if (value.adjust !== undefined && !adjustments.has(String(value.adjust))) {
     throw new TypeError("key.adjust is invalid.");
   }
-  if (
-    value.adjust !== undefined &&
-    value.timeframe !== "1d" &&
-    value.timeframe !== "1w"
-  ) {
-    throw new TypeError(
-      "key.adjust is only valid for historical timeframes.",
-    );
+  if (value.adjust !== undefined && value.timeframe !== "1d" && value.timeframe !== "1w") {
+    throw new TypeError("key.adjust is only valid for historical timeframes.");
   }
 }
 
@@ -197,17 +155,10 @@ function assertHistoricalCompletion(
     maximumReadBars,
   );
   if (typeof value.targetSatisfied !== "boolean") {
-    throw new TypeError(
-      "options.historicalCompletion.targetSatisfied must be a boolean.",
-    );
+    throw new TypeError("options.historicalCompletion.targetSatisfied must be a boolean.");
   }
-  if (
-    value.stopReason !== "target_reached" &&
-    value.stopReason !== "sources_exhausted"
-  ) {
-    throw new TypeError(
-      "options.historicalCompletion.stopReason is invalid.",
-    );
+  if (value.stopReason !== "target_reached" && value.stopReason !== "sources_exhausted") {
+    throw new TypeError("options.historicalCompletion.stopReason is invalid.");
   }
 }
 
@@ -220,35 +171,17 @@ function assertBar(value: unknown, key: MarketBarCacheKey, index: number) {
   ) {
     throw new TypeError(`bars[${index}] does not match the cache key.`);
   }
-  assertIntegerRange(
-    value.timestamp,
-    `bars[${index}].timestamp`,
-    0,
-    Number.MAX_SAFE_INTEGER,
-  );
+  assertIntegerRange(value.timestamp, `bars[${index}].timestamp`, 0, Number.MAX_SAFE_INTEGER);
   for (const field of ["open", "high", "low", "close", "volume"] as const) {
-    assertFiniteRange(
-      value[field],
-      `bars[${index}].${field}`,
-      0,
-      Number.MAX_VALUE,
-    );
+    assertFiniteRange(value[field], `bars[${index}].${field}`, 0, Number.MAX_VALUE);
   }
   if (value.amount !== undefined) {
-    assertFiniteRange(
-      value.amount,
-      `bars[${index}].amount`,
-      0,
-      Number.MAX_VALUE,
-    );
+    assertFiniteRange(value.amount, `bars[${index}].amount`, 0, Number.MAX_VALUE);
   }
   if (!sanitizeMarketDataProviderId(value.provider)) {
     throw new TypeError(`bars[${index}].provider is invalid.`);
   }
-  if (
-    value.upstream !== undefined &&
-    !upstreams.has(String(value.upstream))
-  ) {
+  if (value.upstream !== undefined && !upstreams.has(String(value.upstream))) {
     throw new TypeError(`bars[${index}].upstream is invalid.`);
   }
   if (!isMarketDataBarQualityValid(value as unknown as MarketDataBar)) {
@@ -272,14 +205,8 @@ export function assertMarketBarCacheWriteRequest(
   assertRecord(value, "request");
   assertMarketBarCacheKey(value.key);
   const key = value.key;
-  if (
-    !Array.isArray(value.bars) ||
-    value.bars.length < 1 ||
-    value.bars.length > maximumWriteBars
-  ) {
-    throw new TypeError(
-      `bars must contain between 1 and ${maximumWriteBars} entries.`,
-    );
+  if (!Array.isArray(value.bars) || value.bars.length < 1 || value.bars.length > maximumWriteBars) {
+    throw new TypeError(`bars must contain between 1 and ${maximumWriteBars} entries.`);
   }
   value.bars.forEach((bar, index) => assertBar(bar, key, index));
   if (value.options !== undefined) {
@@ -304,12 +231,7 @@ export function assertMarketBarCachePruneRequest(
   }
   assertRecord(value, "request");
   if (value.now !== undefined) {
-    assertIntegerRange(
-      value.now,
-      "request.now",
-      0,
-      Number.MAX_SAFE_INTEGER,
-    );
+    assertIntegerRange(value.now, "request.now", 0, Number.MAX_SAFE_INTEGER);
   }
 }
 
@@ -329,9 +251,7 @@ export function assertLegacyMarketCacheMigrationRecordRequest(
     throw new TypeError("request.errorCode is invalid.");
   }
   if (value.status === "complete" && value.errorCode !== undefined) {
-    throw new TypeError(
-      "request.errorCode must be omitted for a complete migration.",
-    );
+    throw new TypeError("request.errorCode must be omitted for a complete migration.");
   }
 }
 
@@ -364,11 +284,7 @@ export function createMarketBarCacheIpcHandlers(
       try {
         return {
           ok: true,
-          data: await repository.write(
-            request.key,
-            [...request.bars],
-            request.options,
-          ),
+          data: await repository.write(request.key, [...request.bars], request.options),
         };
       } catch {
         return storageFailure();
@@ -414,10 +330,7 @@ export function createMarketBarCacheIpcHandlers(
     },
     async recordLegacyMigration(request) {
       try {
-        await repository.recordLegacyMigration(
-          request.status,
-          request.errorCode,
-        );
+        await repository.recordLegacyMigration(request.status, request.errorCode);
         return { ok: true, data: null };
       } catch {
         return storageFailure();

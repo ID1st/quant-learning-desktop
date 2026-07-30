@@ -6,16 +6,10 @@ function assertRecord(value: unknown, label: string): asserts value is UnknownRe
   }
 }
 
-function assertExactKeys(
-  value: UnknownRecord,
-  expectedKeys: readonly string[],
-): void {
+function assertExactKeys(value: UnknownRecord, expectedKeys: readonly string[]): void {
   const keys = Object.keys(value).sort();
   const expected = [...expectedKeys].sort();
-  if (
-    keys.length !== expected.length ||
-    keys.some((key, index) => key !== expected[index])
-  ) {
+  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) {
     throw new TypeError("authentication IPC input keys are invalid");
   }
 }
@@ -48,9 +42,7 @@ function assertEmailCode(value: unknown): asserts value is string {
   }
 }
 
-export function assertEmailInput(
-  value: unknown,
-): asserts value is { email: string } {
+export function assertEmailInput(value: unknown): asserts value is { email: string } {
   assertRecord(value, "email input");
   assertExactKeys(value, ["email"]);
   assertEmail(value.email);
@@ -65,9 +57,7 @@ export function assertLoginInput(
   assertPassword(value.password);
 }
 
-export function assertRegisterInput(
-  value: unknown,
-): asserts value is {
+export function assertRegisterInput(value: unknown): asserts value is {
   email: string;
   emailCode: string;
   password: string;
@@ -79,9 +69,7 @@ export function assertRegisterInput(
   assertPassword(value.password);
 }
 
-export function assertResetPasswordInput(
-  value: unknown,
-): asserts value is {
+export function assertResetPasswordInput(value: unknown): asserts value is {
   email: string;
   emailCode: string;
   password: string;
@@ -89,9 +77,7 @@ export function assertResetPasswordInput(
   assertRegisterInput(value);
 }
 
-export function assertInviteInput(
-  value: unknown,
-): asserts value is { inviteCode: string } {
+export function assertInviteInput(value: unknown): asserts value is { inviteCode: string } {
   assertRecord(value, "invite input");
   assertExactKeys(value, ["inviteCode"]);
   if (

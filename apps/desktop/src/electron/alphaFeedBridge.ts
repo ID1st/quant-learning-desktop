@@ -9,7 +9,10 @@ import {
   type AlphaFeedMarketDataBar,
   type AlphaFeedVerificationSummary,
 } from "../../../../packages/api-client/src/alphafeed.ts";
-import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
+import type {
+  MarketQuoteSnapshot,
+  MarketWatchlistItem,
+} from "../features/marketData/marketDataSyncService.ts";
 
 export type AlphaFeedProviderHealthStatus =
   | "ok"
@@ -82,7 +85,11 @@ function getErrorMessage(error: unknown) {
 function classifyAlphaFeedError(message: string): AlphaFeedProviderHealthStatus {
   const normalized = message.toLowerCase();
 
-  if (message.includes("401") || message.includes("Key 无效") || normalized.includes("unauthorized")) {
+  if (
+    message.includes("401") ||
+    message.includes("Key 无效") ||
+    normalized.includes("unauthorized")
+  ) {
     return "auth_failed";
   }
 
@@ -111,7 +118,11 @@ function classifyAlphaFeedError(message: string): AlphaFeedProviderHealthStatus 
   return "error";
 }
 
-function createHealth(status: AlphaFeedProviderHealthStatus, message: string, startedAt: number): AlphaFeedProviderHealth {
+function createHealth(
+  status: AlphaFeedProviderHealthStatus,
+  message: string,
+  startedAt: number,
+): AlphaFeedProviderHealth {
   const latencyMs = Math.max(0, Math.round(Date.now() - startedAt));
   const health: AlphaFeedProviderHealth = {
     status,
@@ -127,11 +138,20 @@ function createHealth(status: AlphaFeedProviderHealthStatus, message: string, st
   return health;
 }
 
-function toSafeAlphaFeedError(error: unknown, credentials: AlphaFeedApiCredentials, action = "请求") {
+function toSafeAlphaFeedError(
+  error: unknown,
+  credentials: AlphaFeedApiCredentials,
+  action = "请求",
+) {
   return `AlphaFeed API ${action}失败：${redactSecret(getErrorMessage(error), credentials)}`;
 }
 
-function createErrorHealth(error: unknown, credentials: AlphaFeedApiCredentials, action: string, startedAt: number) {
+function createErrorHealth(
+  error: unknown,
+  credentials: AlphaFeedApiCredentials,
+  action: string,
+  startedAt: number,
+) {
   const safeMessage = toSafeAlphaFeedError(error, credentials, action);
   return createHealth(classifyAlphaFeedError(getErrorMessage(error)), safeMessage, startedAt);
 }

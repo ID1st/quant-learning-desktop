@@ -13,7 +13,9 @@ process.parentPort?.on("message", (event) => {
   });
 });
 
-export function createPluginUtilityRuntime(postResponse: (response: PluginRuntimeHostResponse) => void) {
+export function createPluginUtilityRuntime(
+  postResponse: (response: PluginRuntimeHostResponse) => void,
+) {
   return async (request: PluginRuntimeHostRequest) => {
     postResponse({ id: request.id, ok: false, message: pluginExecutionDisabledMessage });
   };

@@ -26,7 +26,9 @@ export function shouldExtendTimedElementToPlotRight(input: {
   toTimestamp: number;
   visibleEndTimestamp: number;
 }) {
-  return input.extendRight || !input.hasToTimestamp || input.toTimestamp > input.visibleEndTimestamp;
+  return (
+    input.extendRight || !input.hasToTimestamp || input.toTimestamp > input.visibleEndTimestamp
+  );
 }
 
 export function getChartLineDasharray(style: ChartLineStyle | undefined) {

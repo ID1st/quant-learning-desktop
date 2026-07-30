@@ -37,8 +37,9 @@ interface SafeCandle {
   readonly volume: number;
 }
 
-const finite = (value: number, fallback = 0) => Number.isFinite(value) ? value : fallback;
-const roundPeriod = (period: number, minimum = 1) => Math.max(minimum, Math.round(finite(period, minimum)));
+const finite = (value: number, fallback = 0) => (Number.isFinite(value) ? value : fallback);
+const roundPeriod = (period: number, minimum = 1) =>
+  Math.max(minimum, Math.round(finite(period, minimum)));
 
 function normalizeCandles(candles: readonly CandlePoint[]): SafeCandle[] {
   let previousClose = 0;
@@ -60,7 +61,9 @@ function normalizeCandles(candles: readonly CandlePoint[]): SafeCandle[] {
 }
 
 function average(values: readonly number[]): number {
-  return values.length === 0 ? 0 : values.reduce((total, value) => total + value, 0) / values.length;
+  return values.length === 0
+    ? 0
+    : values.reduce((total, value) => total + value, 0) / values.length;
 }
 
 function calculateValueMa(
@@ -87,7 +90,9 @@ function calculateValueEma(
   if (values.length < size) return [];
   const alpha = 2 / (size + 1);
   let current = average(values.slice(0, size).map((point) => finite(point.value)));
-  const result: IndicatorValuePoint[] = [{ timestamp: values[size - 1]!.timestamp, value: finite(current) }];
+  const result: IndicatorValuePoint[] = [
+    { timestamp: values[size - 1]!.timestamp, value: finite(current) },
+  ];
   for (let index = size; index < values.length; index += 1) {
     current = finite(values[index]!.value) * alpha + current * (1 - alpha);
     result.push({ timestamp: values[index]!.timestamp, value: finite(current) });
@@ -95,21 +100,37 @@ function calculateValueEma(
   return result;
 }
 
-export function calculateMa(candles: readonly CandlePoint[], period: number): IndicatorValuePoint[] {
+export function calculateMa(
+  candles: readonly CandlePoint[],
+  period: number,
+): IndicatorValuePoint[] {
   return calculateValueMa(
-    normalizeCandles(candles).map((candle) => ({ timestamp: candle.timestamp, value: candle.close })),
+    normalizeCandles(candles).map((candle) => ({
+      timestamp: candle.timestamp,
+      value: candle.close,
+    })),
     period,
   );
 }
 
-export function calculateEma(candles: readonly CandlePoint[], period: number): IndicatorValuePoint[] {
+export function calculateEma(
+  candles: readonly CandlePoint[],
+  period: number,
+): IndicatorValuePoint[] {
   return calculateValueEma(
-    normalizeCandles(candles).map((candle) => ({ timestamp: candle.timestamp, value: candle.close })),
+    normalizeCandles(candles).map((candle) => ({
+      timestamp: candle.timestamp,
+      value: candle.close,
+    })),
     period,
   );
 }
 
-export function calculateBoll(candles: readonly CandlePoint[], period: number, multiplier: number): IndicatorBandPoint[] {
+export function calculateBoll(
+  candles: readonly CandlePoint[],
+  period: number,
+  multiplier: number,
+): IndicatorBandPoint[] {
   const normalized = normalizeCandles(candles);
   const size = roundPeriod(period, 2);
   const factor = Math.max(0, finite(multiplier, 2));
@@ -135,14 +156,17 @@ export function calculateBbi(
   const normalizedPeriods = periods.map((period) => roundPeriod(period));
   const longest = Math.max(...normalizedPeriods);
   if (candles.length < longest) return [];
-  const byTimestamp = normalizedPeriods.map((period) =>
-    new Map(calculateMa(candles, period).map((point) => [point.timestamp, point.value])),
+  const byTimestamp = normalizedPeriods.map(
+    (period) =>
+      new Map(calculateMa(candles, period).map((point) => [point.timestamp, point.value])),
   );
-  return normalizeCandles(candles).slice(longest - 1).flatMap((candle) => {
-    const values = byTimestamp.map((series) => series.get(candle.timestamp));
-    if (values.some((value) => value === undefined)) return [];
-    return [{ timestamp: candle.timestamp, value: finite(average(values as number[])) }];
-  });
+  return normalizeCandles(candles)
+    .slice(longest - 1)
+    .flatMap((candle) => {
+      const values = byTimestamp.map((series) => series.get(candle.timestamp));
+      if (values.some((value) => value === undefined)) return [];
+      return [{ timestamp: candle.timestamp, value: finite(average(values as number[])) }];
+    });
 }
 
 export function calculateEne(
@@ -174,7 +198,9 @@ export function calculateSar(
   const accelerationMaximum = Math.max(accelerationStart, finite(maximum, 0.2));
   let rising = values[1]!.close >= values[0]!.close;
   let sar = rising ? values[0]!.low : values[0]!.high;
-  let extreme = rising ? Math.max(values[0]!.high, values[1]!.high) : Math.min(values[0]!.low, values[1]!.low);
+  let extreme = rising
+    ? Math.max(values[0]!.high, values[1]!.high)
+    : Math.min(values[0]!.low, values[1]!.low);
   let acceleration = accelerationStart;
   const result: IndicatorValuePoint[] = [];
 
@@ -182,7 +208,11 @@ export function calculateSar(
     const candle = values[index]!;
     sar += acceleration * (extreme - sar);
     if (rising) {
-      sar = Math.min(sar, values[index - 1]!.low, index > 1 ? values[index - 2]!.low : values[index - 1]!.low);
+      sar = Math.min(
+        sar,
+        values[index - 1]!.low,
+        index > 1 ? values[index - 2]!.low : values[index - 1]!.low,
+      );
       if (candle.low < sar) {
         rising = false;
         sar = extreme;
@@ -193,7 +223,11 @@ export function calculateSar(
         acceleration = Math.min(accelerationMaximum, acceleration + accelerationStep);
       }
     } else {
-      sar = Math.max(sar, values[index - 1]!.high, index > 1 ? values[index - 2]!.high : values[index - 1]!.high);
+      sar = Math.max(
+        sar,
+        values[index - 1]!.high,
+        index > 1 ? values[index - 2]!.high : values[index - 1]!.high,
+      );
       if (candle.high > sar) {
         rising = true;
         sar = extreme;
@@ -209,9 +243,15 @@ export function calculateSar(
   return result;
 }
 
-export function calculateVolumeMa(candles: readonly CandlePoint[], period: number): IndicatorValuePoint[] {
+export function calculateVolumeMa(
+  candles: readonly CandlePoint[],
+  period: number,
+): IndicatorValuePoint[] {
   return calculateValueMa(
-    normalizeCandles(candles).map((candle) => ({ timestamp: candle.timestamp, value: candle.volume })),
+    normalizeCandles(candles).map((candle) => ({
+      timestamp: candle.timestamp,
+      value: candle.volume,
+    })),
     period,
   );
 }
@@ -223,11 +263,15 @@ export function calculateMacd(
   signalPeriod: number,
   convention: IndicatorConvention,
 ): MacdPoint[] {
-  const fast = new Map(calculateEma(candles, fastPeriod).map((point) => [point.timestamp, point.value]));
+  const fast = new Map(
+    calculateEma(candles, fastPeriod).map((point) => [point.timestamp, point.value]),
+  );
   const slow = calculateEma(candles, slowPeriod);
   const dif = slow.flatMap((point) => {
     const fastValue = fast.get(point.timestamp);
-    return fastValue === undefined ? [] : [{ timestamp: point.timestamp, value: finite(fastValue - point.value) }];
+    return fastValue === undefined
+      ? []
+      : [{ timestamp: point.timestamp, value: finite(fastValue - point.value) }];
   });
   const dea = calculateValueEma(dif, signalPeriod);
   const difByTimestamp = new Map(dif.map((point) => [point.timestamp, point.value]));
@@ -265,12 +309,20 @@ export function calculateKdj(
     const rsv = amplitude === 0 ? 50 : ((values[index]!.close - lowest) / amplitude) * 100;
     k = ((kFactor - 1) * k + rsv) / kFactor;
     d = ((dFactor - 1) * d + k) / dFactor;
-    result.push({ timestamp: values[index]!.timestamp, k: finite(k, 50), d: finite(d, 50), j: finite(3 * k - 2 * d, 50) });
+    result.push({
+      timestamp: values[index]!.timestamp,
+      k: finite(k, 50),
+      d: finite(d, 50),
+      j: finite(3 * k - 2 * d, 50),
+    });
   }
   return result;
 }
 
-export function calculateRsi(candles: readonly CandlePoint[], period: number): IndicatorValuePoint[] {
+export function calculateRsi(
+  candles: readonly CandlePoint[],
+  period: number,
+): IndicatorValuePoint[] {
   const values = normalizeCandles(candles);
   const size = roundPeriod(period);
   if (values.length <= size) return [];
@@ -290,17 +342,21 @@ export function calculateRsi(candles: readonly CandlePoint[], period: number): I
       averageGain = ((size - 1) * averageGain + Math.max(0, change)) / size;
       averageLoss = ((size - 1) * averageLoss + Math.max(0, -change)) / size;
     }
-    const value = averageGain === 0 && averageLoss === 0
-      ? 50
-      : averageLoss === 0
-        ? 100
-        : 100 - 100 / (1 + averageGain / averageLoss);
+    const value =
+      averageGain === 0 && averageLoss === 0
+        ? 50
+        : averageLoss === 0
+          ? 100
+          : 100 - 100 / (1 + averageGain / averageLoss);
     result.push({ timestamp: values[index]!.timestamp, value: finite(value, 50) });
   }
   return result;
 }
 
-export function calculateWr(candles: readonly CandlePoint[], period: number): IndicatorValuePoint[] {
+export function calculateWr(
+  candles: readonly CandlePoint[],
+  period: number,
+): IndicatorValuePoint[] {
   const values = normalizeCandles(candles);
   const size = roundPeriod(period);
   if (values.length < size) return [];
@@ -312,7 +368,7 @@ export function calculateWr(candles: readonly CandlePoint[], period: number): In
     const amplitude = highest - lowest;
     return {
       timestamp: candle.timestamp,
-      value: amplitude === 0 ? -50 : finite(-100 * (highest - candle.close) / amplitude, -50),
+      value: amplitude === 0 ? -50 : finite((-100 * (highest - candle.close)) / amplitude, -50),
     };
   });
 }
@@ -334,7 +390,8 @@ export function calculateCci(
     const meanDeviation = average(window.map((value) => Math.abs(value - mean)));
     return {
       timestamp: candle.timestamp,
-      value: meanDeviation === 0 ? 0 : finite((typicalPrices[index]! - mean) / (scale * meanDeviation)),
+      value:
+        meanDeviation === 0 ? 0 : finite((typicalPrices[index]! - mean) / (scale * meanDeviation)),
     };
   });
 }

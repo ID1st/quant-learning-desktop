@@ -55,7 +55,10 @@ plot(close)
   assert.equal(result.summary.declaration, "strategy");
   assert.equal(result.summary.canCreateDraft, false);
   assert.equal(result.summary.translationPlan.status, "manual-review");
-  assert.equal(result.summary.warnings.some((warning) => warning.includes("strategy.entry")), true);
+  assert.equal(
+    result.summary.warnings.some((warning) => warning.includes("strategy.entry")),
+    true,
+  );
 });
 
 test("Pine preflight marks library scripts as unsupported", () => {
@@ -132,7 +135,11 @@ alertcondition(close > open, "Up")
   assert.equal(result.draft.runnable, false);
   assert.equal(result.draft.translation.status, "ready");
   assert.deepEqual(
-    result.draft.parameterSchema.map((parameter) => [parameter.key, parameter.type, parameter.defaultValue]),
+    result.draft.parameterSchema.map((parameter) => [
+      parameter.key,
+      parameter.type,
+      parameter.defaultValue,
+    ]),
     [
       ["length", "number", 20],
       ["enabled", "boolean", true],
@@ -196,8 +203,14 @@ alertcondition(close > basis, "Close Above SMA")
   });
 
   assert.equal(runResult.output.render.strategyId, "user-sma-alert");
-  assert.equal(runResult.output.render.elements.some((element) => element.kind === "trend-line"), true);
-  assert.equal(runResult.output.signals.some((signal) => signal.label === "Close Above SMA"), true);
+  assert.equal(
+    runResult.output.render.elements.some((element) => element.kind === "trend-line"),
+    true,
+  );
+  assert.equal(
+    runResult.output.signals.some((signal) => signal.label === "Close Above SMA"),
+    true,
+  );
   assert.equal(runResult.output.metrics.signalCount, runResult.output.signals.length);
 });
 
@@ -231,7 +244,11 @@ plot(ma)
 
   assert.equal(draftResult.ok, true);
   assert.equal(draftResult.draft.translation.status, "manual-review");
-  assert.ok(draftResult.draft.translation.ir.unsupportedCalls.some((item) => item.includes("request.security")));
+  assert.ok(
+    draftResult.draft.translation.ir.unsupportedCalls.some((item) =>
+      item.includes("request.security"),
+    ),
+  );
 
   const runnableResult = createRunnableUserStrategyDefinition(draftResult.draft);
   assert.equal(runnableResult.ok, false);

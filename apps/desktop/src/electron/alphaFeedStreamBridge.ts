@@ -1,5 +1,8 @@
 import type { Market } from "@quant/shared";
-import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marketData/marketDataSyncService.ts";
+import type {
+  MarketQuoteSnapshot,
+  MarketWatchlistItem,
+} from "../features/marketData/marketDataSyncService.ts";
 import type { AlphaFeedProviderHealth, AlphaFeedProviderHealthStatus } from "./alphaFeedBridge.ts";
 import type { AlphaFeedStreamCredentials } from "./secureCredentialStore.ts";
 
@@ -75,7 +78,11 @@ interface AlphaFeedStreamSessionState {
 
 const websocketOpenState = 1;
 
-function createHealth(status: AlphaFeedProviderHealthStatus, message: string, startedAt: number): AlphaFeedProviderHealth {
+function createHealth(
+  status: AlphaFeedProviderHealthStatus,
+  message: string,
+  startedAt: number,
+): AlphaFeedProviderHealth {
   return {
     status,
     message,
@@ -84,7 +91,9 @@ function createHealth(status: AlphaFeedProviderHealthStatus, message: string, st
   };
 }
 
-function getWebSocketFactory(createWebSocket?: AlphaFeedWebSocketFactory): AlphaFeedWebSocketFactory | null {
+function getWebSocketFactory(
+  createWebSocket?: AlphaFeedWebSocketFactory,
+): AlphaFeedWebSocketFactory | null {
   if (createWebSocket) {
     return createWebSocket;
   }
@@ -106,12 +115,15 @@ function normalizeMarket(value: unknown): Market | null {
 }
 
 function toNumber(value: unknown): number | null {
-  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  const numeric =
+    typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
   return Number.isFinite(numeric) ? numeric : null;
 }
 
 function getPayloadRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function getArrayPayload(value: unknown): unknown[] {
@@ -143,7 +155,10 @@ function readField(record: Record<string, unknown>, names: string[]) {
   return names.map((name) => record[name]).find((value) => value !== undefined && value !== null);
 }
 
-function parseStreamQuote(value: unknown, watchlistBySymbol: Map<string, MarketWatchlistItem>): MarketQuoteSnapshot | null {
+function parseStreamQuote(
+  value: unknown,
+  watchlistBySymbol: Map<string, MarketWatchlistItem>,
+): MarketQuoteSnapshot | null {
   const record = getPayloadRecord(value);
   if (!record) {
     return null;
@@ -151,9 +166,14 @@ function parseStreamQuote(value: unknown, watchlistBySymbol: Map<string, MarketW
 
   const symbol = normalizeSymbol(String(readField(record, ["symbol", "ticker", "code"]) ?? ""));
   const watchlistItem = watchlistBySymbol.get(symbol);
-  const market = normalizeMarket(readField(record, ["market", "region", "exchange"])) ?? watchlistItem?.market ?? null;
+  const market =
+    normalizeMarket(readField(record, ["market", "region", "exchange"])) ??
+    watchlistItem?.market ??
+    null;
   const lastPrice = toNumber(readField(record, ["lastPrice", "last_price", "price", "last"]));
-  const previousClose = toNumber(readField(record, ["previousClose", "prev_close", "preClose", "pre_close"]));
+  const previousClose = toNumber(
+    readField(record, ["previousClose", "prev_close", "preClose", "pre_close"]),
+  );
 
   if (!symbol || !market || lastPrice === null || previousClose === null) {
     return null;
@@ -164,7 +184,9 @@ function parseStreamQuote(value: unknown, watchlistBySymbol: Map<string, MarketW
   const lowPrice = toNumber(readField(record, ["lowPrice", "low"]));
   const volume = toNumber(readField(record, ["volume", "vol"])) ?? 0;
   const amount = toNumber(readField(record, ["amount", "turnover"]));
-  const explicitChangePercent = toNumber(readField(record, ["changePercent", "change_percent", "pct_chg", "changeRate"]));
+  const explicitChangePercent = toNumber(
+    readField(record, ["changePercent", "change_percent", "pct_chg", "changeRate"]),
+  );
   const timestamp = readField(record, ["quoteTime", "timestamp", "time", "ts"]);
   const quoteTime =
     typeof timestamp === "string"
@@ -190,7 +212,9 @@ function parseStreamQuote(value: unknown, watchlistBySymbol: Map<string, MarketW
   };
 }
 
-export function createAlphaFeedStreamSubscribePayload(request: AlphaFeedStreamConnectRequest): AlphaFeedStreamSubscribePayload {
+export function createAlphaFeedStreamSubscribePayload(
+  request: AlphaFeedStreamConnectRequest,
+): AlphaFeedStreamSubscribePayload {
   if (request.mode === "all-symbols") {
     return {
       op: "subscribe",
@@ -204,7 +228,9 @@ export function createAlphaFeedStreamSubscribePayload(request: AlphaFeedStreamCo
     op: "subscribe",
     channel: "quotes",
     auth: { apiKey: request.credentials.apiKey },
-    symbols: [...new Set(request.watchlist.map((item) => normalizeSymbol(item.symbol)).filter(Boolean))],
+    symbols: [
+      ...new Set(request.watchlist.map((item) => normalizeSymbol(item.symbol)).filter(Boolean)),
+    ],
   };
 }
 
@@ -219,11 +245,23 @@ export function parseAlphaFeedStreamMessage(data: unknown, watchlist: MarketWatc
     messageText.includes("invalid key") ||
     messageText.includes("invalid api")
   ) {
-    return { kind: "error" as const, status: "auth_failed" as const, message: "AlphaFeed WebSocket 认证失败，已切换 REST fallback" };
+    return {
+      kind: "error" as const,
+      status: "auth_failed" as const,
+      message: "AlphaFeed WebSocket 认证失败，已切换 REST fallback",
+    };
   }
 
-  if (messageText.includes("403") || messageText.includes("forbidden") || messageText.includes("permission")) {
-    return { kind: "error" as const, status: "permission_denied" as const, message: "AlphaFeed WebSocket 无权限，已切换 REST fallback" };
+  if (
+    messageText.includes("403") ||
+    messageText.includes("forbidden") ||
+    messageText.includes("permission")
+  ) {
+    return {
+      kind: "error" as const,
+      status: "permission_denied" as const,
+      message: "AlphaFeed WebSocket 无权限，已切换 REST fallback",
+    };
   }
 
   if (record?.type === "pong" || record?.event === "pong") {
@@ -241,20 +279,39 @@ export function parseAlphaFeedStreamMessage(data: unknown, watchlist: MarketWatc
 function classifyCloseEvent(event: { code?: number; reason?: string }) {
   const reason = (event.reason ?? "").toLowerCase();
 
-  if (event.code === 1008 || event.code === 4001 || reason.includes("unauthorized") || reason.includes("invalid key")) {
-    return { status: "auth_failed" as const, message: "AlphaFeed WebSocket 认证失败，已切换 REST fallback" };
+  if (
+    event.code === 1008 ||
+    event.code === 4001 ||
+    reason.includes("unauthorized") ||
+    reason.includes("invalid key")
+  ) {
+    return {
+      status: "auth_failed" as const,
+      message: "AlphaFeed WebSocket 认证失败，已切换 REST fallback",
+    };
   }
 
   if (event.code === 4003 || reason.includes("forbidden") || reason.includes("permission")) {
-    return { status: "permission_denied" as const, message: "AlphaFeed WebSocket 无权限，已切换 REST fallback" };
+    return {
+      status: "permission_denied" as const,
+      message: "AlphaFeed WebSocket 无权限，已切换 REST fallback",
+    };
   }
 
-  return { status: "network_error" as const, message: "AlphaFeed WebSocket 连接中断，已切换 REST fallback" };
+  return {
+    status: "network_error" as const,
+    message: "AlphaFeed WebSocket 连接中断，已切换 REST fallback",
+  };
 }
 
-export function createAlphaFeedStreamSession(dependencies: AlphaFeedStreamSessionDependencies = {}): AlphaFeedStreamSession {
-  const setTimer = dependencies.setTimeout ?? ((handler, timeoutMs) => setTimeout(handler, timeoutMs));
-  const clearTimer = dependencies.clearTimeout ?? ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+export function createAlphaFeedStreamSession(
+  dependencies: AlphaFeedStreamSessionDependencies = {},
+): AlphaFeedStreamSession {
+  const setTimer =
+    dependencies.setTimeout ?? ((handler, timeoutMs) => setTimeout(handler, timeoutMs));
+  const clearTimer =
+    dependencies.clearTimeout ??
+    ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
   const reconnectDelayMs = dependencies.reconnectDelayMs ?? 3_000;
   const maxReconnectAttempts = dependencies.maxReconnectAttempts ?? 3;
   const state: AlphaFeedStreamSessionState = {
@@ -284,7 +341,11 @@ export function createAlphaFeedStreamSession(dependencies: AlphaFeedStreamSessio
 
     if (!createWebSocket) {
       state.state = "fallback";
-      state.health = createHealth("network_error", "当前运行环境缺少 WebSocket，已切换 REST fallback", startedAt);
+      state.health = createHealth(
+        "network_error",
+        "当前运行环境缺少 WebSocket，已切换 REST fallback",
+        startedAt,
+      );
       return;
     }
 
@@ -326,18 +387,30 @@ export function createAlphaFeedStreamSession(dependencies: AlphaFeedStreamSessio
             state.snapshotsByKey[`${snapshot.market}:${snapshot.symbol}`] = snapshot;
           }
           state.state = "connected";
-          state.health = createHealth("ok", `AlphaFeed WebSocket 更新 ${parsed.snapshots.length} 只`, startedAt);
+          state.health = createHealth(
+            "ok",
+            `AlphaFeed WebSocket 更新 ${parsed.snapshots.length} 只`,
+            startedAt,
+          );
         }
       } catch {
         state.state = "fallback";
-        state.health = createHealth("invalid_response", "AlphaFeed WebSocket 响应无法解析，已切换 REST fallback", startedAt);
+        state.health = createHealth(
+          "invalid_response",
+          "AlphaFeed WebSocket 响应无法解析，已切换 REST fallback",
+          startedAt,
+        );
       }
     };
 
     socket.onerror = () => {
       if (state.socket === socket) {
         state.state = "fallback";
-        state.health = createHealth("network_error", "AlphaFeed WebSocket 网络错误，已切换 REST fallback", startedAt);
+        state.health = createHealth(
+          "network_error",
+          "AlphaFeed WebSocket 网络错误，已切换 REST fallback",
+          startedAt,
+        );
       }
     };
 
@@ -354,7 +427,10 @@ export function createAlphaFeedStreamSession(dependencies: AlphaFeedStreamSessio
         return;
       }
 
-      if (state.state === "fallback" && (state.health.status === "auth_failed" || state.health.status === "permission_denied")) {
+      if (
+        state.state === "fallback" &&
+        (state.health.status === "auth_failed" || state.health.status === "permission_denied")
+      ) {
         return;
       }
 
@@ -362,7 +438,11 @@ export function createAlphaFeedStreamSession(dependencies: AlphaFeedStreamSessio
       state.state = "fallback";
       state.health = createHealth(classified.status, classified.message, startedAt);
 
-      if (classified.status === "network_error" && state.reconnectAttempts < maxReconnectAttempts && state.request) {
+      if (
+        classified.status === "network_error" &&
+        state.reconnectAttempts < maxReconnectAttempts &&
+        state.request
+      ) {
         state.reconnectAttempts += 1;
         state.reconnectTimer = setTimer(() => {
           state.reconnectTimer = null;
@@ -378,7 +458,9 @@ export function createAlphaFeedStreamSession(dependencies: AlphaFeedStreamSessio
     async connect(request) {
       const sameUrl = state.request?.credentials.wsUrl === request.credentials.wsUrl;
       const sameMode = state.request?.mode === request.mode;
-      const sameWatchlist = JSON.stringify(state.request?.watchlist.map((item) => item.symbol)) === JSON.stringify(request.watchlist.map((item) => item.symbol));
+      const sameWatchlist =
+        JSON.stringify(state.request?.watchlist.map((item) => item.symbol)) ===
+        JSON.stringify(request.watchlist.map((item) => item.symbol));
 
       const hasStableSameRequest =
         sameUrl &&

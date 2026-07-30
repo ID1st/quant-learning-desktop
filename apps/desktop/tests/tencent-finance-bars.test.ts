@@ -6,7 +6,10 @@ import { createStockSdkGatewayProvider } from "../src/features/marketData/stockS
 import { createStockSdkGatewayProviderOperations } from "../src/features/marketData/stockSdkProviderOperations.ts";
 
 function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
 }
 
 test("Tencent Finance history maps market symbols and preserves requested adjustment", async () => {
@@ -30,9 +33,28 @@ test("Tencent Finance history maps market symbols and preserves requested adjust
   });
 
   const [cn, hk, us] = await Promise.all([
-    operations.fetchHistoricalBars({ market: "CN", symbol: "600519.SH", providerSymbol: "600519", timeframe: "1d", period: "daily", adjust: "forward" }),
-    operations.fetchHistoricalBars({ market: "HK", symbol: "00700.HK", providerSymbol: "00700", timeframe: "1d", period: "daily" }),
-    operations.fetchHistoricalBars({ market: "US", symbol: "AAPL.US", providerSymbol: "105.AAPL", timeframe: "1d", period: "daily" }),
+    operations.fetchHistoricalBars({
+      market: "CN",
+      symbol: "600519.SH",
+      providerSymbol: "600519",
+      timeframe: "1d",
+      period: "daily",
+      adjust: "forward",
+    }),
+    operations.fetchHistoricalBars({
+      market: "HK",
+      symbol: "00700.HK",
+      providerSymbol: "00700",
+      timeframe: "1d",
+      period: "daily",
+    }),
+    operations.fetchHistoricalBars({
+      market: "US",
+      symbol: "AAPL.US",
+      providerSymbol: "105.AAPL",
+      timeframe: "1d",
+      period: "daily",
+    }),
   ]);
 
   assert.equal(cn[0]?.close, 1204.98);
@@ -75,17 +97,11 @@ test("Tencent Finance history retries a US ticker with the NYSE suffix after an 
 
 test("Tencent Finance history prefers a complete continuous AMEX series over a partial NASDAQ result", async () => {
   const urls: string[] = [];
-  const rows = (count: number) => Array.from({ length: count }, (_, index) => {
-    const date = new Date(Date.UTC(2025, 0, 1 + index)).toISOString().slice(0, 10);
-    return [
-      date,
-      "100",
-      "101",
-      "102",
-      "99",
-      "1000",
-    ];
-  });
+  const rows = (count: number) =>
+    Array.from({ length: count }, (_, index) => {
+      const date = new Date(Date.UTC(2025, 0, 1 + index)).toISOString().slice(0, 10);
+      return [date, "100", "101", "102", "99", "1000"];
+    });
   const operations = createTencentFinanceBarsOperations({
     fetchImpl: async (input) => {
       const url = String(input);
@@ -112,16 +128,23 @@ test("Tencent Finance history prefers a complete continuous AMEX series over a p
 });
 
 test("Tencent Finance rejects a stale discontinuous AMEX history in favor of a shorter coherent series", async () => {
-  const rows = (start: string, count: number) => Array.from({ length: count }, (_, index) => {
-    const date = new Date(Date.parse(`${start}T12:00:00.000Z`) + index * 24 * 60 * 60 * 1_000).toISOString().slice(0, 10);
-    return [date, "100", "101", "102", "99", "1000"];
-  });
+  const rows = (start: string, count: number) =>
+    Array.from({ length: count }, (_, index) => {
+      const date = new Date(Date.parse(`${start}T12:00:00.000Z`) + index * 24 * 60 * 60 * 1_000)
+        .toISOString()
+        .slice(0, 10);
+      return [date, "100", "101", "102", "99", "1000"];
+    });
   const coherentNasdaqRows = rows("2026-06-12", 19);
   const discontinuousAmexRows = [...rows("2021-01-01", 260), ...rows("2026-07-10", 1)];
   const operations = createTencentFinanceBarsOperations({
     fetchImpl: async (input) => {
       const symbol = new URL(String(input)).searchParams.get("param")?.split(",")[0] ?? "";
-      const day = symbol.endsWith(".OQ") ? coherentNasdaqRows : symbol.endsWith(".AM") ? discontinuousAmexRows : [];
+      const day = symbol.endsWith(".OQ")
+        ? coherentNasdaqRows
+        : symbol.endsWith(".AM")
+          ? discontinuousAmexRows
+          : [];
       return jsonResponse({ code: 0, data: { [symbol]: { day } } });
     },
   });
@@ -155,7 +178,13 @@ test("Tencent Finance deduplicates an in-flight history request and retries one 
       });
     },
   });
-  const request = { market: "CN" as const, symbol: "600519.SH", providerSymbol: "600519", timeframe: "1d" as const, period: "daily" as const };
+  const request = {
+    market: "CN" as const,
+    symbol: "600519.SH",
+    providerSymbol: "600519",
+    timeframe: "1d" as const,
+    period: "daily" as const,
+  };
 
   const [first, second] = await Promise.all([
     operations.fetchHistoricalBars(request),
@@ -189,7 +218,13 @@ test("Tencent Finance caps concurrent upstream history requests at two", async (
   });
 
   const requests = ["600519", "600000", "600001", "600002"].map((code) =>
-    operations.fetchHistoricalBars({ market: "CN", symbol: `${code}.SH`, providerSymbol: code, timeframe: "1d", period: "daily" }),
+    operations.fetchHistoricalBars({
+      market: "CN",
+      symbol: `${code}.SH`,
+      providerSymbol: code,
+      timeframe: "1d",
+      period: "daily",
+    }),
   );
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(peak, 2);
@@ -232,11 +267,29 @@ test("Tencent Finance intraday maps A-share lots to shares and keeps Hong Kong v
     },
   });
 
-  const cn = await operations.fetchIntradayBars({ market: "CN", symbol: "600519.SH", providerSymbol: "600519", timeframe: "1m", period: "1" });
-  const hk = await operations.fetchIntradayBars({ market: "HK", symbol: "00700.HK", providerSymbol: "00700", timeframe: "1m", period: "1" });
+  const cn = await operations.fetchIntradayBars({
+    market: "CN",
+    symbol: "600519.SH",
+    providerSymbol: "600519",
+    timeframe: "1m",
+    period: "1",
+  });
+  const hk = await operations.fetchIntradayBars({
+    market: "HK",
+    symbol: "00700.HK",
+    providerSymbol: "00700",
+    timeframe: "1m",
+    period: "1",
+  });
 
-  assert.deepEqual(cn.map((bar) => bar.volume), [200, 300]);
-  assert.deepEqual(hk.map((bar) => bar.volume), [200, 60]);
+  assert.deepEqual(
+    cn.map((bar) => bar.volume),
+    [200, 300],
+  );
+  assert.deepEqual(
+    hk.map((bar) => bar.volume),
+    [200, 60],
+  );
   assert.equal(cn[1]?.close, 101);
   assert.equal(hk[1]?.amount, 24260);
 });
@@ -251,7 +304,14 @@ test("Tencent Finance does not turn a closed US single-point response into live 
   });
 
   await assert.rejects(
-    () => operations.fetchIntradayBars({ market: "US", symbol: "AAPL.US", providerSymbol: "105.AAPL", timeframe: "1m", period: "1" }),
+    () =>
+      operations.fetchIntradayBars({
+        market: "US",
+        symbol: "AAPL.US",
+        providerSymbol: "105.AAPL",
+        timeframe: "1m",
+        period: "1",
+      }),
     /no usable intraday data/i,
   );
 });
@@ -262,11 +322,31 @@ test("Stock SDK bar operations use the main-process Tencent route instead of sdk
     tencentBars: {
       async fetchHistoricalBars(request) {
         calls.push(`history:${request.market}:${request.period}`);
-        return [{ timestamp: 1_784_000_000_000, open: 100, high: 101, low: 99, close: 100, volume: 200, upstream: "tencent" }];
+        return [
+          {
+            timestamp: 1_784_000_000_000,
+            open: 100,
+            high: 101,
+            low: 99,
+            close: 100,
+            volume: 200,
+            upstream: "tencent",
+          },
+        ];
       },
       async fetchIntradayBars(request) {
         calls.push(`intraday:${request.market}:${request.period}`);
-        return [{ timestamp: 1_784_000_060_000, open: 100, high: 101, low: 99, close: 101, volume: 20, upstream: "tencent" }];
+        return [
+          {
+            timestamp: 1_784_000_060_000,
+            open: 100,
+            high: 101,
+            low: 99,
+            close: 101,
+            volume: 20,
+            upstream: "tencent",
+          },
+        ];
       },
     },
   });
@@ -292,15 +372,30 @@ test("Stock SDK bar operations use the main-process Tencent route instead of sdk
 });
 
 test("Stock SDK gateway retains Tencent provenance while keeping the product provider stable", async () => {
-  const provider = createStockSdkGatewayProvider({
-    fetchQuoteSnapshot: async () => [],
-    fetchHistoricalBars: async () => [
-      { timestamp: 1_784_000_000_000, open: 100, high: 101, low: 99, close: 100, volume: 200, upstream: "tencent" },
-    ],
-    fetchIntradayBars: async () => [],
-  }, { enabled: true });
+  const provider = createStockSdkGatewayProvider(
+    {
+      fetchQuoteSnapshot: async () => [],
+      fetchHistoricalBars: async () => [
+        {
+          timestamp: 1_784_000_000_000,
+          open: 100,
+          high: 101,
+          low: 99,
+          close: 100,
+          volume: 200,
+          upstream: "tencent",
+        },
+      ],
+      fetchIntradayBars: async () => [],
+    },
+    { enabled: true },
+  );
 
-  const bars = await provider.fetchHistoricalBars({ market: "US", symbol: "AAPL.US", timeframe: "1d" });
+  const bars = await provider.fetchHistoricalBars({
+    market: "US",
+    symbol: "AAPL.US",
+    timeframe: "1d",
+  });
   const health = await provider.getHealth();
 
   assert.equal(bars[0]?.provider, "stock-sdk");
@@ -317,7 +412,17 @@ test("Electron market-data IPC uses the Tencent history route for the Stock SDK 
     } as never,
     tencentFinanceBars: {
       async fetchHistoricalBars() {
-        return [{ timestamp: 1_784_000_000_000, open: 100, high: 101, low: 99, close: 100, volume: 200, upstream: "tencent" }];
+        return [
+          {
+            timestamp: 1_784_000_000_000,
+            open: 100,
+            high: 101,
+            low: 99,
+            close: 100,
+            volume: 200,
+            upstream: "tencent",
+          },
+        ];
       },
       async fetchIntradayBars() {
         return [];

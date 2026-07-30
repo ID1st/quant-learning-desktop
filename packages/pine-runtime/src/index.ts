@@ -85,7 +85,10 @@ export function wma(series: readonly SeriesValue[], length: number): Array<numbe
       return null;
     }
 
-    return window.reduce((total, value, windowIndex) => total + value * (windowIndex + 1), 0) / denominator;
+    return (
+      window.reduce((total, value, windowIndex) => total + value * (windowIndex + 1), 0) /
+      denominator
+    );
   });
 }
 
@@ -148,7 +151,11 @@ export function trueRange(bars: readonly OhlcBar[]): Array<number | null> {
       return bar.high - bar.low;
     }
 
-    return Math.max(bar.high - bar.low, Math.abs(bar.high - previousClose), Math.abs(bar.low - previousClose));
+    return Math.max(
+      bar.high - bar.low,
+      Math.abs(bar.high - previousClose),
+      Math.abs(bar.low - previousClose),
+    );
   });
 }
 
@@ -161,8 +168,8 @@ export function rsi(series: readonly SeriesValue[], length: number): Array<numbe
     const previous = history(series, index, 1);
     return isValidNumber(value) && isValidNumber(previous) ? value - previous : null;
   });
-  const gains = changes.map((value) => isValidNumber(value) ? Math.max(value, 0) : null);
-  const losses = changes.map((value) => isValidNumber(value) ? Math.max(-value, 0) : null);
+  const gains = changes.map((value) => (isValidNumber(value) ? Math.max(value, 0) : null));
+  const losses = changes.map((value) => (isValidNumber(value) ? Math.max(-value, 0) : null));
   const averageGain = rma(gains, length);
   const averageLoss = rma(losses, length);
 
@@ -191,7 +198,11 @@ export interface SupertrendResult {
   direction: Array<1 | -1 | null>;
 }
 
-export function supertrend(bars: readonly OhlcBar[], factor: number, length: number): SupertrendResult {
+export function supertrend(
+  bars: readonly OhlcBar[],
+  factor: number,
+  length: number,
+): SupertrendResult {
   const atrValues = atr(bars, length);
   const line: Array<number | null> = [];
   const direction: Array<1 | -1 | null> = [];
@@ -215,11 +226,15 @@ export function supertrend(bars: readonly OhlcBar[], factor: number, length: num
     const previousLower = lowerBand[index - 1];
     const previousClose = bars[index - 1]?.close;
     const finalUpper =
-      !isValidNumber(previousUpper) || basicUpper < previousUpper || (isValidNumber(previousClose) && previousClose > previousUpper)
+      !isValidNumber(previousUpper) ||
+      basicUpper < previousUpper ||
+      (isValidNumber(previousClose) && previousClose > previousUpper)
         ? basicUpper
         : previousUpper;
     const finalLower =
-      !isValidNumber(previousLower) || basicLower > previousLower || (isValidNumber(previousClose) && previousClose < previousLower)
+      !isValidNumber(previousLower) ||
+      basicLower > previousLower ||
+      (isValidNumber(previousClose) && previousClose < previousLower)
         ? basicLower
         : previousLower;
     const previousLine = line[index - 1];

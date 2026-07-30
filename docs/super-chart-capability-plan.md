@@ -42,11 +42,7 @@ interface ChartRenderLayer {
 }
 
 type ChartLayerElement =
-  | SignalMarkerElement
-  | PriceLineElement
-  | TrendLineElement
-  | BandElement
-  | TextAnnotationElement;
+  SignalMarkerElement | PriceLineElement | TrendLineElement | BandElement | TextAnnotationElement;
 ```
 
 图表包只渲染命令和处理命中测试；指标计算、策略计算和画线对象编辑不进入图表包。渲染顺序固定为：绘图、指标、策略，层内按 `zIndex` 升序，后绘制的元素位于上层。
@@ -102,7 +98,10 @@ interface MarketInstrument {
 }
 
 interface InstrumentSearchProvider extends MarketDataProvider {
-  searchInstruments(query: string, markets?: readonly Market[]): Promise<readonly MarketInstrument[]>;
+  searchInstruments(
+    query: string,
+    markets?: readonly Market[],
+  ): Promise<readonly MarketInstrument[]>;
 }
 ```
 

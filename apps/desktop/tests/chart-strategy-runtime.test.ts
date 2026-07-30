@@ -66,7 +66,10 @@ describe("chart strategy runtime", () => {
 
   it("hides the LuxAlgo suffix only in SMC signal panel names", () => {
     assert.equal(
-      formatChartStrategySignalName({ key: "smart-money-concepts", name: "Smart Money Concepts [LuxAlgo]" }),
+      formatChartStrategySignalName({
+        key: "smart-money-concepts",
+        name: "Smart Money Concepts [LuxAlgo]",
+      }),
       "Smart Money Concepts",
     );
     assert.equal(
@@ -85,24 +88,29 @@ describe("chart strategy runtime", () => {
   it("uses the largest enabled realtime history requirement", () => {
     const registry = createPresetStrategyRegistry();
     const strategies = registry.list();
-    const disabled = Object.fromEntries(strategies.map((strategy) => [
-      strategy.key,
-      { enabled: false, showLayer: true, parameters: {} },
-    ]));
+    const disabled = Object.fromEntries(
+      strategies.map((strategy) => [
+        strategy.key,
+        { enabled: false, showLayer: true, parameters: {} },
+      ]),
+    );
 
     assert.deepEqual(getRealtimeStrategyHistoryRequirement(strategies, disabled), {
       minimumBars: 0,
       preferredBars: 2_500,
       sessionCount: 5,
     });
-    assert.deepEqual(getRealtimeStrategyHistoryRequirement(strategies, {
-      ...disabled,
-      "machine-learning-price-targets": { enabled: true, showLayer: true, parameters: {} },
-    }), {
-      minimumBars: 1_000,
-      preferredBars: 5_000,
-      sessionCount: 22,
-    });
+    assert.deepEqual(
+      getRealtimeStrategyHistoryRequirement(strategies, {
+        ...disabled,
+        "machine-learning-price-targets": { enabled: true, showLayer: true, parameters: {} },
+      }),
+      {
+        minimumBars: 1_000,
+        preferredBars: 5_000,
+        sessionCount: 22,
+      },
+    );
   });
 
   it("runs UTORB and Trend Targets from the same normalized realtime bars", () => {
@@ -164,11 +172,20 @@ describe("chart strategy runtime", () => {
 
     assert.equal(runs.length, 2);
     assert.equal(runs[0]?.result.input.bars, realtimeBars);
-    assert.ok((runs.find((run) => run.strategy.key === "utorb")?.result.output.signals.length ?? 0) > 0);
-    assert.ok((runs.find((run) => run.strategy.key === "trend-targets")?.result.output.render.elements.length ?? 0) > 0);
-    assert.ok(runs.find((run) => run.strategy.key === "utorb")?.result.output.render.elements.some(
-      (element) => element.kind === "price-line" && element.toTimestamp !== undefined,
-    ));
+    assert.ok(
+      (runs.find((run) => run.strategy.key === "utorb")?.result.output.signals.length ?? 0) > 0,
+    );
+    assert.ok(
+      (runs.find((run) => run.strategy.key === "trend-targets")?.result.output.render.elements
+        .length ?? 0) > 0,
+    );
+    assert.ok(
+      runs
+        .find((run) => run.strategy.key === "utorb")
+        ?.result.output.render.elements.some(
+          (element) => element.kind === "price-line" && element.toTimestamp !== undefined,
+        ),
+    );
   });
 
   it("runs preset strategies from normalized market bars and exposes chart-facing output", () => {
@@ -310,21 +327,23 @@ describe("chart strategy runtime", () => {
     });
     const confirmedThroughTimestamp = mlptBars.at(-2)!.timestamp;
     const settings = { enabled: true, showLayer: true, parameters: {} };
-    const run = (inputBars: Bar[]) => runChartStrategies({
-      strategies: [strategy],
-      registry,
-      settingsByStrategyKey: { [strategy.key]: settings },
-      resolveDefaultSettings: () => settings,
-      symbol: "AAPL.US",
-      market: "US",
-      timeframe: "realtime",
-      bars: inputBars,
-      confirmedThroughTimestamp,
-    })[0]!;
+    const run = (inputBars: Bar[]) =>
+      runChartStrategies({
+        strategies: [strategy],
+        registry,
+        settingsByStrategyKey: { [strategy.key]: settings },
+        resolveDefaultSettings: () => settings,
+        symbol: "AAPL.US",
+        market: "US",
+        timeframe: "realtime",
+        bars: inputBars,
+        confirmedThroughTimestamp,
+      })[0]!;
 
     const first = run(mlptBars);
     const changedOpenCandle = mlptBars.map((bar, index) =>
-      index === mlptBars.length - 1 ? { ...bar, close: bar.close + 20, high: bar.high + 20 } : bar);
+      index === mlptBars.length - 1 ? { ...bar, close: bar.close + 20, high: bar.high + 20 } : bar,
+    );
     const second = run(changedOpenCandle);
 
     assert.equal(executionCount, 1);
@@ -332,7 +351,8 @@ describe("chart strategy runtime", () => {
     assert.equal(second.result.input.bars, changedOpenCandle);
 
     const correctedHistory = changedOpenCandle.map((bar, index) =>
-      index === 500 ? { ...bar, close: bar.close + 1 } : bar);
+      index === 500 ? { ...bar, close: bar.close + 1 } : bar,
+    );
     run(correctedHistory);
     assert.equal(executionCount, 2);
   });

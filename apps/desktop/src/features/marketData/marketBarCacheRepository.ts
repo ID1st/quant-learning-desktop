@@ -17,9 +17,7 @@ export interface MarketBarCachePruneResult {
 }
 
 export type LegacyMarketCacheMigrationErrorCode =
-  | "LEGACY_ENTRY_INVALID"
-  | "LEGACY_IMPORT_FAILED"
-  | "LEGACY_VERIFICATION_FAILED";
+  "LEGACY_ENTRY_INVALID" | "LEGACY_IMPORT_FAILED" | "LEGACY_VERIFICATION_FAILED";
 
 export interface LegacyMarketCacheMigrationState {
   status: "pending" | "failed" | "complete";

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mapLongPortCandlesticksToBars, sanitizeLongPortCandlestickCount } from "../src/electron/longPortBridge.ts";
+import {
+  mapLongPortCandlesticksToBars,
+  sanitizeLongPortCandlestickCount,
+} from "../src/electron/longPortBridge.ts";
 
 function decimal(value: string) {
   return {

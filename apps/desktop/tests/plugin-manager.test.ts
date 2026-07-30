@@ -5,7 +5,11 @@ import { join } from "node:path";
 import test from "node:test";
 import { createPluginManager } from "../src/electron/pluginManager.ts";
 
-async function createPluginDirectory(root: string, manifest: Record<string, unknown>, source = "export function activate() {}") {
+async function createPluginDirectory(
+  root: string,
+  manifest: Record<string, unknown>,
+  source = "export function activate() {}",
+) {
   const directory = join(root, "source-plugin");
   await mkdir(join(directory, "dist"), { recursive: true });
   await writeFile(join(directory, "plugin.json"), JSON.stringify(manifest), "utf8");
@@ -56,7 +60,11 @@ test("plugin manager rejects entries that escape the selected package directory"
   const root = await mkdtemp(join(tmpdir(), "quant-plugin-manager-"));
 
   try {
-    const source = await createPluginDirectory(root, { ...manifest, id: "com.quant.strategy.escape", main: "../outside.js" });
+    const source = await createPluginDirectory(root, {
+      ...manifest,
+      id: "com.quant.strategy.escape",
+      main: "../outside.js",
+    });
     const manager = createPluginManager({ pluginsDirectory: join(root, "installed") });
 
     await assert.rejects(() => manager.installFromDirectory(source), /entry path/i);
@@ -95,7 +103,11 @@ test("plugin manager rejects an invalid plugin version", async () => {
   const root = await mkdtemp(join(tmpdir(), "quant-plugin-manager-"));
 
   try {
-    const source = await createPluginDirectory(root, { ...manifest, id: "com.quant.strategy.invalid-version", version: "latest" });
+    const source = await createPluginDirectory(root, {
+      ...manifest,
+      id: "com.quant.strategy.invalid-version",
+      version: "latest",
+    });
     const manager = createPluginManager({ pluginsDirectory: join(root, "installed") });
 
     await assert.rejects(() => manager.installFromDirectory(source), /version range is invalid/i);
@@ -112,8 +124,14 @@ test("plugin manager degrades a failing runtime and disables it after repeated f
     const manager = createPluginManager({ pluginsDirectory: join(root, "installed") });
     await manager.installFromDirectory(source);
 
-    assert.equal((await manager.recordRuntimeFailure(manifest.id, "activation failed")).status, "degraded");
-    assert.equal((await manager.recordRuntimeFailure(manifest.id, "activation failed")).status, "degraded");
+    assert.equal(
+      (await manager.recordRuntimeFailure(manifest.id, "activation failed")).status,
+      "degraded",
+    );
+    assert.equal(
+      (await manager.recordRuntimeFailure(manifest.id, "activation failed")).status,
+      "degraded",
+    );
     const disabled = await manager.recordRuntimeFailure(manifest.id, "activation failed");
 
     assert.equal(disabled.status, "disabled");

@@ -23,7 +23,8 @@ export type MarketDataIpcErrorCode =
   | "NETWORK_ERROR"
   | "UNKNOWN_ERROR";
 
-export type MarketDataIpcStreamState = "idle" | "connecting" | "connected" | "fallback" | "disconnected" | "error";
+export type MarketDataIpcStreamState =
+  "idle" | "connecting" | "connected" | "fallback" | "disconnected" | "error";
 
 export interface MarketDataIpcRequestContext {
   readonly source: MarketDataIpcRequestSource;
@@ -145,25 +146,47 @@ export type MarketDataIpcProviderStatusResult =
       readonly ok: false;
       readonly error: MarketDataIpcError;
     };
-export type MarketDataIpcQuoteSnapshotResult = MarketDataIpcResult<readonly GatewayMarketQuoteSnapshot[]>;
+export type MarketDataIpcQuoteSnapshotResult = MarketDataIpcResult<
+  readonly GatewayMarketQuoteSnapshot[]
+>;
 export type MarketDataIpcBarsResult = MarketDataIpcResult<readonly GatewayMarketDataBar[]>;
 export type MarketDataIpcInstrumentSearchResult = MarketDataIpcResult<readonly MarketInstrument[]>;
-export type MarketDataIpcStreamConnectResult = MarketDataIpcResult<{ readonly state: MarketDataIpcStreamState }>;
+export type MarketDataIpcStreamConnectResult = MarketDataIpcResult<{
+  readonly state: MarketDataIpcStreamState;
+}>;
 export type MarketDataIpcStreamSnapshotResult = MarketDataIpcResult<{
   readonly snapshots: readonly GatewayMarketQuoteSnapshot[];
   readonly state: MarketDataIpcStreamState;
 }>;
-export type MarketDataIpcStreamDisconnectResult = MarketDataIpcResult<{ readonly state: MarketDataIpcStreamState }>;
+export type MarketDataIpcStreamDisconnectResult = MarketDataIpcResult<{
+  readonly state: MarketDataIpcStreamState;
+}>;
 
 export interface MarketDataIpcBridge {
-  getProviderStatus(context: MarketDataIpcRequestContext): Promise<MarketDataIpcProviderStatusResult>;
-  fetchQuoteSnapshot(request: MarketDataIpcQuoteSnapshotRequest): Promise<MarketDataIpcQuoteSnapshotResult>;
-  fetchHistoricalBars(request: Omit<MarketDataIpcBarRequest, "capability">): Promise<MarketDataIpcBarsResult>;
-  fetchIntradayBars(request: Omit<MarketDataIpcBarRequest, "capability">): Promise<MarketDataIpcBarsResult>;
-  searchInstruments(request: MarketDataIpcInstrumentSearchRequest): Promise<MarketDataIpcInstrumentSearchResult>;
-  connectQuoteStream(request: MarketDataIpcStreamConnectRequest): Promise<MarketDataIpcStreamConnectResult>;
-  readQuoteStreamSnapshot(request: MarketDataIpcStreamReadRequest): Promise<MarketDataIpcStreamSnapshotResult>;
-  disconnectQuoteStream(context: MarketDataIpcRequestContext): Promise<MarketDataIpcStreamDisconnectResult>;
+  getProviderStatus(
+    context: MarketDataIpcRequestContext,
+  ): Promise<MarketDataIpcProviderStatusResult>;
+  fetchQuoteSnapshot(
+    request: MarketDataIpcQuoteSnapshotRequest,
+  ): Promise<MarketDataIpcQuoteSnapshotResult>;
+  fetchHistoricalBars(
+    request: Omit<MarketDataIpcBarRequest, "capability">,
+  ): Promise<MarketDataIpcBarsResult>;
+  fetchIntradayBars(
+    request: Omit<MarketDataIpcBarRequest, "capability">,
+  ): Promise<MarketDataIpcBarsResult>;
+  searchInstruments(
+    request: MarketDataIpcInstrumentSearchRequest,
+  ): Promise<MarketDataIpcInstrumentSearchResult>;
+  connectQuoteStream(
+    request: MarketDataIpcStreamConnectRequest,
+  ): Promise<MarketDataIpcStreamConnectResult>;
+  readQuoteStreamSnapshot(
+    request: MarketDataIpcStreamReadRequest,
+  ): Promise<MarketDataIpcStreamSnapshotResult>;
+  disconnectQuoteStream(
+    context: MarketDataIpcRequestContext,
+  ): Promise<MarketDataIpcStreamDisconnectResult>;
 }
 
 export type MarketDataIpcHandlers = MarketDataIpcBridge;
@@ -201,25 +224,39 @@ export function createMarketDataIpcShellHandlers(): MarketDataIpcHandlers {
       };
     },
     async fetchQuoteSnapshot() {
-      return createUnavailableResult("Provider-neutral market data quote IPC is registered but not wired yet.");
+      return createUnavailableResult(
+        "Provider-neutral market data quote IPC is registered but not wired yet.",
+      );
     },
     async fetchHistoricalBars() {
-      return createUnavailableResult("Provider-neutral market data historical bars IPC is registered but not wired yet.");
+      return createUnavailableResult(
+        "Provider-neutral market data historical bars IPC is registered but not wired yet.",
+      );
     },
     async fetchIntradayBars() {
-      return createUnavailableResult("Provider-neutral market data intraday bars IPC is registered but not wired yet.");
+      return createUnavailableResult(
+        "Provider-neutral market data intraday bars IPC is registered but not wired yet.",
+      );
     },
     async searchInstruments() {
-      return createUnavailableResult("Provider-neutral market data instrument search IPC is registered but not wired yet.");
+      return createUnavailableResult(
+        "Provider-neutral market data instrument search IPC is registered but not wired yet.",
+      );
     },
     async connectQuoteStream() {
-      return createUnavailableResult("Provider-neutral market data stream IPC is registered but not wired yet.");
+      return createUnavailableResult(
+        "Provider-neutral market data stream IPC is registered but not wired yet.",
+      );
     },
     async readQuoteStreamSnapshot() {
-      return createUnavailableResult("Provider-neutral market data stream IPC is registered but not wired yet.");
+      return createUnavailableResult(
+        "Provider-neutral market data stream IPC is registered but not wired yet.",
+      );
     },
     async disconnectQuoteStream() {
-      return createUnavailableResult("Provider-neutral market data stream IPC is registered but not wired yet.");
+      return createUnavailableResult(
+        "Provider-neutral market data stream IPC is registered but not wired yet.",
+      );
     },
   };
 }

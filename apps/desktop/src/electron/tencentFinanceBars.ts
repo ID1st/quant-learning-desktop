@@ -1,5 +1,8 @@
 import type { Market } from "@quant/shared";
-import type { StockSdkBarRequest, StockSdkRawRecord } from "../features/marketData/stockSdkGatewayProvider.ts";
+import type {
+  StockSdkBarRequest,
+  StockSdkRawRecord,
+} from "../features/marketData/stockSdkGatewayProvider.ts";
 
 export interface TencentFinanceBarsOperations {
   fetchHistoricalBars(request: StockSdkBarRequest): Promise<readonly StockSdkRawRecord[]>;
@@ -27,10 +30,7 @@ interface DateParts {
 class TencentFinanceRequestError extends Error {
   readonly retryable: boolean;
 
-  constructor(
-    message: string,
-    retryable: boolean,
-  ) {
+  constructor(message: string, retryable: boolean) {
     super(message);
     this.name = "TencentFinanceRequestError";
     this.retryable = retryable;
@@ -55,9 +55,15 @@ const requestHeaders = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 };
 
-export function createTencentFinanceBarsOperations(options: TencentFinanceBarsOptions = {}): TencentFinanceBarsOperations {
+export function createTencentFinanceBarsOperations(
+  options: TencentFinanceBarsOptions = {},
+): TencentFinanceBarsOperations {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const request = createTencentRequestClient(fetchImpl, options.timeoutMs ?? 8_000, options.maxConcurrency ?? 2);
+  const request = createTencentRequestClient(
+    fetchImpl,
+    options.timeoutMs ?? 8_000,
+    options.maxConcurrency ?? 2,
+  );
   const usExchangeByTicker = new Map<string, TencentUsExchange>();
 
   return {
@@ -73,7 +79,9 @@ export function createTencentFinanceBarsOperations(options: TencentFinanceBarsOp
           const bars = mapHistoryBars(payload, barRequest, symbol);
 
           if (bars.length === 0) {
-            throw new TencentFinanceNoDataError(`Tencent Finance returned no usable historical data for ${barRequest.symbol}.`);
+            throw new TencentFinanceNoDataError(
+              `Tencent Finance returned no usable historical data for ${barRequest.symbol}.`,
+            );
           }
 
           if (isBetterHistoricalCandidate(bars, bestBars, barRequest)) {
@@ -81,7 +89,11 @@ export function createTencentFinanceBarsOperations(options: TencentFinanceBarsOp
             bestSymbol = symbol;
           }
 
-          if (barRequest.market !== "US" || hasSufficientHistoricalBars(bars, barRequest) && isContinuousHistoricalSeries(bars, barRequest)) {
+          if (
+            barRequest.market !== "US" ||
+            (hasSufficientHistoricalBars(bars, barRequest) &&
+              isContinuousHistoricalSeries(bars, barRequest))
+          ) {
             if (barRequest.market === "US") {
               usExchangeByTicker.set(getUsTicker(barRequest), getTencentUsExchange(symbol));
             }
@@ -109,7 +121,9 @@ export function createTencentFinanceBarsOperations(options: TencentFinanceBarsOp
         const payload = await request(getCnMinuteKlineUrl(toTencentSymbol(barRequest), barRequest));
         const bars = mapCnMinuteKlineBars(payload, barRequest, toTencentSymbol(barRequest));
         if (bars.length === 0) {
-          throw new Error(`Tencent Finance returned no usable intraday data for ${barRequest.symbol}.`);
+          throw new Error(
+            `Tencent Finance returned no usable intraday data for ${barRequest.symbol}.`,
+          );
         }
         return bars;
       }
@@ -121,10 +135,19 @@ export function createTencentFinanceBarsOperations(options: TencentFinanceBarsOp
         try {
           const payload = await request(getMinuteUrl(symbol));
           const minuteBars = mapMinuteBars(payload, barRequest, symbol);
-          const bars = barRequest.period === "1" ? minuteBars : aggregateMinuteBars(minuteBars, Number(barRequest.period));
+          const bars =
+            barRequest.period === "1"
+              ? minuteBars
+              : aggregateMinuteBars(minuteBars, Number(barRequest.period));
 
-          if (bars.length === 0 || (barRequest.market === "US" && (minuteBars.length < 2 || !hasMinuteDate(payload, symbol)))) {
-            throw new TencentFinanceNoDataError(`Tencent Finance returned no usable intraday data for ${barRequest.symbol}.`);
+          if (
+            bars.length === 0 ||
+            (barRequest.market === "US" &&
+              (minuteBars.length < 2 || !hasMinuteDate(payload, symbol)))
+          ) {
+            throw new TencentFinanceNoDataError(
+              `Tencent Finance returned no usable intraday data for ${barRequest.symbol}.`,
+            );
           }
 
           if (barRequest.market === "US") {
@@ -147,56 +170,67 @@ export function createTencentFinanceBarsOperations(options: TencentFinanceBarsOp
   };
 }
 
-function createTencentRequestClient(fetchImpl: typeof fetch, timeoutMs: number, maxConcurrency: number) {
+function createTencentRequestClient(
+  fetchImpl: typeof fetch,
+  timeoutMs: number,
+  maxConcurrency: number,
+) {
   const scheduler = createRequestScheduler(Math.min(2, Math.max(1, Math.floor(maxConcurrency))));
 
-  return (url: URL) => scheduler.run(url.toString(), async () => {
-    let lastError: unknown;
+  return (url: URL) =>
+    scheduler.run(url.toString(), async () => {
+      let lastError: unknown;
 
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
+      for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
-          const response = await fetchImpl(url, {
-            method: "GET",
-            headers: requestHeaders,
-            signal: controller.signal,
-          });
-          const body = await response.text();
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-          if (!response.ok) {
-            throw new TencentFinanceRequestError(
-              `Tencent Finance request failed with HTTP ${response.status}.`,
-              response.status >= 500,
-            );
-          }
+          try {
+            const response = await fetchImpl(url, {
+              method: "GET",
+              headers: requestHeaders,
+              signal: controller.signal,
+            });
+            const body = await response.text();
 
-          if (body.length > 2_000_000) {
-            throw new TencentFinanceRequestError("Tencent Finance response exceeded the safe size limit.", false);
-          }
+            if (!response.ok) {
+              throw new TencentFinanceRequestError(
+                `Tencent Finance request failed with HTTP ${response.status}.`,
+                response.status >= 500,
+              );
+            }
 
-          const payload = parsePayload(body);
-          if (payload.code !== undefined && payload.code !== 0) {
-            throw new TencentFinanceRequestError(`Tencent Finance rejected the request: ${payload.msg ?? "unknown error"}.`, false);
+            if (body.length > 2_000_000) {
+              throw new TencentFinanceRequestError(
+                "Tencent Finance response exceeded the safe size limit.",
+                false,
+              );
+            }
+
+            const payload = parsePayload(body);
+            if (payload.code !== undefined && payload.code !== 0) {
+              throw new TencentFinanceRequestError(
+                `Tencent Finance rejected the request: ${payload.msg ?? "unknown error"}.`,
+                false,
+              );
+            }
+            return payload;
+          } finally {
+            clearTimeout(timeout);
           }
-          return payload;
-        } finally {
-          clearTimeout(timeout);
+        } catch (error) {
+          lastError = error;
+          if (attempt === 0 && isRetryableRequestFailure(error)) {
+            await delay(250);
+            continue;
+          }
+          break;
         }
-      } catch (error) {
-        lastError = error;
-        if (attempt === 0 && isRetryableRequestFailure(error)) {
-          await delay(250);
-          continue;
-        }
-        break;
       }
-    }
 
-    throw normalizeRequestError(lastError);
-  });
+      throw normalizeRequestError(lastError);
+    });
 }
 
 function createRequestScheduler(maxConcurrency: number) {
@@ -245,7 +279,10 @@ function parsePayload(body: string): TencentPayload {
     }
     return payload as TencentPayload;
   } catch {
-    throw new TencentFinanceRequestError("Tencent Finance returned an invalid JSON response.", false);
+    throw new TencentFinanceRequestError(
+      "Tencent Finance returned an invalid JSON response.",
+      false,
+    );
   }
 }
 
@@ -269,7 +306,8 @@ function delay(milliseconds: number) {
 
 function getHistoryUrl(symbol: string, request: StockSdkBarRequest) {
   const period = request.period === "weekly" ? "week" : "day";
-  const adjustment = request.adjust === "forward" ? "qfq" : request.adjust === "backward" ? "hfq" : "";
+  const adjustment =
+    request.adjust === "forward" ? "qfq" : request.adjust === "backward" ? "hfq" : "";
   const count = getBarCount(request.count);
   const url = new URL(historyEndpoint);
   url.searchParams.set("param", `${symbol},${period},,,${count},${adjustment}`);
@@ -299,15 +337,28 @@ type TencentUsExchange = "OQ" | "N" | "AM";
 
 const tencentUsExchanges: readonly TencentUsExchange[] = ["OQ", "N", "AM"];
 
-function getHistorySymbolCandidates(request: StockSdkBarRequest, usExchangeByTicker: ReadonlyMap<string, TencentUsExchange>) {
-  return request.market === "US" ? getUsSymbolCandidates(request, usExchangeByTicker) : [toTencentSymbol(request)];
+function getHistorySymbolCandidates(
+  request: StockSdkBarRequest,
+  usExchangeByTicker: ReadonlyMap<string, TencentUsExchange>,
+) {
+  return request.market === "US"
+    ? getUsSymbolCandidates(request, usExchangeByTicker)
+    : [toTencentSymbol(request)];
 }
 
-function getIntradaySymbolCandidates(request: StockSdkBarRequest, usExchangeByTicker: ReadonlyMap<string, TencentUsExchange>) {
-  return request.market === "US" ? getUsSymbolCandidates(request, usExchangeByTicker) : [toTencentSymbol(request)];
+function getIntradaySymbolCandidates(
+  request: StockSdkBarRequest,
+  usExchangeByTicker: ReadonlyMap<string, TencentUsExchange>,
+) {
+  return request.market === "US"
+    ? getUsSymbolCandidates(request, usExchangeByTicker)
+    : [toTencentSymbol(request)];
 }
 
-function getUsSymbolCandidates(request: StockSdkBarRequest, usExchangeByTicker: ReadonlyMap<string, TencentUsExchange>) {
+function getUsSymbolCandidates(
+  request: StockSdkBarRequest,
+  usExchangeByTicker: ReadonlyMap<string, TencentUsExchange>,
+) {
   const ticker = getUsTicker(request);
   const cachedExchange = usExchangeByTicker.get(ticker);
   const exchanges = cachedExchange
@@ -321,7 +372,10 @@ function getTencentUsExchange(symbol: string): TencentUsExchange {
   return exchange === "N" || exchange === "AM" ? exchange : "OQ";
 }
 
-function hasSufficientHistoricalBars(bars: readonly StockSdkRawRecord[], request: StockSdkBarRequest) {
+function hasSufficientHistoricalBars(
+  bars: readonly StockSdkRawRecord[],
+  request: StockSdkBarRequest,
+) {
   const requestedCount = getBarCount(request.count);
   const minimumUsefulCount = request.period === "weekly" ? 26 : 60;
   return bars.length >= Math.min(requestedCount, minimumUsefulCount);
@@ -343,7 +397,10 @@ function isBetterHistoricalCandidate(
     : candidate.length > current.length;
 }
 
-function isContinuousHistoricalSeries(bars: readonly StockSdkRawRecord[], request: StockSdkBarRequest) {
+function isContinuousHistoricalSeries(
+  bars: readonly StockSdkRawRecord[],
+  request: StockSdkBarRequest,
+) {
   if (bars.length < 2) {
     return true;
   }
@@ -357,7 +414,9 @@ function isContinuousHistoricalSeries(bars: readonly StockSdkRawRecord[], reques
   }
 
   const maximumGapMs = (request.period === "weekly" ? 28 : 21) * 24 * 60 * 60 * 1_000;
-  return timestamps.every((timestamp, index) => index === 0 || timestamp - timestamps[index - 1]! <= maximumGapMs);
+  return timestamps.every(
+    (timestamp, index) => index === 0 || timestamp - timestamps[index - 1]! <= maximumGapMs,
+  );
 }
 
 function getUsTicker(request: StockSdkBarRequest) {
@@ -377,7 +436,13 @@ function toTencentSymbol(request: StockSdkBarRequest) {
 
   const symbol = request.symbol.trim().toUpperCase();
   const code = clean.replace(/^(sh|sz)/iu, "");
-  const exchange = symbol.endsWith(".SZ") || symbol.startsWith("SZ") || code.startsWith("0") || code.startsWith("3") ? "sz" : "sh";
+  const exchange =
+    symbol.endsWith(".SZ") ||
+    symbol.startsWith("SZ") ||
+    code.startsWith("0") ||
+    code.startsWith("3")
+      ? "sz"
+      : "sh";
   return `${exchange}${code}`;
 }
 
@@ -389,10 +454,19 @@ function sanitizeSymbol(value: string) {
   return result;
 }
 
-function mapHistoryBars(payload: TencentPayload, request: StockSdkBarRequest, symbol: string): readonly StockSdkRawRecord[] {
+function mapHistoryBars(
+  payload: TencentPayload,
+  request: StockSdkBarRequest,
+  symbol: string,
+): readonly StockSdkRawRecord[] {
   const record = getDataRecord(payload, symbol);
   const suffix = request.period === "weekly" ? "week" : "day";
-  const preferredKey = request.adjust === "forward" ? `qfq${suffix}` : request.adjust === "backward" ? `hfq${suffix}` : suffix;
+  const preferredKey =
+    request.adjust === "forward"
+      ? `qfq${suffix}`
+      : request.adjust === "backward"
+        ? `hfq${suffix}`
+        : suffix;
   const rows = getArray(record?.[preferredKey]);
 
   return rows
@@ -412,7 +486,14 @@ function mapHistoryRow(row: unknown, market: Market): StockSdkRawRecord | null {
   const low = toPositiveNumber(row[4]);
   const volume = toNonNegativeNumber(row[5]);
 
-  if (!date || open === undefined || close === undefined || high === undefined || low === undefined || volume === undefined) {
+  if (
+    !date ||
+    open === undefined ||
+    close === undefined ||
+    high === undefined ||
+    low === undefined ||
+    volume === undefined
+  ) {
     return null;
   }
 
@@ -427,7 +508,11 @@ function mapHistoryRow(row: unknown, market: Market): StockSdkRawRecord | null {
   };
 }
 
-function mapMinuteBars(payload: TencentPayload, request: StockSdkBarRequest, symbol: string): readonly StockSdkRawRecord[] {
+function mapMinuteBars(
+  payload: TencentPayload,
+  request: StockSdkBarRequest,
+  symbol: string,
+): readonly StockSdkRawRecord[] {
   const record = getDataRecord(payload, symbol);
   const data = isRecord(record?.data) ? record.data : undefined;
   const date = typeof data?.date === "string" ? data.date : "";
@@ -454,7 +539,8 @@ function mapMinuteBars(payload: TencentPayload, request: StockSdkBarRequest, sym
 
     const volumeMultiplier = request.market === "CN" ? 100 : 1;
     const volume = Math.max(0, cumulativeVolume - previousVolume) * volumeMultiplier;
-    const amount = cumulativeAmount === undefined ? undefined : Math.max(0, cumulativeAmount - previousAmount);
+    const amount =
+      cumulativeAmount === undefined ? undefined : Math.max(0, cumulativeAmount - previousAmount);
     bars.push({
       timestamp: toMarketTimestamp(date, time, request.market),
       open: price,
@@ -478,7 +564,11 @@ function hasMinuteDate(payload: TencentPayload, symbol: string) {
   return typeof data?.date === "string" && data.date.trim() !== "";
 }
 
-function mapCnMinuteKlineBars(payload: TencentPayload, request: StockSdkBarRequest, symbol: string): readonly StockSdkRawRecord[] {
+function mapCnMinuteKlineBars(
+  payload: TencentPayload,
+  request: StockSdkBarRequest,
+  symbol: string,
+): readonly StockSdkRawRecord[] {
   const record = getDataRecord(payload, symbol);
   const rows = getArray(record?.[`m${request.period}`]);
 
@@ -495,7 +585,14 @@ function mapCnMinuteKlineBars(payload: TencentPayload, request: StockSdkBarReque
       const low = toPositiveNumber(row[4]);
       const volume = toNonNegativeNumber(row[5]);
 
-      if (timestamp === undefined || open === undefined || close === undefined || high === undefined || low === undefined || volume === undefined) {
+      if (
+        timestamp === undefined ||
+        open === undefined ||
+        close === undefined ||
+        high === undefined ||
+        low === undefined ||
+        volume === undefined
+      ) {
         return null;
       }
 
@@ -512,7 +609,10 @@ function mapCnMinuteKlineBars(payload: TencentPayload, request: StockSdkBarReque
     .filter((bar): bar is StockSdkRawRecord => bar !== null);
 }
 
-function aggregateMinuteBars(bars: readonly StockSdkRawRecord[], minutes: number): readonly StockSdkRawRecord[] {
+function aggregateMinuteBars(
+  bars: readonly StockSdkRawRecord[],
+  minutes: number,
+): readonly StockSdkRawRecord[] {
   const intervalMs = minutes * 60_000;
   const buckets = new Map<number, StockSdkRawRecord[]>();
 
@@ -538,27 +638,47 @@ function aggregateMinuteBars(bars: readonly StockSdkRawRecord[], minutes: number
 
       const open = toPositiveNumber(first.open);
       const close = toPositiveNumber(last.close);
-      const highs = entries.map((entry) => toPositiveNumber(entry.high)).filter((value): value is number => value !== undefined);
-      const lows = entries.map((entry) => toPositiveNumber(entry.low)).filter((value): value is number => value !== undefined);
+      const highs = entries
+        .map((entry) => toPositiveNumber(entry.high))
+        .filter((value): value is number => value !== undefined);
+      const lows = entries
+        .map((entry) => toPositiveNumber(entry.low))
+        .filter((value): value is number => value !== undefined);
       if (open === undefined || close === undefined || highs.length === 0 || lows.length === 0) {
         return [];
       }
 
-      return [{
-        timestamp,
-        open,
-        high: Math.max(...highs),
-        low: Math.min(...lows),
-        close,
-        volume: entries.reduce((total, entry) => total + (toNonNegativeNumber(entry.volume) ?? 0), 0),
-        amount: entries.reduce((total, entry) => total + (toNonNegativeNumber(entry.amount) ?? 0), 0),
-        upstream: "tencent",
-      } satisfies StockSdkRawRecord];
+      return [
+        {
+          timestamp,
+          open,
+          high: Math.max(...highs),
+          low: Math.min(...lows),
+          close,
+          volume: entries.reduce(
+            (total, entry) => total + (toNonNegativeNumber(entry.volume) ?? 0),
+            0,
+          ),
+          amount: entries.reduce(
+            (total, entry) => total + (toNonNegativeNumber(entry.amount) ?? 0),
+            0,
+          ),
+          upstream: "tencent",
+        } satisfies StockSdkRawRecord,
+      ];
     });
 }
 
-function getDataRecord(payload: TencentPayload | Record<string, unknown> | unknown, symbol: string) {
-  const root = isRecord(payload) && isRecord(payload.data) ? payload.data : isRecord(payload) ? payload : undefined;
+function getDataRecord(
+  payload: TencentPayload | Record<string, unknown> | unknown,
+  symbol: string,
+) {
+  const root =
+    isRecord(payload) && isRecord(payload.data)
+      ? payload.data
+      : isRecord(payload)
+        ? payload
+        : undefined;
   if (!root) {
     return undefined;
   }
@@ -596,7 +716,8 @@ function toMarketTimestamp(date: string, time: string, market: Market) {
   if (hour > 23 || minute > 59) {
     throw new Error("Tencent Finance returned an invalid market timestamp.");
   }
-  const timeZone = market === "US" ? "America/New_York" : market === "HK" ? "Asia/Hong_Kong" : "Asia/Shanghai";
+  const timeZone =
+    market === "US" ? "America/New_York" : market === "HK" ? "Asia/Hong_Kong" : "Asia/Shanghai";
   const utcGuess = Date.UTC(parts.year, parts.month - 1, parts.day, hour, minute);
   const firstPass = utcGuess - getTimeZoneOffsetMs(new Date(utcGuess), timeZone);
   return utcGuess - getTimeZoneOffsetMs(new Date(firstPass), timeZone);
@@ -611,8 +732,13 @@ function toDateParts(value: string): DateParts | undefined {
   const month = Number(digits.slice(4, 6));
   const day = Number(digits.slice(6, 8));
   const probe = new Date(Date.UTC(year, month - 1, day));
-  return Number.isInteger(year) && Number.isInteger(month) && Number.isInteger(day) && year >= 1900 &&
-    probe.getUTCFullYear() === year && probe.getUTCMonth() === month - 1 && probe.getUTCDate() === day
+  return Number.isInteger(year) &&
+    Number.isInteger(month) &&
+    Number.isInteger(day) &&
+    year >= 1900 &&
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
     ? { year, month, day }
     : undefined;
 }
@@ -629,7 +755,14 @@ function getTimeZoneOffsetMs(date: Date, timeZone: string) {
     hour12: false,
   }).formatToParts(date);
   const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
-  const zonedAsUtc = Date.UTC(value("year"), value("month") - 1, value("day"), value("hour"), value("minute"), value("second"));
+  const zonedAsUtc = Date.UTC(
+    value("year"),
+    value("month") - 1,
+    value("day"),
+    value("hour"),
+    value("minute"),
+    value("second"),
+  );
   return zonedAsUtc - date.getTime();
 }
 
@@ -644,7 +777,12 @@ function toNonNegativeNumber(value: unknown) {
 }
 
 function toFiniteNumber(value: unknown) {
-  const number = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
+  const number =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : Number.NaN;
   return Number.isFinite(number) ? number : undefined;
 }
 

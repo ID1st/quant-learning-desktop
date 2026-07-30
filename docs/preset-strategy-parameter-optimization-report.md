@@ -13,10 +13,10 @@ No tested configuration remained profitable across train, validation, and untouc
 
 The candidates in this report are research and paper-test settings only. They do not override the built-in strategy defaults.
 
-| Strategy | Product default source | Product default policy |
-| --- | --- | --- |
-| Trend Targets | `trading-strategies/trend-targets.md` | Preserve the Pine defaults: factor 12, ATR 90, WMA 40, EMA 14, confirmation 3, ATR 14, 5 ATR stop, and 0.5R/1R/1.5R targets. |
-| UTORB | `trading-strategies/utorb.md` | Preserve the Pine defaults: 09:30-10:00, `1234567`, UTC-5, High/Low range, visible labels and volume profile, ATR(14) trail, and the original extension settings. |
+| Strategy      | Product default source                | Product default policy                                                                                                                                            |
+| ------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Trend Targets | `trading-strategies/trend-targets.md` | Preserve the Pine defaults: factor 12, ATR 90, WMA 40, EMA 14, confirmation 3, ATR 14, 5 ATR stop, and 0.5R/1R/1.5R targets.                                      |
+| UTORB         | `trading-strategies/utorb.md`         | Preserve the Pine defaults: 09:30-10:00, `1234567`, UTC-5, High/Low range, visible labels and volume profile, ATR(14) trail, and the original extension settings. |
 
 This policy prevents a rolling, limited-sample optimization from silently changing the strategy behavior users expect from the original Pine sources. Researchers may set the candidate values manually and should record the sample dates, timezone convention, costs, and execution mode with each comparison.
 
@@ -38,22 +38,22 @@ Reported returns are the mean or median of eight independent symbol backtests, n
 
 ### Recommended research configuration
 
-| Setting | Value |
-| --- | ---: |
-| Timeframe | 1d |
-| Supertrend factor | 12 |
-| Supertrend ATR period | 90 |
-| WMA length | 40 |
-| EMA length | 14 |
-| Allow short | Off |
+| Setting               | Value |
+| --------------------- | ----: |
+| Timeframe             |    1d |
+| Supertrend factor     |    12 |
+| Supertrend ATR period |    90 |
+| WMA length            |    40 |
+| EMA length            |    14 |
+| Allow short           |   Off |
 
 The ATR stop and TP1/TP2/TP3 settings do not affect the current generic backtest order flow. They remain chart and alert references, so the search did not pretend to optimize them for return. Keep the Pine defaults (`ATR 14`, stop `5 ATR`, targets `0.5R / 1R / 1.5R`) until partial-exit execution is explicitly defined.
 
-| Period | Mean return | Median return | Worst symbol | Mean max drawdown | Positive symbols | Trades | Profit factor |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Full five years | 91.80% | 32.71% | 11.61% | 36.94% | 8 / 8 | 47 | 3.77 |
-| Validation year | 6.67% | 7.44% | -3.66% | 7.85% | 6 / 8 | 9 | 3.93 |
-| Untouched final year | -0.34% | 0.00% | -15.52% | 8.85% | 2 / 8 | 4 | 0.89 |
+| Period               | Mean return | Median return | Worst symbol | Mean max drawdown | Positive symbols | Trades | Profit factor |
+| -------------------- | ----------: | ------------: | -----------: | ----------------: | ---------------: | -----: | ------------: |
+| Full five years      |      91.80% |        32.71% |       11.61% |            36.94% |            8 / 8 |     47 |          3.77 |
+| Validation year      |       6.67% |         7.44% |       -3.66% |             7.85% |            6 / 8 |      9 |          3.93 |
+| Untouched final year |      -0.34% |         0.00% |      -15.52% |             8.85% |            2 / 8 |      4 |          0.89 |
 
 The faster `factor 12 / ATR 30 / WMA 20 / EMA 5` candidate was rejected: despite strong earlier results, its untouched final-year mean return was `-3.87%`, it made only three trades, and none won. The full-period mean is also heavily influenced by NVDA, so it is not sufficient evidence of robust alpha.
 
@@ -61,24 +61,24 @@ The faster `factor 12 / ATR 30 / WMA 20 / EMA 5` candidate was rejected: despite
 
 ### Recommended paper-test configuration
 
-| Setting | Value |
-| --- | ---: |
-| Timeframe | 5m |
-| Session start | 09:30 New York |
-| Timezone offset for this sample | UTC-4 |
-| Opening range | 45 minutes |
-| Range source | Candle body (`Close`) |
-| Trailing stop | ATR(7) × 2 |
-| Allow short | Off |
+| Setting                         |                 Value |
+| ------------------------------- | --------------------: |
+| Timeframe                       |                    5m |
+| Session start                   |        09:30 New York |
+| Timezone offset for this sample |                 UTC-4 |
+| Opening range                   |            45 minutes |
+| Range source                    | Candle body (`Close`) |
+| Trailing stop                   |            ATR(7) × 2 |
+| Allow short                     |                   Off |
 
 The timezone is data alignment, not a profit parameter. Use `UTC-4` during US daylight-saving time and `UTC-5` during standard time. The current application uses a fixed offset and does not switch automatically.
 
-| Period | Mean return | Median return | Worst symbol | Mean max drawdown | Positive symbols | Trades | Profit factor |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Full 60 days | -0.26% | -1.57% | -6.69% | 6.66% | 3 / 8 | 263 | 0.98 |
-| Train | 0.55% | -0.09% | -6.54% | 4.33% | 4 / 8 | 163 | 1.09 |
-| Validation | -1.36% | -2.03% | -2.53% | 2.85% | 1 / 8 | 44 | 0.49 |
-| Untouched recent test | 0.95% | 0.89% | -2.29% | 2.30% | 5 / 8 | 56 | 1.46 |
+| Period                | Mean return | Median return | Worst symbol | Mean max drawdown | Positive symbols | Trades | Profit factor |
+| --------------------- | ----------: | ------------: | -----------: | ----------------: | ---------------: | -----: | ------------: |
+| Full 60 days          |      -0.26% |        -1.57% |       -6.69% |             6.66% |            3 / 8 |    263 |          0.98 |
+| Train                 |       0.55% |        -0.09% |       -6.54% |             4.33% |            4 / 8 |    163 |          1.09 |
+| Validation            |      -1.36% |        -2.03% |       -2.53% |             2.85% |            1 / 8 |     44 |          0.49 |
+| Untouched recent test |       0.95% |         0.89% |       -2.29% |             2.30% |            5 / 8 |     56 |          1.46 |
 
 This configuration materially reduced the full-sample loss versus the default long/short setup (`-6.33%` mean return, `13.12%` mean drawdown), but it did not achieve stable profitability. It should remain in paper testing and should not be treated as production-ready.
 

@@ -1,4 +1,5 @@
-export type ApiProviderStatus = "placeholder" | "enabled" | "unconfigured" | "configured" | "prepared";
+export type ApiProviderStatus =
+  "placeholder" | "enabled" | "unconfigured" | "configured" | "prepared";
 
 export interface ApiProviderPriorityItem {
   readonly id: "stock-sdk" | "alphafeed-rest" | "alphafeed-websocket" | "longbridge";

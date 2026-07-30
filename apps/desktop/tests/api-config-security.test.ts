@@ -4,14 +4,24 @@ import { normalizeAlphaFeedStreamForm } from "../src/features/api/apiConfigServi
 
 test("AlphaFeed WebSocket rejects remote plaintext transport", () => {
   assert.throws(
-    () => normalizeAlphaFeedStreamForm({ wsUrl: "ws://stream.example.com", apiKey: "stream-key-123", mode: "watchlist" }),
+    () =>
+      normalizeAlphaFeedStreamForm({
+        wsUrl: "ws://stream.example.com",
+        apiKey: "stream-key-123",
+        mode: "watchlist",
+      }),
     /远程地址必须使用 wss/,
   );
 });
 
 test("AlphaFeed WebSocket rejects hosts outside the official allowlist", () => {
   assert.throws(
-    () => normalizeAlphaFeedStreamForm({ wsUrl: "wss://example.invalid/stream", apiKey: "stream-key-123", mode: "watchlist" }),
+    () =>
+      normalizeAlphaFeedStreamForm({
+        wsUrl: "wss://example.invalid/stream",
+        apiKey: "stream-key-123",
+        mode: "watchlist",
+      }),
     /官方服务地址或本机开发地址/u,
   );
 });

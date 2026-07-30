@@ -32,7 +32,10 @@ const operations = createStockSdkGatewayProviderOperations(undefined, {
   tencentBars: createTencentFinanceBarsOperations(),
 });
 
-const provider = createStockSdkGatewayProvider(operations, { enabled: true, delayLevel: "unknown" });
+const provider = createStockSdkGatewayProvider(operations, {
+  enabled: true,
+  delayLevel: "unknown",
+});
 const gateway = createMarketDataGateway(
   createMarketDataProviderRegistry([provider, createYahooFinanceIntradayProvider()]),
   ["stock-sdk", "yahoo-finance"],
@@ -73,7 +76,15 @@ await runCheck("quote.cn-hk-us", async () => {
       previousClose: quote.previousClose ?? null,
       timestamp: quote.timestamp,
       freshness: evaluateMarketDataProbeFreshness(quote.timestamp),
-      fields: presentFields(quote, ["price", "previousClose", "openPrice", "highPrice", "lowPrice", "volume", "amount"]),
+      fields: presentFields(quote, [
+        "price",
+        "previousClose",
+        "openPrice",
+        "highPrice",
+        "lowPrice",
+        "volume",
+        "amount",
+      ]),
     })),
   };
 });
@@ -102,22 +113,27 @@ if (report.summary.failed > 0) {
 async function runBarCheck(name, item, timeframe, kind) {
   await runCheck(name, async () => {
     const request = { market: item.market, symbol: item.symbol, timeframe, count: 120 };
-    const result = kind === "historical"
-      ? await gateway.fetchHistoricalBars(request)
-      : await gateway.fetchIntradayBars(request);
+    const result =
+      kind === "historical"
+        ? await gateway.fetchHistoricalBars(request)
+        : await gateway.fetchIntradayBars(request);
     if (!result.ok) throw new Error(result.error.message);
     const bars = result.data;
     assertMinimumRows(bars, 1, `${name} bars`);
     const quality = inspectMarketDataBars(bars);
     if (quality.rejectedCount > 0) {
-      throw new Error(`${name} returned ${quality.rejectedCount} invalid bars: ${JSON.stringify(quality.issues)}.`);
+      throw new Error(
+        `${name} returned ${quality.rejectedCount} invalid bars: ${JSON.stringify(quality.issues)}.`,
+      );
     }
     const series = evaluateMarketDataProbeSeries(bars, timeframe === "1m" ? "realtime" : timeframe);
     if (series.status === "partial") {
       throw new Error(`Partial ${timeframe} series: ${series.rows} of ${series.minimumRows} rows.`);
     }
     if (series.status === "discontinuous") {
-      throw new Error(`Discontinuous ${timeframe} series: largest gap is ${series.largestGapDays?.toFixed(1) ?? "unknown"} days.`);
+      throw new Error(
+        `Discontinuous ${timeframe} series: largest gap is ${series.largestGapDays?.toFixed(1) ?? "unknown"} days.`,
+      );
     }
     return {
       provider: result.provider,
@@ -128,7 +144,9 @@ async function runBarCheck(name, item, timeframe, kind) {
       freshness: evaluateMarketDataProbeFreshness(bars.at(-1)?.timestamp),
       series,
       zeroOpenCount: bars.filter((bar) => bar.open === 0).length,
-      invalidOhlcCount: bars.filter((bar) => bar.high < bar.low || bar.high < bar.open || bar.low > bar.open).length,
+      invalidOhlcCount: bars.filter(
+        (bar) => bar.high < bar.low || bar.high < bar.open || bar.low > bar.open,
+      ).length,
       quality: {
         acceptedCount: quality.validBars.length,
         rejectedCount: quality.rejectedCount,
@@ -140,7 +158,9 @@ async function runBarCheck(name, item, timeframe, kind) {
 
 function countDelayedChecks(checks) {
   return checks.reduce((count, check) => {
-    const sampleFreshness = check.data?.samples?.some((sample) => sample.freshness?.status === "delayed");
+    const sampleFreshness = check.data?.samples?.some(
+      (sample) => sample.freshness?.status === "delayed",
+    );
     return count + (check.data?.freshness?.status === "delayed" || sampleFreshness ? 1 : 0);
   }, 0);
 }
@@ -171,7 +191,9 @@ async function runCheck(name, execute) {
 
 function assertMinimumRows(rows, minimum, label) {
   if (!Array.isArray(rows) || rows.length < minimum) {
-    throw new Error(`Expected at least ${minimum} ${label}, received ${Array.isArray(rows) ? rows.length : "non-array"}.`);
+    throw new Error(
+      `Expected at least ${minimum} ${label}, received ${Array.isArray(rows) ? rows.length : "non-array"}.`,
+    );
   }
 }
 
@@ -194,5 +216,7 @@ function summarizeBar(bar) {
 }
 
 function presentFields(record, fields) {
-  return Object.fromEntries(fields.map((field) => [field, record[field] !== undefined && record[field] !== null]));
+  return Object.fromEntries(
+    fields.map((field) => [field, record[field] !== undefined && record[field] !== null]),
+  );
 }

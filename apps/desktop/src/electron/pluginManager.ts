@@ -1,4 +1,15 @@
-import { copyFile, lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -44,7 +55,10 @@ export function createPluginManager(options: PluginManagerOptions): PluginManage
   const pluginsDirectory = resolve(options.pluginsDirectory);
   let records = readRegistry(pluginsDirectory);
 
-  const recordRuntimeFailure = async (pluginId: string, message: string): Promise<InstalledPluginRecord> => {
+  const recordRuntimeFailure = async (
+    pluginId: string,
+    message: string,
+  ): Promise<InstalledPluginRecord> => {
     const current = records.find((record) => record.manifest.id === pluginId);
     if (!current) {
       throw new Error(`Plugin not installed: ${pluginId}`);
@@ -70,12 +84,20 @@ export function createPluginManager(options: PluginManagerOptions): PluginManage
       const manifest = await readManifest(sourceRoot);
       assertCompatibleManifest(manifest);
       if (!canRunInRenderer(manifest)) {
-        throw new Error("This plugin uses a capability or permission that is not supported by the current desktop runtime.");
+        throw new Error(
+          "This plugin uses a capability or permission that is not supported by the current desktop runtime.",
+        );
       }
       await resolvePluginEntry(sourceRoot, manifest.main);
       const destination = getPluginDirectory(pluginsDirectory, manifest.id);
-      const stagingDirectory = getManagedPath(pluginsDirectory, `.staging-${manifest.id}-${randomUUID()}`);
-      const backupDirectory = getManagedPath(pluginsDirectory, `.backup-${manifest.id}-${randomUUID()}`);
+      const stagingDirectory = getManagedPath(
+        pluginsDirectory,
+        `.staging-${manifest.id}-${randomUUID()}`,
+      );
+      const backupDirectory = getManagedPath(
+        pluginsDirectory,
+        `.backup-${manifest.id}-${randomUUID()}`,
+      );
 
       await mkdir(pluginsDirectory, { recursive: true, mode: 0o700 });
       try {
@@ -104,7 +126,9 @@ export function createPluginManager(options: PluginManagerOptions): PluginManage
           updatedAt: now,
           failureCount: 0,
         };
-        records = [...records.filter((item) => item.manifest.id !== manifest.id), record].sort(compareRecords);
+        records = [...records.filter((item) => item.manifest.id !== manifest.id), record].sort(
+          compareRecords,
+        );
         await writeRegistry(pluginsDirectory, records);
         await rm(backupDirectory, { recursive: true, force: true });
         return record;
@@ -141,15 +165,22 @@ export function createPluginManager(options: PluginManagerOptions): PluginManage
       await writeRegistry(pluginsDirectory, records);
     },
     async readEnabledRuntimeModules() {
-      const enabled = records.filter((record) => record.status === "enabled" && canRunInRenderer(record.manifest));
+      const enabled = records.filter(
+        (record) => record.status === "enabled" && canRunInRenderer(record.manifest),
+      );
       const modules: PluginRuntimeModule[] = [];
 
       for (const plugin of enabled) {
         try {
-          const entry = await resolvePluginEntry(getPluginDirectory(pluginsDirectory, plugin.manifest.id), plugin.manifest.main);
+          const entry = await resolvePluginEntry(
+            getPluginDirectory(pluginsDirectory, plugin.manifest.id),
+            plugin.manifest.main,
+          );
           const entryStats = await stat(entry);
           if (entryStats.size > maxRuntimeModuleBytes) {
-            throw new Error(`Plugin runtime entry exceeds ${maxRuntimeModuleBytes} bytes: ${plugin.manifest.id}`);
+            throw new Error(
+              `Plugin runtime entry exceeds ${maxRuntimeModuleBytes} bytes: ${plugin.manifest.id}`,
+            );
           }
 
           const source = await readFile(entry, "utf8");
@@ -186,7 +217,9 @@ function sanitizeRecord(value: unknown): InstalledPluginRecord[] {
 
   const candidate = value as Partial<InstalledPluginRecord>;
   if (
-    (candidate.status !== "enabled" && candidate.status !== "disabled" && candidate.status !== "degraded") ||
+    (candidate.status !== "enabled" &&
+      candidate.status !== "disabled" &&
+      candidate.status !== "degraded") ||
     typeof candidate.installedAt !== "string" ||
     typeof candidate.updatedAt !== "string" ||
     typeof candidate.failureCount !== "number"
@@ -197,14 +230,18 @@ function sanitizeRecord(value: unknown): InstalledPluginRecord[] {
   try {
     const manifest = validatePluginManifest(candidate.manifest);
     if (!isSafePluginId(manifest.id)) return [];
-    return [{
-      manifest,
-      status: candidate.status,
-      installedAt: candidate.installedAt,
-      updatedAt: candidate.updatedAt,
-      failureCount: Math.max(0, Math.floor(candidate.failureCount)),
-      ...(typeof candidate.lastError === "string" && candidate.lastError.trim() ? { lastError: candidate.lastError.trim() } : {}),
-    }];
+    return [
+      {
+        manifest,
+        status: candidate.status,
+        installedAt: candidate.installedAt,
+        updatedAt: candidate.updatedAt,
+        failureCount: Math.max(0, Math.floor(candidate.failureCount)),
+        ...(typeof candidate.lastError === "string" && candidate.lastError.trim()
+          ? { lastError: candidate.lastError.trim() }
+          : {}),
+      },
+    ];
   } catch {
     return [];
   }
@@ -217,7 +254,10 @@ function writeRegistry(pluginsDirectory: string, records: readonly InstalledPlug
     throw new Error("Plugin directory must exist before writing the registry.");
   }
 
-  return writeFile(registryPath, `${JSON.stringify(records, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  return writeFile(registryPath, `${JSON.stringify(records, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
 }
 
 async function readSourceDirectory(sourceDirectory: string) {
@@ -255,7 +295,10 @@ async function resolvePluginEntry(root: string, entry: string) {
   }
 
   const resolvedEntry = resolve(root, entry);
-  if (!isWithinDirectory(root, resolvedEntry) || ![".js", ".mjs"].includes(extname(resolvedEntry))) {
+  if (
+    !isWithinDirectory(root, resolvedEntry) ||
+    ![".js", ".mjs"].includes(extname(resolvedEntry))
+  ) {
     throw new Error("Plugin entry path is invalid.");
   }
 
@@ -337,18 +380,29 @@ function isSafePluginId(pluginId: string) {
 
 function canRunInRenderer(manifest: PluginManifest) {
   const supportedCapabilities = new Set(["strategy", "indicator"]);
-  const supportedPermissions = new Set(["market-data:read", "strategy:run", "chart:overlay", "settings:read"]);
-  return manifest.capabilities.every((capability) => supportedCapabilities.has(capability)) &&
-    manifest.permissions.every((permission) => supportedPermissions.has(permission));
+  const supportedPermissions = new Set([
+    "market-data:read",
+    "strategy:run",
+    "chart:overlay",
+    "settings:read",
+  ]);
+  return (
+    manifest.capabilities.every((capability) => supportedCapabilities.has(capability)) &&
+    manifest.permissions.every((permission) => supportedPermissions.has(permission))
+  );
 }
 
 function assertCompatibleManifest(manifest: PluginManifest) {
   parseVersion(manifest.version);
   if (!isCompatibleVersionRange(manifest.engine.app, appVersion)) {
-    throw new Error(`Plugin requires app version ${manifest.engine.app}; current version is ${appVersion}.`);
+    throw new Error(
+      `Plugin requires app version ${manifest.engine.app}; current version is ${appVersion}.`,
+    );
   }
   if (!isCompatibleVersionRange(manifest.engine.pluginApi, pluginApiVersion)) {
-    throw new Error(`Plugin requires plugin API version ${manifest.engine.pluginApi}; current version is ${pluginApiVersion}.`);
+    throw new Error(
+      `Plugin requires plugin API version ${manifest.engine.pluginApi}; current version is ${pluginApiVersion}.`,
+    );
   }
 }
 
@@ -367,10 +421,18 @@ function parseVersion(value: string) {
   if (!match) {
     throw new Error(`Plugin version range is invalid: ${value}`);
   }
-  return { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]), prerelease: match[4] };
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4],
+  };
 }
 
-function compareVersions(left: ReturnType<typeof parseVersion>, right: ReturnType<typeof parseVersion>) {
+function compareVersions(
+  left: ReturnType<typeof parseVersion>,
+  right: ReturnType<typeof parseVersion>,
+) {
   if (left.major !== right.major) return left.major - right.major;
   if (left.minor !== right.minor) return left.minor - right.minor;
   if (left.patch !== right.patch) return left.patch - right.patch;
@@ -380,12 +442,17 @@ function compareVersions(left: ReturnType<typeof parseVersion>, right: ReturnTyp
 
 function assertSelfContainedRuntimeSource(source: string) {
   if (/\bimport\s*(?:\(|[\s{"'])/u.test(source)) {
-    throw new Error("Plugin runtime modules must be self-contained and cannot import additional modules.");
+    throw new Error(
+      "Plugin runtime modules must be self-contained and cannot import additional modules.",
+    );
   }
 }
 
 function compareRecords(left: InstalledPluginRecord, right: InstalledPluginRecord) {
-  return left.manifest.name.localeCompare(right.manifest.name) || left.manifest.id.localeCompare(right.manifest.id);
+  return (
+    left.manifest.name.localeCompare(right.manifest.name) ||
+    left.manifest.id.localeCompare(right.manifest.id)
+  );
 }
 
 function getErrorMessage(error: unknown) {

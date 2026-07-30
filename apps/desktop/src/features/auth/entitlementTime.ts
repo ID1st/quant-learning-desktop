@@ -2,10 +2,7 @@ const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
-export function formatEntitlementRemaining(
-  entitlementEndsAt: string,
-  now = new Date(),
-): string {
+export function formatEntitlementRemaining(entitlementEndsAt: string, now = new Date()): string {
   const expiresAt = Date.parse(entitlementEndsAt);
   if (!Number.isFinite(expiresAt)) {
     return "无法计算";

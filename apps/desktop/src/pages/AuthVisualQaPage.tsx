@@ -33,8 +33,7 @@ export function AuthVisualQaPage() {
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(true);
   const logoutTriggerRef = useRef<HTMLButtonElement>(null);
   const requestedPhase =
-    new URLSearchParams(window.location.search).get("auth-visual-qa") ??
-    "LOGIN";
+    new URLSearchParams(window.location.search).get("auth-visual-qa") ?? "LOGIN";
   const phase = visualQaPhases.has(requestedPhase as AuthPhase)
     ? (requestedPhase as AuthPhase)
     : "LOGIN";
@@ -80,13 +79,11 @@ export function AuthVisualQaPage() {
       <main className="app-shell">
         <aside aria-label="主导航" className="app-sidebar">
           <nav aria-label="工作区导航">
-            {["仪表盘", "超级图表", "策略管理", "策略学习", "接口配置", "设置"].map(
-              (label) => (
-                <button key={label} type="button">
-                  <span>{label}</span>
-                </button>
-              ),
-            )}
+            {["仪表盘", "超级图表", "策略管理", "策略学习", "接口配置", "设置"].map((label) => (
+              <button key={label} type="button">
+                <span>{label}</span>
+              </button>
+            ))}
           </nav>
           <button className="command-launcher" type="button">
             <span>命令面板</span>

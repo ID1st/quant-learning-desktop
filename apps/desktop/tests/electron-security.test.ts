@@ -26,7 +26,9 @@ test("desktop navigation policy only trusts the packaged entry or configured dev
 });
 
 test("IPC sender policy rejects an external frame even when it can name a valid channel", () => {
-  assert.doesNotThrow(() => assertTrustedIpcSender({ senderFrame: { url: pathToFileURL(rendererEntry).href } }, policy));
+  assert.doesNotThrow(() =>
+    assertTrustedIpcSender({ senderFrame: { url: pathToFileURL(rendererEntry).href } }, policy),
+  );
   assert.throws(
     () => assertTrustedIpcSender({ senderFrame: { url: "https://attacker.example" } }, policy),
     /untrusted renderer/i,
@@ -38,27 +40,50 @@ test("IPC payload guards enforce collection, bar and strategy bounds", () => {
   assert.doesNotThrow(() => assertMarketDataItems([item]));
   assert.throws(() => assertMarketDataItems(Array.from({ length: 201 }, () => item)), /items/i);
   assert.throws(
-    () => assertMarketDataBarRequest({ market: "US", symbol: "AAPL.US", timeframe: "1d", count: 100_000 }),
+    () =>
+      assertMarketDataBarRequest({
+        market: "US",
+        symbol: "AAPL.US",
+        timeframe: "1d",
+        count: 100_000,
+      }),
     /count/i,
   );
   assert.throws(
-    () => assertPluginStrategyInput({
-      symbol: "AAPL.US",
-      market: "US",
-      timeframe: "1d",
-      bars: Array.from({ length: 5_001 }, (_, timestamp) => ({ timestamp, open: 1, high: 1, low: 1, close: 1, volume: 1 })),
-      parameters: {},
-      runMode: "backtest",
-    }),
+    () =>
+      assertPluginStrategyInput({
+        symbol: "AAPL.US",
+        market: "US",
+        timeframe: "1d",
+        bars: Array.from({ length: 5_001 }, (_, timestamp) => ({
+          timestamp,
+          open: 1,
+          high: 1,
+          low: 1,
+          close: 1,
+          volume: 1,
+        })),
+        parameters: {},
+        runMode: "backtest",
+      }),
     /bars/i,
   );
 });
 
 test("IPC credential guard rejects malformed and oversized secrets", () => {
-  assert.doesNotThrow(() => assertAlphaFeedCredentials({ apiUrl: "https://api.alphafeed.org", apiKey: "valid-key" }));
-  assert.throws(() => assertAlphaFeedCredentials({ apiUrl: "javascript:alert(1)", apiKey: "valid-key" }), /apiUrl/i);
+  assert.doesNotThrow(() =>
+    assertAlphaFeedCredentials({ apiUrl: "https://api.alphafeed.org", apiKey: "valid-key" }),
+  );
   assert.throws(
-    () => assertAlphaFeedCredentials({ apiUrl: "https://api.alphafeed.org", apiKey: "x".repeat(8_193) }),
+    () => assertAlphaFeedCredentials({ apiUrl: "javascript:alert(1)", apiKey: "valid-key" }),
+    /apiUrl/i,
+  );
+  assert.throws(
+    () =>
+      assertAlphaFeedCredentials({
+        apiUrl: "https://api.alphafeed.org",
+        apiKey: "x".repeat(8_193),
+      }),
     /apiKey/i,
   );
 });

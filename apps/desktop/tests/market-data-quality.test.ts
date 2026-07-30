@@ -2,8 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { gatewayBarsToMarketDataBars } from "../src/features/marketData/chartMarketDataGateway.ts";
 import { inspectMarketDataBars } from "../src/features/marketData/marketDataQuality.ts";
-import { LocalDatabase, createMemoryStorageDriver } from "../src/features/persistence/localDatabase.ts";
-import { readMarketBarCache, writeMarketBarCache, type MarketDataBar } from "../src/features/marketData/marketBarCacheService.ts";
+import {
+  LocalDatabase,
+  createMemoryStorageDriver,
+} from "../src/features/persistence/localDatabase.ts";
+import {
+  readMarketBarCache,
+  writeMarketBarCache,
+  type MarketDataBar,
+} from "../src/features/marketData/marketBarCacheService.ts";
 
 const baseBar: MarketDataBar = {
   symbol: "AAPL.US",
@@ -37,10 +44,17 @@ test("market bar cache refuses invalid records before they reach chart and strat
   const database = new LocalDatabase(createMemoryStorageDriver(), "market-quality-test");
   const key = { symbol: "AAPL.US", market: "US" as const, timeframe: "1d" as const };
 
-  const written = writeMarketBarCache(key, [baseBar, { ...baseBar, timestamp: baseBar.timestamp + 1, close: 0 }], { database });
+  const written = writeMarketBarCache(
+    key,
+    [baseBar, { ...baseBar, timestamp: baseBar.timestamp + 1, close: 0 }],
+    { database },
+  );
 
   assert.equal(written.length, 1);
-  assert.deepEqual(readMarketBarCache(key, { database }).map((bar) => bar.close), [202]);
+  assert.deepEqual(
+    readMarketBarCache(key, { database }).map((bar) => bar.close),
+    [202],
+  );
 });
 
 test("gateway conversion rejects malformed upstream bars before the chart cache write", () => {
@@ -49,5 +63,8 @@ test("gateway conversion rejects malformed upstream bars before the chart cache 
     { ...baseBar, timestamp: baseBar.timestamp + 1, high: 201 },
   ]);
 
-  assert.deepEqual(converted.map((bar) => bar.close), [202]);
+  assert.deepEqual(
+    converted.map((bar) => bar.close),
+    [202],
+  );
 });

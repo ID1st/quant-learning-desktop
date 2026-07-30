@@ -1,11 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import {
-  DuckDBConnection,
-  DuckDBInstance,
-  type DuckDBValue,
-} from "@duckdb/node-api";
+import { DuckDBConnection, DuckDBInstance, type DuckDBValue } from "@duckdb/node-api";
 
 import type {
   LegacyMarketCacheMigrationErrorCode,
@@ -137,11 +133,7 @@ function metadataKey(row: DuckDbRow): MarketBarCacheKey {
   };
 }
 
-async function queryRows(
-  connection: DuckDBConnection,
-  sql: string,
-  values: DuckDBValue[] = [],
-) {
+async function queryRows(connection: DuckDBConnection, sql: string, values: DuckDBValue[] = []) {
   const result = await connection.runAndReadAll(sql, values);
   return result.getRowObjectsJS() as DuckDbRow[];
 }
@@ -155,12 +147,9 @@ async function applySchema(connection: DuckDBConnection) {
     )
   `);
   const applied = new Set(
-    (
-      await queryRows(
-        connection,
-        "SELECT version FROM cache_schema_migrations",
-      )
-    ).map((row) => asNumber(row.version)),
+    (await queryRows(connection, "SELECT version FROM cache_schema_migrations")).map((row) =>
+      asNumber(row.version),
+    ),
   );
 
   for (const migration of schemaMigrations) {
@@ -170,10 +159,10 @@ async function applySchema(connection: DuckDBConnection) {
     await connection.run("BEGIN TRANSACTION");
     try {
       await connection.run(migration.sql);
-      await connection.run(
-        "INSERT INTO cache_schema_migrations (version, name) VALUES (?, ?)",
-        [migration.version, migration.name],
-      );
+      await connection.run("INSERT INTO cache_schema_migrations (version, name) VALUES (?, ?)", [
+        migration.version,
+        migration.name,
+      ]);
       await connection.run("COMMIT");
     } catch (error) {
       await connection.run("ROLLBACK");
@@ -221,26 +210,22 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
         ? keyValues(normalizedKey)
         : [...keyValues(normalizedKey), maximumRows],
     );
-    const bars = rows.map(
-      (row): MarketDataBar => ({
-        market: String(row.market) as MarketDataBar["market"],
-        symbol: String(row.symbol),
-        timeframe: String(row.timeframe) as MarketDataBar["timeframe"],
-        timestamp: asNumber(row.timestamp),
-        open: asNumber(row.open),
-        high: asNumber(row.high),
-        low: asNumber(row.low),
-        close: asNumber(row.close),
-        volume: asNumber(row.volume),
-        ...(row.amount === null || row.amount === undefined
-          ? {}
-          : { amount: asNumber(row.amount) }),
-        provider: String(row.provider) as MarketDataProviderId,
-        ...(asOptionalString(row.upstream)
-          ? { upstream: asOptionalString(row.upstream) as MarketDataUpstream }
-          : {}),
-      }),
-    );
+    const bars = rows.map((row): MarketDataBar => ({
+      market: String(row.market) as MarketDataBar["market"],
+      symbol: String(row.symbol),
+      timeframe: String(row.timeframe) as MarketDataBar["timeframe"],
+      timestamp: asNumber(row.timestamp),
+      open: asNumber(row.open),
+      high: asNumber(row.high),
+      low: asNumber(row.low),
+      close: asNumber(row.close),
+      volume: asNumber(row.volume),
+      ...(row.amount === null || row.amount === undefined ? {} : { amount: asNumber(row.amount) }),
+      provider: String(row.provider) as MarketDataProviderId,
+      ...(asOptionalString(row.upstream)
+        ? { upstream: asOptionalString(row.upstream) as MarketDataUpstream }
+        : {}),
+    }));
 
     if (!hasContinuousHistoricalCache(bars, normalizedKey.timeframe)) {
       await this.clearRaw(normalizedKey);
@@ -388,11 +373,7 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
     return this.enqueue(() => this.readRaw(key, 50_000));
   }
 
-  write(
-    key: MarketBarCacheKey,
-    bars: MarketDataBar[],
-    options: MarketBarCacheWriteOptions = {},
-  ) {
+  write(key: MarketBarCacheKey, bars: MarketDataBar[], options: MarketBarCacheWriteOptions = {}) {
     return this.enqueue(() => this.writeRaw(key, bars, options));
   }
 
@@ -406,14 +387,12 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
       );
       const entries = rows.map((row): MarketBarCacheMetadata => {
         const key = metadataKey(row);
-        const providers =
-          parseJson<MarketDataProviderId[]>(row.providers_json) ?? [
-            String(row.provider) as MarketDataProviderId,
-          ];
-        const historicalCompletion =
-          parseJson<MarketBarCacheHistoricalCompletion>(
-            row.historical_completion_json,
-          );
+        const providers = parseJson<MarketDataProviderId[]>(row.providers_json) ?? [
+          String(row.provider) as MarketDataProviderId,
+        ];
+        const historicalCompletion = parseJson<MarketBarCacheHistoricalCompletion>(
+          row.historical_completion_json,
+        );
         return {
           ...key,
           provider: String(row.provider) as MarketDataProviderId,
@@ -434,13 +413,9 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
       return {
         entries,
         totalBarCount: entries.reduce((total, entry) => total + entry.barCount, 0),
-        totalEstimatedBytes: entries.reduce(
-          (total, entry) => total + entry.estimatedBytes,
-          0,
-        ),
+        totalEstimatedBytes: entries.reduce((total, entry) => total + entry.estimatedBytes, 0),
         updatedAt: entries.reduce<string | undefined>(
-          (latest, entry) =>
-            !latest || entry.updatedAt > latest ? entry.updatedAt : latest,
+          (latest, entry) => (!latest || entry.updatedAt > latest ? entry.updatedAt : latest),
           undefined,
         ),
       };
@@ -459,8 +434,7 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
       for (const row of rows) {
         const key = metadataKey(row);
         const bars = await this.readRaw(key);
-        const cutoff =
-          now - asNumber(row.retention_days) * millisecondsPerDay;
+        const cutoff = now - asNumber(row.retention_days) * millisecondsPerDay;
         const retainedBars = bars.filter((bar) => bar.timestamp >= cutoff);
         removedBars += bars.length - retainedBars.length;
 
@@ -470,10 +444,9 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
           }
         } else if (retainedBars.length !== bars.length) {
           await this.writeRaw(key, retainedBars, {
-            historicalCompletion:
-              parseJson<MarketBarCacheHistoricalCompletion>(
-                row.historical_completion_json,
-              ),
+            historicalCompletion: parseJson<MarketBarCacheHistoricalCompletion>(
+              row.historical_completion_json,
+            ),
           });
         }
       }
@@ -527,13 +500,9 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
       if (!row) {
         return { status: "pending" };
       }
-      const status =
-        row.status === "complete" || row.status === "failed"
-          ? row.status
-          : "pending";
-      const errorCode = asOptionalString(
-        row.error_code,
-      ) as LegacyMarketCacheMigrationErrorCode | undefined;
+      const status = row.status === "complete" || row.status === "failed" ? row.status : "pending";
+      const errorCode = asOptionalString(row.error_code) as
+        LegacyMarketCacheMigrationErrorCode | undefined;
       return {
         status,
         ...(errorCode ? { errorCode } : {}),
@@ -553,12 +522,7 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
         `INSERT OR REPLACE INTO market_cache_migrations (
           name, status, error_code, updated_at
         ) VALUES (?, ?, ?, ?)`,
-        [
-          "local_storage_market_cache_v1",
-          status,
-          errorCode ?? null,
-          new Date().toISOString(),
-        ],
+        ["local_storage_market_cache_v1", status, errorCode ?? null, new Date().toISOString()],
       );
     });
   }

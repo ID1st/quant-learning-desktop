@@ -146,14 +146,21 @@ function booleanParameter(input: StrategyInput, key: string, fallback: boolean) 
   return typeof value === "boolean" ? value : fallback;
 }
 
-function stringParameter<T extends string>(input: StrategyInput, key: string, fallback: T, allowed: readonly T[]) {
+function stringParameter<T extends string>(
+  input: StrategyInput,
+  key: string,
+  fallback: T,
+  allowed: readonly T[],
+) {
   const value = input.parameters[key];
   return typeof value === "string" && allowed.includes(value as T) ? (value as T) : fallback;
 }
 
 function colorParameter(input: StrategyInput, key: string, fallback: string) {
   const value = input.parameters[key];
-  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : fallback;
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)
+    ? value.toUpperCase()
+    : fallback;
 }
 
 function resolveParameters(input: StrategyInput): SMCParameters {
@@ -162,14 +169,38 @@ function resolveParameters(input: StrategyInput): SMCParameters {
     style: stringParameter(input, "style", "colored", ["colored", "monochrome"]),
     showTrendCandles: booleanParameter(input, "showTrendCandles", false),
     showInternalStructure: booleanParameter(input, "showInternalStructure", true),
-    internalBullishDisplay: stringParameter(input, "internalBullishDisplay", "all", ["all", "bos", "choch"]),
-    internalBearishDisplay: stringParameter(input, "internalBearishDisplay", "all", ["all", "bos", "choch"]),
+    internalBullishDisplay: stringParameter(input, "internalBullishDisplay", "all", [
+      "all",
+      "bos",
+      "choch",
+    ]),
+    internalBearishDisplay: stringParameter(input, "internalBearishDisplay", "all", [
+      "all",
+      "bos",
+      "choch",
+    ]),
     internalConfluenceFilter: booleanParameter(input, "internalConfluenceFilter", false),
-    internalStructureTextSize: stringParameter(input, "internalStructureTextSize", "tiny", ["tiny", "small", "normal"]),
+    internalStructureTextSize: stringParameter(input, "internalStructureTextSize", "tiny", [
+      "tiny",
+      "small",
+      "normal",
+    ]),
     showSwingStructure: booleanParameter(input, "showSwingStructure", true),
-    swingBullishDisplay: stringParameter(input, "swingBullishDisplay", "all", ["all", "bos", "choch"]),
-    swingBearishDisplay: stringParameter(input, "swingBearishDisplay", "all", ["all", "bos", "choch"]),
-    swingStructureTextSize: stringParameter(input, "swingStructureTextSize", "small", ["tiny", "small", "normal"]),
+    swingBullishDisplay: stringParameter(input, "swingBullishDisplay", "all", [
+      "all",
+      "bos",
+      "choch",
+    ]),
+    swingBearishDisplay: stringParameter(input, "swingBearishDisplay", "all", [
+      "all",
+      "bos",
+      "choch",
+    ]),
+    swingStructureTextSize: stringParameter(input, "swingStructureTextSize", "small", [
+      "tiny",
+      "small",
+      "normal",
+    ]),
     showSwingPoints: booleanParameter(input, "showSwingPoints", false),
     showStrongWeakHighLow: booleanParameter(input, "showStrongWeakHighLow", true),
     swingLength: Math.round(numberParameter(input, "swingLength", 50, 10)),
@@ -177,15 +208,33 @@ function resolveParameters(input: StrategyInput): SMCParameters {
     internalOrderBlockCount: Math.round(numberParameter(input, "internalOrderBlockCount", 5, 1)),
     showSwingOrderBlocks: booleanParameter(input, "showSwingOrderBlocks", false),
     swingOrderBlockCount: Math.round(numberParameter(input, "swingOrderBlockCount", 5, 1)),
-    orderBlockFilter: stringParameter(input, "orderBlockFilter", "atr", ["atr", "cumulative-mean-range"]),
-    orderBlockMitigation: stringParameter(input, "orderBlockMitigation", "high-low", ["high-low", "close"]),
+    orderBlockFilter: stringParameter(input, "orderBlockFilter", "atr", [
+      "atr",
+      "cumulative-mean-range",
+    ]),
+    orderBlockMitigation: stringParameter(input, "orderBlockMitigation", "high-low", [
+      "high-low",
+      "close",
+    ]),
     showEqualHighLow: booleanParameter(input, "showEqualHighLow", true),
     equalHighLowLength: Math.round(numberParameter(input, "equalHighLowLength", 3, 1)),
     equalHighLowThreshold: numberParameter(input, "equalHighLowThreshold", 0.1),
-    equalHighLowTextSize: stringParameter(input, "equalHighLowTextSize", "tiny", ["tiny", "small", "normal"]),
+    equalHighLowTextSize: stringParameter(input, "equalHighLowTextSize", "tiny", [
+      "tiny",
+      "small",
+      "normal",
+    ]),
     showFairValueGaps: booleanParameter(input, "showFairValueGaps", false),
     fairValueGapAutoThreshold: booleanParameter(input, "fairValueGapAutoThreshold", true),
-    fairValueGapTimeframe: stringParameter(input, "fairValueGapTimeframe", "current", ["current", "5m", "15m", "30m", "1h", "1d", "1w"]),
+    fairValueGapTimeframe: stringParameter(input, "fairValueGapTimeframe", "current", [
+      "current",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "1d",
+      "1w",
+    ]),
     fairValueGapExtend: Math.round(numberParameter(input, "fairValueGapExtend", 1)),
     showDailyLevels: booleanParameter(input, "showDailyLevels", false),
     showWeeklyLevels: booleanParameter(input, "showWeeklyLevels", false),
@@ -195,17 +244,37 @@ function resolveParameters(input: StrategyInput): SMCParameters {
     internalBearishColor: colorParameter(input, "internalBearishColor", RED),
     swingBullishColor: colorParameter(input, "swingBullishColor", GREEN),
     swingBearishColor: colorParameter(input, "swingBearishColor", RED),
-    internalBullishOrderBlockColor: colorParameter(input, "internalBullishOrderBlockColor", "#3179F5"),
-    internalBearishOrderBlockColor: colorParameter(input, "internalBearishOrderBlockColor", "#F77C80"),
+    internalBullishOrderBlockColor: colorParameter(
+      input,
+      "internalBullishOrderBlockColor",
+      "#3179F5",
+    ),
+    internalBearishOrderBlockColor: colorParameter(
+      input,
+      "internalBearishOrderBlockColor",
+      "#F77C80",
+    ),
     swingBullishOrderBlockColor: colorParameter(input, "swingBullishOrderBlockColor", "#1848CC"),
     swingBearishOrderBlockColor: colorParameter(input, "swingBearishOrderBlockColor", "#B22833"),
     bullishFairValueGapColor: colorParameter(input, "bullishFairValueGapColor", "#00FF68"),
     bearishFairValueGapColor: colorParameter(input, "bearishFairValueGapColor", "#FF0008"),
-    dailyLevelsStyle: stringParameter(input, "dailyLevelsStyle", "solid", ["solid", "dashed", "dotted"]),
+    dailyLevelsStyle: stringParameter(input, "dailyLevelsStyle", "solid", [
+      "solid",
+      "dashed",
+      "dotted",
+    ]),
     dailyLevelsColor: colorParameter(input, "dailyLevelsColor", BLUE),
-    weeklyLevelsStyle: stringParameter(input, "weeklyLevelsStyle", "solid", ["solid", "dashed", "dotted"]),
+    weeklyLevelsStyle: stringParameter(input, "weeklyLevelsStyle", "solid", [
+      "solid",
+      "dashed",
+      "dotted",
+    ]),
     weeklyLevelsColor: colorParameter(input, "weeklyLevelsColor", BLUE),
-    monthlyLevelsStyle: stringParameter(input, "monthlyLevelsStyle", "solid", ["solid", "dashed", "dotted"]),
+    monthlyLevelsStyle: stringParameter(input, "monthlyLevelsStyle", "solid", [
+      "solid",
+      "dashed",
+      "dotted",
+    ]),
     monthlyLevelsColor: colorParameter(input, "monthlyLevelsColor", BLUE),
     premiumZoneColor: colorParameter(input, "premiumZoneColor", RED),
     equilibriumZoneColor: colorParameter(input, "equilibriumZoneColor", "#878B94"),
@@ -216,7 +285,11 @@ function resolveParameters(input: StrategyInput): SMCParameters {
 function trueRange(bars: readonly Bar[], index: number) {
   const bar = bars[index];
   const previousClose = index > 0 ? bars[index - 1].close : bar.close;
-  return Math.max(bar.high - bar.low, Math.abs(bar.high - previousClose), Math.abs(bar.low - previousClose));
+  return Math.max(
+    bar.high - bar.low,
+    Math.abs(bar.high - previousClose),
+    Math.abs(bar.low - previousClose),
+  );
 }
 
 function computeAtr(bars: readonly Bar[], length: number) {
@@ -336,7 +409,8 @@ function createOrderBlock(
   if (fromIndex >= toIndex) {
     return;
   }
-  const filterSeries = context.parameters.orderBlockFilter === "atr" ? context.atr : context.cumulativeMeanRange;
+  const filterSeries =
+    context.parameters.orderBlockFilter === "atr" ? context.atr : context.cumulativeMeanRange;
   const candidates = context.bars
     .slice(fromIndex, toIndex + 1)
     .map((bar, offset) => ({ bar, index: fromIndex + offset }))
@@ -397,7 +471,10 @@ function addEqualLevel(
     return;
   }
   const atr = context.atr[current.confirmationIndex];
-  if (atr === undefined || Math.abs(current.price - previous.price) > context.parameters.equalHighLowThreshold * atr) {
+  if (
+    atr === undefined ||
+    Math.abs(current.price - previous.price) > context.parameters.equalHighLowThreshold * atr
+  ) {
     return;
   }
   const label = direction > 0 ? "EQH" : "EQL";
@@ -430,7 +507,12 @@ function addEqualLevel(
     placement: "over-candles",
     zIndex: 46,
   });
-  addAlert(context, context.bars[current.confirmationIndex].timestamp, price, `Equal ${direction > 0 ? "High" : "Low"}`);
+  addAlert(
+    context,
+    context.bars[current.confirmationIndex].timestamp,
+    price,
+    `Equal ${direction > 0 ? "High" : "Low"}`,
+  );
 }
 
 function processEqualLevels(context: RunContext) {
@@ -524,7 +606,9 @@ function processStructure(context: RunContext, scope: StructureScope, size: numb
           ? context.parameters.internalBullishDisplay
           : context.parameters.swingBullishDisplay;
       const visible =
-        (scope === "internal" ? context.parameters.showInternalStructure : context.parameters.showSwingStructure) &&
+        (scope === "internal"
+          ? context.parameters.showInternalStructure
+          : context.parameters.showSwingStructure) &&
         (displayFilter === "all" || displayFilter === label.toLowerCase());
       if (visible) {
         const color = scope === "internal" ? context.internalBullishColor : context.bullishColor;
@@ -538,11 +622,18 @@ function processStructure(context: RunContext, scope: StructureScope, size: numb
         );
       }
       const showBlock =
-        scope === "internal" ? context.parameters.showInternalOrderBlocks : context.parameters.showSwingOrderBlocks;
+        scope === "internal"
+          ? context.parameters.showInternalOrderBlocks
+          : context.parameters.showSwingOrderBlocks;
       if (showBlock) {
         createOrderBlock(context, scope, 1, state.high.index, index);
       }
-      addAlert(context, bar.timestamp, bar.close, `${scope === "internal" ? "Internal" : "Swing"} Bullish ${label}`);
+      addAlert(
+        context,
+        bar.timestamp,
+        bar.close,
+        `${scope === "internal" ? "Internal" : "Swing"} Bullish ${label}`,
+      );
     }
     if (
       state.low &&
@@ -560,7 +651,9 @@ function processStructure(context: RunContext, scope: StructureScope, size: numb
           ? context.parameters.internalBearishDisplay
           : context.parameters.swingBearishDisplay;
       const visible =
-        (scope === "internal" ? context.parameters.showInternalStructure : context.parameters.showSwingStructure) &&
+        (scope === "internal"
+          ? context.parameters.showInternalStructure
+          : context.parameters.showSwingStructure) &&
         (displayFilter === "all" || displayFilter === label.toLowerCase());
       if (visible) {
         const color = scope === "internal" ? context.internalBearishColor : context.bearishColor;
@@ -574,11 +667,18 @@ function processStructure(context: RunContext, scope: StructureScope, size: numb
         );
       }
       const showBlock =
-        scope === "internal" ? context.parameters.showInternalOrderBlocks : context.parameters.showSwingOrderBlocks;
+        scope === "internal"
+          ? context.parameters.showInternalOrderBlocks
+          : context.parameters.showSwingOrderBlocks;
       if (showBlock) {
         createOrderBlock(context, scope, -1, state.low.index, index);
       }
-      addAlert(context, bar.timestamp, bar.close, `${scope === "internal" ? "Internal" : "Swing"} Bearish ${label}`);
+      addAlert(
+        context,
+        bar.timestamp,
+        bar.close,
+        `${scope === "internal" ? "Internal" : "Swing"} Bearish ${label}`,
+      );
     }
     trendByBar[index] = state.trend;
   });
@@ -600,9 +700,12 @@ function detectFairValueGaps(context: RunContext, sourceBars: readonly Bar[] = c
     );
     const previous = sourceBars[index - 1];
     const twoBack = sourceBars[index - 2];
-    const change = Math.abs(previous.close - previous.open) / Math.max(Math.abs(previous.open), Number.EPSILON);
+    const change =
+      Math.abs(previous.close - previous.open) / Math.max(Math.abs(previous.open), Number.EPSILON);
     cumulativeChange += change;
-    const threshold = context.parameters.fairValueGapAutoThreshold ? (cumulativeChange / (index - 1)) * 2 : 0;
+    const threshold = context.parameters.fairValueGapAutoThreshold
+      ? (cumulativeChange / (index - 1)) * 2
+      : 0;
     if (bar.low > twoBack.high && previous.close > twoBack.high && change > threshold) {
       context.fairValueGaps.push({
         id: `smc-fvg-bull-${index}`,
@@ -667,13 +770,19 @@ function appendOrderBlockElements(context: RunContext) {
 }
 
 function appendFairValueGapElements(context: RunContext) {
-  const interval = context.bars.length > 1 ? context.bars.at(-1)!.timestamp - context.bars.at(-2)!.timestamp : 60_000;
+  const interval =
+    context.bars.length > 1
+      ? context.bars.at(-1)!.timestamp - context.bars.at(-2)!.timestamp
+      : 60_000;
   context.fairValueGaps.slice(-MAX_OBJECTS).forEach((gap) => {
     const midpoint = (gap.fromPrice + gap.toPrice) / 2;
     const fillColor =
-      gap.direction > 0 ? context.parameters.bullishFairValueGapColor : context.parameters.bearishFairValueGapColor;
+      gap.direction > 0
+        ? context.parameters.bullishFairValueGapColor
+        : context.parameters.bearishFairValueGapColor;
     const toTimestamp =
-      context.bars.at(-1)!.timestamp + context.parameters.fairValueGapExtend * Math.max(interval, 1);
+      context.bars.at(-1)!.timestamp +
+      context.parameters.fairValueGapExtend * Math.max(interval, 1);
     const halves: Array<[number, number]> = [
       [gap.fromPrice, midpoint],
       [midpoint, gap.toPrice],
@@ -752,7 +861,12 @@ function appendPremiumDiscountZones(context: RunContext, state: StructureState) 
   const lastTimestamp = context.bars.at(-1)!.timestamp;
   const zones: Array<[string, number, number, string]> = [
     ["Premium", high - range * 0.05, high, context.parameters.premiumZoneColor],
-    ["Equilibrium", low + range * 0.475, low + range * 0.525, context.parameters.equilibriumZoneColor],
+    [
+      "Equilibrium",
+      low + range * 0.475,
+      low + range * 0.525,
+      context.parameters.equilibriumZoneColor,
+    ],
     ["Discount", low, low + range * 0.05, context.parameters.discountZoneColor],
   ];
   zones.forEach(([label, fromPrice, toPrice, color], index) => {
@@ -800,10 +914,12 @@ function appendPreviousHighLow(
     return;
   }
   const fromTimestamp = previous.timestamp;
-  ([
-    ["H", previous.high],
-    ["L", previous.low],
-  ] as const).forEach(([side, price]) => {
+  (
+    [
+      ["H", previous.high],
+      ["L", previous.low],
+    ] as const
+  ).forEach(([side, price]) => {
     pushCapped(context.elements, {
       id: `smc-${prefix.toLowerCase()}${side.toLowerCase()}`,
       kind: "price-line",
@@ -840,7 +956,9 @@ function appendPreviousMonthlyHighLow(
     month.push(bar);
     months.set(key, month);
   });
-  const monthEntries = [...months.entries()].sort((left, right) => left[1][0].timestamp - right[1][0].timestamp);
+  const monthEntries = [...months.entries()].sort(
+    (left, right) => left[1][0].timestamp - right[1][0].timestamp,
+  );
   const currentDate = new Date(cutoff);
   const currentKey = `${currentDate.getUTCFullYear()}-${currentDate.getUTCMonth()}`;
   const previous = monthEntries.filter(([key]) => key !== currentKey).at(-1)?.[1];
@@ -849,10 +967,12 @@ function appendPreviousMonthlyHighLow(
   }
   const high = Math.max(...previous.map((bar) => bar.high));
   const low = Math.min(...previous.map((bar) => bar.low));
-  ([
-    ["PMH", high],
-    ["PML", low],
-  ] as const).forEach(([label, price]) => {
+  (
+    [
+      ["PMH", high],
+      ["PML", low],
+    ] as const
+  ).forEach(([label, price]) => {
     pushCapped(context.elements, {
       id: `smc-${label.toLowerCase()}`,
       kind: "price-line",
@@ -955,8 +1075,10 @@ function runSmartMoneyConcepts(strategy: StrategyDefinition, input: StrategyInpu
     parameters,
     bullishColor: parameters.style === "monochrome" ? MONO_BULL : parameters.swingBullishColor,
     bearishColor: parameters.style === "monochrome" ? MONO_BEAR : parameters.swingBearishColor,
-    internalBullishColor: parameters.style === "monochrome" ? MONO_BULL : parameters.internalBullishColor,
-    internalBearishColor: parameters.style === "monochrome" ? MONO_BEAR : parameters.internalBearishColor,
+    internalBullishColor:
+      parameters.style === "monochrome" ? MONO_BULL : parameters.internalBullishColor,
+    internalBearishColor:
+      parameters.style === "monochrome" ? MONO_BEAR : parameters.internalBearishColor,
     atr: computeAtr(bars, 200),
     cumulativeMeanRange: computeCumulativeMeanRange(bars),
     elements: [],
@@ -970,8 +1092,12 @@ function runSmartMoneyConcepts(strategy: StrategyDefinition, input: StrategyInpu
   };
 
   const structureReady = bars.length >= 51;
-  const internal = structureReady ? processStructure(context, "internal", 5) : { state: { trend: 0 } as StructureState, trendByBar: Array<-1 | 0 | 1>(bars.length).fill(0) };
-  const swing = structureReady ? processStructure(context, "swing", parameters.swingLength) : { state: { trend: 0 } as StructureState, trendByBar: Array<-1 | 0 | 1>(bars.length).fill(0) };
+  const internal = structureReady
+    ? processStructure(context, "internal", 5)
+    : { state: { trend: 0 } as StructureState, trendByBar: Array<-1 | 0 | 1>(bars.length).fill(0) };
+  const swing = structureReady
+    ? processStructure(context, "swing", parameters.swingLength)
+    : { state: { trend: 0 } as StructureState, trendByBar: Array<-1 | 0 | 1>(bars.length).fill(0) };
   context.elements = deduplicateCoincidentStructureElements(context.elements);
   if (structureReady) {
     processEqualLevels(context);
@@ -980,7 +1106,7 @@ function runSmartMoneyConcepts(strategy: StrategyDefinition, input: StrategyInpu
   const requestedFvgSeries =
     parameters.fairValueGapTimeframe === "current"
       ? bars
-      : input.seriesByTimeframe?.[parameters.fairValueGapTimeframe] ?? [];
+      : (input.seriesByTimeframe?.[parameters.fairValueGapTimeframe] ?? []);
   const fvgSeries =
     parameters.fairValueGapTimeframe === "1d" || parameters.fairValueGapTimeframe === "1w"
       ? confirmedBars(requestedFvgSeries, parameters.fairValueGapTimeframe, bars.at(-1)!.timestamp)
@@ -1037,7 +1163,10 @@ function runSmartMoneyConcepts(strategy: StrategyDefinition, input: StrategyInpu
     );
   }
 
-  const elements = parameters.mode === "present" ? applyPresentMode(context.elements) : capHistoricalElements(context.elements);
+  const elements =
+    parameters.mode === "present"
+      ? applyPresentMode(context.elements)
+      : capHistoricalElements(context.elements);
   const logs = [
     "Smart Money Concepts is a deterministic TypeScript translation of the LuxAlgo indicator for local research.",
   ];
@@ -1045,7 +1174,9 @@ function runSmartMoneyConcepts(strategy: StrategyDefinition, input: StrategyInpu
     logs.push(`Structure warm-up: ${bars.length}/51 bars.`);
   }
   if (bars.length < 200) {
-    logs.push(`ATR(200) warm-up: ${bars.length}/200 bars; ATR-dependent filters remain unavailable.`);
+    logs.push(
+      `ATR(200) warm-up: ${bars.length}/200 bars; ATR-dependent filters remain unavailable.`,
+    );
   }
 
   return {
@@ -1132,7 +1263,12 @@ export function createSmartMoneyConceptsStrategyDefinition(): StrategyDefinition
           { label: "CHoCH", value: "choch" },
         ],
       },
-      { key: "internalConfluenceFilter", label: "内部结构 Confluence Filter", type: "boolean", defaultValue: false },
+      {
+        key: "internalConfluenceFilter",
+        label: "内部结构 Confluence Filter",
+        type: "boolean",
+        defaultValue: false,
+      },
       {
         key: "internalStructureTextSize",
         label: "内部结构标签大小",
@@ -1179,7 +1315,12 @@ export function createSmartMoneyConceptsStrategyDefinition(): StrategyDefinition
         ],
       },
       { key: "showSwingPoints", label: "HH / HL / LH / LL", type: "boolean", defaultValue: false },
-      { key: "showStrongWeakHighLow", label: "Strong / Weak High / Low", type: "boolean", defaultValue: true },
+      {
+        key: "showStrongWeakHighLow",
+        label: "Strong / Weak High / Low",
+        type: "boolean",
+        defaultValue: true,
+      },
       { key: "swingLength", label: "摆动枢轴长度", type: "number", defaultValue: 50 },
       { key: "showInternalOrderBlocks", label: "内部订单块", type: "boolean", defaultValue: true },
       { key: "internalOrderBlockCount", label: "内部订单块数量", type: "number", defaultValue: 5 },
@@ -1220,7 +1361,12 @@ export function createSmartMoneyConceptsStrategyDefinition(): StrategyDefinition
         ],
       },
       { key: "showFairValueGaps", label: "Fair Value Gaps", type: "boolean", defaultValue: false },
-      { key: "fairValueGapAutoThreshold", label: "FVG 自动阈值", type: "boolean", defaultValue: true },
+      {
+        key: "fairValueGapAutoThreshold",
+        label: "FVG 自动阈值",
+        type: "boolean",
+        defaultValue: true,
+      },
       {
         key: "fairValueGapTimeframe",
         label: "FVG 周期",
@@ -1273,22 +1419,67 @@ export function createSmartMoneyConceptsStrategyDefinition(): StrategyDefinition
           { label: "Dotted", value: "dotted" },
         ],
       },
-      { key: "showPremiumDiscountZones", label: "Premium / Equilibrium / Discount", type: "boolean", defaultValue: false },
-      { key: "internalBullishColor", label: "内部看涨结构颜色", type: "color", defaultValue: GREEN },
+      {
+        key: "showPremiumDiscountZones",
+        label: "Premium / Equilibrium / Discount",
+        type: "boolean",
+        defaultValue: false,
+      },
+      {
+        key: "internalBullishColor",
+        label: "内部看涨结构颜色",
+        type: "color",
+        defaultValue: GREEN,
+      },
       { key: "internalBearishColor", label: "内部看跌结构颜色", type: "color", defaultValue: RED },
       { key: "swingBullishColor", label: "摆动看涨结构颜色", type: "color", defaultValue: GREEN },
       { key: "swingBearishColor", label: "摆动看跌结构颜色", type: "color", defaultValue: RED },
-      { key: "internalBullishOrderBlockColor", label: "内部看涨订单块", type: "color", defaultValue: "#3179F5" },
-      { key: "internalBearishOrderBlockColor", label: "内部看跌订单块", type: "color", defaultValue: "#F77C80" },
-      { key: "swingBullishOrderBlockColor", label: "摆动看涨订单块", type: "color", defaultValue: "#1848CC" },
-      { key: "swingBearishOrderBlockColor", label: "摆动看跌订单块", type: "color", defaultValue: "#B22833" },
-      { key: "bullishFairValueGapColor", label: "看涨 FVG", type: "color", defaultValue: "#00FF68" },
-      { key: "bearishFairValueGapColor", label: "看跌 FVG", type: "color", defaultValue: "#FF0008" },
+      {
+        key: "internalBullishOrderBlockColor",
+        label: "内部看涨订单块",
+        type: "color",
+        defaultValue: "#3179F5",
+      },
+      {
+        key: "internalBearishOrderBlockColor",
+        label: "内部看跌订单块",
+        type: "color",
+        defaultValue: "#F77C80",
+      },
+      {
+        key: "swingBullishOrderBlockColor",
+        label: "摆动看涨订单块",
+        type: "color",
+        defaultValue: "#1848CC",
+      },
+      {
+        key: "swingBearishOrderBlockColor",
+        label: "摆动看跌订单块",
+        type: "color",
+        defaultValue: "#B22833",
+      },
+      {
+        key: "bullishFairValueGapColor",
+        label: "看涨 FVG",
+        type: "color",
+        defaultValue: "#00FF68",
+      },
+      {
+        key: "bearishFairValueGapColor",
+        label: "看跌 FVG",
+        type: "color",
+        defaultValue: "#FF0008",
+      },
       { key: "dailyLevelsColor", label: "前日高低点颜色", type: "color", defaultValue: BLUE },
       { key: "weeklyLevelsColor", label: "前周高低点颜色", type: "color", defaultValue: BLUE },
       { key: "monthlyLevelsColor", label: "前月高低点颜色", type: "color", defaultValue: BLUE },
       { key: "premiumZoneColor", label: "Premium Zone", type: "color", defaultValue: RED },
-      { key: "equilibriumZoneColor", label: "Equilibrium Zone", type: "color", defaultValue: "#878B94" },
+      {
+        key: "equilibriumZoneColor",
+        label: "Equilibrium Zone",
+        type: "color",
+        defaultValue: "#878B94",
+      },
       { key: "discountZoneColor", label: "Discount Zone", type: "color", defaultValue: GREEN },
     ],
     run: (input) => runSmartMoneyConcepts(strategy, input),

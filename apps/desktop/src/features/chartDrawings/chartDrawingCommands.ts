@@ -13,11 +13,16 @@ export interface ChartDrawingCommandState {
   readonly redoStack: readonly ChartDrawingCommand[];
 }
 
-export function createChartDrawingCommandState(drawings: readonly ChartDrawing[]): ChartDrawingCommandState {
+export function createChartDrawingCommandState(
+  drawings: readonly ChartDrawing[],
+): ChartDrawingCommandState {
   return { drawings, undoStack: [], redoStack: [] };
 }
 
-export function executeChartDrawingCommand(state: ChartDrawingCommandState, command: ChartDrawingCommand): ChartDrawingCommandState {
+export function executeChartDrawingCommand(
+  state: ChartDrawingCommandState,
+  command: ChartDrawingCommand,
+): ChartDrawingCommandState {
   const inverse = createInverseCommand(state.drawings, command);
   if (!inverse) return state;
   return {
@@ -51,15 +56,28 @@ export function redoChartDrawingCommand(state: ChartDrawingCommandState): ChartD
   };
 }
 
-export function applyChartDrawingCommand(drawings: readonly ChartDrawing[], command: ChartDrawingCommand): ChartDrawing[] {
-  if (command.type === "add") return drawings.some((drawing) => drawing.id === command.drawing.id) ? [...drawings] : [...drawings, command.drawing];
-  if (command.type === "update") return drawings.map((drawing) => drawing.id === command.drawingId ? command.drawing : drawing);
-  if (command.type === "delete") return drawings.filter((drawing) => drawing.id !== command.drawingId);
+export function applyChartDrawingCommand(
+  drawings: readonly ChartDrawing[],
+  command: ChartDrawingCommand,
+): ChartDrawing[] {
+  if (command.type === "add")
+    return drawings.some((drawing) => drawing.id === command.drawing.id)
+      ? [...drawings]
+      : [...drawings, command.drawing];
+  if (command.type === "update")
+    return drawings.map((drawing) =>
+      drawing.id === command.drawingId ? command.drawing : drawing,
+    );
+  if (command.type === "delete")
+    return drawings.filter((drawing) => drawing.id !== command.drawingId);
   if (command.type === "replace") return [...command.drawings];
   return [];
 }
 
-function createInverseCommand(drawings: readonly ChartDrawing[], command: ChartDrawingCommand): ChartDrawingCommand | null {
+function createInverseCommand(
+  drawings: readonly ChartDrawing[],
+  command: ChartDrawingCommand,
+): ChartDrawingCommand | null {
   if (command.type === "add") return { type: "delete", drawingId: command.drawing.id };
   if (command.type === "delete") {
     const drawing = drawings.find((item) => item.id === command.drawingId);

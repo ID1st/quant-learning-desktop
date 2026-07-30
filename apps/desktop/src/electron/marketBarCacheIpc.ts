@@ -9,10 +9,7 @@ import {
   marketBarCacheIpcChannels,
   type MarketBarCacheIpcHandlers,
 } from "./marketBarCacheIpcContract.ts";
-import {
-  assertTrustedIpcSender,
-  type DesktopRendererSecurityPolicy,
-} from "./electronSecurity.ts";
+import { assertTrustedIpcSender, type DesktopRendererSecurityPolicy } from "./electronSecurity.ts";
 
 export function registerMarketBarCacheIpcHandlers(
   securityPolicy: DesktopRendererSecurityPolicy,
@@ -50,18 +47,13 @@ export function registerMarketBarCacheIpcHandlers(
     assertTrustedIpcSender(event, securityPolicy);
     return handlers.legacyMigrationState();
   });
-  ipcMain.handle(
-    marketBarCacheIpcChannels.recordLegacyMigration,
-    (event, request: unknown) => {
-      assertTrustedIpcSender(event, securityPolicy);
-      assertLegacyMarketCacheMigrationRecordRequest(request);
-      return handlers.recordLegacyMigration(request);
-    },
-  );
+  ipcMain.handle(marketBarCacheIpcChannels.recordLegacyMigration, (event, request: unknown) => {
+    assertTrustedIpcSender(event, securityPolicy);
+    assertLegacyMarketCacheMigrationRecordRequest(request);
+    return handlers.recordLegacyMigration(request);
+  });
 
   return () => {
-    Object.values(marketBarCacheIpcChannels).forEach((channel) =>
-      ipcMain.removeHandler(channel),
-    );
+    Object.values(marketBarCacheIpcChannels).forEach((channel) => ipcMain.removeHandler(channel));
   };
 }

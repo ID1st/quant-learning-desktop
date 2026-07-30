@@ -37,7 +37,10 @@ test("chart access forwards MLPT completion policy and diagnostics through provi
                 targetBars: 1_000,
                 confirmedBars: 1_000,
                 targetSatisfied: true,
-                contributions: [{ provider: "stock-sdk", bars: 600 }, { provider: "longbridge", bars: 400 }],
+                contributions: [
+                  { provider: "stock-sdk", bars: 600 },
+                  { provider: "longbridge", bars: 400 },
+                ],
                 failures: [],
                 stopReason: "target_reached",
               },
