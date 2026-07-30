@@ -1,4 +1,4 @@
-import type { Bar } from "./index.ts";
+import type { Bar } from "./contracts.ts";
 
 export function createMachineLearningPriceTargetsVisualFixture(count = 1_800): Bar[] {
   let close = 100_400;

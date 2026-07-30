@@ -19,7 +19,7 @@ import type {
   StrategyOutput,
   StrategySignal,
   StrategyVisualElement,
-} from "./index.ts";
+} from "./contracts.ts";
 
 const MINIMUM_BARS = 1_000;
 const MAX_HISTORY_BARS = 5_000;

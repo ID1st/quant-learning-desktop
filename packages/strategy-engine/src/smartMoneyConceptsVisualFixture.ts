@@ -1,4 +1,4 @@
-import type { Bar } from "./index.ts";
+import type { Bar } from "./contracts.ts";
 
 /**
  * Deterministic OHLC fixture for SMC visual regression.

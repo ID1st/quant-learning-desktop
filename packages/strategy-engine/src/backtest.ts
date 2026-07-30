@@ -1,4 +1,4 @@
-import type { Bar, StrategySignal } from "./index.ts";
+import type { Bar, StrategySignal } from "./contracts.ts";
 
 export type BacktestPositionDirection = "long" | "short";
 
