@@ -1,6 +1,9 @@
 import { app, BrowserWindow, powerMonitor } from "electron";
 import { join } from "node:path";
 import { createMarketDataIpcHandlers, registerMarketDataIpcHandlers } from "./marketDataIpc";
+import { registerMarketBarCacheIpcHandlers } from "./marketBarCacheIpc";
+import { createMarketBarCacheIpcHandlers } from "./marketBarCacheIpcContract";
+import { createDuckDbMarketBarRepository } from "./duckDbMarketBarRepository";
 import { registerProviderDataIpcHandlers } from "./providerDataIpc";
 import { registerPluginIpcHandlers } from "./pluginIpc";
 import { createPluginManager } from "./pluginManager";
@@ -135,6 +138,13 @@ void app.whenReady().then(async () => {
     authManager,
   );
   const disposeAuthLifecycle = configureAuthLifecycle(authManager);
+  const marketBarCacheRepository = await createDuckDbMarketBarRepository(
+    join(app.getPath("userData"), "data", "market-cache.duckdb"),
+  );
+  const disposeMarketBarCacheIpc = registerMarketBarCacheIpcHandlers(
+    securityPolicy,
+    createMarketBarCacheIpcHandlers(marketBarCacheRepository),
+  );
   registerMarketDataIpcHandlers(securityPolicy, createMarketDataIpcHandlers({ credentialStore }));
   registerProviderDataIpcHandlers(securityPolicy);
   registerSecureCredentialIpcHandlers(securityPolicy, credentialStore);
@@ -144,6 +154,8 @@ void app.whenReady().then(async () => {
   app.once("before-quit", () => {
     disposeAuthLifecycle();
     disposeAuthIpc();
+    disposeMarketBarCacheIpc();
+    void marketBarCacheRepository.dispose();
     pluginRuntime.dispose();
   });
   const mainWindow = createMainWindow(securityPolicy);

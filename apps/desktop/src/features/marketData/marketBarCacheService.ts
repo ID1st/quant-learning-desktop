@@ -99,7 +99,7 @@ function createCollectionKey(key: MarketBarCacheKey | MarketBarCacheMetadata) {
   return `${base}:adjust:${getAdjustment(key)}`;
 }
 
-function normalizeCacheKey(key: MarketBarCacheKey): MarketBarCacheKey {
+export function normalizeMarketBarCacheKey(key: MarketBarCacheKey): MarketBarCacheKey {
   const adjust = getAdjustment(key);
   return adjust ? { ...key, adjust } : { ...key };
 }
@@ -274,7 +274,7 @@ function sanitizeMetadataList(value: unknown): MarketBarCacheMetadata[] | null {
   return value.map(sanitizeMetadata).filter((item): item is MarketBarCacheMetadata => item !== null);
 }
 
-function normalizeBars(bars: MarketDataBar[]) {
+export function normalizeMarketDataBars(bars: MarketDataBar[]) {
   const byTimestamp = new Map<number, { bar: MarketDataBar; inputIndex: number }>();
 
   bars.forEach((bar, inputIndex) => {
@@ -315,7 +315,7 @@ function normalizeBars(bars: MarketDataBar[]) {
     .sort((left, right) => left.timestamp - right.timestamp);
 }
 
-function hasContinuousHistoricalCache(bars: readonly MarketDataBar[], timeframe: Timeframe) {
+export function hasContinuousHistoricalCache(bars: readonly MarketDataBar[], timeframe: Timeframe) {
   if (!isHistoricalTimeframe(timeframe) || bars.length < 2) {
     return true;
   }
@@ -323,7 +323,7 @@ function hasContinuousHistoricalCache(bars: readonly MarketDataBar[], timeframe:
   return bars.every((bar, index) => index === 0 || bar.timestamp - bars[index - 1]!.timestamp <= maximumHistoricalCacheGapMs);
 }
 
-function getDefaultMarketBarRetentionDays(timeframe: Timeframe) {
+export function getDefaultMarketBarRetentionDays(timeframe: Timeframe) {
   if (timeframe === "realtime") {
     return 45;
   }
@@ -431,12 +431,12 @@ function upsertMetadata(
 
 export function writeMarketBarCache(key: MarketBarCacheKey, bars: MarketDataBar[], options: WriteMarketBarCacheOptions = {}) {
   const database = options.database ?? appLocalDatabase;
-  const normalizedKey = normalizeCacheKey(key);
+  const normalizedKey = normalizeMarketBarCacheKey(key);
   discardLegacyHistoricalCache(database, normalizedKey);
   const candidateBars = options.mergeExisting
     ? [...readMarketBarCache(normalizedKey, { database }), ...bars]
     : bars;
-  const normalizedBars = normalizeBars(
+  const normalizedBars = normalizeMarketDataBars(
     candidateBars.filter(
       (bar) =>
         bar.symbol === normalizedKey.symbol &&
@@ -453,14 +453,14 @@ export function writeMarketBarCache(key: MarketBarCacheKey, bars: MarketDataBar[
 
 export function readMarketBarCache(key: MarketBarCacheKey, options: ReadMarketBarCacheOptions = {}) {
   const database = options.database ?? appLocalDatabase;
-  const normalizedKey = normalizeCacheKey(key);
+  const normalizedKey = normalizeMarketBarCacheKey(key);
   discardLegacyHistoricalCache(database, normalizedKey);
   const bars = database.readDocument(createCollectionKey(normalizedKey), {
     version: STORAGE_VERSION,
     fallback: [],
     sanitize: sanitizeBars,
   });
-  const normalizedBars = normalizeBars(bars);
+  const normalizedBars = normalizeMarketDataBars(bars);
 
   if (!hasContinuousHistoricalCache(normalizedBars, normalizedKey.timeframe)) {
     database.removeDocument(createCollectionKey(normalizedKey));
@@ -472,7 +472,7 @@ export function readMarketBarCache(key: MarketBarCacheKey, options: ReadMarketBa
 }
 
 export function clearMarketBarCache(key: MarketBarCacheKey, database: LocalDatabase = appLocalDatabase) {
-  const normalizedKey = normalizeCacheKey(key);
+  const normalizedKey = normalizeMarketBarCacheKey(key);
   discardLegacyHistoricalCache(database, normalizedKey);
   database.removeDocument(createCollectionKey(normalizedKey));
   removeMetadata(database, normalizedKey);
@@ -535,4 +535,36 @@ export function pruneMarketBarCache(options: PruneMarketBarCacheOptions = {}) {
     removedBars,
     remainingEntries: readMetadataIndex(database).length,
   };
+}
+
+/**
+ * First-stable-release migration adapter. It deliberately reads the exact
+ * legacy collection key without triggering the normal historical-key cleanup.
+ * Remove this adapter in the second stable release after migration telemetry
+ * confirms completion.
+ */
+export function readLegacyMarketBarCacheEntry(
+  entry: MarketBarCacheMetadata,
+  database: LocalDatabase = appLocalDatabase,
+) {
+  const bars = database.readDocument(createCollectionKey(entry), {
+    version: STORAGE_VERSION,
+    fallback: [],
+    sanitize: sanitizeBars,
+  });
+  return normalizeMarketDataBars(bars);
+}
+
+export function removeLegacyMarketBarCacheEntry(
+  entry: MarketBarCacheMetadata,
+  database: LocalDatabase = appLocalDatabase,
+) {
+  const collectionKey = createCollectionKey(entry);
+  database.removeDocument(collectionKey);
+  writeMetadataIndex(
+    database,
+    readMetadataIndex(database).filter(
+      (candidate) => createCollectionKey(candidate) !== collectionKey,
+    ),
+  );
 }

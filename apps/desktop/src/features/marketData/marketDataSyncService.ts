@@ -1,6 +1,8 @@
 import type { Market } from "@quant/shared";
 import { appLocalDatabase, type LocalDatabase } from "../persistence/localDatabase.ts";
 import { writeMarketBarCache, type MarketDataBar } from "./marketBarCacheService.ts";
+import { getMarketBarCacheRepository } from "./marketBarCacheClient.ts";
+import type { MarketBarCacheRepository } from "./marketBarCacheRepository.ts";
 import {
   sanitizeMarketDataProviderId,
   type GatewayMarketDataProviderId,
@@ -76,6 +78,7 @@ export interface MarketDataSyncState {
 
 export interface RunInitialMarketDataSyncOptions {
   database?: LocalDatabase;
+  marketBarCacheRepository?: MarketBarCacheRepository;
   delayMs?: number;
   fetchQuoteSnapshot?: (watchlist: MarketWatchlistItem[]) => Promise<MarketQuoteSnapshot[]>;
   fetchHistoricalBars?: (watchlist: MarketWatchlistItem[]) => Promise<MarketDataBar[]>;
@@ -130,7 +133,11 @@ function writeQuoteSnapshots(database: LocalDatabase, snapshots: MarketQuoteSnap
   database.writeDocument(QUOTE_SNAPSHOT_COLLECTION_KEY, STORAGE_VERSION, snapshots);
 }
 
-function writeHistoricalBars(database: LocalDatabase, bars: MarketDataBar[]) {
+async function writeHistoricalBars(
+  database: LocalDatabase,
+  bars: MarketDataBar[],
+  repository?: MarketBarCacheRepository,
+) {
   const groups = new Map<string, MarketDataBar[]>();
 
   for (const bar of bars) {
@@ -144,15 +151,18 @@ function writeHistoricalBars(database: LocalDatabase, bars: MarketDataBar[]) {
       continue;
     }
 
-    writeMarketBarCache(
-      {
-        symbol: firstBar.symbol,
-        market: firstBar.market,
-        timeframe: firstBar.timeframe,
-      },
-      groupBars,
-      { database, mergeExisting: true },
-    );
+    const key = {
+      symbol: firstBar.symbol,
+      market: firstBar.market,
+      timeframe: firstBar.timeframe,
+    };
+    if (repository) {
+      await repository.write(key, groupBars, { mergeExisting: true });
+    } else {
+      // Compatibility path for the first stable migration release and isolated
+      // LocalDatabase tests. Production callers use the async repository.
+      writeMarketBarCache(key, groupBars, { database, mergeExisting: true });
+    }
   }
 }
 
@@ -352,6 +362,9 @@ export async function runInitialMarketDataSync(
   options: RunInitialMarketDataSyncOptions = {},
 ): Promise<MarketDataSyncState> {
   const database = options.database ?? appLocalDatabase;
+  const marketBarCacheRepository =
+    options.marketBarCacheRepository ??
+    (options.database ? undefined : getMarketBarCacheRepository());
   const provider = options.provider ?? "alphafeed";
   const now = options.now ?? (() => new Date());
   const delayMs = options.delayMs ?? 220;
@@ -406,7 +419,11 @@ export async function runInitialMarketDataSync(
 
       if (step.id === "historical-candles" && options.fetchHistoricalBars) {
         historicalBars = await options.fetchHistoricalBars(syncWatchlist);
-        writeHistoricalBars(database, historicalBars);
+        await writeHistoricalBars(
+          database,
+          historicalBars,
+          marketBarCacheRepository,
+        );
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "行情同步失败";

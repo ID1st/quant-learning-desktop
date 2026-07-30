@@ -27,7 +27,8 @@ import {
   marketBarsToCandles,
   marketBarsToStrategyBars,
 } from "../features/marketData/chartBarAdapter";
-import { readMarketBarCache, readMarketBarCacheSummary, writeMarketBarCache, type MarketDataBar } from "../features/marketData/marketBarCacheService";
+import { getMarketBarCacheRepository } from "../features/marketData/marketBarCacheClient";
+import type { MarketDataBar } from "../features/marketData/marketBarCacheService";
 import { readMarketWatchlist, writeMarketWatchlist, type MarketQuoteSnapshot, type MarketWatchlistItem } from "../features/marketData/marketDataSyncService";
 import {
   createQuotePollingBatches,
@@ -793,14 +794,14 @@ export function ChartWorkspacePage() {
   const [watchlist, setWatchlist] = useState<ChartWatchlistItem[]>(readChartWatchlist);
   const [activeSymbol, setActiveSymbol] = useState<ChartWatchlistItem>(() => readChartWatchlist()[0] ?? symbols[0]);
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
-  const [cachedMarketBars, setCachedMarketBars] = useState<MarketDataBar[]>(() =>
-    readMarketBarCache({ symbol: readChartWatchlist()[0]?.dataSymbol ?? symbols[0].dataSymbol, market: readChartWatchlist()[0]?.market ?? symbols[0].market, timeframe: "1d" }),
-  );
+  const marketBarCacheRepository = getMarketBarCacheRepository();
+  const [cachedMarketBars, setCachedMarketBars] = useState<MarketDataBar[]>([]);
+  const [dailyStrategyBars, setDailyStrategyBars] = useState<ReturnType<typeof marketBarsToStrategyBars>>([]);
+  const [weeklyStrategyBars, setWeeklyStrategyBars] = useState<ReturnType<typeof marketBarsToStrategyBars>>([]);
   const snapshotCacheWriteGateRef = useRef(createSnapshotCacheWriteGate());
   const [chartLoadState, setChartLoadState] = useState<ChartLoadState>(() => {
     const item = readChartWatchlist()[0] ?? symbols[0];
-    const bars = readMarketBarCache({ symbol: item.dataSymbol, market: item.market, timeframe: "1d" });
-    return createChartLoadState(hasRenderableChartData("1d", bars.length) ? "ready" : "cache", item.symbol, "1d", bars.length);
+    return createChartLoadState("cache", item.symbol, "1d", 0);
   });
   const [watchlistDataStatusByKey, setWatchlistDataStatusByKey] = useState<Record<string, WatchlistDataStatus>>({});
   const [realtimeStatus, setRealtimeStatus] = useState("REST 轮询待命");
@@ -943,22 +944,46 @@ export function ChartWorkspacePage() {
   const cachedStrategyBars = useMemo(() => marketBarsToStrategyBars(strategyMarketBars), [strategyMarketBars]);
   const renderedCandles = cachedCandles;
   const strategyInputBars = cachedStrategyBars;
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      marketBarCacheRepository.read({
+        symbol: activeSymbol.dataSymbol,
+        market: activeSymbol.market,
+        timeframe: "1d",
+      }),
+      marketBarCacheRepository.read({
+        symbol: activeSymbol.dataSymbol,
+        market: activeSymbol.market,
+        timeframe: "1w",
+      }),
+    ])
+      .then(([dailyBars, weeklyBars]) => {
+        if (!cancelled) {
+          setDailyStrategyBars(marketBarsToStrategyBars(dailyBars));
+          setWeeklyStrategyBars(marketBarsToStrategyBars(weeklyBars));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDailyStrategyBars([]);
+          setWeeklyStrategyBars([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSymbol.dataSymbol, activeSymbol.market, marketBarCacheRepository]);
   const strategySeriesByTimeframe = useMemo(() => {
-    const dailyBars = marketBarsToStrategyBars(
-      readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "1d" }),
-    );
-    const weeklyBars = marketBarsToStrategyBars(
-      readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "1w" }),
-    );
     return createStrategySeriesByTimeframe({
       primaryBars: strategyInputBars,
       primaryTimeframe: timeframe,
       market: activeSymbol.market,
       asOfTimestamp: Date.now(),
-      dailyBars,
-      weeklyBars,
+      dailyBars: dailyStrategyBars,
+      weeklyBars: weeklyStrategyBars,
     });
-  }, [activeSymbol.dataSymbol, activeSymbol.market, cachedMarketBars, strategyInputBars, timeframe]);
+  }, [activeSymbol.market, dailyStrategyBars, strategyInputBars, timeframe, weeklyStrategyBars]);
   const strategyRuns = useMemo(
     () =>
       runChartStrategies({
@@ -1063,8 +1088,12 @@ export function ChartWorkspacePage() {
     setChartResetViewKey((value) => value + 1);
     setChartContextMenu(null);
   };
-  const selectActiveSymbol = (item: ChartWatchlistItem) => {
-    const bars = readMarketBarCache({ symbol: item.dataSymbol, market: item.market, timeframe: getChartCacheTimeframe(timeframe) });
+  const selectActiveSymbol = async (item: ChartWatchlistItem) => {
+    const bars = await marketBarCacheRepository.read({
+      symbol: item.dataSymbol,
+      market: item.market,
+      timeframe: getChartCacheTimeframe(timeframe),
+    });
     setCachedMarketBars(bars);
     setChartLoadState(
       createChartLoadState(
@@ -1094,26 +1123,50 @@ export function ChartWorkspacePage() {
       return;
     }
 
-    writeMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe }, bars);
+    void marketBarCacheRepository.write(
+      {
+        symbol: activeSymbol.dataSymbol,
+        market: activeSymbol.market,
+        timeframe,
+      },
+      bars,
+    );
   };
 
   useEffect(() => {
+    let cancelled = false;
     const cacheTimeframe = getChartCacheTimeframe(timeframe);
-    const bars = readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe });
-    setCachedMarketBars(bars);
-    setChartLoadState(
-      createChartLoadState(
-        hasRenderableChartData(timeframe, bars.length) ? "ready" : "cache",
-        activeSymbol.symbol,
-        timeframe,
-        bars.length,
-      ),
-    );
-    setWatchlistDataStatusByKey((current) => ({
-      ...current,
-      [getWatchlistDataKey(activeSymbol)]: hasRenderableChartData(timeframe, bars.length) ? "cache" : "syncing",
-    }));
-  }, [activeSymbol.dataSymbol, activeSymbol.market, marketDataProviderSettings.stockSdkPrimaryEnabled, timeframe]);
+    void marketBarCacheRepository
+      .read({
+        symbol: activeSymbol.dataSymbol,
+        market: activeSymbol.market,
+        timeframe: cacheTimeframe,
+      })
+      .then((bars) => {
+        if (cancelled) return;
+        setCachedMarketBars(bars);
+        setChartLoadState(
+          createChartLoadState(
+            hasRenderableChartData(timeframe, bars.length) ? "ready" : "cache",
+            activeSymbol.symbol,
+            timeframe,
+            bars.length,
+          ),
+        );
+        setWatchlistDataStatusByKey((current) => ({
+          ...current,
+          [getWatchlistDataKey(activeSymbol)]: hasRenderableChartData(timeframe, bars.length) ? "cache" : "syncing",
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCachedMarketBars([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSymbol.dataSymbol, activeSymbol.market, marketBarCacheRepository, marketDataProviderSettings.stockSdkPrimaryEnabled, timeframe]);
 
   useEffect(() => {
     const nextDrawings = readChartDrawings({ market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe });
@@ -1144,7 +1197,11 @@ export function ChartWorkspacePage() {
         ? getIntradayHistoryWindow(activeSymbol.market, Date.now(), realtimeHistoryRequirement.sessionCount)
         : null;
       const cacheTimeframe = getChartCacheTimeframe(timeframe);
-      const initialCachedBars = readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe });
+      const initialCachedBars = await marketBarCacheRepository.read({
+        symbol: activeSymbol.dataSymbol,
+        market: activeSymbol.market,
+        timeframe: cacheTimeframe,
+      });
       const confirmedThroughTimestamp = Math.floor(Date.now() / 60_000) * 60_000 - 1;
       const knownConfirmedTimestamps = initialCachedBars
         .filter((bar) => bar.timestamp <= confirmedThroughTimestamp)
@@ -1153,7 +1210,7 @@ export function ChartWorkspacePage() {
         isRealtimeHistory &&
         isMlptEnabled &&
         knownConfirmedTimestamps.length < mlptMinimumHistoryBars;
-      const cacheMetadata = readMarketBarCacheSummary().entries.find((entry) =>
+      const cacheMetadata = (await marketBarCacheRepository.summary()).entries.find((entry) =>
         entry.symbol === activeSymbol.dataSymbol && entry.market === activeSymbol.market && entry.timeframe === cacheTimeframe,
       );
       const cacheFreshness = evaluateMarketCacheFreshness(cacheTimeframe, cacheMetadata?.updatedAt);
@@ -1235,7 +1292,7 @@ export function ChartWorkspacePage() {
 
         if (!result.ok) {
           const cacheTimeframe: Timeframe = isRealtimeHistory ? "realtime" : timeframe;
-          const cachedBars = readMarketBarCache({
+          const cachedBars = await marketBarCacheRepository.read({
             symbol: activeSymbol.dataSymbol,
             market: activeSymbol.market,
             timeframe: cacheTimeframe,
@@ -1282,7 +1339,7 @@ export function ChartWorkspacePage() {
 
         const cacheTimeframe: Timeframe = isRealtimeHistory ? "realtime" : timeframe;
         const cacheKey = { symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe };
-        const currentCachedBars = readMarketBarCache(cacheKey);
+        const currentCachedBars = await marketBarCacheRepository.read(cacheKey);
         const prioritizedHistoryBars =
           isRealtimeHistory && isMlptEnabled
             ? mergeMlptBarsByProviderPriority([...currentCachedBars, ...resultBars])
@@ -1294,7 +1351,7 @@ export function ChartWorkspacePage() {
             timeframe: "realtime",
             }, realtimeHistoryRequirement.sessionCount)
           : resultBars;
-        const written = writeMarketBarCache(cacheKey, mergedBars, {
+        const written = await marketBarCacheRepository.write(cacheKey, mergedBars, {
           mergeExisting: !isRealtimeHistory,
           historicalCompletion: result.historicalCompletion
             ? {
@@ -1364,10 +1421,10 @@ export function ChartWorkspacePage() {
                   .map((bar) => bar.timestamp),
               },
               marketDataAccess,
-            }).then((backfillResult) => {
+            }).then(async (backfillResult) => {
               if (cancelled || !backfillResult.ok) return;
               const backfillBars = gatewayBarsToMarketDataBars(backfillResult.data, "realtime");
-              const latestCachedBars = readMarketBarCache(cacheKey);
+              const latestCachedBars = await marketBarCacheRepository.read(cacheKey);
               const prioritizedBars = mergeMlptBarsByProviderPriority([
                 ...latestCachedBars,
                 ...backfillBars,
@@ -1382,7 +1439,7 @@ export function ChartWorkspacePage() {
                 },
                 realtimeHistoryRequirement.sessionCount,
               );
-              const completed = writeMarketBarCache(cacheKey, completedBars, {
+              const completed = await marketBarCacheRepository.write(cacheKey, completedBars, {
                 historicalCompletion: backfillResult.historicalCompletion
                   ? {
                       targetBars: backfillResult.historicalCompletion.targetBars,
@@ -1429,7 +1486,11 @@ export function ChartWorkspacePage() {
         setRealtimeHealth(errorHealth);
         setRealtimeStatus(errorHealth.message);
         recordMarketEvent("error", errorHealth.message);
-        const cachedBars = readMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: cacheTimeframe });
+        const cachedBars = await marketBarCacheRepository.read({
+          symbol: activeSymbol.dataSymbol,
+          market: activeSymbol.market,
+          timeframe: cacheTimeframe,
+        });
         const hasCache = hasRenderableChartData(timeframe, cachedBars.length);
         setChartLoadState(createChartLoadState(hasCache ? "degraded" : "error", activeSymbol.symbol, timeframe, cachedBars.length, errorHealth.message));
         setWatchlistDataStatusByKey((current) => ({ ...current, [getWatchlistDataKey(activeSymbol)]: hasCache ? "degraded" : "error" }));
@@ -1469,8 +1530,11 @@ export function ChartWorkspacePage() {
 
         const cacheTimeframe = getChartCacheTimeframe(task.timeframe);
         const cacheKey = { symbol: task.symbol, market: task.market, timeframe: cacheTimeframe };
-        const cachedBars = readMarketBarCache(cacheKey);
-        const metadata = readMarketBarCacheSummary().entries.find(
+        const [cachedBars, cacheSummary] = await Promise.all([
+          marketBarCacheRepository.read(cacheKey),
+          marketBarCacheRepository.summary(),
+        ]);
+        const metadata = cacheSummary.entries.find(
           (entry) => entry.symbol === cacheKey.symbol && entry.market === cacheKey.market && entry.timeframe === cacheKey.timeframe,
         );
         const isFresh = isChartWarmupCacheFresh(cacheTimeframe, metadata?.updatedAt);
@@ -1521,7 +1585,7 @@ export function ChartWorkspacePage() {
         const nextBars = isIntraday
           ? mergeHistoricalRealtimeBarsWithLiveBars(resultBars, cachedBars, cacheKey, realtimeHistoryRequirement.sessionCount)
           : resultBars;
-        const written = writeMarketBarCache(cacheKey, nextBars, { mergeExisting: !isIntraday });
+        const written = await marketBarCacheRepository.write(cacheKey, nextBars, { mergeExisting: !isIntraday });
         setWatchlistDataStatusByKey((current) => ({
           ...current,
           [`${task.market}:${task.symbol}`]: hasRenderableChartData(task.timeframe, written.length) ? "ready" : "error",
@@ -1617,7 +1681,14 @@ export function ChartWorkspacePage() {
           return;
         }
 
-        const written = writeMarketBarCache({ symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "realtime" }, realtimeBars);
+        const written = await marketBarCacheRepository.write(
+          {
+            symbol: activeSymbol.dataSymbol,
+            market: activeSymbol.market,
+            timeframe: "realtime",
+          },
+          realtimeBars,
+        );
         setCachedMarketBars(written);
         const healthView = createRealtimeHealthViewFromGateway(
           result.health,

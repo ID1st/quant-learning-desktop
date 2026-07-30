@@ -16,6 +16,8 @@ import type { MarketQuoteSnapshot, MarketWatchlistItem } from "../features/marke
 import type { AlphaFeedStreamConnectionState, AlphaFeedStreamMode } from "./alphaFeedStreamBridge";
 import { marketDataIpcChannels } from "./marketDataIpcContract";
 import type { MarketDataIpcBridge } from "./marketDataIpcContract";
+import { marketBarCacheIpcChannels } from "./marketBarCacheIpcContract";
+import type { MarketBarCacheIpcBridge } from "./marketBarCacheIpcContract";
 import { providerDataIpcChannels } from "./providerDataIpcChannels";
 import { pluginIpcChannels } from "./pluginIpcContract";
 import type { PluginIpcBridge } from "./pluginIpcContract";
@@ -35,6 +37,7 @@ export interface DesktopBridge {
     clearLongPort(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
   };
   readonly marketData: MarketDataIpcBridge;
+  readonly marketBarCache: MarketBarCacheIpcBridge;
   readonly plugins: PluginIpcBridge;
   readonly longPort: {
     verifyCredentials(credentials: LongPortApiCredentials): Promise<
@@ -162,6 +165,13 @@ async function invokeMarketData<T>(channel: string, payload?: unknown): Promise<
   return ipcRenderer.invoke(channel, payload) as Promise<T>;
 }
 
+async function invokeMarketBarCache<T>(
+  channel: string,
+  payload?: unknown,
+): Promise<T> {
+  return ipcRenderer.invoke(channel, payload) as Promise<T>;
+}
+
 async function invokePlugin<T>(channel: string, ...payload: unknown[]): Promise<T> {
   return ipcRenderer.invoke(channel, ...payload) as Promise<T>;
 }
@@ -248,6 +258,21 @@ export const desktopBridge: DesktopBridge = {
     connectQuoteStream: (request) => invokeMarketData(marketDataIpcChannels.connectQuoteStream, request),
     readQuoteStreamSnapshot: (request) => invokeMarketData(marketDataIpcChannels.readQuoteStreamSnapshot, request),
     disconnectQuoteStream: (context) => invokeMarketData(marketDataIpcChannels.disconnectQuoteStream, context),
+  },
+  marketBarCache: {
+    read: (request) => invokeMarketBarCache(marketBarCacheIpcChannels.read, request),
+    write: (request) => invokeMarketBarCache(marketBarCacheIpcChannels.write, request),
+    summary: () => invokeMarketBarCache(marketBarCacheIpcChannels.summary),
+    prune: (request) => invokeMarketBarCache(marketBarCacheIpcChannels.prune, request),
+    clear: (key) => invokeMarketBarCache(marketBarCacheIpcChannels.clear, key),
+    clearAll: () => invokeMarketBarCache(marketBarCacheIpcChannels.clearAll),
+    legacyMigrationState: () =>
+      invokeMarketBarCache(marketBarCacheIpcChannels.legacyMigrationState),
+    recordLegacyMigration: (request) =>
+      invokeMarketBarCache(
+        marketBarCacheIpcChannels.recordLegacyMigration,
+        request,
+      ),
   },
   plugins: {
     list: () => invokePlugin(pluginIpcChannels.list),

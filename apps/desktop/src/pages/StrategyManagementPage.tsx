@@ -19,7 +19,8 @@ import { builtInChartIndicatorDefinitions, getIndicatorInstance } from "../featu
 import { useAppStore } from "../state/appStore";
 import { useToastStore } from "../features/feedback/toastStore";
 import { marketBarsToStrategyBars } from "../features/marketData/chartBarAdapter";
-import { readMarketBarCache, readMarketBarCacheSummary } from "../features/marketData/marketBarCacheService";
+import { getMarketBarCacheRepository } from "../features/marketData/marketBarCacheClient";
+import type { MarketBarCacheMetadata } from "../features/marketData/marketBarCacheService";
 import { deleteStrategyBacktestRun, readStrategyBacktestRuns, saveStrategyBacktestRun, type StrategyBacktestRun } from "../features/strategies/backtestRunStore";
 import {
   Activity,
@@ -175,6 +176,8 @@ export function StrategyManagementPage() {
   const pushToast = useToastStore((state) => state.push);
   const [isBacktestDialogOpen, setIsBacktestDialogOpen] = useState(false);
   const [backtestContextRevision, setBacktestContextRevision] = useState(0);
+  const [marketCacheEntries, setMarketCacheEntries] = useState<MarketBarCacheMetadata[]>([]);
+  const [strategyPreviewBars, setStrategyPreviewBars] = useState<ReturnType<typeof marketBarsToStrategyBars>>([]);
   const [selectedBacktestContextId, setSelectedBacktestContextId] = useState("");
   const [backtestSettings, setBacktestSettings] = useState<BacktestSettings>(defaultBacktestSettings);
   const [backtestRuns, setBacktestRuns] = useState<StrategyBacktestRun[]>(() => readStrategyBacktestRuns());
@@ -183,12 +186,30 @@ export function StrategyManagementPage() {
   const enabledCount = strategies.filter((strategy) => studyStrategySettings[strategy.key]?.enabled).length;
   const userDraftReadyCount = importedDrafts.filter((draft) => draft.definition.translation.status === "ready").length;
   const userDraftReviewCount = importedDrafts.filter((draft) => draft.definition.translation.status === "manual-review").length;
+  useEffect(() => {
+    let cancelled = false;
+    void getMarketBarCacheRepository()
+      .summary()
+      .then((summary) => {
+        if (!cancelled) {
+          setMarketCacheEntries(summary.entries);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMarketCacheEntries([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [backtestContextRevision]);
   const availableBacktestContexts = useMemo<BacktestContext[]>(() => {
     if (!selectedStrategy) {
       return [];
     }
 
-    return readMarketBarCacheSummary().entries
+    return marketCacheEntries
       .filter(
         (entry) =>
           entry.barCount >= 2 &&
@@ -203,7 +224,7 @@ export function StrategyManagementPage() {
         barCount: entry.barCount,
       }))
       .sort((left, right) => right.barCount - left.barCount);
-  }, [backtestContextRevision, selectedStrategy]);
+  }, [marketCacheEntries, selectedStrategy]);
   const selectedBacktestContext = availableBacktestContexts.find((item) => item.id === selectedBacktestContextId) ?? availableBacktestContexts[0];
   const selectedBacktestRun = backtestRuns.find((run) => run.id === selectedBacktestRunId) ?? backtestRuns[0] ?? null;
   useEffect(() => {
@@ -211,17 +232,28 @@ export function StrategyManagementPage() {
       availableBacktestContexts.some((context) => context.id === current) ? current : availableBacktestContexts[0]?.id ?? "",
     );
   }, [availableBacktestContexts]);
-  const strategyPreviewBars = useMemo(
-    () =>
-      marketBarsToStrategyBars(
-        readMarketBarCache({
+  useEffect(() => {
+    let cancelled = false;
+    void getMarketBarCacheRepository()
+      .read({
           symbol: strategyPreviewSymbol.symbol,
           market: strategyPreviewSymbol.market,
           timeframe: strategyPreviewTimeframe,
-        }),
-      ),
-    [],
-  );
+      })
+      .then((bars) => {
+        if (!cancelled) {
+          setStrategyPreviewBars(marketBarsToStrategyBars(bars));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStrategyPreviewBars([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const strategyRuns = useMemo(
     () =>
       strategies.map((strategy) => {
@@ -334,7 +366,7 @@ export function StrategyManagementPage() {
     setIsBacktestDialogOpen(true);
   };
 
-  const runSelectedStrategyBacktest = () => {
+  const runSelectedStrategyBacktest = async () => {
     if (!selectedStrategy || !selectedBacktestContext) {
       pushToast({
         tone: "warning",
@@ -347,7 +379,7 @@ export function StrategyManagementPage() {
 
     try {
       const bars = marketBarsToStrategyBars(
-        readMarketBarCache({
+        await getMarketBarCacheRepository().read({
           symbol: selectedBacktestContext.symbol,
           market: selectedBacktestContext.market,
           timeframe: selectedBacktestContext.timeframe,

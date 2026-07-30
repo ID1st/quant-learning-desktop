@@ -360,6 +360,7 @@ interface QuantDesktopBridge {
     clearLongPort(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
   };
   readonly marketData?: QuantDesktopMarketDataBridge;
+  readonly marketBarCache?: import("./electron/marketBarCacheIpcContract.ts").MarketBarCacheIpcBridge;
   readonly plugins?: QuantDesktopPluginBridge;
   readonly alphaFeed?: {
     verifyCredentials(credentials: {

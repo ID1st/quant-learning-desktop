@@ -2,12 +2,8 @@ import { AlertTriangle, Boxes, CalendarClock, CheckCircle2, DatabaseZap, FileInp
 import { useEffect, useState } from "react";
 import { createLocalPluginInstallBridge, type PluginManifestPreflightResult } from "@quant/api-client";
 import { type PluginCapability, type PluginPermission } from "@quant/plugin-loader";
-import {
-  clearAllMarketBarCache,
-  pruneMarketBarCache,
-  readMarketBarCacheSummary,
-  type MarketBarCacheSummary,
-} from "../features/marketData/marketBarCacheService";
+import { getMarketBarCacheRepository } from "../features/marketData/marketBarCacheClient";
+import type { MarketBarCacheSummary } from "../features/marketData/marketBarCacheService";
 import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 import { authErrorMessage, getAuthBridge, normalizeInviteInput } from "../features/auth/authService";
 import { useAuthStore } from "../features/auth/authStore";
@@ -95,8 +91,13 @@ export function SettingsPage() {
   const installLocalPlugin = usePluginRuntimeStore((state) => state.installLocalPlugin);
   const setPluginEnabled = usePluginRuntimeStore((state) => state.setEnabled);
   const uninstallPlugin = usePluginRuntimeStore((state) => state.uninstall);
-  const [cacheSummary, setCacheSummary] = useState<MarketBarCacheSummary>(() => readMarketBarCacheSummary());
+  const [cacheSummary, setCacheSummary] = useState<MarketBarCacheSummary>({
+    entries: [],
+    totalBarCount: 0,
+    totalEstimatedBytes: 0,
+  });
   const [cacheMessage, setCacheMessage] = useState("");
+  const [isCacheOperationPending, setCacheOperationPending] = useState(false);
   const [manifestDraft, setManifestDraft] = useState(sampleManifest);
   const [renewInviteCode, setRenewInviteCode] = useState("");
   const [renewMessage, setRenewMessage] = useState("");
@@ -127,6 +128,25 @@ export function SettingsPage() {
     void refreshPluginRuntime();
   }, [refreshPluginRuntime]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void getMarketBarCacheRepository()
+      .summary()
+      .then((summary) => {
+        if (!cancelled) {
+          setCacheSummary(summary);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCacheMessage("行情缓存暂时不可用。");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const previewManifest = manifestPreview.ok ? manifestPreview.manifest : null;
   const capabilitySummary = (["strategy", "indicator", "data-source", "export"] as PluginCapability[]).map((capability) => ({
     capability,
@@ -134,20 +154,34 @@ export function SettingsPage() {
   }));
   const largestCacheEntries = [...cacheSummary.entries].sort((left, right) => right.estimatedBytes - left.estimatedBytes).slice(0, 4);
 
-  const refreshCacheSummary = () => {
-    setCacheSummary(readMarketBarCacheSummary());
+  const refreshCacheSummary = async () => {
+    setCacheSummary(await getMarketBarCacheRepository().summary());
   };
 
-  const handlePruneCache = () => {
-    const result = pruneMarketBarCache();
-    refreshCacheSummary();
-    setCacheMessage(`已按保留策略清理 ${result.removedBars} 根 K 线，移除 ${result.removedEntries} 个空缓存。`);
+  const handlePruneCache = async () => {
+    setCacheOperationPending(true);
+    try {
+      const result = await getMarketBarCacheRepository().prune();
+      await refreshCacheSummary();
+      setCacheMessage(`已按保留策略清理 ${result.removedBars} 根 K 线，移除 ${result.removedEntries} 个空缓存。`);
+    } catch {
+      setCacheMessage("行情缓存清理失败，请稍后重试。");
+    } finally {
+      setCacheOperationPending(false);
+    }
   };
 
-  const handleClearCache = () => {
-    const removedEntries = clearAllMarketBarCache();
-    refreshCacheSummary();
-    setCacheMessage(`已清空 ${removedEntries} 个行情缓存条目。`);
+  const handleClearCache = async () => {
+    setCacheOperationPending(true);
+    try {
+      const removedEntries = await getMarketBarCacheRepository().clearAll();
+      await refreshCacheSummary();
+      setCacheMessage(`已清空 ${removedEntries} 个行情缓存条目。`);
+    } catch {
+      setCacheMessage("行情缓存清空失败，请稍后重试。");
+    } finally {
+      setCacheOperationPending(false);
+    }
   };
 
   const handleInstallPlugin = () => void installLocalPlugin();
@@ -322,11 +356,11 @@ export function SettingsPage() {
         </div>
 
         <div className="cache-governance-actions">
-          <button onClick={handlePruneCache} type="button">
+          <button disabled={isCacheOperationPending} onClick={handlePruneCache} type="button">
             <RefreshCw size={15} />
             按策略清理
           </button>
-          <button className="danger" disabled={cacheSummary.entries.length === 0} onClick={handleClearCache} type="button">
+          <button className="danger" disabled={isCacheOperationPending || cacheSummary.entries.length === 0} onClick={handleClearCache} type="button">
             <Trash2 size={15} />
             清空行情缓存
           </button>
