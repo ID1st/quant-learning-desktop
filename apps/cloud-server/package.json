@@ -1,0 +1,35 @@
+{
+  "name": "@quant/cloud-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "prebuild": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "esbuild src/index.ts src/cli/inviteBatchCreate.ts src/cli/inviteBatchInspect.ts src/cli/inviteBatchRevoke.ts --bundle --packages=external --format=esm --platform=node --target=node22 --outdir=dist --sourcemap",
+    "start": "node dist/index.js",
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "auth:invite:batch-create": "tsx src/cli/inviteBatchCreate.ts",
+    "auth:invite:batch-inspect": "tsx src/cli/inviteBatchInspect.ts",
+    "auth:invite:batch-revoke": "tsx src/cli/inviteBatchRevoke.ts"
+  },
+  "dependencies": {
+    "@fastify/helmet": "^13.0.2",
+    "@fastify/rate-limit": "^10.3.0",
+    "argon2": "^0.44.0",
+    "fast-uri": "3.1.4",
+    "fastify": "^5.6.2",
+    "nodemailer": "^9.0.3",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "@types/nodemailer": "^8.0.1",
+    "@types/pg": "^8.15.6",
+    "esbuild": "^0.28.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

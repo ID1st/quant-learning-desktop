@@ -350,7 +350,7 @@ textarea:focus-visible {
 .login-page {
   position: relative;
   min-height: 100vh;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .login-page::before {
@@ -464,6 +464,8 @@ textarea:focus-visible {
   box-shadow: 0 26px 80px rgba(0, 0, 0, 0.36);
   backdrop-filter: blur(18px);
   padding: 20px 22px;
+  max-height: calc(100vh - 118px);
+  overflow: auto;
 }
 
 .auth-tabs {
@@ -1754,6 +1756,246 @@ textarea:focus-visible {
 .chart-toggle-group {
   justify-content: flex-end;
   overflow: visible;
+}
+
+.auth-card-header > span {
+  color: #8f9caf;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.auth-environment-label {
+  color: #8f9caf;
+  font-size: 12px;
+}
+
+.auth-field {
+  min-width: 0;
+}
+
+.input-icon-button {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #8f9caf;
+  cursor: pointer;
+}
+
+.input-icon-button:hover,
+.input-icon-button:focus-visible {
+  color: #f4f7fb;
+}
+
+.auth-link-button {
+  width: fit-content;
+  border: 0;
+  background: transparent;
+  color: #7ca2ff;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+
+.auth-message-stack {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+}
+
+.auth-message.error {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.password-rule-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.password-rule-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #718095;
+  font-size: 11px;
+}
+
+.password-rule-list li.valid {
+  color: #63d7ae;
+}
+
+.auth-secondary-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #7f8ca1;
+  font-size: 12px;
+}
+
+.auth-secondary-row button {
+  border: 0;
+  background: transparent;
+  color: #7ca2ff;
+  cursor: pointer;
+  padding: 0;
+}
+
+.masked-account-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(73, 91, 112, 0.36);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.45);
+  color: #b9c4d2;
+  padding: 10px 12px;
+}
+
+.auth-countdown-note {
+  color: #718095;
+  font-size: 11px;
+  text-align: center;
+}
+
+.auth-service-state,
+.local-profile-conflict {
+  align-self: center;
+}
+
+.auth-service-state > svg,
+.local-profile-conflict > svg {
+  color: #f4b860;
+}
+
+.auth-bootstrap-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 100vh;
+  background: #090d14;
+  color: #edf3fb;
+}
+
+.auth-bootstrap-screen div {
+  display: grid;
+  gap: 4px;
+}
+
+.auth-bootstrap-screen span {
+  color: #8290a3;
+  font-size: 12px;
+}
+
+.spin {
+  animation: auth-spin 0.9s linear infinite;
+}
+
+@keyframes auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.offline-auth-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: calc(var(--space-5) * -1) calc(var(--space-6) * -1) var(--space-4);
+  border-bottom: 1px solid rgba(74, 133, 255, 0.28);
+  background: rgba(39, 78, 146, 0.16);
+  color: #aebeda;
+  font-size: 12px;
+  padding: 8px var(--space-6);
+}
+
+.offline-auth-banner.warning {
+  border-bottom-color: rgba(244, 184, 96, 0.38);
+  background: rgba(109, 73, 23, 0.2);
+  color: #f1c986;
+}
+
+.offline-auth-banner button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.account-entitlement-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.account-entitlement-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--border-subtle);
+}
+
+.account-entitlement-grid > div {
+  display: grid;
+  gap: 5px;
+  background: var(--bg-surface);
+  padding: 12px;
+}
+
+.account-entitlement-grid dt {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.account-entitlement-grid dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.account-renewal-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto auto;
+  gap: 10px;
+}
+
+.account-renewal-row > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 0 14px;
+}
+
+.account-renewal-row > button.danger,
+.primary-auth-action.danger {
+  border-color: rgba(239, 75, 69, 0.4);
+  background: rgba(239, 75, 69, 0.12);
+  color: #ffaaa6;
 }
 
 .timeframe-tabs button,
@@ -6237,6 +6479,19 @@ textarea:focus-visible {
   .app-content {
     min-height: 0;
     padding: var(--space-4);
+  }
+
+  .offline-auth-banner {
+    margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4);
+    padding: 8px var(--space-4);
+  }
+
+  .account-entitlement-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .account-renewal-row {
+    grid-template-columns: 1fr;
   }
 
   .login-topbar,

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Quant Auth operational checks every five minutes
+
+[Timer]
+OnCalendar=*:0/5
+Persistent=true
+RandomizedDelaySec=30s
+Unit=quant-auth-ops-check.service
+
+[Install]
+WantedBy=timers.target

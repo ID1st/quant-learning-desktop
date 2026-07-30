@@ -341,6 +341,7 @@ interface QuantDesktopPluginBridge {
 interface QuantDesktopBridge {
   readonly platform: "desktop";
   readonly version: string;
+  readonly auth: import("@quant/shared").QuantDesktopAuthBridge;
   readonly localDatabase?: QuantDesktopLocalDatabaseBridge;
   readonly secureCredentials?: {
     saveAlphaFeed(credentials: { apiUrl: string; apiKey: string }): Promise<{ ok: true } | { ok: false; error: { message: string } }>;

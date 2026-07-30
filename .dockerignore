@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+**/dist
+**/out
+**/release
+.git
+.env
+.env.*
+!.env.example
+prototype
+docs

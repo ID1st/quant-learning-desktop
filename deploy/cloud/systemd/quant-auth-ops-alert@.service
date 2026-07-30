@@ -1,0 +1,6 @@
+[Unit]
+Description=Record Quant Auth operational alert for %i
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/logger -p auth.alert -t quant-auth "Operational check failed: %i"

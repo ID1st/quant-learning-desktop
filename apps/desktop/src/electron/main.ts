@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, powerMonitor } from "electron";
 import { join } from "node:path";
 import { createMarketDataIpcHandlers, registerMarketDataIpcHandlers } from "./marketDataIpc";
 import { registerProviderDataIpcHandlers } from "./providerDataIpc";
@@ -12,6 +12,59 @@ import {
   isTrustedRendererUrl,
   type DesktopRendererSecurityPolicy,
 } from "./electronSecurity";
+import { registerAuthIpcHandlers } from "./authIpc";
+import { createMainAuthSessionManager } from "./mainAuth";
+import type { AuthSessionManager } from "./authSessionManager";
+
+function configureAuthLifecycle(manager: AuthSessionManager): () => void {
+  let expiryTimer: NodeJS.Timeout | null = null;
+  const scheduleExpiryCheck = manager.subscribe((state) => {
+    if (expiryTimer) {
+      clearTimeout(expiryTimer);
+      expiryTimer = null;
+    }
+    if (!state.session) {
+      return;
+    }
+    const deadline = Math.min(
+      Date.parse(state.session.entitlementEndsAt),
+      Date.parse(state.session.offlineUntil),
+    );
+    const delay = Math.min(
+      Math.max(deadline - Date.now() + 250, 250),
+      2_147_000_000,
+    );
+    expiryTimer = setTimeout(() => {
+      void manager.revalidate();
+    }, delay);
+    expiryTimer.unref();
+  });
+  const handleResume = () => {
+    void manager.revalidate();
+  };
+  powerMonitor.on("resume", handleResume);
+  const recoveryTimer = setInterval(() => {
+    void manager.getSnapshot().then((result) => {
+      if (
+        result.ok &&
+        (result.data.phase === "AUTHENTICATED_OFFLINE" ||
+          result.data.phase === "SERVICE_UNAVAILABLE")
+      ) {
+        void manager.revalidate();
+      }
+    });
+  }, 30_000);
+  recoveryTimer.unref();
+
+  return () => {
+    scheduleExpiryCheck();
+    powerMonitor.removeListener("resume", handleResume);
+    clearInterval(recoveryTimer);
+    if (expiryTimer) {
+      clearTimeout(expiryTimer);
+    }
+  };
+}
 
 export interface DesktopWindowOptions {
   title: string;
@@ -69,25 +122,41 @@ export function createMainWindow(securityPolicy?: DesktopRendererSecurityPolicy)
   return mainWindow;
 }
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   const windowConfig = createMainWindowConfig();
   const securityPolicy = createDesktopRendererSecurityPolicy({
     rendererEntry: windowConfig.rendererEntry,
     rendererDevServerUrl: process.env.ELECTRON_RENDERER_URL,
   });
   const credentialStore = createMainSecureCredentialStore();
+  const authManager = await createMainAuthSessionManager();
+  const disposeAuthIpc = registerAuthIpcHandlers(
+    securityPolicy,
+    authManager,
+  );
+  const disposeAuthLifecycle = configureAuthLifecycle(authManager);
   registerMarketDataIpcHandlers(securityPolicy, createMarketDataIpcHandlers({ credentialStore }));
   registerProviderDataIpcHandlers(securityPolicy);
   registerSecureCredentialIpcHandlers(securityPolicy, credentialStore);
   const pluginManager = createPluginManager({ pluginsDirectory: join(app.getPath("userData"), "plugins") });
   const pluginRuntime = createPluginRuntimeHost({ manager: pluginManager });
   registerPluginIpcHandlers(securityPolicy, pluginManager, undefined, createPluginIpcHandlers(pluginManager, pluginRuntime));
-  app.once("before-quit", () => pluginRuntime.dispose());
-  createMainWindow(securityPolicy);
+  app.once("before-quit", () => {
+    disposeAuthLifecycle();
+    disposeAuthIpc();
+    pluginRuntime.dispose();
+  });
+  const mainWindow = createMainWindow(securityPolicy);
+  mainWindow.on("focus", () => {
+    void authManager.revalidate();
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow(securityPolicy);
+      const nextWindow = createMainWindow(securityPolicy);
+      nextWindow.on("focus", () => {
+        void authManager.revalidate();
+      });
     }
   });
 });

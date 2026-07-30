@@ -1,0 +1,11 @@
+[Unit]
+Description=Quant Auth PostgreSQL Restore Drill
+Requires=docker.service
+After=docker.service quant-auth-postgres-backup.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/quant-auth/current/deploy/cloud/scripts/postgres-restore-drill.sh
+Nice=15
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

@@ -23,3 +23,94 @@ jobs:
         run: npm run check
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org
+
+  cloud-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: quant_auth_test
+          POSTGRES_USER: quant_auth_test
+          POSTGRES_PASSWORD: integration-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U quant_auth_test -d quant_auth_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://quant_auth_test:integration-test-password@127.0.0.1:5432/quant_auth_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run PostgreSQL integration tests
+        run: npm run test:cloud
+      - name: Build cloud authentication service
+        run: npm run build:cloud
+      - name: Prepare private container configuration
+        shell: bash
+        run: |
+          sudo install -d -m 0750 /opt/quant-auth/app
+          sudo install -d -m 0700 /opt/quant-auth/secrets/invite-exports
+          sudo install -d -m 0700 /opt/quant-auth/data/postgres
+          docker run --rm --user 0 \
+            -v /opt/quant-auth/data/postgres:/var/lib/postgresql/data \
+            postgres:16-alpine \
+            chown -R postgres:postgres /var/lib/postgresql/data
+
+          database_password="$(openssl rand -hex 24)"
+          invite_pepper="$(openssl rand -hex 32)"
+          token_pepper="$(openssl rand -hex 32)"
+          email_pepper="$(openssl rand -hex 32)"
+          challenge_secret="$(openssl rand -hex 32)"
+          openssl genpkey -algorithm ED25519 -out /tmp/quant-auth-private.pem
+          openssl pkey -in /tmp/quant-auth-private.pem \
+            -pubout -out /tmp/quant-auth-public.pem
+          private_key="$(awk '{printf "%s\\\\n", $0}' /tmp/quant-auth-private.pem)"
+          public_key="$(awk '{printf "%s\\\\n", $0}' /tmp/quant-auth-public.pem)"
+
+          sudo tee /opt/quant-auth/secrets/postgres.env >/dev/null <<EOF
+          POSTGRES_DB=quant_auth
+          POSTGRES_USER=quant_auth
+          POSTGRES_PASSWORD=${database_password}
+          EOF
+          sudo tee /opt/quant-auth/secrets/auth.env >/dev/null <<EOF
+          DATABASE_URL=postgresql://quant_auth:${database_password}@postgres:5432/quant_auth
+          AUTH_HOST=0.0.0.0
+          AUTH_PORT=8787
+          AUTH_INVITE_CODE_PEPPER=${invite_pepper}
+          AUTH_TOKEN_PEPPER=${token_pepper}
+          AUTH_EMAIL_CODE_PEPPER=${email_pepper}
+          AUTH_LOGIN_CHALLENGE_SECRET=${challenge_secret}
+          AUTH_OFFLINE_PRIVATE_KEY_PEM=${private_key}
+          AUTH_OFFLINE_PUBLIC_KEY_PEM=${public_key}
+          AUTH_INVITE_EXPORT_DIR=/opt/quant-auth/secrets/invite-exports
+          EOF
+          sudo chmod 0600 \
+            /opt/quant-auth/secrets/postgres.env \
+            /opt/quant-auth/secrets/auth.env
+          rm -f /tmp/quant-auth-private.pem /tmp/quant-auth-public.pem
+      - name: Verify private container health
+        shell: bash
+        run: |
+          docker compose -f deploy/cloud/docker-compose.yml up -d --build
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8787/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f deploy/cloud/docker-compose.yml ps
+          docker compose -f deploy/cloud/docker-compose.yml logs --tail=200
+          exit 1
+      - name: Stop private containers
+        if: always()
+        run: docker compose -f deploy/cloud/docker-compose.yml down

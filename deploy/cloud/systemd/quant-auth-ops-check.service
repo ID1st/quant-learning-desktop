@@ -1,0 +1,9 @@
+[Unit]
+Description=Quant Auth Operational Checks
+After=network-online.target quant-auth-compose.service nginx.service
+Wants=network-online.target
+OnFailure=quant-auth-ops-alert@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/quant-auth/current/deploy/cloud/scripts/quant-auth-ops-check.sh

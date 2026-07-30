@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { QuantDesktopAuthBridge } from "../../../../packages/shared/src/auth.ts";
 import type {
   AlphaFeedApiCredentials,
   AlphaFeedBarRequest,
@@ -19,10 +20,12 @@ import { providerDataIpcChannels } from "./providerDataIpcChannels";
 import { pluginIpcChannels } from "./pluginIpcContract";
 import type { PluginIpcBridge } from "./pluginIpcContract";
 import type { AlphaFeedStreamCredentials } from "./secureCredentialStore";
+import { authIpcChannels } from "./authIpcContract";
 
 export interface DesktopBridge {
   readonly platform: "desktop";
   readonly version: string;
+  readonly auth: QuantDesktopAuthBridge;
   readonly secureCredentials: {
     saveAlphaFeed(credentials: AlphaFeedApiCredentials): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     clearAlphaFeed(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
@@ -166,6 +169,35 @@ async function invokePlugin<T>(channel: string, ...payload: unknown[]): Promise<
 export const desktopBridge: DesktopBridge = {
   platform: "desktop",
   version: "0.1.0",
+  auth: {
+    bootstrap: () => ipcRenderer.invoke(authIpcChannels.bootstrap),
+    requestRegistrationCode: (input) =>
+      ipcRenderer.invoke(authIpcChannels.requestRegistrationCode, input),
+    register: (input) => ipcRenderer.invoke(authIpcChannels.register, input),
+    login: (input) => ipcRenderer.invoke(authIpcChannels.login, input),
+    redeemInvite: (input) =>
+      ipcRenderer.invoke(authIpcChannels.redeemInvite, input),
+    renewEntitlement: (input) =>
+      ipcRenderer.invoke(authIpcChannels.renewEntitlement, input),
+    requestPasswordReset: (input) =>
+      ipcRenderer.invoke(authIpcChannels.requestPasswordReset, input),
+    resetPassword: (input) =>
+      ipcRenderer.invoke(authIpcChannels.resetPassword, input),
+    logout: () => ipcRenderer.invoke(authIpcChannels.logout),
+    getSnapshot: () => ipcRenderer.invoke(authIpcChannels.getSnapshot),
+    subscribe: (listener) => {
+      const wrappedListener = (
+        _event: Electron.IpcRendererEvent,
+        state: Parameters<typeof listener>[0],
+      ) => listener(state);
+      ipcRenderer.on(authIpcChannels.stateChanged, wrappedListener);
+      return () =>
+        ipcRenderer.removeListener(
+          authIpcChannels.stateChanged,
+          wrappedListener,
+        );
+    },
+  },
   secureCredentials: {
     saveAlphaFeed: async (credentials) => {
       const result = await invokeSecureCredential<{ ok: true; value: null } | { ok: false; error: { message: string } }>(
@@ -247,3 +279,7 @@ export const desktopBridge: DesktopBridge = {
 };
 
 contextBridge.exposeInMainWorld("quantDesktop", desktopBridge);
+
+window.addEventListener("online", () => {
+  ipcRenderer.send(authIpcChannels.revalidate);
+});

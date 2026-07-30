@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Quant Auth restore drill monthly
+
+[Timer]
+OnCalendar=Sun *-*-01..07 05:30:00
+Persistent=true
+RandomizedDelaySec=15m
+Unit=quant-auth-restore-drill.service
+
+[Install]
+WantedBy=timers.target

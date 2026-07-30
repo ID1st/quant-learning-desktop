@@ -10,8 +10,10 @@
   "scripts": {
     "dev": "npm run dev -w @quant/desktop",
     "build": "npm run build -w @quant/desktop",
+    "build:cloud": "npm run build -w @quant/cloud-server",
     "typecheck": "tsc -p tsconfig.check.json --noEmit",
     "test:api-client": "node --test --experimental-strip-types packages/api-client/tests/*.test.ts",
+    "test:cloud": "npm run test -w @quant/cloud-server",
     "test:chart": "node --test --experimental-strip-types packages/chart/tests/*.test.ts",
     "test:desktop": "node --test --experimental-strip-types apps/desktop/tests/*.test.ts",
     "test:pine-runtime": "node --test --experimental-strip-types packages/pine-runtime/tests/*.test.ts",
@@ -20,11 +22,14 @@
     "probe:stock-sdk": "node --experimental-strip-types scripts/stock-sdk-provider-probe.mjs",
     "drill:market-data": "node --experimental-strip-types scripts/market-data-stability-drill.mjs",
     "smoke:market-data-search": "npm run build:electron -w @quant/desktop && node scripts/market-data-search-electron-smoke.mjs",
+    "smoke:auth": "npm run build:electron -w @quant/desktop && node scripts/auth-electron-smoke.mjs",
+    "smoke:auth:visual": "node scripts/auth-visual-electron-smoke.mjs",
     "smoke:plugin-runtime": "npm run build:electron -w @quant/desktop && node scripts/plugin-runtime-electron-smoke.mjs",
     "optimize:preset-strategies": "node --experimental-strip-types scripts/preset-strategy-parameter-sweep.mjs",
     "test:strategy-engine": "node --test --experimental-strip-types packages/strategy-engine/tests/*.test.ts",
-    "test": "npm run test:api-client && npm run test:chart && npm run test:desktop && npm run test:pine-runtime && npm run test:plugin-loader && npm run test:strategy-engine",
-    "check": "npm run test && npm run typecheck && npm run build && npm run build:electron -w @quant/desktop",
+    "test": "npm run test:api-client && npm run test:cloud && npm run test:chart && npm run test:desktop && npm run test:pine-runtime && npm run test:plugin-loader && npm run test:strategy-engine",
+    "auth:invite:batch-create": "npm run auth:invite:batch-create -w @quant/cloud-server --",
+    "check": "npm run test && npm run typecheck && npm run build:cloud && npm run build && npm run build:electron -w @quant/desktop",
     "clean": "node scripts/clean.mjs"
   },
   "devDependencies": {

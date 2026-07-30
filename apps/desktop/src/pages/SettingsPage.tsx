@@ -1,4 +1,4 @@
-import { AlertTriangle, Boxes, CheckCircle2, DatabaseZap, FileInput, PackageCheck, PlugZap, Power, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import { AlertTriangle, Boxes, CalendarClock, CheckCircle2, DatabaseZap, FileInput, KeyRound, LogOut, PackageCheck, PlugZap, Power, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createLocalPluginInstallBridge, type PluginManifestPreflightResult } from "@quant/api-client";
 import { type PluginCapability, type PluginPermission } from "@quant/plugin-loader";
@@ -9,6 +9,9 @@ import {
   type MarketBarCacheSummary,
 } from "../features/marketData/marketBarCacheService";
 import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
+import { authErrorMessage, getAuthBridge, normalizeInviteInput } from "../features/auth/authService";
+import { useAuthStore } from "../features/auth/authStore";
+import { useAppStore } from "../state/appStore";
 
 const capabilityLabels: Record<PluginCapability, string> = {
   strategy: "策略",
@@ -82,6 +85,9 @@ function formatCacheTime(value?: string) {
 }
 
 export function SettingsPage() {
+  const authSession = useAuthStore((state) => state.session);
+  const clearAuthSession = useAuthStore((state) => state.clearSession);
+  const navigate = useAppStore((state) => state.navigate);
   const registeredPlugins = usePluginRuntimeStore((state) => state.plugins);
   const pluginRuntimeStatus = usePluginRuntimeStore((state) => state.status);
   const pluginRuntimeMessage = usePluginRuntimeStore((state) => state.message);
@@ -92,6 +98,9 @@ export function SettingsPage() {
   const [cacheSummary, setCacheSummary] = useState<MarketBarCacheSummary>(() => readMarketBarCacheSummary());
   const [cacheMessage, setCacheMessage] = useState("");
   const [manifestDraft, setManifestDraft] = useState(sampleManifest);
+  const [renewInviteCode, setRenewInviteCode] = useState("");
+  const [renewMessage, setRenewMessage] = useState("");
+  const [isRenewingEntitlement, setRenewingEntitlement] = useState(false);
   const [manifestPreview, setManifestPreview] = useState<PluginManifestPreflightResult>({
     ok: false,
     error: {
@@ -143,6 +152,38 @@ export function SettingsPage() {
 
   const handleInstallPlugin = () => void installLocalPlugin();
 
+  const handleRenewEntitlement = async () => {
+    setRenewMessage("");
+    setRenewingEntitlement(true);
+    try {
+      const result = await getAuthBridge()?.renewEntitlement({
+        inviteCode: normalizeInviteInput(renewInviteCode),
+      });
+      if (!result) {
+        setRenewMessage("当前不是 Electron 桌面运行环境。");
+        return;
+      }
+      if (!result.ok) {
+        setRenewMessage(
+          authErrorMessage(result.error.code, result.error.retryAfterSeconds),
+        );
+        return;
+      }
+      setRenewInviteCode("");
+      setRenewMessage(
+        `续期成功，新的到期时间为 ${new Date(result.data.entitlementEndsAt).toLocaleString("zh-CN", { hour12: false })}`,
+      );
+    } finally {
+      setRenewingEntitlement(false);
+    }
+  };
+
+  const handleAccountLogout = async () => {
+    await getAuthBridge()?.logout();
+    clearAuthSession();
+    navigate("login");
+  };
+
   const handleUninstallPlugin = (pluginId: string, pluginName: string) => {
     if (window.confirm(`确定卸载插件“${pluginName}”吗？已保存的策略数据不会被删除。`)) {
       void uninstallPlugin(pluginId);
@@ -156,6 +197,72 @@ export function SettingsPage() {
         <h1>插件与本地扩展</h1>
         <span>统一管理策略插件、指标插件、数据源插件和导出插件。当前桌面版支持本地策略与指标插件的安装、启停和卸载；第三方插件执行将在隔离宿主完成后恢复。</span>
       </header>
+
+      {authSession && (
+        <section className="module-card account-entitlement-panel">
+          <div className="module-card-header">
+            <CalendarClock size={20} />
+            <div>
+              <h2>账号与测试资格</h2>
+              <p>云端资格控制工作区访问；普通退出登录不会删除本机研究资料。</p>
+            </div>
+          </div>
+          <dl className="account-entitlement-grid">
+            <div>
+              <dt>当前邮箱</dt>
+              <dd>{authSession.email}</dd>
+            </div>
+            <div>
+              <dt>资格档位</dt>
+              <dd>{authSession.entitlementDurationDays} 天</dd>
+            </div>
+            <div>
+              <dt>到期时间</dt>
+              <dd>{new Date(authSession.entitlementEndsAt).toLocaleString("zh-CN", { hour12: false })}</dd>
+            </div>
+            <div>
+              <dt>剩余天数</dt>
+              <dd>{Math.max(0, Math.ceil((Date.parse(authSession.entitlementEndsAt) - Date.now()) / 86_400_000))} 天</dd>
+            </div>
+            <div>
+              <dt>授权状态</dt>
+              <dd>{authSession.isOffline ? "离线授权" : "在线已验证"}</dd>
+            </div>
+            <div>
+              <dt>活跃设备</dt>
+              <dd>{authSession.activeDeviceCount}/2</dd>
+            </div>
+          </dl>
+          <div className="account-renewal-row">
+            <div className="input-shell">
+              <KeyRound size={16} />
+              <input
+                aria-label="提前续期邀请码"
+                maxLength={64}
+                onChange={(event) => setRenewInviteCode(event.currentTarget.value)}
+                placeholder="输入新邀请码提前续期"
+                value={renewInviteCode}
+              />
+            </div>
+            <button
+              disabled={!renewInviteCode.trim() || isRenewingEntitlement}
+              onClick={() => void handleRenewEntitlement()}
+              type="button"
+            >
+              {isRenewingEntitlement ? "正在续期…" : "提前续期"}
+            </button>
+            <button className="danger" onClick={() => void handleAccountLogout()} type="button">
+              <LogOut size={14} />
+              退出登录
+            </button>
+          </div>
+          {renewMessage && (
+            <div aria-live="polite" className="settings-note">
+              {renewMessage}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="settings-summary-grid" aria-label="插件能力概览">
         {capabilitySummary.map((item) => (

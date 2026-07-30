@@ -1,0 +1,73 @@
+log_format quant_auth_json escape=json
+    '{"msec":$msec,"request_id":"$request_id","remote_addr":"$remote_addr",'
+    '"method":"$request_method","uri":"$uri","status":$status,'
+    '"request_time":$request_time,"bytes_sent":$bytes_sent}';
+
+server {
+    listen 443 ssl http2;
+    server_name fnndp.xyz;
+    server_tokens off;
+
+    ssl_certificate /etc/nginx/ssl/fnndp.xyz/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/fnndp.xyz/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:fnndp_tls:10m;
+    ssl_session_timeout 1d;
+
+    add_header Strict-Transport-Security "max-age=86400" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" always;
+
+    root /var/www/fnndp.xyz;
+    index index.html;
+
+    location = / {
+        try_files /index.html =404;
+    }
+
+    location / {
+        return 404;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name auth.fnndp.xyz;
+    server_tokens off;
+
+    ssl_certificate /etc/nginx/ssl/fnndp.xyz/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/fnndp.xyz/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:fnndp_tls:10m;
+    ssl_session_timeout 1d;
+
+    access_log /var/log/nginx/quant-auth-access.log quant_auth_json;
+    error_log /var/log/nginx/quant-auth-error.log warn;
+
+    add_header Strict-Transport-Security "max-age=86400" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Content-Security-Policy "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" always;
+
+    client_max_body_size 16k;
+
+    location / {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_hide_header Strict-Transport-Security;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Request-ID $request_id;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 15s;
+        proxy_send_timeout 15s;
+    }
+}

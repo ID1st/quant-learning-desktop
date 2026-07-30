@@ -1,0 +1,11 @@
+[Unit]
+Description=Check fnndp.xyz TLS certificate renewal daily
+
+[Timer]
+OnCalendar=*-*-* 02:20:00
+Persistent=true
+RandomizedDelaySec=30m
+Unit=quant-auth-cert-renew.service
+
+[Install]
+WantedBy=timers.target

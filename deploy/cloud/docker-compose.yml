@@ -1,0 +1,71 @@
+name: quant-auth
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - /opt/quant-auth/secrets/postgres.env
+    volumes:
+      - /opt/quant-auth/data/postgres:/var/lib/postgresql/data
+      - ../../apps/cloud-server/migrations/001_auth_schema.sql:/docker-entrypoint-initdb.d/001_auth_schema.sql:ro
+    networks:
+      - auth_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  auth:
+    build:
+      context: ../..
+      dockerfile: apps/cloud-server/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - /opt/quant-auth/secrets/auth.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - /opt/quant-auth/secrets/invite-exports:/opt/quant-auth/secrets/invite-exports
+    networks:
+      - auth_internal
+      - auth_outbound
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8787/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  auth_internal:
+    internal: true
+  auth_outbound:

@@ -150,3 +150,4 @@ export function createLocalPluginInstallBridge(): PluginInstallBridge {
     preflightManifest: preflightPluginManifest,
   };
 }
+export * from "./auth.ts";

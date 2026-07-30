@@ -1,0 +1,11 @@
+[Unit]
+Description=Quant Auth PostgreSQL Logical Backup
+Requires=docker.service
+After=docker.service quant-auth-compose.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/quant-auth/current/deploy/cloud/scripts/postgres-backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

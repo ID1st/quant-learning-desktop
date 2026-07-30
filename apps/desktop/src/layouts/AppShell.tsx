@@ -1,7 +1,8 @@
-import { Activity, BarChart3, BookOpen, Command, KeyRound, LayoutDashboard, LogOut, Search, Settings, X } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, BookOpen, Command, KeyRound, LayoutDashboard, LogOut, RefreshCw, Search, Settings, WifiOff, X } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent, type PropsWithChildren } from "react";
 import type { AppRoute } from "@quant/shared";
 import { useAuthStore } from "../features/auth/authStore";
+import { getAuthBridge } from "../features/auth/authService";
 import { useToastStore } from "../features/feedback/toastStore";
 import { useAppStore } from "../state/appStore";
 import { ToastViewport } from "../ui/ToastViewport";
@@ -19,6 +20,8 @@ export function AppShell({ children }: PropsWithChildren) {
   const currentRoute = useAppStore((state) => state.currentRoute);
   const navigate = useAppStore((state) => state.navigate);
   const clearSession = useAuthStore((state) => state.clearSession);
+  const session = useAuthStore((state) => state.session);
+  const applyAuthState = useAuthStore((state) => state.applyAuthState);
   const pushToast = useToastStore((state) => state.push);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
@@ -56,10 +59,24 @@ export function AppShell({ children }: PropsWithChildren) {
     return <main className="auth-shell">{children}</main>;
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await getAuthBridge()?.logout();
     clearSession();
     navigate("login");
   };
+
+  const revalidate = async () => {
+    const result = await getAuthBridge()?.bootstrap();
+    if (result?.ok) {
+      applyAuthState(result.data);
+    }
+  };
+
+  const offlineRemainingMilliseconds = session?.isOffline
+    ? Date.parse(session.offlineUntil) - Date.now()
+    : 0;
+  const offlineWarning =
+    session?.isOffline && offlineRemainingMilliseconds <= 2 * 60 * 60 * 1_000;
 
   const runCommand = (route: AppRoute, label: string) => {
     navigate(route);
@@ -106,12 +123,32 @@ export function AppShell({ children }: PropsWithChildren) {
           <Command size={18} />
           <span>命令面板</span>
         </button>
-        <button aria-label="退出登录" className="logout-button" onClick={handleLogout} title="退出登录" type="button">
+        <button aria-label="退出登录" className="logout-button" onClick={() => void handleLogout()} title="退出登录" type="button">
           <LogOut size={18} />
           <span>退出登录</span>
         </button>
       </aside>
-      <section className="app-content">{children}</section>
+      <section className="app-content">
+        {session?.isOffline && (
+          <div
+            className={`offline-auth-banner ${offlineWarning ? "warning" : ""}`}
+            role="status"
+          >
+            {offlineWarning ? <AlertTriangle size={15} /> : <WifiOff size={15} />}
+            <span>
+              当前使用离线授权，可用至
+              {new Date(session.offlineUntil).toLocaleString("zh-CN", {
+                hour12: false,
+              })}
+            </span>
+            <button onClick={() => void revalidate()} type="button">
+              <RefreshCw size={14} />
+              立即重新验证
+            </button>
+          </div>
+        )}
+        {children}
+      </section>
       {isCommandPaletteOpen && (
         <div className="command-palette-backdrop" role="presentation" onClick={() => setIsCommandPaletteOpen(false)}>
           <section aria-label="命令面板" className="command-palette" onClick={(event) => event.stopPropagation()} role="dialog">

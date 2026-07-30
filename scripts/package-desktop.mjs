@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -12,6 +12,7 @@ const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
 const useShell = process.platform === "win32";
 const builderArgs = process.argv.slice(2);
+const productionAuthBaseUrl = "https://auth.fnndp.xyz";
 
 if (builderArgs.length === 0) {
   console.error("Usage: node scripts/package-desktop.mjs --dir | --win nsis");
@@ -33,6 +34,18 @@ if (buildResult.error) {
 
 if (buildResult.status !== 0) {
   process.exit(buildResult.status ?? 1);
+}
+
+const builtMainPath = join(desktopAppDir, "out", "main", "main.js");
+const builtMain = readFileSync(builtMainPath, "utf8");
+if (
+  !builtMain.includes(productionAuthBaseUrl) ||
+  builtMain.includes("configuration-required.invalid")
+) {
+  console.error(
+    `Packaged desktop authentication endpoint is not ${productionAuthBaseUrl}`,
+  );
+  process.exit(1);
 }
 
 const packageResult = spawnSync(npxCommand, [

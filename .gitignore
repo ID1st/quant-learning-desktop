@@ -8,6 +8,8 @@ release/
 .npm-cache/
 coverage/
 *.log
+*.key
+*.pem
 
 .env
 .env.*
