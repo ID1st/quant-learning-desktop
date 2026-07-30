@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AuthPhase, AuthSessionSnapshot } from "@quant/shared";
 
 import { LogoutConfirmationDialog } from "../features/auth/LogoutConfirmationDialog";
@@ -30,6 +30,8 @@ const logoutQaSession: AuthSessionSnapshot = {
 };
 
 export function AuthVisualQaPage() {
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(true);
+  const logoutTriggerRef = useRef<HTMLButtonElement>(null);
   const requestedPhase =
     new URLSearchParams(window.location.search).get("auth-visual-qa") ??
     "LOGIN";
@@ -50,13 +52,25 @@ export function AuthVisualQaPage() {
     return (
       <main className="app-shell">
         <aside className="app-sidebar" />
-        <section className="app-content" />
-        <LogoutConfirmationDialog
-          isSubmitting={false}
-          onCancel={() => undefined}
-          onConfirm={() => undefined}
-          session={logoutQaSession}
-        />
+        <section className="app-content">
+          <button
+            className="logout-button"
+            onClick={() => setIsLogoutDialogOpen(true)}
+            ref={logoutTriggerRef}
+            type="button"
+          >
+            退出登录
+          </button>
+        </section>
+        {isLogoutDialogOpen && (
+          <LogoutConfirmationDialog
+            isSubmitting={false}
+            onCancel={() => setIsLogoutDialogOpen(false)}
+            onConfirm={() => undefined}
+            returnFocusRef={logoutTriggerRef}
+            session={logoutQaSession}
+          />
+        )}
       </main>
     );
   }

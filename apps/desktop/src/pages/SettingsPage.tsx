@@ -1,5 +1,5 @@
 import { AlertTriangle, Boxes, CalendarClock, CheckCircle2, DatabaseZap, FileInput, KeyRound, LogOut, PackageCheck, PlugZap, Power, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createLocalPluginInstallBridge, type PluginManifestPreflightResult } from "@quant/api-client";
 import { type PluginCapability, type PluginPermission } from "@quant/plugin-loader";
 import { getMarketBarCacheRepository } from "../features/marketData/marketBarCacheClient";
@@ -7,6 +7,7 @@ import type { MarketBarCacheSummary } from "../features/marketData/marketBarCach
 import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 import { authErrorMessage, getAuthBridge, normalizeInviteInput } from "../features/auth/authService";
 import { useAuthStore } from "../features/auth/authStore";
+import { LogoutConfirmationDialog } from "../features/auth/LogoutConfirmationDialog";
 import { useAppStore } from "../state/appStore";
 
 const capabilityLabels: Record<PluginCapability, string> = {
@@ -102,6 +103,9 @@ export function SettingsPage() {
   const [renewInviteCode, setRenewInviteCode] = useState("");
   const [renewMessage, setRenewMessage] = useState("");
   const [isRenewingEntitlement, setRenewingEntitlement] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const logoutButtonRef = useRef<HTMLButtonElement>(null);
   const [manifestPreview, setManifestPreview] = useState<PluginManifestPreflightResult>({
     ok: false,
     error: {
@@ -212,10 +216,23 @@ export function SettingsPage() {
     }
   };
 
+  const closeLogoutConfirmation = useCallback(() => {
+    setIsLogoutConfirmOpen(false);
+  }, []);
+
   const handleAccountLogout = async () => {
-    await getAuthBridge()?.logout();
-    clearAuthSession();
-    navigate("login");
+    if (isLoggingOut) {
+      return;
+    }
+    setIsLoggingOut(true);
+    try {
+      await getAuthBridge()?.logout();
+      clearAuthSession();
+      navigate("login");
+    } finally {
+      setIsLoggingOut(false);
+      setIsLogoutConfirmOpen(false);
+    }
   };
 
   const handleUninstallPlugin = (pluginId: string, pluginName: string) => {
@@ -285,7 +302,13 @@ export function SettingsPage() {
             >
               {isRenewingEntitlement ? "正在续期…" : "提前续期"}
             </button>
-            <button className="danger" onClick={() => void handleAccountLogout()} type="button">
+            <button
+              aria-haspopup="dialog"
+              className="danger"
+              onClick={() => setIsLogoutConfirmOpen(true)}
+              ref={logoutButtonRef}
+              type="button"
+            >
               <LogOut size={14} />
               退出登录
             </button>
@@ -296,6 +319,16 @@ export function SettingsPage() {
             </div>
           )}
         </section>
+      )}
+
+      {isLogoutConfirmOpen && authSession && (
+        <LogoutConfirmationDialog
+          isSubmitting={isLoggingOut}
+          onCancel={closeLogoutConfirmation}
+          onConfirm={() => void handleAccountLogout()}
+          returnFocusRef={logoutButtonRef}
+          session={authSession}
+        />
       )}
 
       <section className="settings-summary-grid" aria-label="插件能力概览">

@@ -52,6 +52,8 @@ void app.whenReady().then(async () => {
     mainContentScrolls: boolean;
     primaryActionReachable: boolean;
     sidebarFits: boolean;
+    focusRestored: boolean;
+    logoutFocusDetail: string;
   }> = [];
 
   try {
@@ -63,7 +65,12 @@ void app.whenReady().then(async () => {
         });
         const result = await window.webContents.executeJavaScript(
           `
-            (() => {
+            (async () => {
+              await new Promise((resolve) =>
+                window.requestAnimationFrame(() =>
+                  window.requestAnimationFrame(resolve)
+                )
+              );
               const root = document.documentElement;
               const isLogoutConfirmation = ${JSON.stringify(phase)} === "LOGOUT_CONFIRMATION";
               const isWorkspaceScroll = ${JSON.stringify(phase)} === "WORKSPACE_SCROLL";
@@ -88,6 +95,37 @@ void app.whenReady().then(async () => {
                 .querySelector(".app-sidebar")
                 ?.getBoundingClientRect();
               const inputs = [...document.querySelectorAll("input")];
+              let focusRestored = true;
+              let logoutFocusDetail = "not-applicable";
+              if (isLogoutConfirmation) {
+                const cancelAction = document.querySelector(".logout-cancel-action");
+                const initialFocusIsCorrect = document.activeElement === cancelAction;
+                window.dispatchEvent(
+                  new KeyboardEvent("keydown", {
+                    bubbles: true,
+                    key: "Escape"
+                  })
+                );
+                await new Promise((resolve) =>
+                  window.requestAnimationFrame(() =>
+                    window.requestAnimationFrame(resolve)
+                  )
+                );
+                const dialogClosed =
+                  !document.querySelector(".logout-confirmation-dialog");
+                const triggerFocused =
+                  document.activeElement ===
+                  document.querySelector(".logout-button");
+                focusRestored =
+                  initialFocusIsCorrect && dialogClosed && triggerFocused;
+                logoutFocusDetail = JSON.stringify({
+                  activeElementClass:
+                    document.activeElement?.getAttribute("class") ?? null,
+                  dialogClosed,
+                  initialFocusIsCorrect,
+                  triggerFocused
+                });
+              }
               return {
                 pageFits:
                   root.scrollWidth <= window.innerWidth + 1 &&
@@ -114,7 +152,9 @@ void app.whenReady().then(async () => {
                   !isWorkspaceScroll ||
                   (Boolean(sidebarRect) &&
                     sidebarRect.top >= 0 &&
-                    sidebarRect.bottom <= window.innerHeight + 1)
+                    sidebarRect.bottom <= window.innerHeight + 1),
+                focusRestored,
+                logoutFocusDetail
               };
             })()
           `,
@@ -133,7 +173,8 @@ void app.whenReady().then(async () => {
           check.labeledInputs &&
           check.mainContentScrolls &&
           check.primaryActionReachable &&
-          check.sidebarFits,
+          check.sidebarFits &&
+          check.focusRestored,
       );
     console.log(
       JSON.stringify({
@@ -146,7 +187,8 @@ void app.whenReady().then(async () => {
             !check.labeledInputs ||
             !check.mainContentScrolls ||
             !check.primaryActionReachable ||
-            !check.sidebarFits,
+            !check.sidebarFits ||
+            !check.focusRestored,
         ),
         consoleProblems,
       }),

@@ -1,5 +1,5 @@
 import { CalendarClock, LogOut, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { AuthSessionSnapshot } from "@quant/shared";
 import { maskEmail } from "./authService";
 import { formatEntitlementRemaining } from "./entitlementTime";
@@ -8,6 +8,7 @@ interface LogoutConfirmationDialogProps {
   isSubmitting: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  returnFocusRef?: RefObject<HTMLElement | null>;
   session: AuthSessionSnapshot;
 }
 
@@ -15,11 +16,21 @@ export function LogoutConfirmationDialog({
   isSubmitting,
   onCancel,
   onConfirm,
+  returnFocusRef,
   session,
 }: LogoutConfirmationDialogProps) {
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const [now, setNow] = useState(() => new Date());
+
+  useEffect(
+    () => () => {
+      if (returnFocusRef) {
+        returnFocusRef.current?.focus();
+      }
+    },
+    [returnFocusRef],
+  );
 
   useEffect(() => {
     cancelButtonRef.current?.focus();

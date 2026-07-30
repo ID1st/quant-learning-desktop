@@ -1,5 +1,5 @@
 import { Activity, AlertTriangle, BarChart3, BookOpen, Command, KeyRound, LayoutDashboard, LogOut, RefreshCw, Search, Settings, WifiOff, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type PropsWithChildren } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PropsWithChildren } from "react";
 import type { AppRoute } from "@quant/shared";
 import { useAuthStore } from "../features/auth/authStore";
 import { getAuthBridge } from "../features/auth/authService";
@@ -28,6 +28,7 @@ export function AppShell({ children }: PropsWithChildren) {
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
+  const logoutButtonRef = useRef<HTMLButtonElement>(null);
   const closeLogoutConfirmation = useCallback(() => {
     setIsLogoutConfirmOpen(false);
   }, []);
@@ -144,6 +145,7 @@ export function AppShell({ children }: PropsWithChildren) {
           aria-label="退出登录"
           className="logout-button"
           onClick={() => setIsLogoutConfirmOpen(true)}
+          ref={logoutButtonRef}
           title="退出登录"
           type="button"
         >
@@ -212,6 +214,7 @@ export function AppShell({ children }: PropsWithChildren) {
           isSubmitting={isLoggingOut}
           onCancel={closeLogoutConfirmation}
           onConfirm={() => void handleLogout()}
+          returnFocusRef={logoutButtonRef}
           session={session}
         />
       )}
