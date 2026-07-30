@@ -11,6 +11,7 @@ import type { CloudAuthConfig } from "./config.ts";
 import { AuthDomainError } from "./domain/authErrors.ts";
 import { PgAuthRepository } from "./repositories/pgAuthRepository.ts";
 import { argon2idPasswordHasher } from "./security/passwords.ts";
+import { validateOfflineLeaseKeyPair } from "./security/signedArtifacts.ts";
 import {
   createAuthService,
   type AuthRequestContext,
@@ -164,6 +165,11 @@ export async function buildAuthServer(
   config: CloudAuthConfig,
   pool: Pool,
 ): Promise<FastifyInstance> {
+  validateOfflineLeaseKeyPair(
+    config.offlineLeasePrivateKeyPem,
+    config.offlineLeasePublicKeyPem,
+  );
+
   const server = Fastify({
     // The container is reachable only through the host-loopback Nginx proxy.
     // Trust exactly that hop so rate limits key on the real client address.
@@ -239,6 +245,19 @@ export async function buildAuthServer(
         error: {
           code: "ACCESS_DENIED",
           message: "Request validation failed",
+        },
+      });
+    }
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "FST_ERR_CTP_INVALID_JSON_BODY"
+    ) {
+      return reply.status(400).send({
+        error: {
+          code: "ACCESS_DENIED",
+          message: "Request body is invalid",
         },
       });
     }

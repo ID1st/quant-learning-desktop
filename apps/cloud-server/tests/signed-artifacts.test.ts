@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   createLoginChallenge,
   createOfflineLease,
+  validateOfflineLeaseKeyPair,
   verifyLoginChallenge,
   verifyOfflineLease,
 } from "../src/security/signedArtifacts.ts";
@@ -103,5 +104,53 @@ test("offline leases are verifiable with only the public key", () => {
         new Date("2026-07-29T00:00:00.001Z"),
       ),
     /expired/i,
+  );
+});
+
+test("offline lease key validation accepts only a matching Ed25519 pair", () => {
+  const firstPair = generateKeyPairSync("ed25519");
+  const secondPair = generateKeyPairSync("ed25519");
+  const privateKeyPem = firstPair.privateKey.export({
+    format: "pem",
+    type: "pkcs8",
+  }) as string;
+  const publicKeyPem = firstPair.publicKey.export({
+    format: "pem",
+    type: "spki",
+  }) as string;
+  const mismatchedPublicKeyPem = secondPair.publicKey.export({
+    format: "pem",
+    type: "spki",
+  }) as string;
+
+  assert.doesNotThrow(() =>
+    validateOfflineLeaseKeyPair(privateKeyPem, publicKeyPem),
+  );
+  assert.throws(
+    () => validateOfflineLeaseKeyPair("not-a-private-key", publicKeyPem),
+    /private key/i,
+  );
+  assert.throws(
+    () => validateOfflineLeaseKeyPair(privateKeyPem, mismatchedPublicKeyPem),
+    /do not match/i,
+  );
+});
+
+test("offline lease key validation rejects non-Ed25519 keys", () => {
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+  });
+  const privateKeyPem = privateKey.export({
+    format: "pem",
+    type: "pkcs8",
+  }) as string;
+  const publicKeyPem = publicKey.export({
+    format: "pem",
+    type: "spki",
+  }) as string;
+
+  assert.throws(
+    () => validateOfflineLeaseKeyPair(privateKeyPem, publicKeyPem),
+    /Ed25519/i,
   );
 });

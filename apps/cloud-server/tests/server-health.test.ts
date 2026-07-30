@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { generateKeyPairSync } from "node:crypto";
 import test from "node:test";
 
 import type { Pool } from "pg";
@@ -7,6 +8,7 @@ import type { CloudAuthConfig } from "../src/config.ts";
 import { buildAuthServer } from "../src/server.ts";
 
 function createConfig(): CloudAuthConfig {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   return {
     host: "127.0.0.1",
     port: 8787,
@@ -15,8 +17,14 @@ function createConfig(): CloudAuthConfig {
     tokenPepper: "token-pepper-at-least-32-random-bytes",
     emailCodePepper: "email-code-pepper-at-least-32-bytes",
     loginChallengeSecret: "login-challenge-secret-at-least-32-bytes",
-    offlineLeasePrivateKeyPem: "unused-private-key",
-    offlineLeasePublicKeyPem: "unused-public-key",
+    offlineLeasePrivateKeyPem: privateKey.export({
+      format: "pem",
+      type: "pkcs8",
+    }) as string,
+    offlineLeasePublicKeyPem: publicKey.export({
+      format: "pem",
+      type: "spki",
+    }) as string,
     inviteExportDirectory: "/tmp/invite-exports",
     smtp: null,
   };
@@ -118,6 +126,34 @@ test("readiness failure returns no database details", async () => {
     assert.equal(response.statusCode, 503);
     assert.deepEqual(response.json(), { status: "unavailable" });
     assert.equal(response.body.includes("must-not-leak"), false);
+  } finally {
+    await server.close();
+  }
+});
+
+test("malformed JSON is rejected as a client error instead of service downtime", async () => {
+  const server = await buildAuthServer(
+    createConfig(),
+    createPool(async () => ({ rows: [] })),
+  );
+
+  try {
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/auth/sessions",
+      headers: {
+        "content-type": "application/json",
+      },
+      payload: '{"email":"learner@example.com"',
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.deepEqual(response.json(), {
+      error: {
+        code: "ACCESS_DENIED",
+        message: "Request body is invalid",
+      },
+    });
   } finally {
     await server.close();
   }

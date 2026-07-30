@@ -1,5 +1,7 @@
 import {
   createHmac,
+  createPrivateKey,
+  createPublicKey,
   sign,
   timingSafeEqual,
   verify,
@@ -35,6 +37,10 @@ export interface OfflineLeaseClaims {
 type LoginChallengeInput = Omit<LoginChallengeClaims, "expiresAt">;
 
 const LOGIN_CHALLENGE_LIFETIME_MILLISECONDS = 10 * 60 * 1_000;
+const OFFLINE_LEASE_KEY_VALIDATION_PAYLOAD = Buffer.from(
+  "quant-auth-offline-lease-key-validation-v1",
+  "ascii",
+);
 
 function encodeJson(value: unknown): string {
   return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
@@ -139,6 +145,48 @@ export function createOfflineLease(
   ).toString("base64url");
 
   return `${payload}.${signature}`;
+}
+
+export function validateOfflineLeaseKeyPair(
+  privateKeyPem: string,
+  publicKeyPem: string,
+): void {
+  let privateKey;
+  try {
+    privateKey = createPrivateKey(privateKeyPem);
+  } catch {
+    throw new Error("offline lease private key is invalid");
+  }
+
+  let publicKey;
+  try {
+    publicKey = createPublicKey(publicKeyPem);
+  } catch {
+    throw new Error("offline lease public key is invalid");
+  }
+
+  if (
+    privateKey.asymmetricKeyType !== "ed25519" ||
+    publicKey.asymmetricKeyType !== "ed25519"
+  ) {
+    throw new Error("offline lease keys must use Ed25519");
+  }
+
+  const signature = sign(
+    null,
+    OFFLINE_LEASE_KEY_VALIDATION_PAYLOAD,
+    privateKey,
+  );
+  if (
+    !verify(
+      null,
+      OFFLINE_LEASE_KEY_VALIDATION_PAYLOAD,
+      publicKey,
+      signature,
+    )
+  ) {
+    throw new Error("offline lease private and public keys do not match");
+  }
 }
 
 export function verifyOfflineLease(
