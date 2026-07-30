@@ -2,7 +2,10 @@
 
 ## Status
 
-Implemented for strategy plugins on 2026-07-15
+Superseded by [ADR-002](./002-disable-third-party-plugin-execution.md) on 2026-07-30.
+
+This document is retained as the historical record of the rejected Utility
+Process/Node `vm` design. It must not be used as implementation guidance.
 
 ## Date
 

@@ -8,7 +8,7 @@ const source = `export function activate(context) {
     key: "com.quant.smoke.strategy:signal",
     name: "Smoke strategy",
     version: "1.0.0",
-    description: "Electron utility-process smoke test.",
+    description: "Electron fail-closed plugin-runtime smoke test.",
     supportedMarkets: ["US"],
     supportedTimeframes: ["1d"],
     parameterSchema: [],

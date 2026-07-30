@@ -173,9 +173,9 @@ Current implementation:
 
 - Install and manage trusted local plugins only.
 - Runtime source delivery to the renderer is blocked.
-- Third-party strategy activation and execution are disabled. The former Node `vm` plus Utility Process design was not a hostile-code boundary because host-realm constructors could recover Node capabilities.
+- Third-party strategy, indicator, data-source, and export execution are disabled under [ADR-002](./decisions/002-disable-third-party-plugin-execution.md). The former Node `vm` plus Utility Process design in ADR-001 was not a hostile-code boundary because host-realm constructors could recover Node capabilities.
 - Both the main-process runtime host and the dormant Utility Process entry fail closed without reading or evaluating installed source. The production build no longer emits a plugin Utility Process executable entry.
-- Install, list, enable/disable, failure recording, and uninstall remain available while execution is disabled.
+- Install, schema/version/permission validation, list, enable/disable, failure recording, and uninstall remain available while execution is disabled. “Enabled” records management intent only and does not authorize execution.
 
 Future implementation:
 
@@ -184,6 +184,10 @@ Future implementation:
 - Permission consent history and audited updates.
 - Dedicated asynchronous indicator, data-source, and export-plugin hosts.
 - A genuinely no-Node strategy sandbox with an explicit capability protocol, resource limits, and adversarial escape tests.
+
+Execution cannot be reopened by completing only one item above. Every
+reconsideration condition in ADR-002 must pass an independent security review,
+and reopening requires a new ADR.
 
 ## 9. Versioning
 
@@ -265,7 +269,7 @@ Implemented now:
 - The preload bridge exposes list, install, enable/disable, uninstall, source-free runtime snapshots, and strategy-run requests. Strategy-run requests fail closed with a fixed unavailable message and never read installed source.
 - Existing runtime failure records and automatic-disable logic record blocked execution attempts without evaluating plugin code.
 - Indicator manifests can still be installed and managed, but their execution is intentionally rejected until the indicator render protocol is isolated.
-- `npm run smoke:plugin-runtime` verifies that the production-built Electron host keeps third-party strategy execution disabled.
+- `npm run smoke:plugin-runtime` builds the Electron application, asks the real production host to refresh and run a fixture strategy, and passes only when no strategy is registered and execution is rejected without reading fixture source or starting a plugin process.
 
 Deliberate MVP limits:
 

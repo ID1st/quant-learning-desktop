@@ -14,8 +14,8 @@ Completed major foundations:
 - Built-in UTORB and Trend Targets strategies translated into TypeScript runtime implementations.
 - Strategy chart runtime now consumes normalized cached market bars and emits signals, logs, metrics, alerts, and declarative render elements.
 - A read-only Strategy Learning page explains the currently supported strategies and indicators without cross-page learning flows.
-- Installed plugins can be managed, but third-party strategy execution is disabled after the former Utility Process/Node `vm` boundary failed adversarial escape review; renderer code still receives no plugin source.
-- Live provider probes, controlled fallback/cache-retention drills, and an Electron plugin-runtime smoke test are available as repeatable verification commands.
+- Installed plugins can be managed, but all third-party plugin execution is disabled by ADR-002 after the former Utility Process/Node `vm` boundary failed adversarial escape review; renderer code still receives no plugin source.
+- Live provider probes, controlled fallback/cache-retention drills, and an Electron plugin-runtime fail-closed smoke test are available as repeatable verification commands.
 
 Current recommended next milestone:
 
@@ -411,8 +411,8 @@ Acceptance:
 Status:
 
 - Plugin package-management MVP complete: trusted local strategy/indicator packages can be installed, validated, enabled, disabled, and uninstalled through Electron IPC.
-- Third-party strategy activation/execution is disabled. The main host and utility entry fail closed without reading source after the previous Node `vm` boundary failed adversarial escape review.
-- Runtime failure recording and automatic disable behavior remain available; a no-Node capability sandbox is required before execution can be re-enabled.
+- Third-party strategy, indicator, data-source, and export activation/execution is disabled under ADR-002. The main host and utility entry fail closed without reading source after the previous Node `vm` boundary failed adversarial escape review.
+- Runtime failure recording and automatic disable behavior remain available. Re-enabling requires every ADR-002 condition, an independent security review, and a new ADR; a no-Node capability sandbox alone is not sufficient.
 - Indicator execution, data-source/export hosts, signatures, permission-consent history, and hot update remain follow-up work.
 
 Goal:
@@ -431,7 +431,7 @@ Deliverables:
 
 Acceptance:
 
-- Fail-closed strategy execution is covered by unit tests and an Electron production-build smoke test.
+- Fail-closed strategy execution is covered by unit tests and an Electron production-build smoke test that must reject the request without reading source or starting a plugin process.
 - Plugin source is never returned to the renderer.
 - Permissions, enable state, error state, and uninstall controls are visible to the user.
 

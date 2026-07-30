@@ -49,14 +49,14 @@ Completed foundations:
 - Strategy real-bar runtime slice is complete: UTORB and Trend Targets now run on normalized cached bars through `apps/desktop/src/features/strategies/chartStrategyRuntime.ts`; the chart and strategy management pages no longer rely on generated/sample strategy bars; parameter changes recompute strategy output; logs, signals, metrics, alerts, and render elements are exposed to the chart-facing layer.
 - Super Chart UI/display optimization round 1 is complete: the chart workspace now uses a tighter chart-first layout, a collapsible right watchlist, a compact bottom status/tab dock, on-demand strategy configuration, first-pass layer controls, and candle-first price scaling so strategy overlays do not flatten the price view.
 - Browser verification covered 1366x768, 1440x900, and 1920x1080. The chart workspace had no page-level vertical scroll, no button overflow, no blank chart state, and watchlist collapse reduced the right panel from 210px to 44px while expanding the chart area.
-- Plugin package management is complete, but third-party strategy execution is intentionally disabled. Review proved the previous Node `vm` plus Utility Process design could recover Node capabilities through host-realm constructors; the main host and utility entry now fail closed without reading source, and the production build does not emit the utility entry.
+- Plugin package management is complete, but all third-party plugin execution is intentionally disabled by ADR-002. Review proved the previous Node `vm` plus Utility Process design could recover Node capabilities through host-realm constructors; the main host and utility entry now fail closed without reading source, and the production build does not emit the utility entry.
 - `npm run smoke:plugin-runtime` now launches the production-built Electron host and verifies that strategy execution remains blocked until a genuinely no-Node sandbox exists.
 - Real environment market-data stability drilling is complete: `npm run drill:market-data` records live CN/HK/US connectivity, source provenance, a clearly labeled forced-fallback exercise, and retained-history behavior. Closed-market US intraday no-data is reported as an observation rather than misreported as a healthy live feed.
 - Simplified Backtest MVP is complete: Strategy Management now provides a compact backtest dialog that uses only normalized local bar cache, configures initial capital, one-way fee, one-way slippage, and optional short selling, then records deterministic next-bar-open entries, long/short reversals, terminal settlement, summaries, warnings, and a bounded local history of the latest 20 result snapshots. It does not make market-data requests, duplicate cached bars, or introduce live order execution.
 
 ## Desktop Hardening Update (2026-07-14)
 
-- Third-party plugin source delivery to the renderer is blocked until an isolated runtime host exists. Installation and management remain available.
+- Third-party plugin source delivery to the renderer is blocked. Installation and management remain available, but execution can be reconsidered only after every no-Node sandbox, capability protocol, quota, signing/consent, and adversarial-review condition in ADR-002 is met.
 - The renderer can save or delete encrypted provider credentials but cannot read decrypted AlphaFeed or LongBridge secrets. Provider-neutral market-data IPC continues to use them inside the main process.
 - Remote AlphaFeed REST, AlphaFeed WebSocket, and LongBridge endpoints require TLS; plaintext HTTP/WS remains available only for loopback development addresses.
 - Electron renderer sandboxing and a restrictive Content Security Policy are enabled, and child-window creation is denied.
@@ -192,7 +192,7 @@ Acceptance:
 ### Remaining Product Milestones
 
 1. AlphaFeed WebSocket runtime hardening: confirm the member protocol, then add heartbeat, reconnect-limit handling, and stream-source diagnostics.
-2. Plugin runtime second stage: create a dedicated isolated indicator execution/render protocol. Strategy-plugin Utility Process isolation is complete; signing, consent history, data-source/export hosts, and hot update remain later work.
+2. Plugin security second stage: keep all third-party execution closed while researching a genuinely no-Node sandbox and per-capability protocols. The former Utility Process isolation is superseded, not complete; signing, consent history, independent adversarial review, data-source/export hosts, and hot update remain prerequisites or later work.
 3. Market-data operational stability: keep `probe:stock-sdk` and `drill:market-data` repeatable; add scheduled/manual mainland-network drills only after defining their local scheduling policy.
 4. Optional strategy research follow-up: date-range selection, equity curve, position sizing, and partial target/stop execution. The agreed simplified backtest MVP is complete.
 5. Super-chart advanced parity: multi-chart synchronization, additional drawing tools, workspaces, and indicator sub-panes remain optional product upgrades rather than MVP defects.
