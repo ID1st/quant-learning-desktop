@@ -118,6 +118,10 @@ export function createAuthSessionManager(
   let bootstrapPromise:
     | Promise<AuthOperationResult<AuthStateSnapshot>>
     | null = null;
+  let revalidationPromise:
+    | Promise<AuthOperationResult<AuthStateSnapshot>>
+    | null = null;
+  let authenticationGeneration = 0;
 
   function publish(nextState: AuthStateSnapshot): void {
     state = nextState;
@@ -139,7 +143,11 @@ export function createAuthSessionManager(
 
   async function commitBundle(
     bundle: CloudSessionBundle,
+    expectedGeneration = authenticationGeneration,
   ): Promise<AuthSessionSnapshot> {
+    if (expectedGeneration !== authenticationGeneration) {
+      throw new StaleAuthenticationOperationError();
+    }
     if (bundle.session.deviceId !== input.device.deviceId) {
       throw new CloudAuthClientError(
         "SERVICE_UNAVAILABLE",
@@ -156,6 +164,10 @@ export function createAuthSessionManager(
       accessToken: bundle.accessToken,
       ...persistedMaterial,
     });
+    if (expectedGeneration !== authenticationGeneration) {
+      await input.tokenStore.clear().catch(() => undefined);
+      throw new StaleAuthenticationOperationError();
+    }
     loginChallenge = null;
     publishPhase("AUTHENTICATED_ONLINE", bundle.session);
     return bundle.session;
@@ -163,7 +175,11 @@ export function createAuthSessionManager(
 
   async function updateValidation(
     validation: CloudSessionValidation,
+    expectedGeneration = authenticationGeneration,
   ): Promise<AuthSessionSnapshot> {
+    if (expectedGeneration !== authenticationGeneration) {
+      throw new StaleAuthenticationOperationError();
+    }
     const accessToken = input.tokenStore.getAccessToken();
     if (!accessToken || !persistedMaterial) {
       throw new CloudAuthClientError(
@@ -186,6 +202,10 @@ export function createAuthSessionManager(
       accessToken,
       ...persistedMaterial,
     });
+    if (expectedGeneration !== authenticationGeneration) {
+      await input.tokenStore.clear().catch(() => undefined);
+      throw new StaleAuthenticationOperationError();
+    }
     publishPhase("AUTHENTICATED_ONLINE", validation.session);
     return validation.session;
   }
@@ -196,7 +216,9 @@ export function createAuthSessionManager(
     await input.tokenStore.clear().catch(() => undefined);
   }
 
-  async function refreshFromPersisted(): Promise<AuthSessionSnapshot> {
+  async function refreshFromPersisted(
+    expectedGeneration = authenticationGeneration,
+  ): Promise<AuthSessionSnapshot> {
     if (!persistedMaterial) {
       throw new CloudAuthClientError(
         "SESSION_REVOKED",
@@ -208,17 +230,21 @@ export function createAuthSessionManager(
         persistedMaterial.refreshToken,
         input.device,
       ),
+      expectedGeneration,
     );
   }
 
-  async function validateOnlineSession(): Promise<AuthSessionSnapshot> {
+  async function validateOnlineSession(
+    expectedGeneration = authenticationGeneration,
+  ): Promise<AuthSessionSnapshot> {
     const accessToken = input.tokenStore.getAccessToken();
     if (!accessToken) {
-      return refreshFromPersisted();
+      return refreshFromPersisted(expectedGeneration);
     }
     try {
       return await updateValidation(
         await input.client.getSession(accessToken),
+        expectedGeneration,
       );
     } catch (error) {
       if (
@@ -226,7 +252,7 @@ export function createAuthSessionManager(
         error.code === "SESSION_REVOKED" &&
         persistedMaterial
       ) {
-        return refreshFromPersisted();
+        return refreshFromPersisted(expectedGeneration);
       }
       throw error;
     }
@@ -235,6 +261,7 @@ export function createAuthSessionManager(
   async function performBootstrap(): Promise<
     AuthOperationResult<AuthStateSnapshot>
   > {
+    const expectedGeneration = authenticationGeneration;
     publishPhase("BOOTSTRAPPING");
     persistedMaterial = await input.tokenStore.restore();
     if (!persistedMaterial) {
@@ -248,7 +275,7 @@ export function createAuthSessionManager(
     }
 
     try {
-      await refreshFromPersisted();
+      await refreshFromPersisted(expectedGeneration);
       return { ok: true, data: state };
     } catch (error) {
       if (
@@ -290,6 +317,82 @@ export function createAuthSessionManager(
         errorCode: clientError.code,
       });
       return { ok: true, data: state };
+    }
+  }
+
+  async function performRevalidation(): Promise<
+    AuthOperationResult<AuthStateSnapshot>
+  > {
+    if (
+      state.phase === "BOOTSTRAPPING" ||
+      state.phase === "SERVICE_UNAVAILABLE"
+    ) {
+      return manager.bootstrap();
+    }
+    if (
+      (state.phase !== "AUTHENTICATED_ONLINE" &&
+        state.phase !== "AUTHENTICATED_OFFLINE") ||
+      !state.session
+    ) {
+      return { ok: true, data: { ...state } };
+    }
+    const expectedGeneration = authenticationGeneration;
+    try {
+      await validateOnlineSession(expectedGeneration);
+      return { ok: true, data: state };
+    } catch (error) {
+      if (error instanceof StaleAuthenticationOperationError) {
+        return { ok: true, data: { ...state } };
+      }
+      if (
+        error instanceof CloudAuthClientError &&
+        error.code === "NETWORK_UNAVAILABLE" &&
+        (state.phase === "AUTHENTICATED_ONLINE" ||
+          state.phase === "AUTHENTICATED_OFFLINE")
+      ) {
+        try {
+          if (!persistedMaterial) {
+            throw new Error("offline session material is unavailable");
+          }
+          const offlineSession = restoreOfflineSession({
+            lease: persistedMaterial.offlineLease,
+            publicKeyPem: input.offlinePublicKeyPem,
+            deviceId: input.device.deviceId,
+            lastServerTime: persistedMaterial.lastServerTime,
+            now: now(),
+          });
+          publishPhase("AUTHENTICATED_OFFLINE", offlineSession);
+          return { ok: true, data: state };
+        } catch {
+          const entitlementEndsAt = state.session?.entitlementEndsAt;
+          if (
+            entitlementEndsAt &&
+            now().getTime() >= Date.parse(entitlementEndsAt)
+          ) {
+            await clearAuthentication();
+            publish({
+              phase: "ENTITLEMENT_EXPIRED",
+              session: null,
+              errorCode: "ENTITLEMENT_EXPIRED",
+            });
+            return { ok: true, data: state };
+          }
+        }
+      }
+      await clearAuthentication();
+      const clientError =
+        error instanceof CloudAuthClientError
+          ? error
+          : new CloudAuthClientError(
+              "SERVICE_UNAVAILABLE",
+              "Session validation failed",
+            );
+      publish({
+        phase: phaseForError(clientError),
+        session: null,
+        errorCode: clientError.code,
+      });
+      return operationError(clientError);
     }
   }
 
@@ -413,6 +516,7 @@ export function createAuthSessionManager(
     resetPassword: async (request) => {
       try {
         const result = await input.client.resetPassword(request);
+        authenticationGeneration += 1;
         await clearAuthentication();
         publishPhase("LOGIN");
         return { ok: true, data: result };
@@ -421,6 +525,7 @@ export function createAuthSessionManager(
       }
     },
     logout: async () => {
+      authenticationGeneration += 1;
       const accessToken = input.tokenStore.getAccessToken();
       if (accessToken) {
         await input.client.logout(accessToken).catch(() => undefined);
@@ -430,75 +535,13 @@ export function createAuthSessionManager(
       return { ok: true, data: { signedOut: true } };
     },
     getSnapshot: async () => ({ ok: true, data: { ...state } }),
-    revalidate: async () => {
-      if (
-        state.phase === "BOOTSTRAPPING" ||
-        state.phase === "SERVICE_UNAVAILABLE"
-      ) {
-        return manager.bootstrap();
-      }
-      if (
-        (state.phase !== "AUTHENTICATED_ONLINE" &&
-          state.phase !== "AUTHENTICATED_OFFLINE") ||
-        !state.session
-      ) {
-        return { ok: true, data: { ...state } };
-      }
-      try {
-        await validateOnlineSession();
-        return { ok: true, data: state };
-      } catch (error) {
-        if (
-          error instanceof CloudAuthClientError &&
-          error.code === "NETWORK_UNAVAILABLE" &&
-          (state.phase === "AUTHENTICATED_ONLINE" ||
-            state.phase === "AUTHENTICATED_OFFLINE")
-        ) {
-          try {
-            if (!persistedMaterial) {
-              throw new Error("offline session material is unavailable");
-            }
-            const offlineSession = restoreOfflineSession({
-              lease: persistedMaterial.offlineLease,
-              publicKeyPem: input.offlinePublicKeyPem,
-              deviceId: input.device.deviceId,
-              lastServerTime: persistedMaterial.lastServerTime,
-              now: now(),
-            });
-            publishPhase("AUTHENTICATED_OFFLINE", offlineSession);
-            return { ok: true, data: state };
-          } catch {
-            const entitlementEndsAt = state.session?.entitlementEndsAt;
-            if (
-              entitlementEndsAt &&
-              now().getTime() >= Date.parse(entitlementEndsAt)
-            ) {
-              await clearAuthentication();
-              publish({
-                phase: "ENTITLEMENT_EXPIRED",
-                session: null,
-                errorCode: "ENTITLEMENT_EXPIRED",
-              });
-              return { ok: true, data: state };
-            }
-            // An expired offline lease still requires a network connection.
-          }
-        }
-        await clearAuthentication();
-        const clientError =
-          error instanceof CloudAuthClientError
-            ? error
-            : new CloudAuthClientError(
-                "SERVICE_UNAVAILABLE",
-                "Session validation failed",
-              );
-        publish({
-          phase: phaseForError(clientError),
-          session: null,
-          errorCode: clientError.code,
+    revalidate: () => {
+      if (!revalidationPromise) {
+        revalidationPromise = performRevalidation().finally(() => {
+          revalidationPromise = null;
         });
-        return operationError(clientError);
       }
+      return revalidationPromise;
     },
     subscribe: (listener) => {
       listeners.add(listener);
@@ -507,4 +550,11 @@ export function createAuthSessionManager(
   };
 
   return manager;
+}
+
+class StaleAuthenticationOperationError extends Error {
+  public constructor() {
+    super("Authentication operation was superseded");
+    this.name = "StaleAuthenticationOperationError";
+  }
 }

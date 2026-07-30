@@ -21,7 +21,7 @@ test("getIntradayHistoryWindow accepts an expanded strategy warmup window", () =
   const now = Date.UTC(2026, 6, 2, 15, 0);
   const window = getIntradayHistoryWindow("US", now, 22);
 
-  assert.equal(window.startTime, Date.UTC(2026, 5, 3, 13, 30));
+  assert.equal(window.startTime, Date.UTC(2026, 5, 2, 13, 30));
   assert.equal(window.endTime, now);
 });
 
@@ -39,8 +39,39 @@ test("getIntradayHistoryWindow uses latest complete session on weekends", () => 
   const window = getIntradayHistoryWindow("US", now);
 
   assert.equal(window.isMarketOpen, false);
-  assert.equal(window.startTime, Date.UTC(2026, 5, 29, 13, 30));
-  assert.equal(window.endTime, Date.UTC(2026, 6, 3, 20, 0));
+  assert.equal(window.startTime, Date.UTC(2026, 5, 26, 13, 30));
+  assert.equal(window.endTime, Date.UTC(2026, 6, 2, 20, 0));
+});
+
+test("US Independence Day observed is closed and falls back to the previous session", () => {
+  const now = Date.UTC(2026, 6, 3, 16, 0); // 2026-07-03 12:00 New York
+  const window = getIntradayHistoryWindow("US", now);
+
+  assert.equal(window.isMarketOpen, false);
+  assert.equal(window.endTime, Date.UTC(2026, 6, 2, 20, 0));
+});
+
+test("CN and HK lunch breaks are closed at the completed morning segment", () => {
+  const cnNow = Date.UTC(2026, 6, 30, 4, 0); // 12:00 Shanghai
+  const hkNow = Date.UTC(2026, 6, 30, 4, 30); // 12:30 Hong Kong
+
+  const cnWindow = getIntradayHistoryWindow("CN", cnNow);
+  const hkWindow = getIntradayHistoryWindow("HK", hkNow);
+
+  assert.equal(cnWindow.isMarketOpen, false);
+  assert.equal(cnWindow.endTime, Date.UTC(2026, 6, 30, 3, 30));
+  assert.equal(hkWindow.isMarketOpen, false);
+  assert.equal(hkWindow.endTime, Date.UTC(2026, 6, 30, 4, 0));
+});
+
+test("calendar outside the bundled range fails closed", () => {
+  const window = getIntradayHistoryWindow(
+    "CN",
+    Date.UTC(2035, 0, 2, 4, 0),
+  );
+
+  assert.equal(window.isMarketOpen, false);
+  assert.equal(window.errorCode, "CALENDAR_OUT_OF_RANGE");
 });
 
 test("alphaFeedMinuteBarsToRealtimeBars keeps only requested window and converts timeframe", () => {

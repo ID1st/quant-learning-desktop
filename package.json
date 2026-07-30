@@ -21,6 +21,7 @@
     "probe:longport:a-share": "node scripts/longport-a-share-probe.mjs",
     "probe:stock-sdk": "node --experimental-strip-types scripts/stock-sdk-provider-probe.mjs",
     "drill:market-data": "node --experimental-strip-types scripts/market-data-stability-drill.mjs",
+    "check:market-calendar": "node --experimental-strip-types scripts/check-market-calendar-coverage.mts",
     "smoke:market-data-search": "npm run build:electron -w @quant/desktop && node scripts/market-data-search-electron-smoke.mjs",
     "smoke:auth": "npm run build:electron -w @quant/desktop && node scripts/auth-electron-smoke.mjs",
     "smoke:auth:visual": "node scripts/auth-visual-electron-smoke.mjs",

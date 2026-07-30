@@ -953,6 +953,8 @@ export function ChartWorkspacePage() {
     return createStrategySeriesByTimeframe({
       primaryBars: strategyInputBars,
       primaryTimeframe: timeframe,
+      market: activeSymbol.market,
+      asOfTimestamp: Date.now(),
       dailyBars,
       weeklyBars,
     });

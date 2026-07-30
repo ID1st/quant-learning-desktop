@@ -1,6 +1,6 @@
 import { AlertTriangle, LoaderCircle, ShieldCheck } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { AuthSessionSnapshot, AuthStateSnapshot } from "@quant/shared";
 
 import { getAuthBridge } from "../features/auth/authService";
@@ -120,7 +120,6 @@ export function App() {
   const currentRoute = useAppStore((state) => state.currentRoute);
   const navigate = useAppStore((state) => state.navigate);
   const theme = useAppStore((state) => state.theme);
-  const bootstrapped = useRef(false);
   const [entitlementNotice, setEntitlementNotice] =
     useState<AuthSessionSnapshot | null>(null);
   const [expiredAtNotice, setExpiredAtNotice] = useState("");
@@ -158,10 +157,7 @@ export function App() {
     Boolean(session);
 
   useEffect(() => {
-    if (bootstrapped.current) {
-      return;
-    }
-    bootstrapped.current = true;
+    let cancelled = false;
     const bridge = getAuthBridge();
     if (!bridge) {
       setPhase("SERVICE_UNAVAILABLE");
@@ -169,13 +165,19 @@ export function App() {
     }
     const unsubscribe = bridge.subscribe(handleAuthState);
     void bridge.bootstrap().then((result) => {
+      if (cancelled) {
+        return;
+      }
       if (result.ok) {
         handleAuthState(result.data);
       } else {
         setPhase("SERVICE_UNAVAILABLE");
       }
     });
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [handleAuthState, setPhase]);
 
   useEffect(() => {

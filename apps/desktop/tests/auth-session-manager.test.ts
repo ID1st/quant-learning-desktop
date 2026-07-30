@@ -232,6 +232,102 @@ test("concurrent bootstrap and lifecycle revalidation share one refresh", async 
   );
 });
 
+test("concurrent authenticated revalidations share one rotating refresh token", async () => {
+  const store = createStore();
+  await store.save({
+    accessToken: "old-memory-token",
+    refreshToken: "old-refresh-token",
+    offlineLease: onlineBundle.offlineLease,
+    deviceId: "device-1234",
+    lastServerTime: "2026-07-28T00:00:00.000Z",
+  });
+  let refreshCalls = 0;
+  let releaseRefresh: (() => void) | undefined;
+  const refreshGate = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  const manager = createManager(
+    createClient({
+      refreshSession: async () => {
+        refreshCalls += 1;
+        if (refreshCalls > 1) {
+          await refreshGate;
+        }
+        return onlineBundle;
+      },
+      getSession: async () => {
+        throw new CloudAuthClientError(
+          "SESSION_REVOKED",
+          "access token expired",
+        );
+      },
+    }),
+    store,
+  );
+  await manager.bootstrap();
+
+  const first = manager.revalidate();
+  const second = manager.revalidate();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  releaseRefresh?.();
+  const [firstResult, secondResult] = await Promise.all([first, second]);
+
+  assert.equal(refreshCalls, 2);
+  assert.deepEqual(secondResult, firstResult);
+  assert.equal(firstResult.ok, true);
+  assert.equal(
+    firstResult.ok && firstResult.data.phase,
+    "AUTHENTICATED_ONLINE",
+  );
+});
+
+test("logout supersedes an in-flight revalidation result", async () => {
+  const store = createStore();
+  await store.save({
+    accessToken: "old-memory-token",
+    refreshToken: "old-refresh-token",
+    offlineLease: onlineBundle.offlineLease,
+    deviceId: "device-1234",
+    lastServerTime: "2026-07-28T00:00:00.000Z",
+  });
+  let releaseRefresh: (() => void) | undefined;
+  const refreshGate = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let refreshCalls = 0;
+  const manager = createManager(
+    createClient({
+      refreshSession: async () => {
+        refreshCalls += 1;
+        if (refreshCalls > 1) {
+          await refreshGate;
+        }
+        return onlineBundle;
+      },
+      getSession: async () => {
+        throw new CloudAuthClientError(
+          "SESSION_REVOKED",
+          "access token expired",
+        );
+      },
+      logout: async () => ({ signedOut: true }),
+    }),
+    store,
+  );
+  await manager.bootstrap();
+
+  const revalidation = manager.revalidate();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  await manager.logout();
+  releaseRefresh?.();
+  const result = await revalidation;
+  const snapshot = await manager.getSnapshot();
+
+  assert.equal(result.ok, true);
+  assert.equal(snapshot.ok && snapshot.data.phase, "SIGNED_OUT");
+  assert.equal(store.getAccessToken(), null);
+});
+
 test("bootstrap falls back to a signed lease only for network failures", async () => {
   const store = createStore();
   await store.save({

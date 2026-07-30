@@ -1,5 +1,9 @@
 import type { Bar } from "@quant/strategy-engine";
-import type { Timeframe } from "@quant/shared";
+import type { Market, Timeframe } from "@quant/shared";
+import {
+  getSessionSegments,
+  resolveTradingSessionAt,
+} from "../marketData/marketCalendar.ts";
 
 const aggregationMinutes: Partial<Record<Timeframe, number>> = {
   "5m": 5,
@@ -8,18 +12,73 @@ const aggregationMinutes: Partial<Record<Timeframe, number>> = {
   "1h": 60,
 };
 
-export function aggregateBarsToTimeframe(bars: readonly Bar[], timeframe: "5m" | "15m" | "30m" | "1h"): Bar[] {
-  const minutes = aggregationMinutes[timeframe] ?? 1;
-  const interval = minutes * 60_000;
-  const buckets = new Map<number, { bar: Bar; count: number }>();
+export interface AggregateBarsInput {
+  bars: readonly Bar[];
+  market: Market;
+  timeframe: "5m" | "15m" | "30m" | "1h";
+  asOfTimestamp: number;
+}
 
-  [...bars]
+export function aggregateBarsToTimeframe(
+  input: AggregateBarsInput,
+): Bar[] {
+  const minutes = aggregationMinutes[input.timeframe] ?? 1;
+  const interval = minutes * 60_000;
+  const buckets = new Map<
+    string,
+    {
+      bar: Bar;
+      count: number;
+      expectedCount: number;
+      endTime: number;
+    }
+  >();
+  let cachedSegments:
+    | ReturnType<typeof getSessionSegments>
+    | null = null;
+
+  [...input.bars]
     .sort((left, right) => left.timestamp - right.timestamp)
     .forEach((bar) => {
-      const timestamp = Math.floor(bar.timestamp / interval) * interval;
-      const existing = buckets.get(timestamp);
+      if (
+        !cachedSegments ||
+        bar.timestamp < cachedSegments[0]!.startTime ||
+        bar.timestamp >= cachedSegments.at(-1)!.endTime
+      ) {
+        const resolution = resolveTradingSessionAt(
+          input.market,
+          bar.timestamp,
+        );
+        cachedSegments =
+          resolution.ok && resolution.session
+            ? getSessionSegments(resolution.session)
+            : null;
+      }
+      const segmentIndex =
+        cachedSegments?.findIndex(
+          (candidate) =>
+            bar.timestamp >= candidate.startTime &&
+            bar.timestamp < candidate.endTime,
+        ) ?? -1;
+      const segment =
+        segmentIndex >= 0 ? cachedSegments?.[segmentIndex] : null;
+      if (!segment) {
+        return;
+      }
+      const bucketStart =
+        segment.startTime +
+        Math.floor((bar.timestamp - segment.startTime) / interval) *
+          interval;
+      const bucketEnd = Math.min(bucketStart + interval, segment.endTime);
+      const key = `${segmentIndex}:${bucketStart}`;
+      const existing = buckets.get(key);
       if (!existing) {
-        buckets.set(timestamp, { bar: { ...bar, timestamp }, count: 1 });
+        buckets.set(key, {
+          bar: { ...bar, timestamp: bucketStart },
+          count: 1,
+          expectedCount: Math.ceil((bucketEnd - bucketStart) / 60_000),
+          endTime: bucketEnd,
+        });
         return;
       }
       existing.bar.high = Math.max(existing.bar.high, bar.high);
@@ -30,13 +89,19 @@ export function aggregateBarsToTimeframe(bars: readonly Bar[], timeframe: "5m" |
     });
 
   return [...buckets.values()]
-    .filter((bucket) => bucket.count >= minutes)
+    .filter(
+      (bucket) =>
+        bucket.count >= bucket.expectedCount &&
+        input.asOfTimestamp >= bucket.endTime,
+    )
     .map((bucket) => bucket.bar);
 }
 
 export function createStrategySeriesByTimeframe(input: {
   primaryBars: readonly Bar[];
   primaryTimeframe: Timeframe;
+  market: Market;
+  asOfTimestamp: number;
   dailyBars?: readonly Bar[];
   weeklyBars?: readonly Bar[];
 }): Partial<Record<Timeframe, readonly Bar[]>> {
@@ -44,12 +109,31 @@ export function createStrategySeriesByTimeframe(input: {
     [input.primaryTimeframe]: input.primaryBars,
   };
 
-  if (input.primaryTimeframe === "realtime" || input.primaryTimeframe === "1m") {
+  if (
+    input.primaryTimeframe === "realtime" ||
+    input.primaryTimeframe === "1m"
+  ) {
     result["1m"] = input.primaryBars;
-    result["5m"] = aggregateBarsToTimeframe(input.primaryBars, "5m");
-    result["15m"] = aggregateBarsToTimeframe(input.primaryBars, "15m");
-    result["30m"] = aggregateBarsToTimeframe(input.primaryBars, "30m");
-    result["1h"] = aggregateBarsToTimeframe(input.primaryBars, "1h");
+    result["5m"] = aggregateBarsToTimeframe({
+      ...input,
+      bars: input.primaryBars,
+      timeframe: "5m",
+    });
+    result["15m"] = aggregateBarsToTimeframe({
+      ...input,
+      bars: input.primaryBars,
+      timeframe: "15m",
+    });
+    result["30m"] = aggregateBarsToTimeframe({
+      ...input,
+      bars: input.primaryBars,
+      timeframe: "30m",
+    });
+    result["1h"] = aggregateBarsToTimeframe({
+      ...input,
+      bars: input.primaryBars,
+      timeframe: "1h",
+    });
   }
   if (input.dailyBars) {
     result["1d"] = input.dailyBars;
@@ -57,6 +141,5 @@ export function createStrategySeriesByTimeframe(input: {
   if (input.weeklyBars) {
     result["1w"] = input.weeklyBars;
   }
-
   return result;
 }
