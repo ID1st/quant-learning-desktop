@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { Pool } from "pg";
 
 import { PgAuthRepository } from "../src/repositories/pgAuthRepository.ts";
+import {
+  runPostgresMigrations,
+  type PostgresMigrationClient,
+} from "../src/db/migrationRunner.ts";
 import {
   digestInviteCode,
   normalizeInviteCode,
@@ -13,16 +17,30 @@ import {
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 
+async function applyAuthMigrations(pool: Pool) {
+  const client = await pool.connect();
+  try {
+    const migrationClient: PostgresMigrationClient = {
+      async query(sql, values) {
+        const result = await client.query(sql, values);
+        return { rows: result.rows };
+      },
+    };
+    await runPostgresMigrations({
+      client: migrationClient,
+      directory: fileURLToPath(new URL("../migrations", import.meta.url)),
+    });
+  } finally {
+    client.release();
+  }
+}
+
 test(
   "PostgreSQL row locking permits only one concurrent redemption",
   { skip: !databaseUrl },
   async () => {
     const pool = new Pool({ connectionString: databaseUrl });
-    const schema = await readFile(
-      new URL("../migrations/001_auth_schema.sql", import.meta.url),
-      "utf8",
-    );
-    await pool.query(schema);
+    await applyAuthMigrations(pool);
 
     const userId = randomUUID();
     const batchId = randomUUID();
@@ -112,11 +130,7 @@ test(
   { skip: !databaseUrl },
   async () => {
     const pool = new Pool({ connectionString: databaseUrl });
-    const schema = await readFile(
-      new URL("../migrations/001_auth_schema.sql", import.meta.url),
-      "utf8",
-    );
-    await pool.query(schema);
+    await applyAuthMigrations(pool);
     const userId = randomUUID();
     const baseTime = new Date("2026-07-28T00:00:00.000Z");
 
@@ -202,11 +216,7 @@ test(
   { skip: !databaseUrl },
   async () => {
     const pool = new Pool({ connectionString: databaseUrl });
-    const schema = await readFile(
-      new URL("../migrations/001_auth_schema.sql", import.meta.url),
-      "utf8",
-    );
-    await pool.query(schema);
+    await applyAuthMigrations(pool);
     const email = `${randomUUID()}@example.test`;
     const now = new Date("2026-07-30T03:00:00.000Z");
 

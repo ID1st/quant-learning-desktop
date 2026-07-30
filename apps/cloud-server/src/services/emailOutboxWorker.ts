@@ -12,10 +12,12 @@ interface OutboxMessage {
     expiresInMinutes: number;
   };
   attemptCount: number;
+  claimToken: string;
 }
 
 const POLL_INTERVAL_MILLISECONDS = 2_000;
 const MAX_ATTEMPTS = 8;
+const LEASE_SECONDS = 120;
 
 async function claimNextMessage(pool: Pool): Promise<OutboxMessage | null> {
   const client = await pool.connect();
@@ -27,20 +29,51 @@ async function claimNextMessage(pool: Pool): Promise<OutboxMessage | null> {
       template: OutboxMessage["template"];
       payload: OutboxMessage["payload"];
       attempt_count: number;
+      claim_token: string;
     }>(
       `
-        WITH candidate AS (
+        WITH expired_terminal AS (
+          UPDATE email_outbox
+          SET
+            status = 'FAILED',
+            payload = '{}'::jsonb,
+            last_error = 'DELIVERY_FAILED:FINAL_LEASE_EXPIRED',
+            claim_token = NULL,
+            claimed_at = NULL,
+            lease_expires_at = NULL
+          WHERE status = 'SENDING'
+            AND lease_expires_at <= now()
+            AND attempt_count >= $1
+          RETURNING id
+        ),
+        candidate AS (
           SELECT id
           FROM email_outbox
-          WHERE status IN ('PENDING', 'FAILED')
-            AND next_attempt_at <= now()
+          WHERE (
+              (
+                status IN ('PENDING', 'FAILED')
+                AND next_attempt_at <= now()
+              )
+              OR (
+                status = 'SENDING'
+                AND (
+                  lease_expires_at IS NULL
+                  OR lease_expires_at <= now()
+                )
+              )
+            )
             AND attempt_count < $1
           ORDER BY created_at
           LIMIT 1
           FOR UPDATE SKIP LOCKED
         )
         UPDATE email_outbox AS outbox
-        SET status = 'SENDING', attempt_count = attempt_count + 1
+        SET
+          status = 'SENDING',
+          attempt_count = attempt_count + 1,
+          claim_token = gen_random_uuid(),
+          claimed_at = now(),
+          lease_expires_at = now() + ($2 * interval '1 second')
         FROM candidate
         WHERE outbox.id = candidate.id
         RETURNING
@@ -48,9 +81,10 @@ async function claimNextMessage(pool: Pool): Promise<OutboxMessage | null> {
           outbox.to_email,
           outbox.template,
           outbox.payload,
-          outbox.attempt_count
+          outbox.attempt_count,
+          outbox.claim_token
       `,
-      [MAX_ATTEMPTS],
+      [MAX_ATTEMPTS, LEASE_SECONDS],
     );
     await client.query("COMMIT");
     const row = result.rows[0];
@@ -63,6 +97,7 @@ async function claimNextMessage(pool: Pool): Promise<OutboxMessage | null> {
       template: row.template,
       payload: row.payload,
       attemptCount: row.attempt_count,
+      claimToken: row.claim_token,
     };
   } catch (error) {
     await client.query("ROLLBACK");
@@ -173,6 +208,7 @@ export class EmailOutboxWorker {
           await this.transporter.sendMail({
             from: this.from,
             to: message.toEmail,
+            messageId: `<outbox-${message.id}@quant-learning.local>`,
             ...rendered,
           });
           await this.pool.query(
@@ -182,10 +218,15 @@ export class EmailOutboxWorker {
                 status = 'SENT',
                 payload = '{}'::jsonb,
                 sent_at = now(),
-                last_error = NULL
+                last_error = NULL,
+                claim_token = NULL,
+                claimed_at = NULL,
+                lease_expires_at = NULL
               WHERE id = $1
+                AND claim_token = $2
+                AND status = 'SENDING'
             `,
-            [message.id],
+            [message.id, message.claimToken],
           );
         } catch (error) {
           const retryDelayMinutes = Math.min(
@@ -202,14 +243,20 @@ export class EmailOutboxWorker {
                   ELSE payload
                 END,
                 last_error = $2,
-                next_attempt_at = now() + ($3 * interval '1 minute')
+                next_attempt_at = now() + ($3 * interval '1 minute'),
+                claim_token = NULL,
+                claimed_at = NULL,
+                lease_expires_at = NULL
               WHERE id = $1
+                AND claim_token = $5
+                AND status = 'SENDING'
             `,
             [
               message.id,
               safeDeliveryError(error),
               retryDelayMinutes,
               message.attemptCount >= MAX_ATTEMPTS,
+              message.claimToken,
             ],
           );
         }

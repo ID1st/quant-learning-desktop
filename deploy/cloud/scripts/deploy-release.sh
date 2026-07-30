@@ -71,10 +71,34 @@ docker compose \
   config --quiet
 docker compose \
   -f "${staging_dir}/deploy/cloud/docker-compose.yml" \
-  build auth
+  build auth migrate
 
 mv -- "${staging_dir}" "${release_dir}"
 trap - EXIT
+
+candidate_compose="${release_dir}/deploy/cloud/docker-compose.yml"
+docker compose \
+  -f "${candidate_compose}" \
+  up -d postgres
+for _attempt in $(seq 1 30); do
+  if docker compose \
+    -f "${candidate_compose}" \
+    exec -T postgres \
+    pg_isready -U quant_auth -d quant_auth >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+docker compose \
+  -f "${candidate_compose}" \
+  exec -T postgres \
+  pg_isready -U quant_auth -d quant_auth >/dev/null
+
+"${release_dir}/deploy/cloud/scripts/postgres-backup.sh" \
+  "${candidate_compose}"
+docker compose \
+  -f "${candidate_compose}" \
+  run --rm --no-deps migrate
 
 if [[ -L "${current_link}" ]]; then
   active_release="$(readlink -f "${current_link}")"
@@ -103,26 +127,7 @@ systemd-tmpfiles --create /etc/tmpfiles.d/quant-auth-invite-exports.conf
 
 docker compose \
   -f "${current_link}/deploy/cloud/docker-compose.yml" \
-  up -d postgres
-for _attempt in $(seq 1 30); do
-  if docker compose \
-    -f "${current_link}/deploy/cloud/docker-compose.yml" \
-    exec -T postgres \
-    pg_isready -U quant_auth -d quant_auth >/dev/null 2>&1; then
-    break
-  fi
-  sleep 2
-done
-docker compose \
-  -f "${current_link}/deploy/cloud/docker-compose.yml" \
-  exec -T postgres \
-  psql -v ON_ERROR_STOP=1 \
-    -U quant_auth \
-    -d quant_auth \
-    -f /docker-entrypoint-initdb.d/001_auth_schema.sql >/dev/null
-docker compose \
-  -f "${current_link}/deploy/cloud/docker-compose.yml" \
-  up -d auth
+  up -d --no-deps auth
 "${current_link}/deploy/cloud/scripts/wait-ready.sh"
 
 echo "Release activated: ${release_id}"

@@ -30,7 +30,9 @@ function createConfig(): CloudAuthConfig {
   };
 }
 
-function createPool(query: () => Promise<unknown>): Pool {
+function createPool(
+  query: (sql?: string, values?: unknown[]) => Promise<unknown>,
+): Pool {
   return {
     query,
   } as unknown as Pool;
@@ -62,10 +64,12 @@ test("liveness does not depend on PostgreSQL", async () => {
 
 test("readiness and the legacy health endpoint both verify PostgreSQL", async () => {
   let queryCount = 0;
+  const queries: Array<{ sql?: string; values?: unknown[] }> = [];
   const server = await buildAuthServer(
     createConfig(),
-    createPool(async () => {
+    createPool(async (sql, values) => {
       queryCount += 1;
+      queries.push({ sql, values });
       return { rows: [{ migrated: true }] };
     }),
   );
@@ -85,6 +89,8 @@ test("readiness and the legacy health endpoint both verify PostgreSQL", async ()
     assert.equal(legacy.statusCode, 200);
     assert.deepEqual(legacy.json(), { status: "ok" });
     assert.equal(queryCount, 2);
+    assert.match(queries[0]?.sql ?? "", /schema_migrations/u);
+    assert.deepEqual(queries[0]?.values, [2]);
   } finally {
     await server.close();
   }

@@ -8,7 +8,6 @@ services:
       - /opt/quant-auth/secrets/postgres.env
     volumes:
       - /opt/quant-auth/data/postgres:/var/lib/postgresql/data
-      - ../../apps/cloud-server/migrations/001_auth_schema.sql:/docker-entrypoint-initdb.d/001_auth_schema.sql:ro
     networks:
       - auth_internal
     healthcheck:
@@ -24,6 +23,27 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/cloud-server/Dockerfile
+    command: ["node", "apps/cloud-server/dist/cli/migrate.js"]
+    env_file:
+      - /opt/quant-auth/secrets/auth.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - auth_internal
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+
   auth:
     build:
       context: ../..
@@ -34,6 +54,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:8787:8787"
     volumes:

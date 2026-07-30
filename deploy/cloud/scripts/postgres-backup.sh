@@ -2,7 +2,7 @@
 set -euo pipefail
 
 service_root="/opt/quant-auth"
-compose_file="${service_root}/current/deploy/cloud/docker-compose.yml"
+compose_file="${1:-${service_root}/current/deploy/cloud/docker-compose.yml}"
 backup_dir="${service_root}/backups/postgres"
 
 if [[ "${EUID}" -ne 0 ]]; then

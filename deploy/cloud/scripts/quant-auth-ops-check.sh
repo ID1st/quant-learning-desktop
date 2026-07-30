@@ -53,16 +53,20 @@ if [[ -f "${compose_file}" ]]; then
     docker compose -f "${compose_file}" exec -T postgres psql -At \
       -U quant_auth \
       -d quant_auth \
-      -c "SELECT count(*) FILTER (WHERE status = 'FAILED' AND attempt_count >= 8), COALESCE(EXTRACT(EPOCH FROM now() - min(created_at) FILTER (WHERE status IN ('PENDING','FAILED','SENDING'))), 0)::bigint FROM email_outbox;" \
-      2>/dev/null || printf 'query-failed|query-failed'
+      -F '|' \
+      -c "SELECT count(*) FILTER (WHERE status = 'FAILED' AND attempt_count >= 8), count(*) FILTER (WHERE status = 'SENDING' AND lease_expires_at > now()), count(*) FILTER (WHERE status = 'SENDING' AND (lease_expires_at IS NULL OR lease_expires_at <= now())), COALESCE(EXTRACT(EPOCH FROM now() - min(created_at) FILTER (WHERE status IN ('PENDING','FAILED') OR (status = 'SENDING' AND (lease_expires_at IS NULL OR lease_expires_at <= now())))), 0)::bigint FROM email_outbox;" \
+      2>/dev/null || printf 'query-failed|query-failed|query-failed|query-failed'
   )"
-  terminal_failures="${outbox_state%%|*}"
-  oldest_pending_seconds="${outbox_state##*|}"
+  IFS='|' read -r terminal_failures active_leases expired_leases oldest_pending_seconds <<< "${outbox_state}"
   if [[ "${terminal_failures}" == "query-failed" ]]; then
     report_failure "email outbox health query failed"
   else
+    echo "email outbox leases: active=${active_leases}, expired=${expired_leases}, final_failed=${terminal_failures}"
     if [[ "${terminal_failures}" -gt 0 ]]; then
       report_failure "email outbox has ${terminal_failures} terminal failures"
+    fi
+    if [[ "${expired_leases}" -gt 0 ]]; then
+      report_failure "email outbox has ${expired_leases} expired leases awaiting recovery"
     fi
     if [[ "${oldest_pending_seconds}" -gt 600 ]]; then
       report_failure "oldest email outbox item is older than 10 minutes"

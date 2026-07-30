@@ -6,6 +6,7 @@ import Fastify, {
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import type { Pool } from "pg";
+import { latestPostgresMigrationVersion } from "./db/migrationVersion.ts";
 
 import type { CloudAuthConfig } from "./config.ts";
 import { AuthDomainError } from "./domain/authErrors.ts";
@@ -302,8 +303,12 @@ export async function buildAuthServer(
           AND to_regclass('public.sessions') IS NOT NULL
           AND to_regclass('public.email_outbox') IS NOT NULL
           AND to_regclass('public.auth_audit_events') IS NOT NULL
+          AND (
+            SELECT max(version)
+            FROM schema_migrations
+          ) = $1
           AS migrated
-      `);
+      `, [latestPostgresMigrationVersion]);
       if (result.rows[0]?.migrated !== true) {
         return reply.status(503).send({ status: "unavailable" });
       }
