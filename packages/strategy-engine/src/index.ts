@@ -1,4 +1,4 @@
-import { crossover, crossunder, ema, sma, wma } from "@quant/pine-runtime";
+import { ema, sma, wma } from "@quant/pine-runtime";
 import type { Market, Timeframe } from "@quant/shared";
 import { createMachineLearningPriceTargetsStrategyDefinition } from "./machineLearningPriceTargets.ts";
 import { createSmartMoneyConceptsStrategyDefinition } from "./smartMoneyConcepts.ts";
@@ -1298,7 +1298,6 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   const targetAlerts: string[] = [];
   const hour = 60 * 60 * 1000;
   const timezoneOffset = timezoneOffsetHours * hour;
-  const sessionStartMinutes = sessionStartHour * 60 + sessionStartMinute;
   const openingRangeDuration = openingRangeMinutes * 60 * 1000;
   const optimizerMultipliers = [1, 1.5, 2, 2.5, 3];
   const optimizerProfits = optimizerMultipliers.map(() => 0);
@@ -1309,7 +1308,6 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
   let totalSessions = 0;
   let sessionKey: number | null = null;
   let sessionStartTimestamp = 0;
-  let sessionEndTimestamp = 0;
   let plottingEndTimestamp = 0;
   let openingRangeHigh = 0;
   let openingRangeLow = 0;
@@ -1529,7 +1527,6 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       flushTrailSegment();
       sessionKey = null;
       sessionStartTimestamp = 0;
-      sessionEndTimestamp = 0;
       plottingEndTimestamp = 0;
       openingRangeHigh = Number.NEGATIVE_INFINITY;
       openingRangeLow = Number.POSITIVE_INFINITY;
@@ -1559,7 +1556,6 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       flushTrailSegment();
       sessionKey = window.key;
       sessionStartTimestamp = window.start;
-      sessionEndTimestamp = window.end;
       plottingEndTimestamp = window.plotEnd;
       openingRangeHigh = Number.NEGATIVE_INFINITY;
       openingRangeLow = Number.POSITIVE_INFINITY;

@@ -173,7 +173,6 @@ export function SettingsPage() {
     };
   }, []);
 
-  const previewManifest = manifestPreview.ok ? manifestPreview.manifest : null;
   const capabilitySummary = (
     ["strategy", "indicator", "data-source", "export"] as PluginCapability[]
   ).map((capability) => ({

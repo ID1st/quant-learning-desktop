@@ -511,3 +511,400 @@ test("lifecycle revalidation preserves an unfinished invite challenge", async ()
   assert.equal(observedChallenge, "focus-safe-login-challenge");
   assert.equal(redemption.ok, true);
 });
+
+test("registration and password-reset operations publish safe phases and clear authentication", async () => {
+  const publishedPhases: string[] = [];
+  const manager = createManager(
+    createClient({
+      requestRegistrationCode: async () => ({ accepted: true, retryAfterSeconds: 60 }),
+      register: async ({ email }) => ({ email }),
+      requestPasswordReset: async () => ({ accepted: true, retryAfterSeconds: 30 }),
+      resetPassword: async () => ({ sessionsRevoked: true }),
+    }),
+  );
+  const unsubscribe = manager.subscribe((snapshot) => publishedPhases.push(snapshot.phase));
+
+  assert.deepEqual(await manager.requestRegistrationCode({ email: "learner@example.com" }), {
+    ok: true,
+    data: { accepted: true, retryAfterSeconds: 60 },
+  });
+  assert.deepEqual(
+    await manager.register({
+      email: "learner@example.com",
+      emailCode: "123456",
+      password: "Quant#2026",
+    }),
+    {
+      ok: true,
+      data: { email: "learner@example.com" },
+    },
+  );
+  assert.deepEqual(await manager.requestPasswordReset({ email: "learner@example.com" }), {
+    ok: true,
+    data: { accepted: true, retryAfterSeconds: 30 },
+  });
+  assert.deepEqual(
+    await manager.resetPassword({
+      email: "learner@example.com",
+      emailCode: "654321",
+      password: "Reset#2026",
+    }),
+    {
+      ok: true,
+      data: { sessionsRevoked: true },
+    },
+  );
+  unsubscribe();
+
+  assert.deepEqual(publishedPhases, ["LOGIN", "LOGIN"]);
+  assert.equal((await manager.getSnapshot()).ok, true);
+});
+
+test("authentication operation failures expose stable safe error details", async () => {
+  const rateLimited = new CloudAuthClientError("RATE_LIMITED", "try later", 45);
+  const manager = createManager(
+    createClient({
+      requestRegistrationCode: async () => {
+        throw rateLimited;
+      },
+      register: async () => {
+        throw new Error("database detail");
+      },
+      requestPasswordReset: async () => {
+        throw rateLimited;
+      },
+      resetPassword: async () => {
+        throw new Error("secret detail");
+      },
+    }),
+  );
+
+  assert.deepEqual(await manager.requestRegistrationCode({ email: "learner@example.com" }), {
+    ok: false,
+    error: {
+      code: "RATE_LIMITED",
+      message: "try later",
+      retryAfterSeconds: 45,
+    },
+  });
+  assert.deepEqual(
+    await manager.register({
+      email: "learner@example.com",
+      emailCode: "123456",
+      password: "Quant#2026",
+    }),
+    {
+      ok: false,
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "Authentication operation failed",
+      },
+    },
+  );
+  assert.equal((await manager.requestPasswordReset({ email: "learner@example.com" })).ok, false);
+  assert.equal(
+    (
+      await manager.resetPassword({
+        email: "learner@example.com",
+        emailCode: "654321",
+        password: "Reset#2026",
+      })
+    ).ok,
+    false,
+  );
+});
+
+test("login covers authenticated, expired and denied responses without exposing challenges", async () => {
+  const authenticated = createManager(
+    createClient({
+      login: async () => ({ kind: "AUTHENTICATED", bundle: onlineBundle }),
+    }),
+  );
+  const authenticatedResult = await authenticated.login({
+    email: "learner@example.com",
+    password: "Quant#2026",
+  });
+  assert.equal(authenticatedResult.ok && authenticatedResult.data.kind, "AUTHENTICATED");
+
+  const expired = createManager(
+    createClient({
+      login: async () => ({
+        kind: "ENTITLEMENT_EXPIRED",
+        expiredAt: "2026-07-01T00:00:00.000Z",
+        loginChallenge: "renewal-only-challenge",
+      }),
+    }),
+  );
+  assert.deepEqual(
+    await expired.login({
+      email: "learner@example.com",
+      password: "Quant#2026",
+    }),
+    {
+      ok: true,
+      data: {
+        kind: "ENTITLEMENT_EXPIRED",
+        expiredAt: "2026-07-01T00:00:00.000Z",
+      },
+    },
+  );
+
+  const denied = createManager(
+    createClient({
+      login: async () => ({ kind: "ACCESS_DENIED" }),
+    }),
+  );
+  assert.deepEqual(
+    await denied.login({
+      email: "learner@example.com",
+      password: "Quant#2026",
+    }),
+    {
+      ok: true,
+      data: { kind: "ACCESS_DENIED" },
+    },
+  );
+});
+
+test("invite redemption requires a challenge and renewal supports challenge and access-token paths", async () => {
+  const missingChallenge = createManager(createClient({}));
+  assert.deepEqual(
+    await missingChallenge.redeemInvite({
+      inviteCode: "QLD-ABCDE-FGHJK-MNPQR",
+    }),
+    {
+      ok: false,
+      error: {
+        code: "ACCESS_DENIED",
+        message: "A verified login challenge is required",
+      },
+    },
+  );
+
+  let challengeRenewalInput: { loginChallenge?: string; accessToken?: string } | undefined;
+  const challengeRenewal = createManager(
+    createClient({
+      login: async () => ({
+        kind: "ENTITLEMENT_EXPIRED",
+        expiredAt: "2026-07-01T00:00:00.000Z",
+        loginChallenge: "renewal-challenge",
+      }),
+      renewEntitlement: async (request) => {
+        challengeRenewalInput = request;
+        return onlineBundle;
+      },
+    }),
+  );
+  await challengeRenewal.login({
+    email: "learner@example.com",
+    password: "Quant#2026",
+  });
+  assert.equal(
+    (
+      await challengeRenewal.renewEntitlement({
+        inviteCode: "QLD-ABCDE-FGHJK-MNPQR",
+      })
+    ).ok,
+    true,
+  );
+  assert.equal(challengeRenewalInput?.loginChallenge, "renewal-challenge");
+  assert.equal(challengeRenewalInput?.accessToken, undefined);
+
+  const store = createStore();
+  await store.save({
+    accessToken: "old-memory-token",
+    refreshToken: "old-refresh-token",
+    offlineLease: onlineBundle.offlineLease,
+    deviceId: "device-1234",
+    lastServerTime: "2026-07-28T00:00:00.000Z",
+  });
+  let accessTokenRenewalInput: { loginChallenge?: string; accessToken?: string } | undefined;
+  const accessTokenRenewal = createManager(
+    createClient({
+      refreshSession: async () => onlineBundle,
+      renewEntitlement: async (request) => {
+        accessTokenRenewalInput = request;
+        return {
+          session: {
+            ...onlineBundle.session,
+            lastValidatedAt: "2026-07-28T01:00:00.000Z",
+          },
+          offlineLease: onlineBundle.offlineLease,
+        };
+      },
+    }),
+    store,
+  );
+  await accessTokenRenewal.bootstrap();
+  const renewed = await accessTokenRenewal.renewEntitlement({
+    inviteCode: "QLD-ABCDE-FGHJK-MNPQR",
+  });
+  assert.equal(renewed.ok, true);
+  assert.equal(accessTokenRenewalInput?.accessToken, "qat_access-secret");
+});
+
+test("bootstrap rejects mismatched devices and reports invalid offline fallback safely", async () => {
+  const mismatchedStore = createStore();
+  await mismatchedStore.save({
+    accessToken: "old-memory-token",
+    refreshToken: "old-refresh-token",
+    offlineLease: onlineBundle.offlineLease,
+    deviceId: "other-device",
+    lastServerTime: "2026-07-28T00:00:00.000Z",
+  });
+  const mismatched = await createManager(createClient({}), mismatchedStore).bootstrap();
+  assert.equal(mismatched.ok && mismatched.data.phase, "SIGNED_OUT");
+  assert.equal(mismatchedStore.getAccessToken(), null);
+
+  const invalidLeaseStore = createStore();
+  const [leasePayload, leaseSignature] = onlineBundle.offlineLease.split(".");
+  const tamperedOfflineLease = `${leasePayload}.${
+    leaseSignature!.startsWith("A") ? "B" : "A"
+  }${leaseSignature!.slice(1)}`;
+  await invalidLeaseStore.save({
+    accessToken: "old-memory-token",
+    refreshToken: "old-refresh-token",
+    offlineLease: tamperedOfflineLease,
+    deviceId: "device-1234",
+    lastServerTime: "2026-07-28T00:00:00.000Z",
+  });
+  const unavailable = await createManager(
+    createClient({
+      refreshSession: async () => {
+        throw new CloudAuthClientError("NETWORK_UNAVAILABLE", "offline");
+      },
+    }),
+    invalidLeaseStore,
+  ).bootstrap();
+  assert.equal(unavailable.ok && unavailable.data.phase, "SERVICE_UNAVAILABLE");
+  assert.equal(unavailable.ok && unavailable.data.errorCode, "NETWORK_UNAVAILABLE");
+});
+
+test("online validation persists a rotated lease and rejects a mismatched server device", async () => {
+  const store = createStore();
+  await store.save({
+    accessToken: "old-memory-token",
+    refreshToken: "old-refresh-token",
+    offlineLease: onlineBundle.offlineLease,
+    deviceId: "device-1234",
+    lastServerTime: "2026-07-28T00:00:00.000Z",
+  });
+  let validationCalls = 0;
+  const manager = createManager(
+    createClient({
+      refreshSession: async () => onlineBundle,
+      getSession: async () => {
+        validationCalls += 1;
+        return {
+          offlineLease: onlineBundle.offlineLease,
+          session: {
+            ...onlineBundle.session,
+            lastValidatedAt: "2026-07-28T02:00:00.000Z",
+          },
+        };
+      },
+    }),
+    store,
+  );
+  await manager.bootstrap();
+  assert.equal((await manager.revalidate()).ok, true);
+  assert.equal(validationCalls, 1);
+
+  const mismatched = createManager(
+    createClient({
+      login: async () => ({
+        kind: "AUTHENTICATED",
+        bundle: {
+          ...onlineBundle,
+          session: { ...onlineBundle.session, deviceId: "other-device" },
+        },
+      }),
+    }),
+  );
+  const result = await mismatched.login({
+    email: "learner@example.com",
+    password: "Quant#2026",
+  });
+  assert.equal(result.ok, false);
+  assert.equal(!result.ok && result.error.code, "SERVICE_UNAVAILABLE");
+});
+
+test("bootstrap, revalidation, redemption and renewal failures keep deterministic phases", async () => {
+  const bootstrapStore = createStore();
+  await bootstrapStore.save({
+    accessToken: "old-memory-token",
+    refreshToken: "old-refresh-token",
+    offlineLease: onlineBundle.offlineLease,
+    deviceId: "device-1234",
+    lastServerTime: "2026-07-28T00:00:00.000Z",
+  });
+  const expiredBootstrap = await createManager(
+    createClient({
+      refreshSession: async () => {
+        throw new CloudAuthClientError("ENTITLEMENT_EXPIRED", "expired");
+      },
+    }),
+    bootstrapStore,
+  ).bootstrap();
+  assert.equal(expiredBootstrap.ok && expiredBootstrap.data.phase, "ENTITLEMENT_EXPIRED");
+
+  const revalidationStore = createStore();
+  await revalidationStore.save({
+    accessToken: "old-memory-token",
+    refreshToken: "old-refresh-token",
+    offlineLease: onlineBundle.offlineLease,
+    deviceId: "device-1234",
+    lastServerTime: "2026-07-28T00:00:00.000Z",
+  });
+  const revalidationManager = createManager(
+    createClient({
+      refreshSession: async () => onlineBundle,
+      getSession: async () => {
+        throw new CloudAuthClientError("ACCESS_DENIED", "denied");
+      },
+    }),
+    revalidationStore,
+  );
+  await revalidationManager.bootstrap();
+  const denied = await revalidationManager.revalidate();
+  assert.equal(denied.ok, false);
+  assert.equal((await revalidationManager.getSnapshot()).ok, true);
+
+  const redemptionManager = createManager(
+    createClient({
+      login: async () => ({
+        kind: "INVITE_REQUIRED",
+        loginChallenge: "challenge",
+      }),
+      redeemInvite: async () => {
+        throw new CloudAuthClientError("INVITE_INVALID", "invalid invite");
+      },
+    }),
+  );
+  await redemptionManager.login({
+    email: "learner@example.com",
+    password: "Quant#2026",
+  });
+  assert.equal(
+    (
+      await redemptionManager.redeemInvite({
+        inviteCode: "QLD-ABCDE-FGHJK-MNPQR",
+      })
+    ).ok,
+    false,
+  );
+
+  const renewalWithoutSession = createManager(
+    createClient({
+      renewEntitlement: async () => ({
+        session: onlineBundle.session,
+        offlineLease: onlineBundle.offlineLease,
+      }),
+    }),
+  );
+  const renewal = await renewalWithoutSession.renewEntitlement({
+    inviteCode: "QLD-ABCDE-FGHJK-MNPQR",
+  });
+  assert.equal(renewal.ok, false);
+  assert.equal(!renewal.ok && renewal.error.code, "SESSION_REVOKED");
+});

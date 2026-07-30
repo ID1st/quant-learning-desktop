@@ -28,8 +28,6 @@ import {
   type LongPortBridgeQuoteSnapshotResult,
   type LongPortBridgeVerificationResult,
 } from "./longPortBridge.ts";
-import { providerDataIpcChannels } from "./providerDataIpcChannels.ts";
-
 export { providerDataIpcChannels } from "./providerDataIpcChannels.ts";
 
 export interface ProviderDataIpcHandlers {

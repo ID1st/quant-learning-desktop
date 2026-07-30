@@ -8,7 +8,6 @@ import {
   runStrategyBacktest,
   runRegisteredStrategy,
   type BacktestSettings,
-  type StrategyDefinition,
   type StrategyParameterDefinition,
 } from "@quant/strategy-engine";
 import type { Market, Timeframe } from "@quant/shared";

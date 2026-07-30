@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 
 import {
   LONGPORT_DEFAULT_HTTP_URL,
-  createLongPortSecretPreview,
   normalizeLongPortApiCredentials,
   verifyLongPortApiCredentials,
   type NormalizedLongPortApiCredentials,

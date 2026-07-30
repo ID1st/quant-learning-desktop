@@ -934,7 +934,7 @@ export function setIndicatorEnabled(
 ): ChartIndicatorSettings {
   const definition =
     definitions.find((item) => item.id === indicatorId) ?? builtInById.get(indicatorId);
-  let instances = { ...settings.instances };
+  const instances = { ...settings.instances };
   if (enabled && definition?.placement === "pane") {
     definitions
       .filter((item) => item.placement === "pane" && item.id !== indicatorId)

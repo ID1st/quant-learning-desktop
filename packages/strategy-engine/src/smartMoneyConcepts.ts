@@ -2,10 +2,8 @@ import type { Timeframe } from "@quant/shared";
 
 import type {
   Bar,
-  StrategyBand,
   StrategyDefinition,
   StrategyInput,
-  StrategyLabel,
   StrategyOutput,
   StrategyPriceLine,
   StrategySignal,

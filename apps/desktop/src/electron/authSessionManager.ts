@@ -300,7 +300,7 @@ export function createAuthSessionManager(input: CreateAuthSessionManagerInput): 
       ) {
         try {
           if (!persistedMaterial) {
-            throw new Error("offline session material is unavailable");
+            throw new Error("offline session material is unavailable", { cause: error });
           }
           const offlineSession = restoreOfflineSession({
             lease: persistedMaterial.offlineLease,

@@ -166,7 +166,7 @@ export function getChartPriceLineLabelLayout(label: string, rightX: number, mini
   const horizontalPadding = 12;
   const estimatedTextWidth = Array.from(label).reduce((width, character) => {
     if (/\s/.test(character)) return width + 6;
-    return width + (/[^\u0000-\u00ff]/.test(character) ? 12 : 7);
+    return width + ((character.codePointAt(0) ?? 0) > 0xff ? 12 : 7);
   }, 0);
   const desiredWidth = Math.max(100, Math.ceil(estimatedTextWidth + horizontalPadding * 2));
   const availableWidth = Math.max(1, safeRightX - safeMinimumX);

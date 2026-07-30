@@ -25,19 +25,6 @@ function formatChangePercent(value: number) {
   return `${sign}${value.toFixed(2)}%`;
 }
 
-function formatProvider(provider: string) {
-  const providerLabels: Record<string, string> = {
-    alphafeed: "AlphaFeed",
-    longport: "LongBridge",
-    "stock-sdk": "Stock SDK",
-    "alphafeed-rest": "AlphaFeed REST",
-    "alphafeed-websocket": "AlphaFeed WebSocket",
-    longbridge: "LongBridge",
-  };
-
-  return providerLabels[provider] ?? provider;
-}
-
 export function DashboardPage() {
   const alphaFeedBinding = readAlphaFeedApiBinding();
   const longPortBinding = readLongPortApiBinding();

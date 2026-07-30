@@ -1,10 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ChartViewport,
-  type ChartDisplayMode,
-  type ChartLayer,
-  type ChartLayerElement,
-} from "@quant/chart";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChartViewport, type ChartDisplayMode, type ChartLayer } from "@quant/chart";
 import type { Market, Timeframe } from "@quant/shared";
 import {
   createEmptyStrategyRegistry,
@@ -946,8 +941,9 @@ export function ChartWorkspacePage() {
   const [activeSymbol, setActiveSymbol] = useState<ChartWatchlistItem>(
     () => readChartWatchlist()[0] ?? symbols[0],
   );
+  const activeSymbolDataKey = getWatchlistDataKey(activeSymbol);
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
-  const marketBarCacheRepository = getMarketBarCacheRepository();
+  const marketBarCacheRepository = useMemo(() => getMarketBarCacheRepository(), []);
   const [cachedMarketBars, setCachedMarketBars] = useState<MarketDataBar[]>([]);
   const [dailyStrategyBars, setDailyStrategyBars] = useState<
     ReturnType<typeof marketBarsToStrategyBars>
@@ -1420,37 +1416,48 @@ export function ChartWorkspacePage() {
     );
     setActiveSymbol(item);
   };
-  const mergeActiveSnapshotBars = (currentBars: MarketDataBar[], snapshot: MarketQuoteSnapshot) => {
-    if (timeframe === "realtime") {
-      return mergeRealtimeSnapshotMinuteBar(
+  const mergeActiveSnapshotBars = useCallback(
+    (currentBars: MarketDataBar[], snapshot: MarketQuoteSnapshot) => {
+      if (timeframe === "realtime") {
+        return mergeRealtimeSnapshotMinuteBar(
+          currentBars,
+          { symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "realtime" },
+          snapshot,
+          realtimeHistoryRequirement.sessionCount,
+        );
+      }
+
+      return mergeRealtimeDailyBar(
         currentBars,
-        { symbol: activeSymbol.dataSymbol, market: activeSymbol.market, timeframe: "realtime" },
+        { symbol: activeSymbol.dataSymbol, market: activeSymbol.market },
         snapshot,
-        realtimeHistoryRequirement.sessionCount,
       );
-    }
+    },
+    [
+      activeSymbol.dataSymbol,
+      activeSymbol.market,
+      realtimeHistoryRequirement.sessionCount,
+      timeframe,
+    ],
+  );
+  const writeActiveSnapshotBars = useCallback(
+    (bars: MarketDataBar[]) => {
+      const contextKey = `${activeSymbol.market}:${activeSymbol.dataSymbol}:${timeframe}`;
+      if (!snapshotCacheWriteGateRef.current.shouldWrite(contextKey)) {
+        return;
+      }
 
-    return mergeRealtimeDailyBar(
-      currentBars,
-      { symbol: activeSymbol.dataSymbol, market: activeSymbol.market },
-      snapshot,
-    );
-  };
-  const writeActiveSnapshotBars = (bars: MarketDataBar[]) => {
-    const contextKey = `${activeSymbol.market}:${activeSymbol.dataSymbol}:${timeframe}`;
-    if (!snapshotCacheWriteGateRef.current.shouldWrite(contextKey)) {
-      return;
-    }
-
-    void marketBarCacheRepository.write(
-      {
-        symbol: activeSymbol.dataSymbol,
-        market: activeSymbol.market,
-        timeframe,
-      },
-      bars,
-    );
-  };
+      void marketBarCacheRepository.write(
+        {
+          symbol: activeSymbol.dataSymbol,
+          market: activeSymbol.market,
+          timeframe,
+        },
+        bars,
+      );
+    },
+    [activeSymbol.dataSymbol, activeSymbol.market, marketBarCacheRepository, timeframe],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -1474,9 +1481,10 @@ export function ChartWorkspacePage() {
         );
         setWatchlistDataStatusByKey((current) => ({
           ...current,
-          [getWatchlistDataKey(activeSymbol)]: hasRenderableChartData(timeframe, bars.length)
-            ? "cache"
-            : "syncing",
+          [getWatchlistDataKey({
+            dataSymbol: activeSymbol.dataSymbol,
+            market: activeSymbol.market,
+          })]: hasRenderableChartData(timeframe, bars.length) ? "cache" : "syncing",
         }));
       })
       .catch(() => {
@@ -1490,6 +1498,7 @@ export function ChartWorkspacePage() {
   }, [
     activeSymbol.dataSymbol,
     activeSymbol.market,
+    activeSymbol.symbol,
     marketBarCacheRepository,
     marketDataProviderSettings.stockSdkPrimaryEnabled,
     timeframe,
@@ -1573,7 +1582,7 @@ export function ChartWorkspacePage() {
       );
       setWatchlistDataStatusByKey((current) => ({
         ...current,
-        [getWatchlistDataKey(activeSymbol)]: "syncing",
+        [activeSymbolDataKey]: "syncing",
       }));
 
       if (
@@ -1594,7 +1603,7 @@ export function ChartWorkspacePage() {
         );
         setWatchlistDataStatusByKey((current) => ({
           ...current,
-          [getWatchlistDataKey(activeSymbol)]: "cache",
+          [activeSymbolDataKey]: "cache",
         }));
         recordMarketEvent(
           "market-closed",
@@ -1637,7 +1646,7 @@ export function ChartWorkspacePage() {
           );
           setWatchlistDataStatusByKey((current) => ({
             ...current,
-            [getWatchlistDataKey(activeSymbol)]: "error",
+            [activeSymbolDataKey]: "error",
           }));
           return;
         }
@@ -1712,7 +1721,7 @@ export function ChartWorkspacePage() {
           );
           setWatchlistDataStatusByKey((current) => ({
             ...current,
-            [getWatchlistDataKey(activeSymbol)]: hasCache ? "degraded" : "error",
+            [activeSymbolDataKey]: hasCache ? "degraded" : "error",
           }));
           return;
         }
@@ -1750,7 +1759,7 @@ export function ChartWorkspacePage() {
           );
           setWatchlistDataStatusByKey((current) => ({
             ...current,
-            [getWatchlistDataKey(activeSymbol)]: "error",
+            [activeSymbolDataKey]: "error",
           }));
           return;
         }
@@ -1795,7 +1804,7 @@ export function ChartWorkspacePage() {
         );
         setWatchlistDataStatusByKey((current) => ({
           ...current,
-          [getWatchlistDataKey(activeSymbol)]: "ready",
+          [activeSymbolDataKey]: "ready",
         }));
         const gapStatus =
           isRealtimeHistory && windowRange?.isMarketOpen
@@ -1946,7 +1955,7 @@ export function ChartWorkspacePage() {
         );
         setWatchlistDataStatusByKey((current) => ({
           ...current,
-          [getWatchlistDataKey(activeSymbol)]: hasCache ? "degraded" : "error",
+          [activeSymbolDataKey]: hasCache ? "degraded" : "error",
         }));
       }
     };
@@ -1959,6 +1968,9 @@ export function ChartWorkspacePage() {
   }, [
     activeSymbol.dataSymbol,
     activeSymbol.market,
+    activeSymbol.symbol,
+    activeSymbolDataKey,
+    marketBarCacheRepository,
     marketDataProviderSettings.stockSdkPrimaryEnabled,
     isMlptEnabled,
     realtimeHistoryRequirement.preferredBars,
@@ -2100,9 +2112,11 @@ export function ChartWorkspacePage() {
   }, [
     activeSymbol.dataSymbol,
     activeSymbol.market,
+    marketBarCacheRepository,
     marketDataProviderSettings.stockSdkPrimaryEnabled,
     realtimeHistoryRequirement.preferredBars,
     realtimeHistoryRequirement.sessionCount,
+    timeframe,
     watchlist,
   ]);
 
@@ -2222,6 +2236,8 @@ export function ChartWorkspacePage() {
   }, [
     activeSymbol.dataSymbol,
     activeSymbol.market,
+    marketBarCacheRepository,
+    marketDataProviderSettings.stockSdkPrimaryEnabled,
     realtimeHistoryRequirement.preferredBars,
     realtimeHistoryRequirement.sessionCount,
     timeframe,
@@ -2481,6 +2497,8 @@ export function ChartWorkspacePage() {
     realtimeHistoryRequirement.sessionCount,
     realtimePollIntervalMs,
     timeframe,
+    mergeActiveSnapshotBars,
+    writeActiveSnapshotBars,
   ]);
 
   useEffect(() => {
@@ -2587,31 +2605,44 @@ export function ChartWorkspacePage() {
     }
   };
 
-  const updateDrawings = (nextDrawings: ChartDrawing[]) => {
-    writeChartDrawings(
-      { market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe },
-      nextDrawings,
-    );
-    setDrawings(nextDrawings);
-  };
-  const executeDrawingCommand = (command: ChartDrawingCommand) => {
-    const next = executeChartDrawingCommand(drawingCommandState, command);
-    if (next === drawingCommandState) return;
-    updateDrawings([...next.drawings]);
-    setDrawingCommandState(next);
-  };
-  const undoDrawingCommand = () => {
+  const updateDrawings = useCallback(
+    (nextDrawings: ChartDrawing[]) => {
+      writeChartDrawings(
+        { market: activeSymbol.market, symbol: activeSymbol.dataSymbol, timeframe },
+        nextDrawings,
+      );
+      setDrawings(nextDrawings);
+    },
+    [activeSymbol.dataSymbol, activeSymbol.market, timeframe],
+  );
+  const executeDrawingCommand = useCallback(
+    (command: ChartDrawingCommand) => {
+      const next = executeChartDrawingCommand(drawingCommandState, command);
+      if (next === drawingCommandState) return;
+      updateDrawings([...next.drawings]);
+      setDrawingCommandState(next);
+    },
+    [drawingCommandState, updateDrawings],
+  );
+  const undoDrawingCommand = useCallback(() => {
     const next = undoChartDrawingCommand(drawingCommandState);
     if (next === drawingCommandState) return;
     updateDrawings([...next.drawings]);
     setDrawingCommandState(next);
-  };
-  const redoDrawingCommand = () => {
+  }, [drawingCommandState, updateDrawings]);
+  const redoDrawingCommand = useCallback(() => {
     const next = redoChartDrawingCommand(drawingCommandState);
     if (next === drawingCommandState) return;
     updateDrawings([...next.drawings]);
     setDrawingCommandState(next);
-  };
+  }, [drawingCommandState, updateDrawings]);
+  const deleteDrawing = useCallback(
+    (drawingId: string) => {
+      executeDrawingCommand({ type: "delete", drawingId });
+      setSelectedDrawingId((current) => (current === drawingId ? null : current));
+    },
+    [executeDrawingCommand],
+  );
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -2641,40 +2672,14 @@ export function ChartWorkspacePage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [drawingCommandState, selectedDrawingId]);
+  }, [
+    deleteDrawing,
+    drawingCommandState,
+    redoDrawingCommand,
+    selectedDrawingId,
+    undoDrawingCommand,
+  ]);
 
-  const createDrawing = (type: ChartDrawing["type"]) => {
-    const last = cachedCandles[cachedCandles.length - 1];
-    const previous = cachedCandles[Math.max(0, cachedCandles.length - 6)] ?? last;
-    if (!last || !previous) return;
-    const createdAt = new Date().toISOString();
-    const id = `drawing-${Date.now()}`;
-    const drawing: ChartDrawing =
-      type === "trend-line"
-        ? {
-            id,
-            type,
-            visible: true,
-            createdAt,
-            points: [
-              { timestamp: previous.timestamp ?? 0, price: previous.close },
-              { timestamp: last.timestamp ?? 0, price: last.close },
-            ],
-          }
-        : type === "horizontal-line"
-          ? { id, type, visible: true, createdAt, price: last.close, label: "参考线" }
-          : {
-              id,
-              type,
-              visible: true,
-              createdAt,
-              timestamp: last.timestamp ?? 0,
-              price: last.close,
-              text: "标注",
-            };
-    executeDrawingCommand({ type: "add", drawing });
-    setSelectedDrawingId(id);
-  };
   const placeDrawingPoint = (point: { timestamp: number; price: number }) => {
     if (!activeDrawingTool) return;
     const createdAt = new Date().toISOString();
@@ -2760,11 +2765,6 @@ export function ChartWorkspacePage() {
         drawing: { ...drawing, visible: !drawing.visible },
       });
   };
-  const deleteDrawing = (drawingId: string) => {
-    executeDrawingCommand({ type: "delete", drawingId });
-    setSelectedDrawingId((current) => (current === drawingId ? null : current));
-  };
-
   const editDrawing = (drawingId: string) => {
     const drawing = drawings.find((item) => item.id === drawingId);
     if (!drawing) return;

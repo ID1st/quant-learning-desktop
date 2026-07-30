@@ -1,7 +1,6 @@
 import type {
   AuthSessionSnapshot,
   EmailCodeRequestResult,
-  EntitlementDurationDays,
   PasswordResetResult,
   RegistrationResult,
 } from "../../../../packages/shared/src/auth.ts";

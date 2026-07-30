@@ -35,15 +35,13 @@ for (let iteration = 0; iteration < 6; iteration += 1) {
   durations.push(performance.now() - startedAt);
 }
 
+const warmDurations = durations.slice(1).sort((left, right) => left - right);
+const warmMedian = warmDurations[Math.floor(warmDurations.length / 2)];
+
 console.log(
   JSON.stringify({
     durationsMs: durations.map((duration) => Number(duration.toFixed(2))),
-    warmMedianMs: Number(
-      durations
-        .slice(1)
-        .sort((left, right) => left - right)
-        [Math.floor((durations.length - 1) / 2)].toFixed(2),
-    ),
+    warmMedianMs: Number(warmMedian.toFixed(2)),
     elements: output.render.elements.length,
     trainingSamples: output.metrics.trainingSampleCount,
   }),

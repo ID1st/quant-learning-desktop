@@ -6,7 +6,7 @@ export interface ProjectedPriceLabelLayout {
 }
 
 const compactCharacterWidth = (character: string) =>
-  /^[\u0000-\u00ff]$/.test(character) ? 5 : 8.5;
+  (character.codePointAt(0) ?? Number.POSITIVE_INFINITY) <= 0xff ? 5 : 8.5;
 
 export function getProjectedPriceLabelLayout(input: {
   readonly label: string;
