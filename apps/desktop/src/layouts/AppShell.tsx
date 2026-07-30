@@ -1,8 +1,9 @@
 import { Activity, AlertTriangle, BarChart3, BookOpen, Command, KeyRound, LayoutDashboard, LogOut, RefreshCw, Search, Settings, WifiOff, X } from "lucide-react";
-import { useEffect, useMemo, useState, type KeyboardEvent, type PropsWithChildren } from "react";
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type PropsWithChildren } from "react";
 import type { AppRoute } from "@quant/shared";
 import { useAuthStore } from "../features/auth/authStore";
 import { getAuthBridge } from "../features/auth/authService";
+import { LogoutConfirmationDialog } from "../features/auth/LogoutConfirmationDialog";
 import { useToastStore } from "../features/feedback/toastStore";
 import { useAppStore } from "../state/appStore";
 import { ToastViewport } from "../ui/ToastViewport";
@@ -24,7 +25,12 @@ export function AppShell({ children }: PropsWithChildren) {
   const applyAuthState = useAuthStore((state) => state.applyAuthState);
   const pushToast = useToastStore((state) => state.push);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
+  const closeLogoutConfirmation = useCallback(() => {
+    setIsLogoutConfirmOpen(false);
+  }, []);
   const visibleCommands = useMemo(() => {
     const normalizedQuery = commandQuery.trim().toLowerCase();
     if (!normalizedQuery) {
@@ -60,9 +66,19 @@ export function AppShell({ children }: PropsWithChildren) {
   }
 
   const handleLogout = async () => {
-    await getAuthBridge()?.logout();
-    clearSession();
-    navigate("login");
+    if (isLoggingOut) {
+      return;
+    }
+
+    setIsLoggingOut(true);
+    try {
+      await getAuthBridge()?.logout();
+      clearSession();
+      navigate("login");
+    } finally {
+      setIsLoggingOut(false);
+      setIsLogoutConfirmOpen(false);
+    }
   };
 
   const revalidate = async () => {
@@ -123,7 +139,14 @@ export function AppShell({ children }: PropsWithChildren) {
           <Command size={18} />
           <span>命令面板</span>
         </button>
-        <button aria-label="退出登录" className="logout-button" onClick={() => void handleLogout()} title="退出登录" type="button">
+        <button
+          aria-haspopup="dialog"
+          aria-label="退出登录"
+          className="logout-button"
+          onClick={() => setIsLogoutConfirmOpen(true)}
+          title="退出登录"
+          type="button"
+        >
           <LogOut size={18} />
           <span>退出登录</span>
         </button>
@@ -183,6 +206,14 @@ export function AppShell({ children }: PropsWithChildren) {
             </div>
           </section>
         </div>
+      )}
+      {isLogoutConfirmOpen && session && (
+        <LogoutConfirmationDialog
+          isSubmitting={isLoggingOut}
+          onCancel={closeLogoutConfirmation}
+          onConfirm={() => void handleLogout()}
+          session={session}
+        />
       )}
       <ToastViewport />
     </main>

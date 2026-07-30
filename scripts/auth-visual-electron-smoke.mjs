@@ -85,4 +85,4 @@ if (exitCode !== 0 || !stdout.includes('"ok":true')) {
   );
 }
 
-console.log("Electron authentication visual smoke test passed (28 states).");
+console.log("Electron authentication visual smoke test passed (36 states).");

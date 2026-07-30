@@ -9,6 +9,8 @@ const phases = [
   "RESET_REQUEST",
   "RESET_PASSWORD",
   "SERVICE_UNAVAILABLE",
+  "LOGOUT_CONFIRMATION",
+  "WORKSPACE_SCROLL",
 ] as const;
 const viewports = [
   { width: 1180, height: 760 },
@@ -47,7 +49,9 @@ void app.whenReady().then(async () => {
     pageFits: boolean;
     cardFits: boolean;
     labeledInputs: boolean;
+    mainContentScrolls: boolean;
     primaryActionReachable: boolean;
+    sidebarFits: boolean;
   }> = [];
 
   try {
@@ -61,10 +65,29 @@ void app.whenReady().then(async () => {
           `
             (() => {
               const root = document.documentElement;
-              const card = document.querySelector(".auth-card");
+              const isLogoutConfirmation = ${JSON.stringify(phase)} === "LOGOUT_CONFIRMATION";
+              const isWorkspaceScroll = ${JSON.stringify(phase)} === "WORKSPACE_SCROLL";
+              const card = document.querySelector(
+                isLogoutConfirmation
+                  ? ".logout-confirmation-dialog"
+                  : isWorkspaceScroll
+                    ? ".app-shell"
+                    : ".auth-card"
+              );
+              const primaryAction = document.querySelector(
+                isLogoutConfirmation
+                  ? ".logout-confirm-action"
+                  : isWorkspaceScroll
+                    ? ".logout-button"
+                    : ".primary-auth-action"
+              );
               const cardRect = card?.getBoundingClientRect();
+              const primaryActionRect = primaryAction?.getBoundingClientRect();
+              const appContent = document.querySelector(".app-content");
+              const sidebarRect = document
+                .querySelector(".app-sidebar")
+                ?.getBoundingClientRect();
               const inputs = [...document.querySelectorAll("input")];
-              const primaryAction = document.querySelector(".primary-auth-action");
               return {
                 pageFits:
                   root.scrollWidth <= window.innerWidth + 1 &&
@@ -76,10 +99,22 @@ void app.whenReady().then(async () => {
                   cardRect.top >= 0 &&
                   cardRect.bottom <= window.innerHeight + 1,
                 labeledInputs: inputs.every((input) => Boolean(input.closest("label"))),
+                mainContentScrolls:
+                  !isWorkspaceScroll ||
+                  appContent.scrollHeight > appContent.clientHeight,
                 primaryActionReachable:
                   Boolean(primaryAction) &&
                   Boolean(card) &&
-                  card.scrollHeight >= primaryAction.offsetTop + primaryAction.offsetHeight
+                  (isLogoutConfirmation || isWorkspaceScroll
+                    ? primaryActionRect.top >= cardRect.top &&
+                      primaryActionRect.bottom <= cardRect.bottom + 1
+                    : card.scrollHeight >=
+                      primaryAction.offsetTop + primaryAction.offsetHeight),
+                sidebarFits:
+                  !isWorkspaceScroll ||
+                  (Boolean(sidebarRect) &&
+                    sidebarRect.top >= 0 &&
+                    sidebarRect.bottom <= window.innerHeight + 1)
               };
             })()
           `,
@@ -96,7 +131,9 @@ void app.whenReady().then(async () => {
           check.pageFits &&
           check.cardFits &&
           check.labeledInputs &&
-          check.primaryActionReachable,
+          check.mainContentScrolls &&
+          check.primaryActionReachable &&
+          check.sidebarFits,
       );
     console.log(
       JSON.stringify({
@@ -107,7 +144,9 @@ void app.whenReady().then(async () => {
             !check.pageFits ||
             !check.cardFits ||
             !check.labeledInputs ||
-            !check.primaryActionReachable,
+            !check.mainContentScrolls ||
+            !check.primaryActionReachable ||
+            !check.sidebarFits,
         ),
         consoleProblems,
       }),

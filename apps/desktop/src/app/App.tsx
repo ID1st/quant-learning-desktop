@@ -12,6 +12,7 @@ import { AppRouter } from "../routes/AppRouter";
 import { useAppStore } from "../state/appStore";
 import { AppErrorBoundary } from "../ui/AppErrorBoundary";
 import { AppRuntimeErrorReporter } from "../ui/AppRuntimeErrorReporter";
+import { resolveRequiredAppRoute } from "./authenticatedRouteGuard";
 
 const queryClient = new QueryClient();
 
@@ -111,7 +112,6 @@ function LocalProfileConflictScreen() {
 export function App() {
   const phase = useAuthStore((state) => state.phase);
   const session = useAuthStore((state) => state.session);
-  const apiBound = useAuthStore((state) => state.apiBound);
   const profileConflictUserId = useAuthStore(
     (state) => state.profileConflictUserId,
   );
@@ -190,20 +190,14 @@ export function App() {
   }, [entitlementNotice]);
 
   useEffect(() => {
-    if (!authenticated) {
-      if (currentRoute !== "login") {
-        navigate("login");
-      }
-      return;
+    const requiredRoute = resolveRequiredAppRoute(
+      authenticated,
+      currentRoute,
+    );
+    if (requiredRoute) {
+      navigate(requiredRoute);
     }
-    if (!apiBound && currentRoute !== "apiConfig") {
-      navigate("apiConfig");
-      return;
-    }
-    if (apiBound && currentRoute === "login") {
-      navigate("dashboard");
-    }
-  }, [apiBound, authenticated, currentRoute, navigate]);
+  }, [authenticated, currentRoute, navigate]);
 
   let content;
   if (phase === "BOOTSTRAPPING") {
@@ -226,7 +220,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppErrorBoundary
-        onRecover={() => navigate(authenticated ? "dashboard" : "login")}
+        onRecover={() => navigate(authenticated ? "chart" : "login")}
       >
         <div data-theme={theme}>{content}</div>
       </AppErrorBoundary>

@@ -75,12 +75,16 @@ textarea:focus-visible {
 .app-shell {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .app-sidebar {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   border-right: 1px solid var(--border-subtle);
   background: var(--bg-sidebar);
   padding: var(--space-3) 10px;
@@ -97,10 +101,12 @@ textarea:focus-visible {
 
 .app-sidebar button {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   width: 48px;
-  height: 40px;
+  height: 50px;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
   background: transparent;
@@ -124,12 +130,12 @@ textarea:focus-visible {
 }
 
 .app-sidebar button span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
+  display: block;
+  max-width: 46px;
   overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
+  font-size: 9px;
+  line-height: 1;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -149,6 +155,177 @@ textarea:focus-visible {
   place-items: start center;
   background: rgba(4, 8, 12, 0.64);
   padding-top: min(18vh, 160px);
+}
+
+.logout-confirmation-backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 8, 12, 0.72);
+  padding: var(--space-6);
+}
+
+.logout-confirmation-dialog {
+  display: grid;
+  gap: var(--space-4);
+  width: min(480px, calc(100vw - 48px));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-overlay);
+  background: var(--bg-surface);
+  box-shadow: 0 28px 84px rgba(0, 0, 0, 0.52);
+  padding: var(--space-5);
+}
+
+.logout-confirmation-header {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 30px;
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.logout-confirmation-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(240, 106, 106, 0.3);
+  border-radius: var(--radius-control);
+  background: rgba(240, 106, 106, 0.1);
+  color: var(--danger);
+}
+
+.logout-confirmation-header h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.logout-confirmation-header p {
+  margin: 5px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.logout-confirmation-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.logout-confirmation-close:hover {
+  border-color: var(--border-subtle);
+  background: var(--bg-raised);
+  color: var(--text-primary);
+}
+
+.logout-entitlement-summary {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: rgba(8, 13, 20, 0.54);
+  padding: var(--space-4);
+}
+
+.logout-entitlement-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.logout-entitlement-summary dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+}
+
+.logout-entitlement-summary dl div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.logout-entitlement-summary dt {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.logout-entitlement-summary dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--font-data);
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+}
+
+.logout-entitlement-summary .logout-entitlement-remaining {
+  color: var(--success);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.logout-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.logout-confirmation-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 96px;
+  height: 34px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  padding: 0 var(--space-3);
+}
+
+.logout-confirmation-actions button:disabled,
+.logout-confirmation-close:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.logout-cancel-action {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.logout-cancel-action:hover:not(:disabled) {
+  background: var(--bg-raised);
+  color: var(--text-primary);
+}
+
+.logout-confirm-action {
+  border: 1px solid rgba(240, 106, 106, 0.5);
+  background: rgba(240, 106, 106, 0.14);
+  color: #ffaaaa;
+}
+
+.logout-confirm-action:hover:not(:disabled) {
+  background: rgba(240, 106, 106, 0.22);
+  color: #ffd0d0;
 }
 
 .command-palette {
@@ -6413,7 +6590,9 @@ textarea:focus-visible {
 
 .app-content {
   min-width: 0;
-  min-height: 100vh;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--bg-canvas);
   padding: var(--space-5) var(--space-6);
 }
@@ -6463,8 +6642,8 @@ textarea:focus-visible {
   }
 
   .app-sidebar button {
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
   }
 
   .logout-button {

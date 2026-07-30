@@ -393,7 +393,7 @@ export function ApiConfigPage() {
           (canUseLongPortFallback ? "备用数据源已绑定：AlphaFeed REST 与长桥均可用。" : "备用数据源已绑定：AlphaFeed REST 可用。"),
       );
       if (!marketDataSyncWarning) {
-        window.setTimeout(() => navigate("dashboard"), 420);
+        window.setTimeout(() => navigate("chart"), 420);
       }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "行情数据源绑定失败。");
