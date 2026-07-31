@@ -129,10 +129,7 @@ test("administrator sessions use a secure browser-session cookie", async () => {
       headers: { cookie: cookieHeader },
     });
     assert.equal(current.statusCode, 200);
-    assert.equal(
-      observedSessionToken,
-      "qad_test-session-token-value-that-is-long-enough",
-    );
+    assert.equal(observedSessionToken, "qad_test-session-token-value-that-is-long-enough");
 
     const logout = await server.inject({
       method: "DELETE",
@@ -230,10 +227,7 @@ test("authenticated administrators can create, list and revoke invite batches", 
     });
     assert.equal(revoked.statusCode, 200);
     assert.equal(revoked.json().data.status, "REVOKED");
-    assert.deepEqual(actions, [
-      "ADMIN_INVITE_BATCH_CREATED",
-      "ADMIN_INVITE_BATCH_REVOKED",
-    ]);
+    assert.deepEqual(actions, ["ADMIN_INVITE_BATCH_CREATED", "ADMIN_INVITE_BATCH_REVOKED"]);
   } finally {
     await server.close();
   }

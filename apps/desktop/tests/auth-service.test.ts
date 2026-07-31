@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  authErrorMessage,
-  normalizeInviteInput,
-} from "../src/features/auth/authService.ts";
+import { authErrorMessage, normalizeInviteInput } from "../src/features/auth/authService.ts";
 
 test("duplicate registration gives returning users a clear next step", () => {
   assert.equal(

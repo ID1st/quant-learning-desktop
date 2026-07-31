@@ -7,10 +7,7 @@ async function main(): Promise<void> {
   const config = loadAdminProvisionConfig();
   const pool = createDatabasePool(config.databaseUrl);
   try {
-    const status = await provisionAdminAccount(
-      new PgAdminRepository(pool),
-      config.adminEmail,
-    );
+    const status = await provisionAdminAccount(new PgAdminRepository(pool), config.adminEmail);
     process.stdout.write(`${JSON.stringify({ status })}\n`);
   } finally {
     await pool.end();

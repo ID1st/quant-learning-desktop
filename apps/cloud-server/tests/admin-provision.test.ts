@@ -13,14 +13,8 @@ test("admin provisioning normalizes the configured email and is idempotent", asy
     },
   };
 
-  assert.equal(
-    await provisionAdminAccount(repository, "  Admin@Example.COM  "),
-    "CREATED",
-  );
-  assert.equal(
-    await provisionAdminAccount(repository, "admin@example.com"),
-    "EXISTING",
-  );
+  assert.equal(await provisionAdminAccount(repository, "  Admin@Example.COM  "), "CREATED");
+  assert.equal(await provisionAdminAccount(repository, "admin@example.com"), "EXISTING");
   assert.deepEqual(observedEmails, ["admin@example.com", "admin@example.com"]);
 });
 

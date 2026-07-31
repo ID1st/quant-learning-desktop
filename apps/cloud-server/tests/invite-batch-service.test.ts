@@ -98,10 +98,7 @@ test("batch verification compares a normalized stdin code without exposing it", 
     },
   });
 
-  assert.equal(
-    observedDigest?.equals(digestInviteCode("QLDABCD2EFGH3IJKM4", pepper)),
-    true,
-  );
+  assert.equal(observedDigest?.equals(digestInviteCode("QLDABCD2EFGH3IJKM4", pepper)), true);
   assert.deepEqual(result, {
     formatValid: true,
     batchFound: true,

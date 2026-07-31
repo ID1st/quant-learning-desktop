@@ -1,8 +1,4 @@
-import {
-  formatInviteCode,
-  type AuthErrorCode,
-  type QuantDesktopAuthBridge,
-} from "@quant/shared";
+import { formatInviteCode, type AuthErrorCode, type QuantDesktopAuthBridge } from "@quant/shared";
 
 export interface PasswordRuleState {
   length: boolean;

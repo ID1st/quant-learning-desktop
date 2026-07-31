@@ -173,11 +173,7 @@ test("administrator login messages use the dedicated template", async () => {
     },
   };
 
-  const worker = new EmailOutboxWorker(
-    pool,
-    transporter as never,
-    "no-reply@example.test",
-  );
+  const worker = new EmailOutboxWorker(pool, transporter as never, "no-reply@example.test");
   await worker.drainOnce();
 
   assert.equal(deliveries.length, 1);

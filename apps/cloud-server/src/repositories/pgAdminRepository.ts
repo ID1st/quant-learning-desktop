@@ -72,10 +72,9 @@ export class PgAdminRepository implements AdminProvisionRepository, AdminReposit
     now: Date;
   }): Promise<boolean> {
     return withTransaction(this.pool, async (client) => {
-      await client.query(
-        "SELECT pg_advisory_xact_lock(hashtext($1), hashtext('ADMIN_LOGIN'))",
-        [input.email],
-      );
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext('ADMIN_LOGIN'))", [
+        input.email,
+      ]);
       const admin = await client.query<{ id: string }>(
         `
           SELECT id
@@ -189,10 +188,10 @@ export class PgAdminRepository implements AdminProvisionRepository, AdminReposit
         return { kind: "INVALID" };
       }
       if (challenge.expires_at.getTime() < input.now.getTime()) {
-        await client.query(
-          "UPDATE admin_login_challenges SET consumed_at = $2 WHERE id = $1",
-          [challenge.id, input.now],
-        );
+        await client.query("UPDATE admin_login_challenges SET consumed_at = $2 WHERE id = $1", [
+          challenge.id,
+          input.now,
+        ]);
         return { kind: "EXPIRED" };
       }
       if (
@@ -214,10 +213,10 @@ export class PgAdminRepository implements AdminProvisionRepository, AdminReposit
         );
         return { kind: "INVALID" };
       }
-      await client.query(
-        "UPDATE admin_login_challenges SET consumed_at = $2 WHERE id = $1",
-        [challenge.id, input.now],
-      );
+      await client.query("UPDATE admin_login_challenges SET consumed_at = $2 WHERE id = $1", [
+        challenge.id,
+        input.now,
+      ]);
       await client.query(
         `
           UPDATE admin_sessions
@@ -242,10 +241,7 @@ export class PgAdminRepository implements AdminProvisionRepository, AdminReposit
     });
   }
 
-  public async findSession(
-    tokenDigest: Buffer,
-    now: Date,
-  ): Promise<AdminAccountIdentity | null> {
+  public async findSession(tokenDigest: Buffer, now: Date): Promise<AdminAccountIdentity | null> {
     const result = await this.pool.query<AdminAccountIdentity>(
       `
         UPDATE admin_sessions AS session

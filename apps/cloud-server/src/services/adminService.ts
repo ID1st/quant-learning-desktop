@@ -1,19 +1,12 @@
 import { createHmac } from "node:crypto";
 
 import { normalizeEmailAddress } from "../security/emailAddresses.ts";
-import {
-  digestEmailCode,
-  generateEmailCode,
-  generateOpaqueToken,
-} from "../security/tokens.ts";
+import { digestEmailCode, generateEmailCode, generateOpaqueToken } from "../security/tokens.ts";
 
 export type AdminProvisionResult = "CREATED" | "EXISTING";
 
 export interface AdminProvisionRepository {
-  provisionAccount(
-    email: string,
-    now: Date,
-  ): Promise<AdminProvisionResult | "CONFLICT">;
+  provisionAccount(email: string, now: Date): Promise<AdminProvisionResult | "CONFLICT">;
 }
 
 export async function provisionAdminAccount(
@@ -71,10 +64,7 @@ export interface AdminRepository extends AdminProvisionRepository {
 export class AdminAuthError extends Error {
   public readonly statusCode: 400 | 401 | 403;
 
-  public constructor(
-    message: string,
-    statusCode: 400 | 401 | 403,
-  ) {
+  public constructor(message: string, statusCode: 400 | 401 | 403) {
     super(message);
     this.name = "AdminAuthError";
     this.statusCode = statusCode;
@@ -88,9 +78,7 @@ function digestAdminSessionToken(token: string, pepper: string): Buffer {
   if (!/^qad_[A-Za-z0-9_-]{40,}$/.test(token)) {
     throw new AdminAuthError("administrator session is invalid", 401);
   }
-  return createHmac("sha256", pepper)
-    .update(`admin-session\n${token}`, "utf8")
-    .digest();
+  return createHmac("sha256", pepper).update(`admin-session\n${token}`, "utf8").digest();
 }
 
 export class AdminService {
@@ -100,13 +88,11 @@ export class AdminService {
     tokenPepper: string;
   };
 
-  public constructor(
-    dependencies: {
-      repository: AdminRepository;
-      emailCodePepper: string;
-      tokenPepper: string;
-    },
-  ) {
+  public constructor(dependencies: {
+    repository: AdminRepository;
+    emailCodePepper: string;
+    tokenPepper: string;
+  }) {
     this.dependencies = dependencies;
   }
 
@@ -172,9 +158,7 @@ export class AdminService {
         this.dependencies.emailCodePepper,
       ),
       tokenDigest: digestAdminSessionToken(sessionToken, this.dependencies.tokenPepper),
-      sessionExpiresAt: new Date(
-        context.now.getTime() + ADMIN_SESSION_LIFETIME_MILLISECONDS,
-      ),
+      sessionExpiresAt: new Date(context.now.getTime() + ADMIN_SESSION_LIFETIME_MILLISECONDS),
       now: context.now,
     });
     if (result.kind !== "AUTHENTICATED") {
@@ -215,14 +199,8 @@ export class AdminService {
     sessionToken: string,
     context: AdminRequestContext,
   ): Promise<{ signedOut: true }> {
-    const tokenDigest = digestAdminSessionToken(
-      sessionToken,
-      this.dependencies.tokenPepper,
-    );
-    const admin = await this.dependencies.repository.findSession(
-      tokenDigest,
-      context.now,
-    );
+    const tokenDigest = digestAdminSessionToken(sessionToken, this.dependencies.tokenPepper);
+    const admin = await this.dependencies.repository.findSession(tokenDigest, context.now);
     await this.dependencies.repository.revokeSession(tokenDigest, context.now);
     await this.safeAudit({
       eventType: "ADMIN_LOGOUT",

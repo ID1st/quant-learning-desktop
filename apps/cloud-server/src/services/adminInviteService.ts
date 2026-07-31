@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  ENTITLEMENT_DURATION_DAYS,
-  type EntitlementDurationDays,
-} from "../domain/authDomain.ts";
+import { ENTITLEMENT_DURATION_DAYS, type EntitlementDurationDays } from "../domain/authDomain.ts";
 import type { InviteBatchStatus } from "../repositories/pgInviteBatchRepository.ts";
 import {
   digestInviteCode,
@@ -74,10 +71,7 @@ export class AdminInviteService {
   private readonly pepper: string;
   private readonly repository: AdminInviteRepository;
 
-  public constructor(input: {
-    pepper: string;
-    repository: AdminInviteRepository;
-  }) {
+  public constructor(input: { pepper: string; repository: AdminInviteRepository }) {
     this.pepper = input.pepper;
     this.repository = input.repository;
   }
@@ -96,9 +90,7 @@ export class AdminInviteService {
   }> {
     const totalCount = validateBatchInput(input);
     const batchId = randomUUID();
-    const claimExpiresAt = new Date(
-      now.getTime() + input.claimDays * 24 * 60 * 60 * 1_000,
-    );
+    const claimExpiresAt = new Date(now.getTime() + input.claimDays * 24 * 60 * 60 * 1_000);
     const codes = input.entries.flatMap((entry) =>
       Array.from({ length: entry.count }, () => ({
         inviteCode: generateInviteCode(),
@@ -112,10 +104,7 @@ export class AdminInviteService {
       createdAt: now,
       createdBy,
       codes: codes.map((code) => ({
-        codeDigest: digestInviteCode(
-          normalizeInviteCode(code.inviteCode),
-          this.pepper,
-        ),
+        codeDigest: digestInviteCode(normalizeInviteCode(code.inviteCode), this.pepper),
         durationDays: code.durationDays,
         claimExpiresAt,
       })),

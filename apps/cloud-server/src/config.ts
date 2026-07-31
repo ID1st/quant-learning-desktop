@@ -79,9 +79,10 @@ export function loadInviteCliConfig(
   };
 }
 
-export function loadAdminProvisionConfig(
-  environment: NodeJS.ProcessEnv = process.env,
-): { databaseUrl: string; adminEmail: string } {
+export function loadAdminProvisionConfig(environment: NodeJS.ProcessEnv = process.env): {
+  databaseUrl: string;
+  adminEmail: string;
+} {
   const adminEmail = environment.AUTH_ADMIN_EMAIL?.trim().toLowerCase() ?? "";
   if (
     adminEmail.length < 3 ||

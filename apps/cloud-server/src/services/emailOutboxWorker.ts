@@ -111,9 +111,9 @@ function validateMessage(message: OutboxMessage): void {
   if (
     !/^\d{6}$/.test(message.payload.code) ||
     message.payload.expiresInMinutes !== 10 ||
-    message.template !== "registration-code" &&
-    message.template !== "password-reset-code" &&
-    message.template !== "admin-login-code"
+    (message.template !== "registration-code" &&
+      message.template !== "password-reset-code" &&
+      message.template !== "admin-login-code")
   ) {
     throw new Error("email outbox payload is invalid");
   }
