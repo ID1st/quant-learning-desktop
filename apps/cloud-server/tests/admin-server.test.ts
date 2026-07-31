@@ -51,6 +51,7 @@ test("administrator routes require the exact same-origin request", async () => {
       logout: async () => {
         throw new Error("not used");
       },
+      recordInviteAction: async () => undefined,
     },
   });
 
@@ -98,6 +99,7 @@ test("administrator sessions use a secure browser-session cookie", async () => {
         observedSessionToken = sessionToken;
         return { signedOut: true as const };
       },
+      recordInviteAction: async () => undefined,
     },
   });
 
@@ -142,6 +144,96 @@ test("administrator sessions use a secure browser-session cookie", async () => {
     });
     assert.equal(logout.statusCode, 200);
     assert.match(String(logout.headers["set-cookie"]), /Max-Age=0/u);
+  } finally {
+    await server.close();
+  }
+});
+
+test("authenticated administrators can create, list and revoke invite batches", async () => {
+  const batch = {
+    batchId: "5047a4b6-a720-4edc-b1ba-1f7487b8d528",
+    status: "ACTIVE" as const,
+    totalCount: 1,
+    activeCount: 1,
+    redeemedCount: 0,
+    revokedCount: 0,
+    claimExpiresAt: "2026-08-30T07:00:00.000Z",
+    createdAt: "2026-07-31T07:00:00.000Z",
+    revokedAt: null,
+  };
+  const actions: string[] = [];
+  const server = await buildAuthServer(createConfig(), unusedPool, {
+    adminService: {
+      requestLoginCode: async () => ({
+        accepted: true as const,
+        retryAfterSeconds: 60 as const,
+      }),
+      login: async () => {
+        throw new Error("not used");
+      },
+      getSession: async () => ({ email: "admin@example.com" }),
+      logout: async () => ({ signedOut: true as const }),
+      recordInviteAction: async (eventType: string) => {
+        actions.push(eventType);
+      },
+    },
+    adminInviteService: {
+      createBatch: async () => ({
+        batch,
+        codes: [
+          {
+            inviteCode: "QLD-ABCDE-FGHJK-MNPQR",
+            durationDays: 7 as const,
+            claimExpiresAt: batch.claimExpiresAt,
+          },
+        ],
+      }),
+      listBatches: async () => ({ items: [batch], totalItems: 1 }),
+      revokeBatch: async () => ({ ...batch, status: "REVOKED" as const }),
+    },
+  });
+  const headers = {
+    cookie: "__Host-quant_admin=qad_test-session-token-value-that-is-long-enough",
+    origin: "https://fnndp.xyz",
+  };
+
+  try {
+    const created = await server.inject({
+      method: "POST",
+      url: "/v1/admin/invite-batches",
+      headers,
+      payload: {
+        entries: [{ durationDays: 7, count: 1 }],
+        claimDays: 30,
+      },
+    });
+    assert.equal(created.statusCode, 200);
+    assert.equal(created.json().data.codes.length, 1);
+
+    const listed = await server.inject({
+      method: "GET",
+      url: "/v1/admin/invite-batches?page=1&pageSize=20",
+      headers: { cookie: headers.cookie },
+    });
+    assert.equal(listed.statusCode, 200);
+    assert.deepEqual(listed.json().data.pagination, {
+      page: 1,
+      pageSize: 20,
+      totalItems: 1,
+      totalPages: 1,
+    });
+
+    const revoked = await server.inject({
+      method: "POST",
+      url: `/v1/admin/invite-batches/${batch.batchId}/revocations`,
+      headers,
+    });
+    assert.equal(revoked.statusCode, 200);
+    assert.equal(revoked.json().data.status, "REVOKED");
+    assert.deepEqual(actions, [
+      "ADMIN_INVITE_BATCH_CREATED",
+      "ADMIN_INVITE_BATCH_REVOKED",
+    ]);
   } finally {
     await server.close();
   }

@@ -231,4 +231,19 @@ export class AdminService {
     });
     return { signedOut: true };
   }
+
+  public async recordInviteAction(
+    eventType: "ADMIN_INVITE_BATCH_CREATED" | "ADMIN_INVITE_BATCH_REVOKED",
+    email: string,
+    batchId: string,
+    totalCount: number,
+    context: AdminRequestContext,
+  ): Promise<void> {
+    await this.safeAudit({
+      eventType,
+      email,
+      context,
+      metadata: { batchId, totalCount },
+    });
+  }
 }

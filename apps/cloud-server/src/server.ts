@@ -8,6 +8,7 @@ import type { CloudAuthConfig } from "./config.ts";
 import { AuthDomainError } from "./domain/authErrors.ts";
 import { PgAuthRepository } from "./repositories/pgAuthRepository.ts";
 import { PgAdminRepository } from "./repositories/pgAdminRepository.ts";
+import { PgInviteBatchRepository } from "./repositories/pgInviteBatchRepository.ts";
 import { argon2idPasswordHasher } from "./security/passwords.ts";
 import { validateOfflineLeaseKeyPair } from "./security/signedArtifacts.ts";
 import {
@@ -20,6 +21,11 @@ import {
   AdminService,
   type AdminRequestContext,
 } from "./services/adminService.ts";
+import {
+  AdminInviteError,
+  AdminInviteService,
+  type AdminInviteBatchInput,
+} from "./services/adminInviteService.ts";
 
 interface EmailBody {
   email: string;
@@ -72,7 +78,19 @@ export interface AdminApiService {
     sessionToken: string,
     context: AdminRequestContext,
   ): Promise<{ signedOut: true }>;
+  recordInviteAction(
+    eventType: "ADMIN_INVITE_BATCH_CREATED" | "ADMIN_INVITE_BATCH_REVOKED",
+    email: string,
+    batchId: string,
+    totalCount: number,
+    context: AdminRequestContext,
+  ): Promise<void>;
 }
+
+export type AdminInviteApiService = Pick<
+  AdminInviteService,
+  "createBatch" | "listBatches" | "revokeBatch"
+>;
 
 const ADMIN_ORIGIN = "https://fnndp.xyz";
 const ADMIN_SESSION_COOKIE = "__Host-quant_admin";
@@ -169,6 +187,50 @@ const adminLoginBodySchema = {
   },
 } as const;
 
+const adminInviteBatchBodySchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["entries", "claimDays"],
+  properties: {
+    entries: {
+      type: "array",
+      minItems: 1,
+      maxItems: 4,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["durationDays", "count"],
+        properties: {
+          durationDays: { type: "integer", enum: [7, 30, 90, 365] },
+          count: { type: "integer", minimum: 1, maximum: 500 },
+        },
+      },
+    },
+    claimDays: { type: "integer", minimum: 1, maximum: 90 },
+  },
+} as const;
+
+const adminInviteListQuerySchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    page: { type: "integer", minimum: 1, default: 1 },
+    pageSize: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+  },
+} as const;
+
+const adminInviteBatchParamsSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["batchId"],
+  properties: {
+    batchId: {
+      type: "string",
+      pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+    },
+  },
+} as const;
+
 function requestContext(request: FastifyRequest): AuthRequestContext {
   return {
     now: new Date(),
@@ -227,7 +289,10 @@ function success<T>(data: T): { data: T } {
 export async function buildAuthServer(
   config: CloudAuthConfig,
   pool: Pool,
-  options: { adminService?: AdminApiService } = {},
+  options: {
+    adminService?: AdminApiService;
+    adminInviteService?: AdminInviteApiService;
+  } = {},
 ): Promise<FastifyInstance> {
   validateOfflineLeaseKeyPair(config.offlineLeasePrivateKeyPem, config.offlineLeasePublicKeyPem);
 
@@ -275,6 +340,12 @@ export async function buildAuthServer(
       emailCodePepper: config.emailCodePepper,
       tokenPepper: config.tokenPepper,
     });
+  const adminInviteService =
+    options.adminInviteService ??
+    new AdminInviteService({
+      pepper: config.inviteCodePepper,
+      repository: new PgInviteBatchRepository(pool),
+    });
 
   server.setErrorHandler((error, request, reply) => {
     if (error instanceof AuthDomainError) {
@@ -290,6 +361,14 @@ export async function buildAuthServer(
       return reply.status(error.statusCode).send({
         error: {
           code: "ACCESS_DENIED",
+          message: error.message,
+        },
+      });
+    }
+    if (error instanceof AdminInviteError) {
+      return reply.status(error.statusCode).send({
+        error: {
+          code: error.statusCode === 404 ? "NOT_FOUND" : "VALIDATION_ERROR",
           message: error.message,
         },
       });
@@ -561,6 +640,85 @@ export async function buildAuthServer(
     reply.header("set-cookie", clearedAdminSessionCookie());
     return success(result);
   });
+
+  server.post<{ Body: AdminInviteBatchInput }>(
+    "/v1/admin/invite-batches",
+    {
+      schema: { body: adminInviteBatchBodySchema },
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
+    async (request) => {
+      assertAdminOrigin(request);
+      const context = requestContext(request);
+      const admin = await adminService.getSession(
+        readAdminSessionCookie(request),
+        context,
+      );
+      const result = await adminInviteService.createBatch(
+        request.body,
+        admin.email,
+        context.now,
+      );
+      await adminService.recordInviteAction(
+        "ADMIN_INVITE_BATCH_CREATED",
+        admin.email,
+        result.batch.batchId,
+        result.batch.totalCount,
+        context,
+      );
+      return success(result);
+    },
+  );
+
+  server.get<{
+    Querystring: { page?: number; pageSize?: number };
+  }>(
+    "/v1/admin/invite-batches",
+    { schema: { querystring: adminInviteListQuerySchema } },
+    async (request) => {
+      await adminService.getSession(
+        readAdminSessionCookie(request),
+        requestContext(request),
+      );
+      const page = request.query.page ?? 1;
+      const pageSize = request.query.pageSize ?? 20;
+      const result = await adminInviteService.listBatches(page, pageSize);
+      return success({
+        items: result.items,
+        pagination: {
+          page,
+          pageSize,
+          totalItems: result.totalItems,
+          totalPages: Math.ceil(result.totalItems / pageSize),
+        },
+      });
+    },
+  );
+
+  server.post<{ Params: { batchId: string } }>(
+    "/v1/admin/invite-batches/:batchId/revocations",
+    { schema: { params: adminInviteBatchParamsSchema } },
+    async (request) => {
+      assertAdminOrigin(request);
+      const context = requestContext(request);
+      const admin = await adminService.getSession(
+        readAdminSessionCookie(request),
+        context,
+      );
+      const result = await adminInviteService.revokeBatch(
+        request.params.batchId,
+        context.now,
+      );
+      await adminService.recordInviteAction(
+        "ADMIN_INVITE_BATCH_REVOKED",
+        admin.email,
+        result.batchId,
+        result.totalCount,
+        context,
+      );
+      return success(result);
+    },
+  );
 
   return server;
 }

@@ -164,6 +164,63 @@ export class PgInviteBatchRepository implements InviteBatchRepository {
     };
   }
 
+  public async listBatches(input: {
+    page: number;
+    pageSize: number;
+  }): Promise<{ items: InviteBatchStatus[]; totalItems: number }> {
+    const offset = (input.page - 1) * input.pageSize;
+    const [itemsResult, countResult] = await Promise.all([
+      this.pool.query<{
+        batch_id: string;
+        status: "ACTIVE" | "REVOKED";
+        total_count: number;
+        active_count: number;
+        redeemed_count: number;
+        revoked_count: number;
+        claim_expires_at: Date;
+        created_at: Date;
+        revoked_at: Date | null;
+      }>(
+        `
+          SELECT
+            batch.id AS batch_id,
+            batch.status,
+            batch.total_count,
+            count(*) FILTER (WHERE code.status = 'ACTIVE')::int AS active_count,
+            count(*) FILTER (WHERE code.status = 'REDEEMED')::int AS redeemed_count,
+            count(*) FILTER (WHERE code.status = 'REVOKED')::int AS revoked_count,
+            batch.claim_expires_at,
+            batch.created_at,
+            batch.revoked_at
+          FROM invite_batches AS batch
+          JOIN invite_codes AS code ON code.batch_id = batch.id
+          GROUP BY batch.id
+          ORDER BY batch.created_at DESC, batch.id DESC
+          LIMIT $1 OFFSET $2
+        `,
+        [input.pageSize, offset],
+      ),
+      this.pool.query<{ total_items: number }>(
+        "SELECT count(*)::int AS total_items FROM invite_batches",
+      ),
+    ]);
+
+    return {
+      items: itemsResult.rows.map((row) => ({
+        batchId: row.batch_id,
+        status: row.status,
+        totalCount: row.total_count,
+        activeCount: row.active_count,
+        redeemedCount: row.redeemed_count,
+        revokedCount: row.revoked_count,
+        claimExpiresAt: row.claim_expires_at.toISOString(),
+        createdAt: row.created_at.toISOString(),
+        revokedAt: row.revoked_at?.toISOString() ?? null,
+      })),
+      totalItems: countResult.rows[0]?.total_items ?? 0,
+    };
+  }
+
   public async revokeBatch(batchId: string, now: Date): Promise<InviteBatchStatus | null> {
     await withTransaction(this.pool, async (client) => {
       const batchResult = await client.query(
