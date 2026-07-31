@@ -273,6 +273,9 @@ export async function buildAuthServer(
           AND to_regclass('public.sessions') IS NOT NULL
           AND to_regclass('public.email_outbox') IS NOT NULL
           AND to_regclass('public.auth_audit_events') IS NOT NULL
+          AND to_regclass('public.admin_accounts') IS NOT NULL
+          AND to_regclass('public.admin_login_challenges') IS NOT NULL
+          AND to_regclass('public.admin_sessions') IS NOT NULL
           AND (
             SELECT max(version)
             FROM schema_migrations

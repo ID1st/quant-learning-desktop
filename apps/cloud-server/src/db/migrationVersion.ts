@@ -1,1 +1,1 @@
-export const latestPostgresMigrationVersion = 2;
+export const latestPostgresMigrationVersion = 3;

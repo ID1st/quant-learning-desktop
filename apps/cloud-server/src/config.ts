@@ -78,3 +78,20 @@ export function loadInviteCliConfig(
       environment.AUTH_INVITE_EXPORT_DIR?.trim() || "/opt/quant-auth/secrets/invite-exports",
   };
 }
+
+export function loadAdminProvisionConfig(
+  environment: NodeJS.ProcessEnv = process.env,
+): { databaseUrl: string; adminEmail: string } {
+  const adminEmail = environment.AUTH_ADMIN_EMAIL?.trim().toLowerCase() ?? "";
+  if (
+    adminEmail.length < 3 ||
+    adminEmail.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)
+  ) {
+    throw new Error("AUTH_ADMIN_EMAIL is required and must be a valid email address");
+  }
+  return {
+    databaseUrl: requireEnvironmentValue(environment, "DATABASE_URL"),
+    adminEmail,
+  };
+}

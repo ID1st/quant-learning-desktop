@@ -88,7 +88,7 @@ test("readiness and the legacy health endpoint both verify PostgreSQL", async ()
     assert.deepEqual(legacy.json(), { status: "ok" });
     assert.equal(queryCount, 2);
     assert.match(queries[0]?.sql ?? "", /schema_migrations/u);
-    assert.deepEqual(queries[0]?.values, [2]);
+    assert.deepEqual(queries[0]?.values, [3]);
   } finally {
     await server.close();
   }

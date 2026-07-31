@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "prebuild": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "build": "esbuild src/index.ts src/cli/migrate.ts src/cli/inviteBatchCreate.ts src/cli/inviteBatchInspect.ts src/cli/inviteBatchRevoke.ts src/cli/inviteBatchVerify.ts --bundle --packages=external --format=esm --platform=node --target=node24 --outdir=dist --sourcemap",
+    "build": "esbuild src/index.ts src/cli/migrate.ts src/cli/adminProvision.ts src/cli/inviteBatchCreate.ts src/cli/inviteBatchInspect.ts src/cli/inviteBatchRevoke.ts src/cli/inviteBatchVerify.ts --bundle --packages=external --format=esm --platform=node --target=node24 --outdir=dist --sourcemap",
     "start": "node dist/index.js",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -15,6 +15,7 @@
     "auth:invite:batch-inspect": "tsx src/cli/inviteBatchInspect.ts",
     "auth:invite:batch-revoke": "tsx src/cli/inviteBatchRevoke.ts",
     "auth:invite:batch-verify": "tsx src/cli/inviteBatchVerify.ts",
+    "auth:admin:provision": "tsx src/cli/adminProvision.ts",
     "db:migrate": "tsx src/cli/migrate.ts"
   },
   "dependencies": {
