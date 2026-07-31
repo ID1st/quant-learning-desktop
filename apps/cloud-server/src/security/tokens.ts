@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, randomInt } from "node:crypto";
 
-export function generateOpaqueToken(prefix: "qat" | "qrt"): string {
+export function generateOpaqueToken(prefix: "qat" | "qrt" | "qad"): string {
   return `${prefix}_${randomBytes(32).toString("base64url")}`;
 }
 
@@ -17,7 +17,7 @@ export function generateEmailCode(): string {
 
 export function digestEmailCode(
   email: string,
-  purpose: "REGISTRATION" | "PASSWORD_RESET",
+  purpose: "REGISTRATION" | "PASSWORD_RESET" | "ADMIN_LOGIN",
   code: string,
   pepper: string,
 ): Buffer {

@@ -6,7 +6,7 @@ import type { CloudAuthConfig } from "../config.ts";
 interface OutboxMessage {
   id: string;
   toEmail: string;
-  template: "registration-code" | "password-reset-code";
+  template: "registration-code" | "password-reset-code" | "admin-login-code";
   payload: {
     code: string;
     expiresInMinutes: number;
@@ -111,7 +111,9 @@ function validateMessage(message: OutboxMessage): void {
   if (
     !/^\d{6}$/.test(message.payload.code) ||
     message.payload.expiresInMinutes !== 10 ||
-    (message.template !== "registration-code" && message.template !== "password-reset-code")
+    message.template !== "registration-code" &&
+    message.template !== "password-reset-code" &&
+    message.template !== "admin-login-code"
   ) {
     throw new Error("email outbox payload is invalid");
   }
@@ -123,7 +125,12 @@ function renderMessage(message: OutboxMessage): {
   html: string;
 } {
   validateMessage(message);
-  const purpose = message.template === "registration-code" ? "注册" : "重置密码";
+  const purpose =
+    message.template === "admin-login-code"
+      ? "管理员登录"
+      : message.template === "registration-code"
+        ? "注册"
+        : "重置密码";
   const subject = `量化学习系统${purpose}验证码`;
   const text = `您的${purpose}验证码为：${message.payload.code}。验证码 10 分钟内有效，请勿转发。`;
   const html = [

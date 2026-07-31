@@ -160,6 +160,31 @@ test("password reset messages render and deliver through the alternate template"
   assert.match(String(deliveries[0]?.html), /654321/u);
 });
 
+test("administrator login messages use the dedicated template", async () => {
+  const { pool } = createMessagePool({
+    template: "admin-login-code",
+    payload: { code: "246810", expiresInMinutes: 10 },
+    attemptCount: 1,
+  });
+  const deliveries: Array<Record<string, unknown>> = [];
+  const transporter = {
+    async sendMail(message: Record<string, unknown>) {
+      deliveries.push(message);
+    },
+  };
+
+  const worker = new EmailOutboxWorker(
+    pool,
+    transporter as never,
+    "no-reply@example.test",
+  );
+  await worker.drainOnce();
+
+  assert.equal(deliveries.length, 1);
+  assert.match(String(deliveries[0]?.subject), /管理员登录/u);
+  assert.match(String(deliveries[0]?.html), /246810/u);
+});
+
 test("invalid payloads fail safely without reaching SMTP", async () => {
   const { pool, completionQueries } = createMessagePool({
     template: "registration-code",

@@ -7,6 +7,7 @@ import { latestPostgresMigrationVersion } from "./db/migrationVersion.ts";
 import type { CloudAuthConfig } from "./config.ts";
 import { AuthDomainError } from "./domain/authErrors.ts";
 import { PgAuthRepository } from "./repositories/pgAuthRepository.ts";
+import { PgAdminRepository } from "./repositories/pgAdminRepository.ts";
 import { argon2idPasswordHasher } from "./security/passwords.ts";
 import { validateOfflineLeaseKeyPair } from "./security/signedArtifacts.ts";
 import {
@@ -14,6 +15,11 @@ import {
   type AuthRequestContext,
   type DeviceContext,
 } from "./services/authService.ts";
+import {
+  AdminAuthError,
+  AdminService,
+  type AdminRequestContext,
+} from "./services/adminService.ts";
 
 interface EmailBody {
   email: string;
@@ -43,6 +49,33 @@ interface RenewalBody {
 interface RefreshBody {
   refreshToken: string;
 }
+
+interface AdminLoginBody {
+  email: string;
+  emailCode: string;
+}
+
+export interface AdminApiService {
+  requestLoginCode(
+    email: string,
+    context: AdminRequestContext,
+  ): Promise<{ accepted: true; retryAfterSeconds: 60 }>;
+  login(
+    input: AdminLoginBody,
+    context: AdminRequestContext,
+  ): Promise<{ admin: { email: string }; sessionToken: string }>;
+  getSession(
+    sessionToken: string,
+    context: AdminRequestContext,
+  ): Promise<{ email: string }>;
+  logout(
+    sessionToken: string,
+    context: AdminRequestContext,
+  ): Promise<{ signedOut: true }>;
+}
+
+const ADMIN_ORIGIN = "https://fnndp.xyz";
+const ADMIN_SESSION_COOKIE = "__Host-quant_admin";
 
 const emailSchema = {
   type: "string",
@@ -123,6 +156,19 @@ const refreshBodySchema = {
   },
 } as const;
 
+const adminLoginBodySchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["email", "emailCode"],
+  properties: {
+    email: emailSchema,
+    emailCode: {
+      type: "string",
+      pattern: "^\\d{6}$",
+    },
+  },
+} as const;
+
 function requestContext(request: FastifyRequest): AuthRequestContext {
   return {
     now: new Date(),
@@ -148,6 +194,32 @@ function readBearerToken(request: FastifyRequest): string {
   return match[1]!;
 }
 
+function assertAdminOrigin(request: FastifyRequest): void {
+  if (request.headers.origin !== ADMIN_ORIGIN) {
+    throw new AdminAuthError("administrator origin is not authorized", 403);
+  }
+}
+
+function readAdminSessionCookie(request: FastifyRequest): string {
+  const cookie = request.headers.cookie
+    ?.split(";")
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(`${ADMIN_SESSION_COOKIE}=`));
+  const token = cookie?.slice(ADMIN_SESSION_COOKIE.length + 1) ?? "";
+  if (!/^qad_[A-Za-z0-9_-]{40,}$/.test(token)) {
+    throw new AdminAuthError("administrator session is invalid", 401);
+  }
+  return token;
+}
+
+function adminSessionCookie(token: string): string {
+  return `${ADMIN_SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict`;
+}
+
+function clearedAdminSessionCookie(): string {
+  return `${ADMIN_SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
+}
+
 function success<T>(data: T): { data: T } {
   return { data };
 }
@@ -155,6 +227,7 @@ function success<T>(data: T): { data: T } {
 export async function buildAuthServer(
   config: CloudAuthConfig,
   pool: Pool,
+  options: { adminService?: AdminApiService } = {},
 ): Promise<FastifyInstance> {
   validateOfflineLeaseKeyPair(config.offlineLeasePrivateKeyPem, config.offlineLeasePublicKeyPem);
 
@@ -195,6 +268,13 @@ export async function buildAuthServer(
     config,
     passwordHasher: argon2idPasswordHasher,
   });
+  const adminService =
+    options.adminService ??
+    new AdminService({
+      repository: new PgAdminRepository(pool),
+      emailCodePepper: config.emailCodePepper,
+      tokenPepper: config.tokenPepper,
+    });
 
   server.setErrorHandler((error, request, reply) => {
     if (error instanceof AuthDomainError) {
@@ -203,6 +283,14 @@ export async function buildAuthServer(
           code: error.code,
           message: error.message,
           ...(error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
+        },
+      });
+    }
+    if (error instanceof AdminAuthError) {
+      return reply.status(error.statusCode).send({
+        error: {
+          code: "ACCESS_DENIED",
+          message: error.message,
         },
       });
     }
@@ -420,6 +508,59 @@ export async function buildAuthServer(
   server.get("/v1/auth/session", async (request) =>
     success(await authService.getSession(readBearerToken(request), requestContext(request))),
   );
+
+  server.post<{ Body: EmailBody }>(
+    "/v1/admin/login-code-requests",
+    {
+      schema: { body: emailOnlyBodySchema },
+      config: { rateLimit: { max: 3, timeWindow: "10 minutes" } },
+    },
+    async (request) => {
+      assertAdminOrigin(request);
+      return success(
+        await adminService.requestLoginCode(
+          request.body.email,
+          requestContext(request),
+        ),
+      );
+    },
+  );
+
+  server.post<{ Body: AdminLoginBody }>(
+    "/v1/admin/sessions",
+    {
+      schema: { body: adminLoginBodySchema },
+      config: { rateLimit: { max: 5, timeWindow: "10 minutes" } },
+    },
+    async (request, reply) => {
+      assertAdminOrigin(request);
+      const result = await adminService.login(
+        request.body,
+        requestContext(request),
+      );
+      reply.header("set-cookie", adminSessionCookie(result.sessionToken));
+      return success({ admin: result.admin });
+    },
+  );
+
+  server.get("/v1/admin/session", async (request) =>
+    success({
+      admin: await adminService.getSession(
+        readAdminSessionCookie(request),
+        requestContext(request),
+      ),
+    }),
+  );
+
+  server.delete("/v1/admin/session", async (request, reply) => {
+    assertAdminOrigin(request);
+    const result = await adminService.logout(
+      readAdminSessionCookie(request),
+      requestContext(request),
+    );
+    reply.header("set-cookie", clearedAdminSessionCookie());
+    return success(result);
+  });
 
   return server;
 }
