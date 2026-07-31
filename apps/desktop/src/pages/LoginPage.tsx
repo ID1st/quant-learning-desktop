@@ -433,6 +433,8 @@ function InviteForm({
       setStatus(
         `资格已生效，有效期至 ${new Date(result.data.entitlementEndsAt).toLocaleString("zh-CN", { hour12: false })}`,
       );
+    } catch {
+      setError("邀请码格式不正确，请输入 QLD-XXXXX-XXXXX-XXXXX。");
     } finally {
       setSubmitting(false);
     }
@@ -471,7 +473,14 @@ function InviteForm({
             onChange={(event) => setInviteCode(event.currentTarget.value)}
             onPaste={(event) => {
               event.preventDefault();
-              setInviteCode(normalizeInviteInput(event.clipboardData.getData("text")));
+              const pastedCode = event.clipboardData.getData("text");
+              try {
+                setInviteCode(normalizeInviteInput(pastedCode));
+                setError("");
+              } catch {
+                setInviteCode(pastedCode);
+                setError("邀请码格式不正确，请核对后重试。");
+              }
             }}
             placeholder="QLD-XXXXX-XXXXX-XXXXX"
             value={inviteCode}

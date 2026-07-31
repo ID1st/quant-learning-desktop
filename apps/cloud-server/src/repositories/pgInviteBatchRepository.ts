@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from "pg";
 import type {
   CreateInviteBatchRecord,
   InviteBatchRepository,
+  VerifiedInviteStatus,
 } from "../services/inviteBatchService.ts";
 
 export interface InviteBatchStatus {
@@ -130,6 +131,36 @@ export class PgInviteBatchRepository implements InviteBatchRepository {
       claimExpiresAt: row.claim_expires_at.toISOString(),
       createdAt: row.created_at.toISOString(),
       revokedAt: row.revoked_at?.toISOString() ?? null,
+    };
+  }
+
+  public async verifyCode(
+    batchId: string,
+    codeDigest: Buffer,
+  ): Promise<{
+    batchFound: boolean;
+    claimExpiresAt: Date | null;
+    status: VerifiedInviteStatus | null;
+  }> {
+    const result = await this.pool.query<{
+      claim_expires_at: Date;
+      status: VerifiedInviteStatus | null;
+    }>(
+      `
+        SELECT batch.claim_expires_at, code.status
+        FROM invite_batches AS batch
+        LEFT JOIN invite_codes AS code
+          ON code.batch_id = batch.id
+          AND code.code_digest = $2
+        WHERE batch.id = $1
+      `,
+      [batchId, codeDigest],
+    );
+    const row = result.rows[0];
+    return {
+      batchFound: Boolean(row),
+      claimExpiresAt: row?.claim_expires_at ?? null,
+      status: row?.status ?? null,
     };
   }
 

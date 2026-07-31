@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   digestInviteCode,
+  formatInviteCode,
   generateInviteCode,
   normalizeInviteCode,
 } from "../src/security/inviteCodes.ts";
@@ -21,6 +22,13 @@ test("normalization ignores separators but rejects unexpected characters", () =>
   assert.equal(normalizeInviteCode(" qld-abcd2 efgh3-ijkm4 "), "QLDABCD2EFGH3IJKM4");
   assert.throws(() => normalizeInviteCode("QLD-ABCD2-💥-EFGH3"), /format/i);
   assert.throws(() => normalizeInviteCode("QUANT2026"), /format/i);
+});
+
+test("normalization accepts terminal whitespace, full-width text and Unicode dashes", () => {
+  const pastedCode = "\r\nＱＬＤ－ＡＢＣＤ２‐ＥＦＧＨ３—ＩＪＫＭ４\t";
+
+  assert.equal(normalizeInviteCode(pastedCode), "QLDABCD2EFGH3IJKM4");
+  assert.equal(formatInviteCode(pastedCode), "QLD-ABCD2-EFGH3-IJKM4");
 });
 
 test("invite digests are deterministic, keyed and never contain plaintext", () => {

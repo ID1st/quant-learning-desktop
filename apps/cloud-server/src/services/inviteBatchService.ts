@@ -27,6 +27,27 @@ export interface InviteBatchRepository {
   createBatch(input: CreateInviteBatchRecord): Promise<void>;
 }
 
+export type VerifiedInviteStatus = "ACTIVE" | "REDEEMED" | "REVOKED";
+
+export interface InviteBatchVerificationRepository {
+  verifyCode(
+    batchId: string,
+    codeDigest: Buffer,
+  ): Promise<{
+    batchFound: boolean;
+    claimExpiresAt: Date | null;
+    status: VerifiedInviteStatus | null;
+  }>;
+}
+
+export interface InviteBatchVerificationResult {
+  formatValid: boolean;
+  batchFound: boolean;
+  digestMatches: boolean;
+  status: VerifiedInviteStatus | null;
+  claimExpired: boolean;
+}
+
 export interface CreateInviteBatchExportInput {
   argumentsList: string[];
   createdBy: string;
@@ -155,4 +176,39 @@ export async function cleanupExpiredInviteExports(
   }
 
   return removedCount;
+}
+
+export async function verifyInviteCodeForBatch(input: {
+  batchId: string;
+  rawInviteCode: string;
+  pepper: string;
+  now: Date;
+  repository: InviteBatchVerificationRepository;
+}): Promise<InviteBatchVerificationResult> {
+  let normalizedCode: string;
+  try {
+    normalizedCode = normalizeInviteCode(input.rawInviteCode);
+  } catch {
+    return {
+      formatValid: false,
+      batchFound: false,
+      digestMatches: false,
+      status: null,
+      claimExpired: false,
+    };
+  }
+
+  const verification = await input.repository.verifyCode(
+    input.batchId,
+    digestInviteCode(normalizedCode, input.pepper),
+  );
+  return {
+    formatValid: true,
+    batchFound: verification.batchFound,
+    digestMatches: verification.status !== null,
+    status: verification.status,
+    claimExpired:
+      verification.claimExpiresAt !== null &&
+      verification.claimExpiresAt.getTime() < input.now.getTime(),
+  };
 }

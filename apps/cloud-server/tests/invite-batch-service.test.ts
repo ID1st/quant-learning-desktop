@@ -7,7 +7,9 @@ import test from "node:test";
 import {
   createInviteBatchExport,
   type InviteBatchRepository,
+  verifyInviteCodeForBatch,
 } from "../src/services/inviteBatchService.ts";
+import { digestInviteCode } from "../src/security/inviteCodes.ts";
 
 test("batch creation persists only digests and writes plaintext to a restricted CSV", async () => {
   const outputDirectory = await mkdtemp(join(tmpdir(), "quant-invites-"));
@@ -73,4 +75,64 @@ test("failed persistence never leaves a plaintext export behind", async () => {
       }),
     /database unavailable/,
   );
+});
+
+test("batch verification compares a normalized stdin code without exposing it", async () => {
+  const pepper = "test-pepper-that-is-never-logged";
+  let observedDigest: Buffer | null = null;
+
+  const result = await verifyInviteCodeForBatch({
+    batchId: "5047a4b6-a720-4edc-b1ba-1f7487b8d528",
+    now: new Date("2026-07-31T05:00:00.000Z"),
+    pepper,
+    rawInviteCode: "\r\nＱＬＤ－ＡＢＣＤ２‐ＥＦＧＨ３—ＩＪＫＭ４\t",
+    repository: {
+      verifyCode: async (_batchId, codeDigest) => {
+        observedDigest = codeDigest;
+        return {
+          batchFound: true,
+          claimExpiresAt: new Date("2026-08-30T04:17:03.933Z"),
+          status: "ACTIVE",
+        };
+      },
+    },
+  });
+
+  assert.equal(
+    observedDigest?.equals(digestInviteCode("QLDABCD2EFGH3IJKM4", pepper)),
+    true,
+  );
+  assert.deepEqual(result, {
+    formatValid: true,
+    batchFound: true,
+    digestMatches: true,
+    status: "ACTIVE",
+    claimExpired: false,
+  });
+});
+
+test("batch verification rejects malformed input before querying PostgreSQL", async () => {
+  let queryCount = 0;
+
+  const result = await verifyInviteCodeForBatch({
+    batchId: "5047a4b6-a720-4edc-b1ba-1f7487b8d528",
+    now: new Date("2026-07-31T05:00:00.000Z"),
+    pepper: "test-pepper-that-is-never-logged",
+    rawInviteCode: "not-an-invite",
+    repository: {
+      verifyCode: async () => {
+        queryCount += 1;
+        throw new Error("unexpected query");
+      },
+    },
+  });
+
+  assert.equal(queryCount, 0);
+  assert.deepEqual(result, {
+    formatValid: false,
+    batchFound: false,
+    digestMatches: false,
+    status: null,
+    claimExpired: false,
+  });
 });

@@ -1,4 +1,8 @@
-import type { AuthErrorCode, QuantDesktopAuthBridge } from "@quant/shared";
+import {
+  formatInviteCode,
+  type AuthErrorCode,
+  type QuantDesktopAuthBridge,
+} from "@quant/shared";
 
 export interface PasswordRuleState {
   length: boolean;
@@ -54,7 +58,7 @@ export function passwordRulesSatisfied(password: string): boolean {
 }
 
 export function normalizeInviteInput(inviteCode: string): string {
-  return inviteCode.toUpperCase().replace(/[\s-]+/g, "");
+  return formatInviteCode(inviteCode);
 }
 
 export function maskEmail(email: string): string {

@@ -39,6 +39,7 @@
     "test:strategy-engine": "node --test --experimental-strip-types packages/strategy-engine/tests/*.test.ts",
     "test": "npm run test:api-client && npm run test:cloud && npm run test:chart && npm run test:desktop && npm run test:pine-runtime && npm run test:plugin-loader && npm run test:strategy-engine && npm run test:release",
     "auth:invite:batch-create": "npm run auth:invite:batch-create -w @quant/cloud-server --",
+    "auth:invite:batch-verify": "npm run auth:invite:batch-verify -w @quant/cloud-server --",
     "ops:cloud:audit": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/codex-cloud-audit.ps1",
     "quality": "npm run lint && npm run format:check && npm run typecheck && npm run coverage",
     "check": "npm run quality && npm run build:cloud && npm run build && npm run build:electron -w @quant/desktop",

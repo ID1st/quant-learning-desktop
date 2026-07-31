@@ -264,6 +264,8 @@ export function SettingsPage() {
       setRenewMessage(
         `续期成功，新的到期时间为 ${new Date(result.data.entitlementEndsAt).toLocaleString("zh-CN", { hour12: false })}`,
       );
+    } catch {
+      setRenewMessage("邀请码格式不正确，请输入 QLD-XXXXX-XXXXX-XXXXX。");
     } finally {
       setRenewingEntitlement(false);
     }
