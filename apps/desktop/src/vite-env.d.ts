@@ -390,6 +390,7 @@ interface QuantDesktopBridge {
   };
   readonly marketData?: QuantDesktopMarketDataBridge;
   readonly marketBarCache?: import("./electron/marketBarCacheIpcContract.ts").MarketBarCacheIpcBridge;
+  readonly diagnostics?: import("./electron/diagnosticsIpcContract.ts").DiagnosticsIpcBridge;
   readonly plugins?: QuantDesktopPluginBridge;
   readonly alphaFeed?: {
     verifyCredentials(credentials: { apiUrl: string; apiKey: string }): Promise<

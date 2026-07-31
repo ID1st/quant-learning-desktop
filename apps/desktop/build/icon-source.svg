@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Quant Learning Desktop symbolic icon</title>
+  <desc id="desc">A monochrome abstract bind-rune circuit sigil made from broken rings, angular paths and nodes.</desc>
+  <rect width="1024" height="1024" fill="#0b0d10"/>
+
+  <g fill="none" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M512 132A380 380 0 0 1 892 512" stroke="#5d6269" stroke-width="30"/>
+    <path d="M892 512A380 380 0 0 1 512 892" stroke="#f4f5f6" stroke-width="30"/>
+    <path d="M512 892A380 380 0 0 1 132 512" stroke="#5d6269" stroke-width="30"/>
+    <path d="M132 512A380 380 0 0 1 512 132" stroke="#f4f5f6" stroke-width="30"/>
+
+    <path d="M512 238V786" stroke="#f4f5f6" stroke-width="48"/>
+    <path d="M512 310L318 504L512 698" stroke="#5d6269" stroke-width="48"/>
+    <path d="M512 310L706 504L512 698" stroke="#f4f5f6" stroke-width="48"/>
+    <path d="M366 456H658" stroke="#5d6269" stroke-width="28"/>
+    <path d="M366 552H658" stroke="#5d6269" stroke-width="28"/>
+
+    <path d="M512 238V178" stroke="#5d6269" stroke-width="22"/>
+    <path d="M318 504H230" stroke="#5d6269" stroke-width="22"/>
+    <path d="M706 504H794" stroke="#5d6269" stroke-width="22"/>
+    <path d="M512 786V846" stroke="#5d6269" stroke-width="22"/>
+  </g>
+
+  <g fill="#f4f5f6">
+    <circle cx="512" cy="178" r="26"/>
+    <circle cx="230" cy="504" r="26"/>
+    <circle cx="794" cy="504" r="26"/>
+    <circle cx="512" cy="846" r="26"/>
+  </g>
+  <g fill="#5d6269">
+    <rect x="482" y="474" width="60" height="60" transform="rotate(45 512 504)"/>
+    <circle cx="512" cy="238" r="17"/>
+    <circle cx="318" cy="504" r="17"/>
+    <circle cx="706" cy="504" r="17"/>
+    <circle cx="512" cy="786" r="17"/>
+  </g>
+</svg>

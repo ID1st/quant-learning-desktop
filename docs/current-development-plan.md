@@ -196,7 +196,7 @@ Acceptance:
 3. Market-data operational stability: keep `probe:stock-sdk` and `drill:market-data` repeatable; add scheduled/manual mainland-network drills only after defining their local scheduling policy.
 4. Optional strategy research follow-up: date-range selection, equity curve, position sizing, and partial target/stop execution. The agreed simplified backtest MVP is complete.
 5. Super-chart advanced parity: multi-chart synchronization, additional drawing tools, workspaces, and indicator sub-panes remain optional product upgrades rather than MVP defects.
-6. Desktop release readiness: product icon, Authenticode signing, update/rollback path, crash reporting, installer regression checks, and release notes.
+6. Desktop release readiness is implemented as a fail-closed Windows x64 gate: monochrome vector product icon, environment-injected Authenticode signing, local-only Crashpad capture, sanitized diagnostic export, clean-install/upgrade/DuckDB/uninstall-reinstall/rollback smoke automation, and generated release reports. A signed previous installer, signing certificate, and release PostgreSQL test database remain external release inputs. Automatic updates and remote crash telemetry are intentionally out of scope.
 7. Login and account flow redesign remains a separate future rewrite and is intentionally excluded from the current hardening slice.
 
 ### 0. Provider-Neutral Desktop IPC

@@ -1,9 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { AuthPhase, AuthSessionSnapshot } from "@quant/shared";
 
 import { LogoutConfirmationDialog } from "../features/auth/LogoutConfirmationDialog";
 import { useAuthStore } from "../features/auth/authStore";
 import { LoginPage } from "./LoginPage";
+
+const SettingsPage = lazy(() =>
+  import("./SettingsPage").then((module) => ({ default: module.SettingsPage })),
+);
 
 const visualQaPhases = new Set<AuthPhase>([
   "SIGNED_OUT",
@@ -106,6 +110,19 @@ export function AuthVisualQaPage() {
               </section>
             ))}
           </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (requestedPhase === "SETTINGS") {
+    return (
+      <main className="app-shell">
+        <aside className="app-sidebar" />
+        <section className="app-content">
+          <Suspense fallback={null}>
+            <SettingsPage />
+          </Suspense>
         </section>
       </main>
     );

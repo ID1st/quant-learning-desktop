@@ -9,6 +9,9 @@ import { registerPluginIpcHandlers } from "./pluginIpc";
 import { createPluginManager } from "./pluginManager";
 import { createPluginIpcHandlers } from "./pluginIpcContract";
 import { createPluginRuntimeHost } from "./pluginRuntimeHost";
+import { startDesktopDiagnostics } from "./desktopDiagnostics";
+import { registerDiagnosticsIpcHandlers } from "./diagnosticsIpc";
+import { createDiagnosticsIpcHandlers } from "./diagnosticsIpcContract";
 import {
   createMainSecureCredentialStore,
   registerSecureCredentialIpcHandlers,
@@ -21,6 +24,22 @@ import {
 import { registerAuthIpcHandlers } from "./authIpc";
 import { createMainAuthSessionManager } from "./mainAuth";
 import type { AuthSessionManager } from "./authSessionManager";
+import {
+  runReleaseSmokeProbe,
+  validateReleaseSmokeUserDataPath,
+  type ReleaseSmokeMode,
+} from "./releaseSmoke";
+
+const releaseSmokeRequested = process.argv.includes("--release-smoke");
+if (releaseSmokeRequested) {
+  const userDataPath = process.env.QUANT_RELEASE_SMOKE_USER_DATA?.trim();
+  if (!userDataPath) {
+    throw new Error("QUANT_RELEASE_SMOKE_USER_DATA is required for release smoke mode.");
+  }
+  validateReleaseSmokeUserDataPath(userDataPath, app.getPath("temp"));
+  app.setPath("userData", userDataPath);
+}
+const desktopDiagnostics = startDesktopDiagnostics();
 
 function configureAuthLifecycle(manager: AuthSessionManager): () => void {
   let expiryTimer: NodeJS.Timeout | null = null;
@@ -127,57 +146,89 @@ export function createMainWindow(securityPolicy?: DesktopRendererSecurityPolicy)
   return mainWindow;
 }
 
-void app.whenReady().then(async () => {
-  const windowConfig = createMainWindowConfig();
-  const securityPolicy = createDesktopRendererSecurityPolicy({
-    rendererEntry: windowConfig.rendererEntry,
-    rendererDevServerUrl: process.env.ELECTRON_RENDERER_URL,
-  });
-  const credentialStore = createMainSecureCredentialStore();
-  const authManager = await createMainAuthSessionManager();
-  const disposeAuthIpc = registerAuthIpcHandlers(securityPolicy, authManager);
-  const disposeAuthLifecycle = configureAuthLifecycle(authManager);
-  const marketBarCacheRepository = await createDuckDbMarketBarRepository(
-    join(app.getPath("userData"), "data", "market-cache.duckdb"),
-  );
-  const disposeMarketBarCacheIpc = registerMarketBarCacheIpcHandlers(
-    securityPolicy,
-    createMarketBarCacheIpcHandlers(marketBarCacheRepository),
-  );
-  registerMarketDataIpcHandlers(securityPolicy, createMarketDataIpcHandlers({ credentialStore }));
-  registerProviderDataIpcHandlers(securityPolicy);
-  registerSecureCredentialIpcHandlers(securityPolicy, credentialStore);
-  const pluginManager = createPluginManager({
-    pluginsDirectory: join(app.getPath("userData"), "plugins"),
-  });
-  const pluginRuntime = createPluginRuntimeHost({ manager: pluginManager });
-  registerPluginIpcHandlers(
-    securityPolicy,
-    pluginManager,
-    undefined,
-    createPluginIpcHandlers(pluginManager, pluginRuntime),
-  );
-  app.once("before-quit", () => {
-    disposeAuthLifecycle();
-    disposeAuthIpc();
-    disposeMarketBarCacheIpc();
-    void marketBarCacheRepository.dispose();
-    pluginRuntime.dispose();
-  });
-  const mainWindow = createMainWindow(securityPolicy);
-  mainWindow.on("focus", () => {
-    void authManager.revalidate();
-  });
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      const nextWindow = createMainWindow(securityPolicy);
-      nextWindow.on("focus", () => {
-        void authManager.revalidate();
-      });
+void app
+  .whenReady()
+  .then(async () => {
+    if (releaseSmokeRequested) {
+      const mode = process.env.QUANT_RELEASE_SMOKE_MODE?.trim() as ReleaseSmokeMode;
+      if (mode !== "seed" && mode !== "verify") {
+        throw new Error("QUANT_RELEASE_SMOKE_MODE must be seed or verify.");
+      }
+      const repository = await createDuckDbMarketBarRepository(
+        join(app.getPath("userData"), "data", "market-cache.duckdb"),
+      );
+      try {
+        const result = await runReleaseSmokeProbe(repository, mode);
+        process.stdout.write(`${JSON.stringify(result)}\n`);
+      } finally {
+        await repository.dispose();
+        desktopDiagnostics.dispose();
+      }
+      app.quit();
+      return;
     }
+
+    const windowConfig = createMainWindowConfig();
+    const securityPolicy = createDesktopRendererSecurityPolicy({
+      rendererEntry: windowConfig.rendererEntry,
+      rendererDevServerUrl: process.env.ELECTRON_RENDERER_URL,
+    });
+    const credentialStore = createMainSecureCredentialStore();
+    const authManager = await createMainAuthSessionManager();
+    const disposeAuthIpc = registerAuthIpcHandlers(securityPolicy, authManager);
+    const disposeAuthLifecycle = configureAuthLifecycle(authManager);
+    const marketBarCacheRepository = await createDuckDbMarketBarRepository(
+      join(app.getPath("userData"), "data", "market-cache.duckdb"),
+    );
+    const disposeMarketBarCacheIpc = registerMarketBarCacheIpcHandlers(
+      securityPolicy,
+      createMarketBarCacheIpcHandlers(marketBarCacheRepository),
+    );
+    const disposeDiagnosticsIpc = registerDiagnosticsIpcHandlers(
+      securityPolicy,
+      createDiagnosticsIpcHandlers(desktopDiagnostics),
+    );
+    registerMarketDataIpcHandlers(securityPolicy, createMarketDataIpcHandlers({ credentialStore }));
+    registerProviderDataIpcHandlers(securityPolicy);
+    registerSecureCredentialIpcHandlers(securityPolicy, credentialStore);
+    const pluginManager = createPluginManager({
+      pluginsDirectory: join(app.getPath("userData"), "plugins"),
+    });
+    const pluginRuntime = createPluginRuntimeHost({ manager: pluginManager });
+    registerPluginIpcHandlers(
+      securityPolicy,
+      pluginManager,
+      undefined,
+      createPluginIpcHandlers(pluginManager, pluginRuntime),
+    );
+    app.once("before-quit", () => {
+      disposeAuthLifecycle();
+      disposeAuthIpc();
+      disposeMarketBarCacheIpc();
+      disposeDiagnosticsIpc();
+      void marketBarCacheRepository.dispose();
+      pluginRuntime.dispose();
+      desktopDiagnostics.dispose();
+    });
+    desktopDiagnostics.log("info", "desktop-ready");
+    const mainWindow = createMainWindow(securityPolicy);
+    mainWindow.on("focus", () => {
+      void authManager.revalidate();
+    });
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        const nextWindow = createMainWindow(securityPolicy);
+        nextWindow.on("focus", () => {
+          void authManager.revalidate();
+        });
+      }
+    });
+  })
+  .catch((error: unknown) => {
+    desktopDiagnostics.log("error", "desktop-startup-failed", error);
+    app.quit();
   });
-});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {

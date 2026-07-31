@@ -4,6 +4,7 @@ import {
   CalendarClock,
   CheckCircle2,
   DatabaseZap,
+  FileArchive,
   FileInput,
   KeyRound,
   LogOut,
@@ -121,6 +122,8 @@ export function SettingsPage() {
   });
   const [cacheMessage, setCacheMessage] = useState("");
   const [isCacheOperationPending, setCacheOperationPending] = useState(false);
+  const [diagnosticMessage, setDiagnosticMessage] = useState("");
+  const [isDiagnosticExportPending, setDiagnosticExportPending] = useState(false);
   const [manifestDraft, setManifestDraft] = useState(sampleManifest);
   const [renewInviteCode, setRenewInviteCode] = useState("");
   const [renewMessage, setRenewMessage] = useState("");
@@ -213,6 +216,30 @@ export function SettingsPage() {
       setCacheMessage("行情缓存清空失败，请稍后重试。");
     } finally {
       setCacheOperationPending(false);
+    }
+  };
+
+  const handleExportDiagnostics = async () => {
+    const bridge = window.quantDesktop?.diagnostics;
+    if (!bridge) {
+      setDiagnosticMessage("诊断导出仅在 Electron 桌面环境可用。");
+      return;
+    }
+    setDiagnosticExportPending(true);
+    setDiagnosticMessage("");
+    try {
+      const result = await bridge.exportPackage();
+      if (!result.ok) {
+        setDiagnosticMessage(result.error.message);
+        return;
+      }
+      setDiagnosticMessage(
+        `已导出 ${result.data.fileName}，包含 ${result.data.includedMinidumps} 个安全 minidump，排除 ${result.data.excludedMinidumps} 个。`,
+      );
+    } catch {
+      setDiagnosticMessage("诊断包导出失败。原始日志和崩溃文件仍保留在本机。");
+    } finally {
+      setDiagnosticExportPending(false);
     }
   };
 
@@ -447,6 +474,34 @@ export function SettingsPage() {
             清空行情缓存
           </button>
           {cacheMessage && <span>{cacheMessage}</span>}
+        </div>
+      </section>
+
+      <section className="module-card diagnostic-export-panel">
+        <div className="module-card-header">
+          <FileArchive size={20} />
+          <div>
+            <h2>本地诊断包</h2>
+            <p>
+              导出应用与 Electron 版本、脱敏主进程日志、renderer
+              崩溃记录，以及通过敏感信息扫描的本地 minidump。崩溃数据不会自动上传。
+            </p>
+          </div>
+        </div>
+        <div className="cache-governance-actions">
+          <button
+            disabled={isDiagnosticExportPending}
+            onClick={() => void handleExportDiagnostics()}
+            type="button"
+          >
+            <FileArchive size={15} />
+            {isDiagnosticExportPending ? "正在导出…" : "导出脱敏诊断包"}
+          </button>
+          {diagnosticMessage && (
+            <span aria-live="polite" role="status">
+              {diagnosticMessage}
+            </span>
+          )}
         </div>
       </section>
 

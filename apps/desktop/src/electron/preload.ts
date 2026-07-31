@@ -26,6 +26,8 @@ import { pluginIpcChannels } from "./pluginIpcContract";
 import type { PluginIpcBridge } from "./pluginIpcContract";
 import type { AlphaFeedStreamCredentials } from "./secureCredentialStore";
 import { authIpcChannels } from "./authIpcContract";
+import { diagnosticsIpcChannels } from "./diagnosticsIpcContract";
+import type { DiagnosticsIpcBridge } from "./diagnosticsIpcContract";
 
 export interface DesktopBridge {
   readonly platform: "desktop";
@@ -47,6 +49,7 @@ export interface DesktopBridge {
   };
   readonly marketData: MarketDataIpcBridge;
   readonly marketBarCache: MarketBarCacheIpcBridge;
+  readonly diagnostics: DiagnosticsIpcBridge;
   readonly plugins: PluginIpcBridge;
   readonly longPort: {
     verifyCredentials(credentials: LongPortApiCredentials): Promise<
@@ -276,6 +279,9 @@ export const desktopBridge: DesktopBridge = {
       invokeMarketBarCache(marketBarCacheIpcChannels.legacyMigrationState),
     recordLegacyMigration: (request) =>
       invokeMarketBarCache(marketBarCacheIpcChannels.recordLegacyMigration, request),
+  },
+  diagnostics: {
+    exportPackage: () => ipcRenderer.invoke(diagnosticsIpcChannels.exportPackage),
   },
   plugins: {
     list: () => invokePlugin(pluginIpcChannels.list),

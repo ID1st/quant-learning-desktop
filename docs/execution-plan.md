@@ -465,7 +465,7 @@ Deferred:
 Status:
 
 - Partially complete: credential boundary hardening, renderer sandbox/CSP, fail-closed third-party plugin execution, runtime error redaction, cache write throttling, provider probes, fallback/cache-retention drill, and Electron plugin-runtime smoke test are complete. A no-Node plugin sandbox remains pending.
-- Broad release readiness remains pending; installer signing and release automation should follow final functional scope confirmation.
+- Windows x64 release automation is now fail-closed: formal packaging requires environment-injected Authenticode material, a real PostgreSQL integration-test URL, and a signed previous installer; it verifies signatures, calendar coverage, install/upgrade/DuckDB preservation/uninstall-reinstall/rollback behavior, and emits SHA-256 release reports. Automatic updates and remote crash telemetry remain intentionally out of scope.
 
 Goal:
 
