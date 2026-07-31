@@ -16,11 +16,7 @@ import {
   type AuthRequestContext,
   type DeviceContext,
 } from "./services/authService.ts";
-import {
-  AdminAuthError,
-  AdminService,
-  type AdminRequestContext,
-} from "./services/adminService.ts";
+import { AdminAuthError, AdminService, type AdminRequestContext } from "./services/adminService.ts";
 import {
   AdminInviteError,
   AdminInviteService,
@@ -70,14 +66,8 @@ export interface AdminApiService {
     input: AdminLoginBody,
     context: AdminRequestContext,
   ): Promise<{ admin: { email: string }; sessionToken: string }>;
-  getSession(
-    sessionToken: string,
-    context: AdminRequestContext,
-  ): Promise<{ email: string }>;
-  logout(
-    sessionToken: string,
-    context: AdminRequestContext,
-  ): Promise<{ signedOut: true }>;
+  getSession(sessionToken: string, context: AdminRequestContext): Promise<{ email: string }>;
+  logout(sessionToken: string, context: AdminRequestContext): Promise<{ signedOut: true }>;
   recordInviteAction(
     eventType: "ADMIN_INVITE_BATCH_CREATED" | "ADMIN_INVITE_BATCH_REVOKED",
     email: string,
@@ -226,7 +216,8 @@ const adminInviteBatchParamsSchema = {
   properties: {
     batchId: {
       type: "string",
-      pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+      pattern:
+        "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
     },
   },
 } as const;
@@ -301,6 +292,7 @@ export async function buildAuthServer(
     // Trust exactly that hop so rate limits key on the real client address.
     trustProxy: 1,
     bodyLimit: 16 * 1024,
+    requestIdHeader: "x-request-id",
     logger: {
       level: process.env.AUTH_LOG_LEVEL || "info",
       redact: {
@@ -325,6 +317,10 @@ export async function buildAuthServer(
     global: true,
     max: 120,
     timeWindow: "1 minute",
+  });
+  server.addHook("onSend", async (request, reply, payload) => {
+    reply.header("x-request-id", request.id);
+    return payload;
   });
 
   const repository = new PgAuthRepository(pool);
@@ -597,10 +593,7 @@ export async function buildAuthServer(
     async (request) => {
       assertAdminOrigin(request);
       return success(
-        await adminService.requestLoginCode(
-          request.body.email,
-          requestContext(request),
-        ),
+        await adminService.requestLoginCode(request.body.email, requestContext(request)),
       );
     },
   );
@@ -613,10 +606,7 @@ export async function buildAuthServer(
     },
     async (request, reply) => {
       assertAdminOrigin(request);
-      const result = await adminService.login(
-        request.body,
-        requestContext(request),
-      );
+      const result = await adminService.login(request.body, requestContext(request));
       reply.header("set-cookie", adminSessionCookie(result.sessionToken));
       return success({ admin: result.admin });
     },
@@ -650,15 +640,8 @@ export async function buildAuthServer(
     async (request) => {
       assertAdminOrigin(request);
       const context = requestContext(request);
-      const admin = await adminService.getSession(
-        readAdminSessionCookie(request),
-        context,
-      );
-      const result = await adminInviteService.createBatch(
-        request.body,
-        admin.email,
-        context.now,
-      );
+      const admin = await adminService.getSession(readAdminSessionCookie(request), context);
+      const result = await adminInviteService.createBatch(request.body, admin.email, context.now);
       await adminService.recordInviteAction(
         "ADMIN_INVITE_BATCH_CREATED",
         admin.email,
@@ -676,10 +659,7 @@ export async function buildAuthServer(
     "/v1/admin/invite-batches",
     { schema: { querystring: adminInviteListQuerySchema } },
     async (request) => {
-      await adminService.getSession(
-        readAdminSessionCookie(request),
-        requestContext(request),
-      );
+      await adminService.getSession(readAdminSessionCookie(request), requestContext(request));
       const page = request.query.page ?? 1;
       const pageSize = request.query.pageSize ?? 20;
       const result = await adminInviteService.listBatches(page, pageSize);
@@ -701,14 +681,8 @@ export async function buildAuthServer(
     async (request) => {
       assertAdminOrigin(request);
       const context = requestContext(request);
-      const admin = await adminService.getSession(
-        readAdminSessionCookie(request),
-        context,
-      );
-      const result = await adminInviteService.revokeBatch(
-        request.params.batchId,
-        context.now,
-      );
+      const admin = await adminService.getSession(readAdminSessionCookie(request), context);
+      const result = await adminInviteService.revokeBatch(request.params.batchId, context.now);
       await adminService.recordInviteAction(
         "ADMIN_INVITE_BATCH_REVOKED",
         admin.email,

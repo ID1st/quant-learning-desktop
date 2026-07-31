@@ -86,6 +86,21 @@ const domains = [
     include: ["apps/cloud-server/src/services/emailOutboxWorker.ts"],
     thresholds: { lines: 90, branches: 85 },
   },
+  {
+    id: "critical-admin",
+    testDirectory: "apps/cloud-server/tests",
+    testFiles: [
+      "admin-auth-service.test.ts",
+      "admin-invite-service.test.ts",
+      "admin-provision.test.ts",
+    ],
+    include: [
+      "apps/cloud-server/src/services/adminService.ts",
+      "apps/cloud-server/src/services/adminInviteService.ts",
+      "apps/cloud-server/src/cli/adminProvision.ts",
+    ],
+    thresholds: { lines: 90, branches: 85 },
+  },
 ];
 
 const selectedDomains = requestedDomains.size

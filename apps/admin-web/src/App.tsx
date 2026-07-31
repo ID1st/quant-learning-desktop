@@ -254,12 +254,16 @@ function ResultsPanel({
   codes: InviteCodeResult[];
   onClear: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
 
   async function copyAll() {
-    await navigator.clipboard.writeText(codes.map((item) => item.inviteCode).join("\n"));
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1_500);
+    try {
+      await navigator.clipboard.writeText(codes.map((item) => item.inviteCode).join("\n"));
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
+    window.setTimeout(() => setCopyStatus("idle"), 1_500);
   }
 
   function downloadCsv() {
@@ -270,8 +274,10 @@ function ResultsPanel({
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = `invite-batch-${batch.batchId}.csv`;
+    document.body.append(anchor);
     anchor.click();
-    URL.revokeObjectURL(url);
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   return (
@@ -289,7 +295,7 @@ function ResultsPanel({
       <div className="result-actions">
         <button className="button quiet" type="button" onClick={copyAll}>
           <Clipboard size={16} />
-          {copied ? "已复制" : "复制全部"}
+          {copyStatus === "copied" ? "已复制" : copyStatus === "failed" ? "复制失败" : "复制全部"}
         </button>
         <button className="button quiet" type="button" onClick={downloadCsv}>
           <Download size={16} />

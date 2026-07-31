@@ -257,7 +257,10 @@ export function SettingsPage() {
         return;
       }
       if (!result.ok) {
-        setRenewMessage(authErrorMessage(result.error.code, result.error.retryAfterSeconds));
+        const message = authErrorMessage(result.error.code, result.error.retryAfterSeconds);
+        setRenewMessage(
+          result.error.requestId ? `${message} 请求编号：${result.error.requestId}` : message,
+        );
         return;
       }
       setRenewInviteCode("");

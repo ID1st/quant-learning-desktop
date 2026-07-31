@@ -46,6 +46,9 @@ interface DiagnosticManifest {
     readonly platform: string;
     readonly architecture: string;
   };
+  readonly services: {
+    readonly authenticationOrigin: string;
+  };
   readonly privacy: {
     readonly textRedaction: string;
     readonly minidumpPolicy: string;
@@ -55,7 +58,7 @@ interface DiagnosticManifest {
   readonly excludedMinidumps: Array<{ readonly fileName: string; readonly reason: string }>;
 }
 
-export function startDesktopDiagnostics(): DesktopDiagnosticsRuntime {
+export function startDesktopDiagnostics(authenticationOrigin: string): DesktopDiagnosticsRuntime {
   crashReporter.start(createLocalCrashReporterOptions(process.env.QUANT_RELEASE_CHANNEL));
 
   const logsDirectory = app.getPath("logs");
@@ -112,6 +115,7 @@ export function startDesktopDiagnostics(): DesktopDiagnosticsRuntime {
         electronApp: app,
         mainLogPath,
         rendererCrashPath,
+        authenticationOrigin,
       }),
     dispose() {
       app.removeListener("render-process-gone", handleRendererGone);
@@ -124,6 +128,7 @@ interface ExportDiagnosticPackageOptions {
   readonly electronApp: App;
   readonly mainLogPath: string;
   readonly rendererCrashPath: string;
+  readonly authenticationOrigin: string;
 }
 
 async function exportDiagnosticPackage(
@@ -215,6 +220,9 @@ function collectDiagnosticEntries(options: ExportDiagnosticPackageOptions): {
         electronVersion: process.versions.electron ?? "unknown",
         platform: process.platform,
         architecture: process.arch,
+      },
+      services: {
+        authenticationOrigin: options.authenticationOrigin,
       },
       privacy: {
         textRedaction: "Email, credentials, bearer/JWT tokens, URL secrets and codes are removed.",

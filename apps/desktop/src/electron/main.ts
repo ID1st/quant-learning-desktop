@@ -10,6 +10,7 @@ import { createPluginManager } from "./pluginManager";
 import { createPluginIpcHandlers } from "./pluginIpcContract";
 import { createPluginRuntimeHost } from "./pluginRuntimeHost";
 import { startDesktopDiagnostics } from "./desktopDiagnostics";
+import { resolveAuthBaseUrl } from "./authRuntimeConfig";
 import { registerDiagnosticsIpcHandlers } from "./diagnosticsIpc";
 import { createDiagnosticsIpcHandlers } from "./diagnosticsIpcContract";
 import {
@@ -39,7 +40,11 @@ if (releaseSmokeRequested) {
   validateReleaseSmokeUserDataPath(userDataPath, app.getPath("temp"));
   app.setPath("userData", userDataPath);
 }
-const desktopDiagnostics = startDesktopDiagnostics();
+declare const __QUANT_AUTH_BASE_URL__: string;
+
+const authenticationOrigin = new URL(resolveAuthBaseUrl(__QUANT_AUTH_BASE_URL__, app.isPackaged))
+  .origin;
+const desktopDiagnostics = startDesktopDiagnostics(authenticationOrigin);
 
 function configureAuthLifecycle(manager: AuthSessionManager): () => void {
   let expiryTimer: NodeJS.Timeout | null = null;

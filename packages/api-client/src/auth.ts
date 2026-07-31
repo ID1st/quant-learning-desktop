@@ -40,23 +40,32 @@ export type CloudRenewalResult = CloudSessionBundle | CloudSessionValidation;
 export class CloudAuthClientError extends Error {
   public readonly code: AuthErrorCode;
   public readonly retryAfterSeconds?: number;
+  public readonly requestId?: string;
 
-  public constructor(code: AuthErrorCode, message: string, retryAfterSeconds?: number) {
+  public constructor(
+    code: AuthErrorCode,
+    message: string,
+    retryAfterSeconds?: number,
+    requestId?: string,
+  ) {
     super(message);
     this.name = "CloudAuthClientError";
     this.code = code;
     this.retryAfterSeconds = retryAfterSeconds;
+    this.requestId = requestId;
   }
 
   public toJSON(): {
     code: AuthErrorCode;
     message: string;
     retryAfterSeconds?: number;
+    requestId?: string;
   } {
     return {
       code: this.code,
       message: this.message,
       ...(this.retryAfterSeconds ? { retryAfterSeconds: this.retryAfterSeconds } : {}),
+      ...(this.requestId ? { requestId: this.requestId } : {}),
     };
   }
 }
@@ -354,6 +363,9 @@ export function createCloudAuthClient(options: CloudAuthClientOptions): CloudAut
     }
 
     if (!response.ok) {
+      const rawRequestId = response.headers.get("x-request-id");
+      const requestId =
+        rawRequestId && /^[A-Za-z0-9_.:-]{1,128}$/.test(rawRequestId) ? rawRequestId : undefined;
       const rawError =
         payload && typeof payload === "object" && "error" in payload
           ? (payload.error as Record<string, unknown>)
@@ -368,7 +380,7 @@ export function createCloudAuthClient(options: CloudAuthClientOptions): CloudAut
             : "ACCESS_DENIED";
       const retryAfterSeconds =
         typeof rawError?.retryAfterSeconds === "number" ? rawError.retryAfterSeconds : undefined;
-      throw new CloudAuthClientError(code, safeMessage(code), retryAfterSeconds);
+      throw new CloudAuthClientError(code, safeMessage(code), retryAfterSeconds, requestId);
     }
 
     if (!payload || typeof payload !== "object" || !("data" in payload)) {

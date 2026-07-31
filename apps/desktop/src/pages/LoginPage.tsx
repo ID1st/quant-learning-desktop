@@ -61,7 +61,8 @@ function AuthMessage({ error, status }: { error: string; status: string }) {
 }
 
 function errorText(error: AuthOperationError): string {
-  return authErrorMessage(error.code, error.retryAfterSeconds);
+  const message = authErrorMessage(error.code, error.retryAfterSeconds);
+  return error.requestId ? `${message} 请求编号：${error.requestId}` : message;
 }
 
 function useCountdown() {

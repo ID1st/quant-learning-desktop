@@ -6,6 +6,7 @@ secrets_dir="${service_root}/secrets"
 smtp_password_file="${1:-${secrets_dir}/smtp.password}"
 auth_env="${secrets_dir}/auth.env"
 postgres_env="${secrets_dir}/postgres.env"
+admin_email="${AUTH_ADMIN_EMAIL:-}"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "This script must run as root." >&2
@@ -19,6 +20,11 @@ fi
 
 if [[ ! -f "${smtp_password_file}" ]]; then
   echo "SMTP password file is missing: ${smtp_password_file}" >&2
+  exit 1
+fi
+
+if [[ ! "${admin_email}" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
+  echo "AUTH_ADMIN_EMAIL must contain the pre-authorized administrator email." >&2
   exit 1
 fi
 
@@ -69,6 +75,7 @@ printf '%s\n' \
   "AUTH_HOST=0.0.0.0" \
   "AUTH_PORT=8787" \
   "AUTH_LOG_LEVEL=info" \
+  "AUTH_ADMIN_EMAIL=${admin_email}" \
   "AUTH_INVITE_CODE_PEPPER=${invite_pepper}" \
   "AUTH_TOKEN_PEPPER=${token_pepper}" \
   "AUTH_EMAIL_CODE_PEPPER=${email_pepper}" \

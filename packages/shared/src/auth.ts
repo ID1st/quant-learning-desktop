@@ -70,6 +70,7 @@ export interface AuthOperationError {
   code: AuthErrorCode;
   message: string;
   retryAfterSeconds?: number;
+  requestId?: string;
 }
 
 export type AuthOperationResult<T> =

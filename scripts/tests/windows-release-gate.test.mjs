@@ -85,7 +85,7 @@ test("release report records hashes, signatures, migration and rollback guidance
     calendarCoverage: ["CN: 2025-01-01..2028-12-31"],
   });
 
-  assert.equal(report.latestCloudMigration, "002_email_outbox_leases.sql");
+  assert.equal(report.latestCloudMigration, "003_admin_invite_management.sql");
   assert.equal(report.artifact.authenticode.Status, "Valid");
   assert.equal(report.artifact.sha256.length, 64);
   assert.match(readFileSync(jsonPath, "utf8"), /windows-x64/u);

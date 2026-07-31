@@ -13,9 +13,13 @@ $temporaryArchive = Join-Path $resolvedOutput ".quant-auth-$timestamp.tar.gz"
 
 Push-Location $workspaceRoot
 try {
+  & npm.cmd run build:admin-web
+  if ($LASTEXITCODE -ne 0) {
+    throw "admin web build failed with exit code $LASTEXITCODE"
+  }
+
   & tar.exe `
     --exclude="node_modules" `
-    --exclude="dist" `
     --exclude="out" `
     --exclude="release" `
     --exclude=".git" `
@@ -29,6 +33,7 @@ try {
     apps/cloud-server/tsconfig.json `
     apps/cloud-server/migrations `
     apps/cloud-server/src `
+    apps/admin-web/dist `
     packages/shared/package.json `
     packages/shared/src `
     deploy/cloud

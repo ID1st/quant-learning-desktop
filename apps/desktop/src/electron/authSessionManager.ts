@@ -69,6 +69,7 @@ function operationError(error: unknown): AuthOperationResult<never> {
         code: error.code,
         message: error.message,
         ...(error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
+        ...(error.requestId ? { requestId: error.requestId } : {}),
       },
     };
   }

@@ -51,7 +51,10 @@ test("cloud auth errors expose only renderer-safe error codes", async () => {
         }),
         {
           status: 400,
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            "x-request-id": "req-invite-123",
+          },
         },
       ),
   });
@@ -68,6 +71,7 @@ test("cloud auth errors expose only renderer-safe error codes", async () => {
     (error: unknown) => {
       assert.equal(error instanceof CloudAuthClientError, true);
       assert.equal((error as CloudAuthClientError).code, "INVITE_EXPIRED");
+      assert.equal((error as CloudAuthClientError).requestId, "req-invite-123");
       assert.equal(JSON.stringify(error).includes("internalSql"), false);
       return true;
     },

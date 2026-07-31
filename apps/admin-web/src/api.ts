@@ -50,14 +50,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   const payload = (await response.json().catch(() => null)) as
-    Envelope<T> | { message?: string } | null;
+    Envelope<T> | { message?: string } | { error?: { message?: string } } | null;
   if (!response.ok) {
     const message =
-      payload && "message" in payload && payload.message
-        ? payload.message
-        : response.status === 401
-          ? "管理员会话已失效，请重新登录。"
-          : "请求未完成，请稍后重试。";
+      payload && "error" in payload && payload.error?.message
+        ? payload.error.message
+        : payload && "message" in payload && payload.message
+          ? payload.message
+          : response.status === 401
+            ? "管理员会话已失效，请重新登录。"
+            : "请求未完成，请稍后重试。";
     throw new AdminApiError(message, response.status);
   }
   if (!payload || !("data" in payload)) {
@@ -76,7 +78,7 @@ export const adminApi = {
   login(email: string, code: string) {
     return request<{ admin: AdminIdentity }>("/sessions", {
       method: "POST",
-      body: JSON.stringify({ email, code }),
+      body: JSON.stringify({ email, emailCode: code }),
     });
   },
   session() {
