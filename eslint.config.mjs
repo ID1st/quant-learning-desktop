@@ -53,7 +53,11 @@ export default defineConfig(
     },
   },
   {
-    files: ["apps/desktop/src/**/*.{ts,tsx}", "packages/ui/src/**/*.{ts,tsx}"],
+    files: [
+      "apps/admin-web/src/**/*.{ts,tsx}",
+      "apps/desktop/src/**/*.{ts,tsx}",
+      "packages/ui/src/**/*.{ts,tsx}",
+    ],
     plugins: {
       "react-hooks": reactHooks,
     },

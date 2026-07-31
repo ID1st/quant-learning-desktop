@@ -3,6 +3,6 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["apps/cloud-server/src", "apps/desktop/src", "packages/*/src"],
+  "include": ["apps/admin-web/src", "apps/cloud-server/src", "apps/desktop/src", "packages/*/src"],
   "exclude": ["prototype", "node_modules", "dist"]
 }

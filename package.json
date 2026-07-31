@@ -14,6 +14,7 @@
   "scripts": {
     "dev": "npm run dev -w @quant/desktop",
     "build": "npm run build -w @quant/desktop",
+    "build:admin-web": "npm run build -w @quant/admin-web",
     "build:cloud": "npm run build -w @quant/cloud-server",
     "typecheck": "tsc -p tsconfig.check.json --noEmit",
     "lint": "eslint apps packages scripts --max-warnings=0",
@@ -21,6 +22,7 @@
     "format:check": "prettier . --check --ignore-unknown",
     "coverage": "node scripts/run-coverage.mjs",
     "test:api-client": "node --test --experimental-strip-types packages/api-client/tests/*.test.ts",
+    "test:admin-web": "npm run test -w @quant/admin-web",
     "test:cloud": "npm run test -w @quant/cloud-server",
     "test:chart": "node --test --experimental-strip-types packages/chart/tests/*.test.ts",
     "test:desktop": "node --test --experimental-strip-types apps/desktop/tests/*.test.ts",
@@ -37,13 +39,13 @@
     "smoke:plugin-runtime": "npm run build:electron -w @quant/desktop && node scripts/plugin-runtime-electron-smoke.mjs",
     "optimize:preset-strategies": "node --experimental-strip-types scripts/preset-strategy-parameter-sweep.mjs",
     "test:strategy-engine": "node --test --experimental-strip-types packages/strategy-engine/tests/*.test.ts",
-    "test": "npm run test:api-client && npm run test:cloud && npm run test:chart && npm run test:desktop && npm run test:pine-runtime && npm run test:plugin-loader && npm run test:strategy-engine && npm run test:release",
+    "test": "npm run test:admin-web && npm run test:api-client && npm run test:cloud && npm run test:chart && npm run test:desktop && npm run test:pine-runtime && npm run test:plugin-loader && npm run test:strategy-engine && npm run test:release",
     "auth:invite:batch-create": "npm run auth:invite:batch-create -w @quant/cloud-server --",
     "auth:invite:batch-verify": "npm run auth:invite:batch-verify -w @quant/cloud-server --",
     "auth:admin:provision": "npm run auth:admin:provision -w @quant/cloud-server --",
     "ops:cloud:audit": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/codex-cloud-audit.ps1",
     "quality": "npm run lint && npm run format:check && npm run typecheck && npm run coverage",
-    "check": "npm run quality && npm run build:cloud && npm run build && npm run build:electron -w @quant/desktop",
+    "check": "npm run quality && npm run build:admin-web && npm run build:cloud && npm run build && npm run build:electron -w @quant/desktop",
     "clean": "node scripts/clean.mjs"
   },
   "devDependencies": {
