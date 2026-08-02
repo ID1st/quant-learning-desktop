@@ -1,4 +1,7 @@
-import type { ChartStrategyWorkspaceState } from "../strategies/chartStrategyRuntime.ts";
+import {
+  formatStrategyDisplayName,
+  type ChartStrategyWorkspaceState,
+} from "../strategies/chartStrategyRuntime.ts";
 
 export interface StrategyQuickMenuDefinition {
   readonly key: string;
@@ -21,7 +24,7 @@ export function createStrategyQuickMenuItems(
 ): StrategyQuickMenuItem[] {
   return strategies.map((strategy) => ({
     key: strategy.key,
-    name: strategy.name,
+    name: formatStrategyDisplayName(strategy.name),
     sourceType: strategy.sourceType,
     enabled: settingsByStrategyKey[strategy.key]?.enabled ?? false,
     hasParameters: strategy.parameterSchema.length > 0,

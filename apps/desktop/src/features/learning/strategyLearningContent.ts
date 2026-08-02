@@ -392,7 +392,11 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
       { title: "常见局限", content: "反应更快也意味着横盘时更容易被短期波动干扰。" },
     ],
     parameters: [
-      { name: "EMA 周期", defaultValue: "20", description: "控制平滑程度和对最新价格的敏感度。" },
+      {
+        name: "EMA 周期",
+        defaultValue: "5 / 10 / 20 / 60",
+        description: "系统同时显示四条 EMA；每个周期控制相应曲线的平滑程度和对最新价格的敏感度。",
+      },
     ],
     chartOutputs: ["指数趋势线"],
     risks: ["EMA 对短期波动敏感，单独使用容易过度交易。", "应结合价格结构和风险控制阅读。"],
@@ -422,5 +426,327 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
     ],
     chartOutputs: ["上轨", "中轨", "下轨"],
     risks: ["布林带描述波动，不提供确定方向。", "参数改变会明显影响带宽与观察结果。"],
+  },
+  {
+    id: "bbi",
+    category: "indicator",
+    title: "BBI 多空指标",
+    subtitle: "将多条不同周期的简单移动平均线再取平均，用一条线概括中短期趋势。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["分时", "日线", "周线"],
+    placement: "主图叠加",
+    sections: [
+      {
+        title: "计算含义",
+        content: "系统分别计算 3、6、12、24 周期的 MA，并对四条均线取平均得到 BBI。",
+      },
+      {
+        title: "图表含义",
+        content:
+          "价格与 BBI 的相对位置可用于观察趋势强弱；BBI 上扬或下行反映各周期均线的共同方向。",
+      },
+      {
+        title: "常见局限",
+        content: "BBI 仍由历史价格构成，在快速反转和横盘阶段会滞后或频繁交叉。",
+      },
+    ],
+    parameters: [
+      {
+        name: "四组周期",
+        defaultValue: "3 / 6 / 12 / 24",
+        description: "分别控制参与平均的四条 MA；每个周期完成预热后才产生对应结果。",
+      },
+    ],
+    chartOutputs: ["BBI 单线", "最新 BBI 图例数值"],
+    risks: ["BBI 是趋势观察工具，不构成买卖指令。", "缩短周期会更灵敏，也会增加噪声。"],
+  },
+  {
+    id: "ene",
+    category: "indicator",
+    title: "ENE 轨道线",
+    subtitle: "以均线为中轨，按上下偏离百分比形成价格轨道，观察相对位置与波动区间。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["分时", "日线", "周线"],
+    placement: "主图叠加",
+    sections: [
+      {
+        title: "计算含义",
+        content: "中轨为 N 周期 MA，上轨和下轨分别在中轨基础上按设定百分比上移、下移。",
+      },
+      {
+        title: "图表含义",
+        content: "系统绘制 UP、ENE、LOW 三条轨道；价格接近轨道仅说明相对偏离程度。",
+      },
+      {
+        title: "常见局限",
+        content: "固定百分比不能自动适应所有标的与波动状态，强趋势中价格可持续停留在轨道外侧。",
+      },
+    ],
+    parameters: [
+      { name: "周期", defaultValue: "10", description: "中轨 MA 的计算窗口。" },
+      {
+        name: "上下轨偏离",
+        defaultValue: "11% / 9%",
+        description: "分别控制上轨与下轨相对中轨的百分比距离。",
+      },
+    ],
+    chartOutputs: ["UP 上轨", "ENE 中轨", "LOW 下轨"],
+    risks: ["轨道突破不是确定反转或突破信号。", "参数应与标的波动特征一起复核。"],
+  },
+  {
+    id: "sar",
+    category: "indicator",
+    title: "SAR 抛物线转向指标",
+    subtitle: "用随趋势推进而加速的点状止损线，帮助观察趋势跟随与潜在转向。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["分时", "日线", "周线"],
+    placement: "主图叠加",
+    sections: [
+      {
+        title: "计算含义",
+        content:
+          "SAR 从起始加速因子出发，趋势延续时按步长增加，直至最大加速因子；反向穿越时重置方向。",
+      },
+      {
+        title: "图表含义",
+        content: "系统在主图绘制金色 SAR 点。点位在价格下方或上方用于描述当前跟踪方向。",
+      },
+      { title: "常见局限", content: "横盘与剧烈震荡会让 SAR 频繁翻转，造成连续的假转向。" },
+    ],
+    parameters: [
+      {
+        name: "加速因子",
+        defaultValue: "起始 0.02 / 步长 0.02 / 最大 0.20",
+        description: "决定 SAR 跟随价格收紧的初始速度、递增速度和上限。",
+      },
+    ],
+    chartOutputs: ["SAR 点列", "最新 SAR 图例数值"],
+    risks: ["SAR 不是固定止损或自动交易规则。", "更高加速因子会更快跟随，也更易受短期波动影响。"],
+  },
+  {
+    id: "mavol",
+    category: "indicator",
+    title: "MAVOL 成交量均线",
+    subtitle: "在成交量副图中叠加两条成交量均线，用于比较当前量能与近期平均水平。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["分时", "日线", "周线"],
+    placement: "副图预留",
+    sections: [
+      { title: "计算含义", content: "系统显示成交量柱，并计算两个周期的成交量简单移动平均线。" },
+      {
+        title: "图表含义",
+        content: "上涨 K 线与下跌 K 线的成交量柱以不同颜色显示，MA5 和 MA10 用于观察量能变化。",
+      },
+      {
+        title: "常见局限",
+        content: "成交量的含义依赖市场、交易时段和标的流动性，不能脱离价格结构单独判断。",
+      },
+    ],
+    parameters: [
+      {
+        name: "成交量均线周期",
+        defaultValue: "5 / 10",
+        description: "分别控制短期与长期成交量均线的平滑窗口。",
+      },
+    ],
+    chartOutputs: ["VOL 成交量柱", "MA5", "MA10"],
+    risks: [
+      "异常大单或交易时段切换会扭曲短期均量。",
+      "副图一次只显示一个技术指标，启用其他副图指标会替换它。",
+    ],
+  },
+  {
+    id: "macd",
+    category: "indicator",
+    title: "MACD 平滑异同移动平均线",
+    subtitle: "比较快慢 EMA 的差值及其信号线，结合柱状图观察趋势动量变化。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["分时", "日线", "周线"],
+    placement: "副图预留",
+    sections: [
+      {
+        title: "计算含义",
+        content:
+          "DIF 为快慢 EMA 的差值，DEA 为 DIF 的平滑线，柱状图为两者差值；系统按所选市场口径计算。",
+      },
+      {
+        title: "图表含义",
+        content: "副图显示 MACD 柱、DIF、DEA 和零轴，交叉与零轴位置可用于研究动量的变化。",
+      },
+      { title: "常见局限", content: "MACD 在趋势确认后才明显变化，震荡市中交叉信号可能较多。" },
+    ],
+    parameters: [
+      {
+        name: "快线 / 慢线 / 信号",
+        defaultValue: "12 / 26 / 9",
+        description: "分别控制两条 EMA 和 DEA 平滑的周期；周期越短，响应越快。",
+      },
+    ],
+    chartOutputs: ["MACD 正负柱", "DIF", "DEA", "零轴"],
+    risks: [
+      "MACD 是滞后型动量指标，不预测未来。",
+      "副图一次只显示一个技术指标，启用其他副图指标会替换它。",
+    ],
+  },
+  {
+    id: "vol",
+    category: "indicator",
+    title: "VOL 成交量",
+    subtitle: "显示每根 K 线对应的成交量，以量能变化辅助阅读价格行为。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["分时", "日线", "周线"],
+    placement: "副图预留",
+    sections: [
+      {
+        title: "计算含义",
+        content: "系统直接使用行情 K 线的 volume 字段，并将非有限值按 0 处理。",
+      },
+      {
+        title: "图表含义",
+        content: "副图以柱状显示成交量；收盘不低于开盘的柱使用上涨色，反之使用下跌色。",
+      },
+      {
+        title: "常见局限",
+        content: "不同数据源和市场的成交量单位、口径可能不同，比较前应确认数据定义。",
+      },
+    ],
+    parameters: [
+      {
+        name: "参数",
+        defaultValue: "无",
+        description: "当前 VOL 仅展示原始成交量，不提供可配置参数。",
+      },
+    ],
+    chartOutputs: ["上涨 / 下跌成交量柱"],
+    risks: [
+      "零成交量不必然代表无交易，也可能是数据缺失或市场休市。",
+      "副图一次只显示一个技术指标，启用其他副图指标会替换它。",
+    ],
+  },
+  {
+    id: "kdj",
+    category: "indicator",
+    title: "KDJ 随机指标",
+    subtitle: "通过 RSV 及 K、D、J 三条平滑线，观察价格在近期高低区间中的位置与动量。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["分时", "日线", "周线"],
+    placement: "副图预留",
+    sections: [
+      {
+        title: "计算含义",
+        content: "RSV 衡量收盘价在 N 周期最高最低区间的位置；K 和 D 依次平滑，J 由 K、D 推导。",
+      },
+      { title: "图表含义", content: "副图绘制 K、D、J 三条线，线条位置和交叉可用于研究动量变化。" },
+      {
+        title: "常见局限",
+        content: "超买超卖状态可以持续很久，尤其在强趋势中不宜仅据此逆势判断。",
+      },
+    ],
+    parameters: [
+      {
+        name: "RSV / K / D",
+        defaultValue: "9 / 3 / 3",
+        description: "分别控制 RSV 窗口、K 平滑和 D 平滑的长度。",
+      },
+    ],
+    chartOutputs: ["K 线", "D 线", "J 线"],
+    risks: ["J 值的波动通常大于 K、D。", "副图一次只显示一个技术指标，启用其他副图指标会替换它。"],
+  },
+  {
+    id: "rsi",
+    category: "indicator",
+    title: "RSI 相对强弱指标",
+    subtitle: "比较指定周期内上涨与下跌幅度的相对强度，读取价格动量的区间位置。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["分时", "日线", "周线"],
+    placement: "副图预留",
+    sections: [
+      {
+        title: "计算含义",
+        content:
+          "RSI 以平均上涨与平均下跌幅度计算，结果限定在 0 至 100；可同时显示最多三条有效周期线。",
+      },
+      {
+        title: "图表含义",
+        content: "跨市场口径使用 30/70 参考线；A 股口径使用 20/80，并默认显示 RSI6、RSI12、RSI24。",
+      },
+      { title: "常见局限", content: "RSI 高低位是相对动量描述，不能保证价格马上反转。" },
+    ],
+    parameters: [
+      {
+        name: "周期",
+        defaultValue: "跨市场 14；A股 6 / 12 / 24",
+        description: "设为 0 的附加周期不会显示；有效周期必须不小于 2。",
+      },
+    ],
+    chartOutputs: ["RSI 曲线", "20/80 或 30/70 参考线"],
+    risks: ["应按当前市场口径解读阈值。", "副图一次只显示一个技术指标，启用其他副图指标会替换它。"],
+  },
+  {
+    id: "wr",
+    category: "indicator",
+    title: "WR 威廉指标",
+    subtitle: "衡量收盘价在近期最高最低价区间内的相对位置，数值范围为 -100 至 0。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["分时", "日线", "周线"],
+    placement: "副图预留",
+    sections: [
+      {
+        title: "计算含义",
+        content: "WR 根据收盘价与 N 周期最高、最低价的距离计算；系统可显示两条有效周期线。",
+      },
+      {
+        title: "图表含义",
+        content: "副图提供 -80 与 -20 参考线，帮助观察区间位置，不等同于交易触发条件。",
+      },
+      { title: "常见局限", content: "强趋势中 WR 可以长期停留在极端区间，过早反向操作风险较高。" },
+    ],
+    parameters: [
+      {
+        name: "周期",
+        defaultValue: "跨市场 14；A股 10 / 6",
+        description: "设为 0 的第二周期不会显示；有效周期必须不小于 2。",
+      },
+    ],
+    chartOutputs: ["WR 曲线", "-80 / -20 参考线"],
+    risks: [
+      "WR 为反向刻度，数值越接近 0 表示越接近区间高位。",
+      "副图一次只显示一个技术指标，启用其他副图指标会替换它。",
+    ],
+  },
+  {
+    id: "cci",
+    category: "indicator",
+    title: "CCI 顺势指标",
+    subtitle: "比较典型价格与其移动平均、平均偏差的距离，观察价格偏离常态的程度。",
+    markets: ["美股", "港股", "A股"],
+    timeframes: ["分时", "日线", "周线"],
+    placement: "副图预留",
+    sections: [
+      {
+        title: "计算含义",
+        content: "CCI 以典型价格、N 周期均值和平均偏差计算，常数用于调整读数尺度。",
+      },
+      {
+        title: "图表含义",
+        content: "副图显示 CCI 线、零轴和 -100/100 参考线，用于研究偏离的方向与幅度。",
+      },
+      {
+        title: "常见局限",
+        content: "固定阈值对不同标的和周期的适用性不同，极端值不保证后续回归。",
+      },
+    ],
+    parameters: [
+      {
+        name: "周期 / 常数",
+        defaultValue: "14 / 0.015",
+        description: "周期决定均值与平均偏差窗口，常数决定 CCI 的缩放。",
+      },
+    ],
+    chartOutputs: ["CCI 曲线", "零轴", "-100 / 100 参考线"],
+    risks: [
+      "CCI 不宜被单独用作买卖依据。",
+      "副图一次只显示一个技术指标，启用其他副图指标会替换它。",
+    ],
   },
 ];

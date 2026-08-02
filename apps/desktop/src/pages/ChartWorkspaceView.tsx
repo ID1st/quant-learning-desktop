@@ -13,6 +13,7 @@ import {
   setIndicatorEnabled,
   updateIndicatorParameter,
 } from "../features/chartIndicators/chartIndicators";
+import { formatStrategyDisplayName } from "../features/strategies/chartStrategyRuntime";
 
 import {
   CircleAlert,
@@ -676,7 +677,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
           onClick={() => setActiveConfigStrategyKey(null)}
         >
           <section
-            aria-label={`${activeConfigStrategyRun.strategy.name} 参数配置`}
+            aria-label={`${formatStrategyDisplayName(activeConfigStrategyRun.strategy.name)} 参数配置`}
             className="strategy-config-dialog"
             role="dialog"
             onClick={(event) => event.stopPropagation()}
@@ -684,7 +685,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
             <div className="strategy-config-heading">
               <div>
                 <p>策略参数</p>
-                <strong>{activeConfigStrategyRun.strategy.name}</strong>
+                <strong>{formatStrategyDisplayName(activeConfigStrategyRun.strategy.name)}</strong>
               </div>
               <button onClick={() => setActiveConfigStrategyKey(null)} type="button">
                 关闭

@@ -205,11 +205,11 @@ export function buildChartStrategyLogItems(
   return runs.flatMap(({ result, settings }) =>
     settings.enabled
       ? [
-          `运行 ${result.strategy.name}，标的 ${context.symbol}，周期 ${context.timeframe}。`,
+          `运行 ${formatStrategyDisplayName(result.strategy.name)}，标的 ${context.symbol}，周期 ${context.timeframe}。`,
           ...result.output.logs,
           ...result.output.alerts.map((alert) => `提醒：${alert}`),
         ]
-      : [`${result.strategy.name} 当前已停用。`],
+      : [`${formatStrategyDisplayName(result.strategy.name)} 当前已停用。`],
   );
 }
 
@@ -232,14 +232,11 @@ export function buildChartStrategySignalRows(
 }
 
 export function formatChartStrategySignalName(strategy: Pick<StrategyDefinition, "key" | "name">) {
-  if (strategy.key === "smart-money-concepts") {
-    return strategy.name.replace(/\s*\[LuxAlgo\]$/, "");
-  }
-  if (strategy.key === "machine-learning-price-targets") {
-    return strategy.name.replace(/\s*\[AlgoAlpha\]$/, "");
-  }
+  return formatStrategyDisplayName(strategy.name);
+}
 
-  return strategy.name;
+export function formatStrategyDisplayName(name: string) {
+  return name.replace(/\s*\[(?:LuxAlgo|AlgoAlpha)\]$/u, "");
 }
 
 export function createFailedStrategyRunResult(
@@ -266,13 +263,13 @@ export function createFailedStrategyRunResult(
       overlays: [],
       render: {
         strategyId: strategy.key,
-        strategyName: strategy.name,
+        strategyName: formatStrategyDisplayName(strategy.name),
         enabled: false,
         zIndex: 10,
         elements: [],
       },
       metrics: {},
-      logs: [`${strategy.name} 运行失败：${message}`],
+      logs: [`${formatStrategyDisplayName(strategy.name)} 运行失败：${message}`],
       alerts: [],
     },
   };

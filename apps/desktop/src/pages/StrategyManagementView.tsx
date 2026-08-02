@@ -30,6 +30,7 @@ import {
   formatOverlay,
   formatTranslationStatus,
 } from "./strategyManagementModel";
+import { formatStrategyDisplayName } from "../features/strategies/chartStrategyRuntime";
 
 import type { StrategyManagementController } from "./StrategyManagementPage";
 
@@ -745,7 +746,7 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
                   type="button"
                 >
                   <span>
-                    <strong>{strategy.name}</strong>
+                    <strong>{formatStrategyDisplayName(strategy.name)}</strong>
                     <small>{strategy.sourceFile}</small>
                   </span>
                   <em className={isEnabled ? "enabled" : "disabled"}>
@@ -783,7 +784,7 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
           <div className="strategy-detail-header">
             <div>
               <p>{selectedStrategy.sourceType.toUpperCase()}</p>
-              <h2>{selectedStrategy.name}</h2>
+              <h2>{formatStrategyDisplayName(selectedStrategy.name)}</h2>
               <span>{selectedStrategy.description}</span>
             </div>
             <div className="strategy-detail-actions">

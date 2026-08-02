@@ -64,7 +64,7 @@ describe("chart strategy runtime", () => {
     assert.equal(getMlptChartNotice([createRun(1, 1_200)]), null);
   });
 
-  it("hides the LuxAlgo suffix only in SMC signal panel names", () => {
+  it("hides LuxAlgo and AlgoAlpha suffixes in strategy display names", () => {
     assert.equal(
       formatChartStrategySignalName({
         key: "smart-money-concepts",
@@ -74,7 +74,7 @@ describe("chart strategy runtime", () => {
     );
     assert.equal(
       formatChartStrategySignalName({ key: "example-plugin", name: "Example [LuxAlgo]" }),
-      "Example [LuxAlgo]",
+      "Example",
     );
     assert.equal(
       formatChartStrategySignalName({

@@ -1,4 +1,5 @@
 import { setIndicatorEnabled } from "../features/chartIndicators/chartIndicators";
+import { formatStrategyDisplayName } from "../features/strategies/chartStrategyRuntime";
 
 import {
   Bell,
@@ -195,7 +196,7 @@ export function ChartWorkspaceBottomPanel({ controller }: ChartWorkspaceBottomPa
                   >
                     <span>
                       <strong>
-                        {strategy.name}
+                        {formatStrategyDisplayName(strategy.name)}
                         <em className={`strategy-source-badge ${strategy.sourceType}`}>
                           {formatStrategySource(strategy)}
                         </em>
@@ -242,7 +243,7 @@ export function ChartWorkspaceBottomPanel({ controller }: ChartWorkspaceBottomPa
                         参数
                       </button>
                       <button
-                        aria-label={`${strategy.name} 上移图层`}
+                        aria-label={`${formatStrategyDisplayName(strategy.name)} 上移图层`}
                         onClick={() => moveLayer(strategy.key, -1)}
                         title="上移图层"
                         type="button"
@@ -250,7 +251,7 @@ export function ChartWorkspaceBottomPanel({ controller }: ChartWorkspaceBottomPa
                         上移
                       </button>
                       <button
-                        aria-label={`${strategy.name} 下移图层`}
+                        aria-label={`${formatStrategyDisplayName(strategy.name)} 下移图层`}
                         onClick={() => moveLayer(strategy.key, 1)}
                         title="下移图层"
                         type="button"

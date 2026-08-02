@@ -9,6 +9,7 @@ import {
   type BacktestSettings,
   type StrategyParameterDefinition,
 } from "@quant/strategy-engine";
+import { formatStrategyDisplayName } from "../features/strategies/chartStrategyRuntime";
 import { useUserStrategyDraftStore } from "../features/strategies/userStrategyDraftStore";
 import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 import { useChartStudySettingsStore } from "../features/chartWorkspace/chartStudySettingsStore";
@@ -285,8 +286,9 @@ export function useStrategyManagementController() {
 
   const toggleStrategy = (strategyKey: string) => {
     const nextStatus = studyStrategySettings[strategyKey]?.enabled ? "disabled" : "enabled";
-    const strategyName =
-      strategies.find((strategy) => strategy.key === strategyKey)?.name ?? "策略";
+    const strategyName = formatStrategyDisplayName(
+      strategies.find((strategy) => strategy.key === strategyKey)?.name ?? "策略",
+    );
     updateStudyStrategy(strategyKey, (current) => ({
       ...current,
       enabled: nextStatus === "enabled",
@@ -368,7 +370,7 @@ export function useStrategyManagementController() {
           `backtest-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         createdAt: new Date().toISOString(),
         strategyKey: selectedStrategy.key,
-        strategyName: selectedStrategy.name,
+        strategyName: formatStrategyDisplayName(selectedStrategy.name),
         strategyVersion: selectedStrategy.version,
         symbol: selectedBacktestContext.symbol,
         market: selectedBacktestContext.market,
@@ -382,7 +384,7 @@ export function useStrategyManagementController() {
       setIsBacktestDialogOpen(false);
       pushToast({
         tone: "success",
-        title: `${selectedStrategy.name} 回测完成`,
+        title: `${formatStrategyDisplayName(selectedStrategy.name)} 回测完成`,
         detail: `${run.symbol} ${formatBacktestTimeframe(run.timeframe)}，生成 ${result.summary.tradeCount} 笔双向成交记录。`,
         durationMs: 3200,
       });

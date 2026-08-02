@@ -6,6 +6,7 @@ import {
 } from "@quant/strategy-engine";
 
 import { toChartLayerElement } from "../features/strategies/strategyVisualAdapter";
+import { formatStrategyDisplayName } from "../features/strategies/chartStrategyRuntime";
 
 const fixtureBars = createSmcVisualFixture();
 const fixtureOutput = runRegisteredStrategy(createPresetStrategyRegistry(), {
@@ -30,7 +31,7 @@ const fixtureOutput = runRegisteredStrategy(createPresetStrategyRegistry(), {
 
 const smcLayer: ChartLayer = {
   strategyId: fixtureOutput.render.strategyId,
-  strategyName: fixtureOutput.render.strategyName,
+  strategyName: formatStrategyDisplayName(fixtureOutput.render.strategyName),
   enabled: true,
   zIndex: fixtureOutput.render.zIndex,
   elements: fixtureOutput.render.elements.map(toChartLayerElement),
@@ -41,7 +42,7 @@ export function SmcVisualQaPage() {
     <main className="smc-visual-qa">
       <div className="smc-visual-qa-title">
         <strong>U.S. Dollar Index · SMC visual fixture</strong>
-        <span>Smart Money Concepts [LuxAlgo]</span>
+        <span>Smart Money Concepts</span>
       </div>
       <ChartViewport
         canvasHeight={842}

@@ -9,6 +9,7 @@ import {
 } from "@quant/strategy-engine";
 import { usePluginRuntimeStore } from "../features/plugins/pluginRuntimeStore";
 import {
+  formatStrategyDisplayName,
   getMlptChartNotice,
   runChartStrategies,
   type ChartStrategyWorkspaceState,
@@ -154,6 +155,7 @@ export function useChartStrategyRuns({
     () =>
       strategyRuns.map(({ result, settings }) => ({
         ...result.output.render,
+        strategyName: formatStrategyDisplayName(result.output.render.strategyName),
         enabled: result.output.render.enabled && settings.enabled && settings.showLayer,
         elements: result.output.render.elements.map(toChartLayerElement),
       })),
