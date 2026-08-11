@@ -32,7 +32,7 @@ export function MlPriceTargetsVisualQaPage() {
     <main className="ml-price-targets-visual-qa">
       <div className="ml-price-targets-visual-qa-title">
         <strong>Bitcoin / Tether · 1m · Visual fixture</strong>
-        <span>Machine Learning Price Targets · EMA Cross (Fast Slow)</span>
+        <span>Machine Learning Price Movement Study · EMA Cross (Fast Slow)</span>
       </div>
       <ChartViewport
         canvasHeight={806}

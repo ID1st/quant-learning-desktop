@@ -7,6 +7,7 @@ import {
   type StrategyRegistry,
   type StrategyRunRequest,
   type StrategyRunResult,
+  type StrategySignal,
 } from "@quant/strategy-engine";
 import type { Market, Timeframe } from "@quant/shared";
 
@@ -28,10 +29,22 @@ export interface ChartStrategySignalRow {
   timestamp: number;
   strategyName: string;
   time: string;
-  direction: "向上突破" | "向下突破" | "提醒";
+  direction: StrategyConditionEventLabel;
   tone: "buy" | "sell" | "exit" | "alert";
   price: string;
   label: string;
+}
+
+export type StrategyConditionEventLabel =
+  "向上条件触发" | "向下条件触发" | "条件失效" | "规则条件触发";
+
+export function formatStrategyConditionEventType(
+  type: StrategySignal["type"],
+): StrategyConditionEventLabel {
+  if (type === "buy") return "向上条件触发";
+  if (type === "sell") return "向下条件触发";
+  if (type === "exit") return "条件失效";
+  return "规则条件触发";
 }
 
 export interface RunChartStrategiesOptions {
@@ -127,8 +140,8 @@ export function getMlptChartNotice(runs: readonly ChartStrategyRunItem[]) {
   );
   const minimumBars = mlptRun.strategy.realtimeHistoryRequirement?.minimumBars ?? 1_000;
   return confirmedBarCount < minimumBars
-    ? `MLPT 数据不足：已确认 ${confirmedBarCount} / ${minimumBars} 根分钟线，预测图层暂未加载`
-    : "MLPT 正在等待有效训练样本，预测图层暂未加载";
+    ? `MLPT 数据不足：已确认 ${confirmedBarCount} / ${minimumBars} 根分钟线，模型估计图层暂未加载`
+    : "MLPT 正在等待有效训练样本，模型估计图层暂未加载";
 }
 
 export function runChartStrategies(options: RunChartStrategiesOptions): ChartStrategyRunItem[] {
@@ -207,7 +220,7 @@ export function buildChartStrategyLogItems(
       ? [
           `运行 ${formatStrategyDisplayName(result.strategy.name)}，标的 ${context.symbol}，周期 ${context.timeframe}。`,
           ...result.output.logs,
-          ...result.output.alerts.map((alert) => `提醒：${alert}`),
+          ...result.output.alerts.map((alert) => `规则条件事件：${alert}`),
         ]
       : [`${formatStrategyDisplayName(result.strategy.name)} 当前已停用。`],
   );
@@ -223,10 +236,10 @@ export function buildChartStrategySignalRows(
       timestamp: signal.timestamp,
       strategyName: formatChartStrategySignalName(result.strategy),
       time: formatSignalTime(signal.timestamp),
-      direction: signal.type === "buy" ? "向上突破" : signal.type === "sell" ? "向下突破" : "提醒",
+      direction: formatStrategyConditionEventType(signal.type),
       tone: signal.type,
       price: signal.price === undefined ? "-" : signal.price.toFixed(2),
-      label: signal.label ?? "策略信号",
+      label: signal.label ?? "策略条件事件",
     })),
   );
 }

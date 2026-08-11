@@ -45,7 +45,7 @@ test("UTORB and Trend Targets learning entries link the audited originals and ex
     "https://www.tradingview.com/script/OXsSm5NV-Trend-Targets-AlgoAlpha/",
   );
   assert.ok(trendTargets?.chartOutputs.includes("趋势蜡烛着色"));
-  assert.ok(trendTargets?.chartOutputs.includes("入场 / 止损 / 三档目标投影"));
+  assert.ok(trendTargets?.chartOutputs.includes("条件触发参考 / 风险线 / 三档观察水平投影"));
 });
 
 test("ML price target learning entry explains RBF training, warmup, and indicator boundary", () => {

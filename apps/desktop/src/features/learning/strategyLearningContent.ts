@@ -44,7 +44,7 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
     id: "utorb",
     category: "strategy",
     title: "UTORB 开盘区间突破",
-    subtitle: "按指定时区逐日建立开盘区间，识别放量突破并跟踪扩展目标与 ATR 移动风险线。",
+    subtitle: "按指定时区逐日建立开盘区间，识别放量突破并跟踪扩展观察水平与 ATR 移动风险线。",
     markets: ["美股", "港股", "A股"],
     timeframes: ["分时", "1m", "5m", "15m", "30m"],
     placement: "主图叠加",
@@ -53,12 +53,12 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
       {
         title: "核心逻辑",
         content:
-          "策略按固定 UTC 偏移识别每日开盘时段，可使用最高/最低价或蜡烛实体形成区间。会话结束后，收盘价首次上穿或下穿区间边界时生成方向信号，每个方向每天最多一次。",
+          "策略按固定 UTC 偏移识别每日开盘时段，可使用最高/最低价或蜡烛实体形成区间。会话结束后，收盘价首次上穿或下穿区间边界时生成方向条件事件，每个方向每天最多一次。",
       },
       {
         title: "图表如何表达",
         content:
-          "区间带、高低线及上下六段扩展区域会持续到所选绘制结束时间；最新目标标签直接显示历史命中率。突破标签同时标注相对 20 根均量的高量/低量，移动风险线随 ATR 单向收紧。",
+          "区间带、高低线及上下六段扩展区域会持续到所选绘制结束时间；最新观察水平标签直接显示历史命中率。突破标签同时标注相对 20 根均量的高量/低量，移动风险线随 ATR 单向收紧。",
       },
       {
         title: "适合观察什么",
@@ -120,7 +120,7 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
     id: "trend-targets",
     category: "strategy",
     title: "Trend Targets 趋势目标",
-    subtitle: "对 Supertrend 上下轨中点做 WMA/EMA 双重平滑，以斜率拐点生成趋势信号。",
+    subtitle: "对 Supertrend 上下轨中点做 WMA/EMA 双重平滑，以斜率拐点生成趋势条件事件。",
     markets: ["美股", "港股", "A股"],
     timeframes: ["分时", "15m", "30m", "1h", "1d"],
     placement: "主图叠加",
@@ -134,11 +134,12 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
       {
         title: "拒绝与目标",
         content:
-          "K 线连续穿越当前趋势基准线超过确认次数后标记拒绝信号。最新趋势转变会按当根 K 线的 ATR 固定入场、止损和三档目标，并以趋势颜色同步着色基准线与蜡烛。",
+          "K 线连续穿越当前趋势基准线超过确认次数后标记拒绝条件事件。最新趋势转变会按当根 K 线的 ATR 固定条件触发参考、风险线和三档观察水平，并以趋势颜色同步着色基准线与蜡烛。",
       },
       {
         title: "适合观察什么",
-        content: "适合用来研究趋势延续与回撤后的恢复。横盘或剧烈跳空阶段可能产生连续无效信号。",
+        content:
+          "适合用来研究趋势延续与回撤后的恢复。横盘或剧烈跳空阶段可能产生连续失效的条件事件。",
       },
     ],
     parameters: [
@@ -158,9 +159,9 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
         description: "连续穿越趋势线超过该次数后显示拒绝标记。",
       },
       {
-        name: "风险线与目标",
+        name: "风险线与观察水平",
         defaultValue: "ATR×5 / 0.5R、1R、1.5R",
-        description: "风险线先确定实际风险距离，三档目标再按该风险距离计算。",
+        description: "风险线先确定模型风险距离，三档观察水平再按该距离计算。",
       },
       {
         name: "趋势颜色",
@@ -173,11 +174,11 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
       "趋势蜡烛着色",
       "趋势转变箭头",
       "连续拒绝标记",
-      "入场 / 止损 / 三档目标投影",
+      "条件触发参考 / 风险线 / 三档观察水平投影",
     ],
     risks: [
       "趋势指标有滞后性，不能避免突发消息或跳空风险。",
-      "目标位是研究参考，不代表价格一定会触及。",
+      "观察水平是研究参考，不代表价格一定会触及。",
     ],
     source: {
       label: "Trend Targets [AlgoAlpha]",
@@ -272,7 +273,7 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
     risks: [
       "SMC 在本系统中是图层型指标：只产生结构、区域、提醒和事件统计，不生成交易、收益率或回测 PnL。",
       "枢轴必须等待右侧 K 线确认，因此结构标记天然晚于极值出现；这是避免历史前视的必要条件。",
-      "结构、订单块与流动性区域是研究解释，不等同于确定的入场、止损或目标建议。",
+      "结构、订单块与流动性区域是研究解释，不等同于具体交易行动建议。",
       "当前实现按 CC BY-NC-SA 4.0 用于本地非商业研究；商业发布需要另行取得授权。",
     ],
     source: {
@@ -284,9 +285,9 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
   {
     id: "machine-learning-price-targets",
     category: "strategy",
-    title: "Machine Learning Price Targets",
+    title: "Machine Learning Price Movement Study",
     subtitle:
-      "以趋势段历史表现训练 RBF 核回归模型，估计下一段价格移动幅度，并在主图绘制目标区、风险区和确认信号。",
+      "以趋势段历史表现训练 RBF 核回归模型，估计下一段价格移动幅度，并在主图绘制观察区、风险区和确认条件事件。",
     markets: ["美股", "港股", "A股"],
     timeframes: ["实时 1 分钟"],
     placement: "主图叠加",
@@ -294,19 +295,19 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
     workspaceAction: { label: "在超级图表中配置", route: "chart" },
     sections: [
       {
-        title: "模型如何形成预测",
+        title: "模型如何形成估计",
         content:
-          "指标在每次趋势方向切换时记录上一趋势段的最大有利移动，并使用价格位置、波动变化、二阶变化、成交量振荡、震荡度、RSI 与趋势方向共 8 个特征。RBF 核函数会按特征距离为历史样本分配权重，输出下一趋势段的预测移动比例。",
+          "指标在每次趋势方向切换时记录上一趋势段的最大有利移动，并使用价格位置、波动变化、二阶变化、成交量振荡、震荡度、RSI 与趋势方向共 8 个特征。RBF 核函数会按特征距离为历史样本分配权重，输出下一趋势段的模型移动估计。",
       },
       {
         title: "趋势与图层",
         content:
-          "趋势可选择 EMA 50/200 交叉、HMA 93 斜率或 SuperTrend 3/10。有效预测会从确认 K 线收盘价绘制绿色目标区和红色风险区，并以大号上下箭头标记方向；交易状态同时用于蜡烛着色。",
+          "趋势可选择 EMA 50/200 交叉、HMA 93 斜率或 SuperTrend 3/10。有效模型估计会从确认 K 线收盘价绘制绿色观察区和红色风险区，并以大号上下箭头标记方向；观察状态同时用于蜡烛着色。",
       },
       {
         title: "统计与提醒",
         content:
-          "右上角表格显示训练样本量、预测移动、历史成功率、建议风险收益比和当前状态。指标提供看涨、看跌、止盈命中与止损命中四类一次性提醒。",
+          "右上角表格显示训练样本量、模型移动估计、历史条件达标率、模型测算比率和当前观察状态。指标提供向上条件、向下条件、观察水平触及与场景失效四类一次性事件提醒。",
       },
     ],
     parameters: [
@@ -323,7 +324,7 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
       {
         name: "历史预热",
         defaultValue: "1,000 根",
-        description: "少于 1,000 根已确认分钟 K 线时仅显示预热进度，不产生预测图层或信号。",
+        description: "少于 1,000 根已确认分钟 K 线时仅显示预热进度，不产生模型估计图层或条件事件。",
       },
       {
         name: "颜色",
@@ -332,16 +333,16 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
       },
     ],
     chartOutputs: [
-      "绿色目标区 / 红色风险区",
+      "绿色观察区 / 红色风险区",
       "上下方向标签",
       "交易状态蜡烛着色",
       "右上角指标统计表",
-      "四类确认提醒",
+      "四类条件事件提醒",
     ],
     risks: [
-      "模型只从当前标的已有历史样本估计移动幅度；样本少、行情状态改变或成交量数据异常时，预测可靠性会下降。",
-      "本实现是指标：不生成订单、收益率或回测 PnL，目标区与风险区不构成投资建议。",
-      "信号只在 K 线收盘后确认，因此会晚于盘中首次穿越，但不会因未收盘价格变化而反复消失。",
+      "模型只从当前标的已有历史样本估计移动幅度；样本少、行情状态改变或成交量数据异常时，模型估计可靠性会下降。",
+      "本实现是指标：不生成订单、收益率或回测 PnL，观察区与风险区不构成投资建议。",
+      "条件事件只在 K 线收盘后确认，因此会晚于盘中首次穿越，但不会因未收盘价格变化而反复消失。",
     ],
     source: {
       label: "Machine Learning Price Target Prediction Signals [AlgoAlpha]",
@@ -497,7 +498,7 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
     id: "sar",
     category: "indicator",
     title: "SAR 抛物线转向指标",
-    subtitle: "用随趋势推进而加速的点状止损线，帮助观察趋势跟随与潜在转向。",
+    subtitle: "用随趋势推进而加速的点状风险参考线，帮助观察趋势跟随与潜在转向。",
     markets: ["美股", "港股", "A股"],
     timeframes: ["分时", "日线", "周线"],
     placement: "主图叠加",
@@ -521,7 +522,10 @@ export const strategyLearningEntries: readonly StrategyLearningEntry[] = [
       },
     ],
     chartOutputs: ["SAR 点列", "最新 SAR 图例数值"],
-    risks: ["SAR 不是固定止损或自动交易规则。", "更高加速因子会更快跟随，也更易受短期波动影响。"],
+    risks: [
+      "SAR 不是固定风险控制线或自动交易规则。",
+      "更高加速因子会更快跟随，也更易受短期波动影响。",
+    ],
   },
   {
     id: "mavol",

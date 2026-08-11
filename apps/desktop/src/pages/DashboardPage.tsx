@@ -175,7 +175,7 @@ export function DashboardPage() {
             <strong>{hasMarketData ? "可进入图表" : "等待行情"}</strong>
           </div>
           <div className="today-research-note">
-            策略、信号和日志会在超级图表的底部 Dock 中按需展开。
+            策略、条件事件和日志会在超级图表的底部 Dock 中按需展开。
           </div>
         </aside>
       </div>

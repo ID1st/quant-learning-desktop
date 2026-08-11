@@ -30,7 +30,10 @@ import {
   formatOverlay,
   formatTranslationStatus,
 } from "./strategyManagementModel";
-import { formatStrategyDisplayName } from "../features/strategies/chartStrategyRuntime";
+import {
+  formatStrategyConditionEventType,
+  formatStrategyDisplayName,
+} from "../features/strategies/chartStrategyRuntime";
 
 import type { StrategyManagementController } from "./StrategyManagementPage";
 
@@ -144,7 +147,7 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
               <div>
                 <h2>精简回测</h2>
                 <p>
-                  研究信号在下一根 K
+                  历史条件事件在下一根 K
                   线开盘进行模拟确认；向上与向下方向均基于历史价格计算，结束时按最后收盘价结算。
                 </p>
               </div>
@@ -535,7 +538,7 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
                             </dd>
                           </div>
                           <div>
-                            <dt>信号</dt>
+                            <dt>条件事件</dt>
                             <dd>{selectedDraftRuntimePreview.result.output.signals.length}</dd>
                           </div>
                           <div>
@@ -560,12 +563,12 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
                                     hour: "2-digit",
                                     minute: "2-digit",
                                   })}{" "}
-                                  / {signal.type} /{" "}
+                                  / {formatStrategyConditionEventType(signal.type)} /{" "}
                                   {signal.price === undefined ? "-" : signal.price.toFixed(2)}
                                 </span>
                               ))
                           ) : (
-                            <span>样例 K 线未触发信号。</span>
+                            <span>样例 K 线未触发条件事件。</span>
                           )}
                         </div>
                       </>
@@ -904,7 +907,7 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
                     ))}
                     {selectedBacktestRun.result.trades.length === 0 && (
                       <tr>
-                        <td colSpan={4}>当前信号在所选数据中未形成可结算成交。</td>
+                        <td colSpan={4}>当前条件事件在所选数据中未形成可结算成交。</td>
                       </tr>
                     )}
                   </tbody>
@@ -1077,7 +1080,7 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
                   <dd>{Object.keys(runResult.input.parameters).length}</dd>
                 </div>
                 <div>
-                  <dt>信号</dt>
+                  <dt>条件事件</dt>
                   <dd>{runResult.output.signals.length}</dd>
                 </div>
                 <div>
@@ -1092,15 +1095,9 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
             <div className="runtime-signal-list">
               {runResult.output.signals.map((signal, index) => (
                 <div className={signal.type} key={`${signal.timestamp}-${signal.type}-${index}`}>
-                  <strong>
-                    {signal.type === "buy"
-                      ? "向上突破"
-                      : signal.type === "sell"
-                        ? "向下突破"
-                        : "提醒"}
-                  </strong>
+                  <strong>{formatStrategyConditionEventType(signal.type)}</strong>
                   <span>{signal.price?.toFixed(2) ?? "-"}</span>
-                  <small>{signal.label ?? "策略信号"}</small>
+                  <small>{signal.label ?? "策略条件事件"}</small>
                 </div>
               ))}
             </div>

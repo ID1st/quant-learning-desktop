@@ -71,7 +71,7 @@ test("Trend Targets reproduces the Pine Supertrend midpoint WMA/EMA baseline and
   assert.equal(result.output.metrics.stopPrice, 9);
   assert.equal(result.output.metrics.targetThree, 16.5);
   assert.equal(
-    result.output.alerts.some((alert) => alert.includes("目标1")),
+    result.output.alerts.some((alert) => alert.includes("观察水平1")),
     false,
   );
   assert.equal(
@@ -149,11 +149,11 @@ test("Trend Targets target alerts follow Pine close crossovers instead of wick t
   const closeCross = runTrendTargets([...wickOnlyBars, bar(150, 14)]);
 
   assert.equal(
-    wickOnly.output.alerts.some((alert) => alert.includes("目标1")),
+    wickOnly.output.alerts.some((alert) => alert.includes("观察水平1")),
     false,
   );
   assert.equal(
-    closeCross.output.alerts.some((alert) => alert.includes("目标1")),
+    closeCross.output.alerts.some((alert) => alert.includes("观察水平1")),
     true,
   );
 });
@@ -198,7 +198,7 @@ test("Trend Targets exposes the Pine parameters and projects only the latest set
   assert.equal(projectedPriceLines.length, 5);
   assert.equal(
     projectedPriceLines.some(
-      (element) => element.kind === "price-line" && element.label.startsWith("入场"),
+      (element) => element.kind === "price-line" && element.label.startsWith("条件触发参考"),
     ),
     true,
   );

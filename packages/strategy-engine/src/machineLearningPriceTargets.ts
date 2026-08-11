@@ -288,17 +288,17 @@ function createHudPanel(input: {
         tone: modelStatus === "已就绪" ? "positive" : "muted",
       },
       { id: "training-size", label: "有效训练样本", value: input.trainingSize },
-      { id: "predicted-move", label: "预测波动", value: percent(input.predictedMove) },
+      { id: "predicted-move", label: "模型波动估计", value: percent(input.predictedMove) },
       {
         id: "success-rate",
-        label: "历史达标率",
+        label: "历史条件达标率",
         value: percent(input.successRate),
       },
-      { id: "recommended-rr", label: "建议盈亏比", value: decimal(input.rewardRisk) },
+      { id: "recommended-rr", label: "模型测算比率", value: decimal(input.rewardRisk) },
       {
         id: "in-trade",
-        label: "模拟持仓",
-        value: input.inTrade ? "持仓中" : "空仓",
+        label: "观察场景",
+        value: input.inTrade ? "观察中" : "未激活",
         tone: input.inTrade ? "positive" : "muted",
       },
     ],
@@ -316,7 +316,7 @@ function emptyOutput(
     overlays: [],
     render: {
       strategyId: "machine-learning-price-targets",
-      strategyName: "Machine Learning Price Target Prediction Signals [AlgoAlpha]",
+      strategyName: "Machine Learning Price Movement Study [AlgoAlpha]",
       enabled,
       zIndex: 30,
       elements: [],
@@ -334,7 +334,7 @@ export function runMachineLearningPriceTargets(
 ): StrategyOutput {
   const enabled = input.enabled ?? definition.defaultEnabled ?? false;
   if (!enabled) {
-    return emptyOutput(false, ["Machine Learning Price Targets 当前已停用。"]);
+    return emptyOutput(false, ["Machine Learning Price Movement Study 当前已停用。"]);
   }
 
   const confirmedBars = [...input.bars]
@@ -351,7 +351,7 @@ export function runMachineLearningPriceTargets(
     return emptyOutput(
       true,
       [
-        `Machine Learning Price Targets 预热中：${confirmedCount} / ${MINIMUM_BARS} 根已确认 K 线。`,
+        `Machine Learning Price Movement Study 预热中：${confirmedCount} / ${MINIMUM_BARS} 根已确认 K 线。`,
       ],
       createHudPanel({
         modelStatus: "历史预热",
@@ -372,7 +372,7 @@ export function runMachineLearningPriceTargets(
   if (confirmedBars.reduce((total, bar) => total + Math.max(0, bar.volume), 0) === 0) {
     return emptyOutput(
       true,
-      ["Machine Learning Price Targets 成交量不可用：当前数据源未提供有效 volume。"],
+      ["Machine Learning Price Movement Study 成交量不可用：当前数据源未提供有效 volume。"],
       createHudPanel({
         trainingSize: "成交量不可用",
         predictedMove: null,
@@ -509,13 +509,9 @@ export function runMachineLearningPriceTargets(
             timestamp: bar.timestamp,
             type: direction === 1 ? "buy" : "sell",
             price: bar.close,
-            label: direction === 1 ? "Bullish Signal" : "Bearish Signal",
+            label: direction === 1 ? "向上条件触发" : "向下条件触发",
           });
-          alerts.push(
-            direction === 1
-              ? "New bullish trend signal detected"
-              : "New bearish trend signal detected",
-          );
+          alerts.push(direction === 1 ? "向上趋势条件已触发" : "向下趋势条件已触发");
         }
       }
 
@@ -542,11 +538,9 @@ export function runMachineLearningPriceTargets(
           timestamp: bar.timestamp,
           type: "exit",
           price: hitTarget ? activeTrade.targetPrice : activeTrade.stopPrice,
-          label: hitTarget ? "Take Profit Hit" : "Stop Loss Hit",
+          label: hitTarget ? "观察水平已触及" : "场景失效参考线已触及",
         });
-        alerts.push(
-          hitTarget ? "Take profit level has been reached" : "Stop loss level has been reached",
-        );
+        alerts.push(hitTarget ? "观察水平已触及" : "场景失效参考线已触及");
         activeTrade = null;
       }
     }
@@ -676,10 +670,10 @@ export function runMachineLearningPriceTargets(
     },
     metrics,
     logs: [
-      `Machine Learning Price Targets 已使用 ${confirmedCount} 根已确认 K 线，训练样本 ${samples.length} 个。`,
+      `Machine Learning Price Movement Study 已使用 ${confirmedCount} 根已确认 K 线，训练样本 ${samples.length} 个。`,
       finite(latestPrediction)
-        ? `当前预测波动 ${(latestPrediction * 100).toFixed(2)}%。`
-        : "当前尚无有效预测。",
+        ? `当前模型波动估计 ${(latestPrediction * 100).toFixed(2)}%。`
+        : "当前尚无有效模型估计。",
     ],
     alerts,
   };
@@ -688,10 +682,10 @@ export function runMachineLearningPriceTargets(
 export function createMachineLearningPriceTargetsStrategyDefinition(): StrategyDefinition {
   const definition: StrategyDefinition = {
     key: "machine-learning-price-targets",
-    name: "Machine Learning Price Target Prediction Signals [AlgoAlpha]",
+    name: "Machine Learning Price Movement Study [AlgoAlpha]",
     version: "1.0.0",
     description:
-      "使用八维市场特征与 RBF 核回归估计趋势段价格移动，并绘制确认后的目标、风险和统计图层。",
+      "使用八维市场特征与 RBF 核回归估计趋势段价格移动，并绘制确认后的观察、风险和统计图层。",
     sourceType: "preset",
     sourceFile: "trading-strategies/Machine Learning Price Target Prediction Signals.md",
     strategyType: "indicator",
@@ -706,7 +700,7 @@ export function createMachineLearningPriceTargetsStrategyDefinition(): StrategyD
     parameterSchema: [
       {
         key: "trendMethod",
-        label: "趋势信号",
+        label: "趋势条件",
         type: "select",
         defaultValue: "EMA Cross (Fast Slow)",
         options: [
@@ -726,7 +720,7 @@ export function createMachineLearningPriceTargetsStrategyDefinition(): StrategyD
         defaultValue: 10,
       },
       { key: "bandwidth", label: "RBF 带宽", type: "number", defaultValue: 5 },
-      { key: "hideNaPredictions", label: "隐藏无效预测", type: "boolean", defaultValue: true },
+      { key: "hideNaPredictions", label: "隐藏无效模型估计", type: "boolean", defaultValue: true },
       { key: "bullishColor", label: "看涨颜色", type: "color", defaultValue: "#00FFBB" },
       { key: "bearishColor", label: "看跌颜色", type: "color", defaultValue: "#FF1100" },
     ],

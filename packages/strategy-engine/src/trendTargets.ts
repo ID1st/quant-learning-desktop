@@ -74,7 +74,7 @@ function runTrendTargetsStrategy(
     const output = createPlaceholderOutput(strategy, true);
     return {
       ...output,
-      logs: ["Trend Targets 需要至少 3 根 K 线才能计算趋势基准和目标位。"],
+      logs: ["Trend Targets 需要至少 3 根 K 线才能计算趋势基准和观察水平。"],
     };
   }
 
@@ -280,7 +280,7 @@ function runTrendTargetsStrategy(
         const crossedUp = bar.close > target && previousBar.close <= target;
         if (crossedUp) {
           targetTouched[targetIndex] = true;
-          setupAlerts.push(`目标${targetIndex + 1}已触及：${target.toFixed(2)}`);
+          setupAlerts.push(`观察水平${targetIndex + 1}已触及：${target.toFixed(2)}`);
         }
       });
 
@@ -299,8 +299,8 @@ function runTrendTargetsStrategy(
         bar.high > stopPrice && previousBar.high <= stopPrice && bar.close < stopPrice;
       const rejectedBullish =
         bar.low < stopPrice && previousBar.low >= stopPrice && bar.close > stopPrice;
-      if (rejectedBearish) setupAlerts.push("价格在风险线被拒绝 - 向下拒绝信号");
-      if (rejectedBullish) setupAlerts.push("价格在风险线被拒绝 - 向上拒绝信号");
+      if (rejectedBearish) setupAlerts.push("价格在风险线被拒绝 - 向下条件确认");
+      if (rejectedBullish) setupAlerts.push("价格在风险线被拒绝 - 向上条件确认");
       previousBar = bar;
     });
   }
@@ -325,7 +325,7 @@ function runTrendTargetsStrategy(
         id: "trend-targets-entry",
         kind: "price-line",
         price: entryPrice,
-        label: `入场 ▸ ${entryPrice.toFixed(2)}`,
+        label: `条件触发参考 ▸ ${entryPrice.toFixed(2)}`,
         tone: "neutral",
         color: setupSide === "buy" ? bullColor : bearColor,
         fromTimestamp: projectionStart,
@@ -347,7 +347,7 @@ function runTrendTargetsStrategy(
         id: "trend-targets-target-1",
         kind: "price-line",
         price: targetOne,
-        label: `✓ 目标1 ▸ ${targetOne.toFixed(2)}`,
+        label: `观察水平1 ▸ ${targetOne.toFixed(2)}`,
         tone: "target",
         color: bullColor,
         fromTimestamp: projectionStart,
@@ -357,7 +357,7 @@ function runTrendTargetsStrategy(
         id: "trend-targets-target-2",
         kind: "price-line",
         price: targetTwo,
-        label: `✓ 目标2 ▸ ${targetTwo.toFixed(2)}`,
+        label: `观察水平2 ▸ ${targetTwo.toFixed(2)}`,
         tone: "target",
         color: bullColor,
         fromTimestamp: projectionStart,
@@ -367,7 +367,7 @@ function runTrendTargetsStrategy(
         id: "trend-targets-target-3",
         kind: "price-line",
         price: targetThree,
-        label: `✓ 目标3 ▸ ${targetThree.toFixed(2)}`,
+        label: `观察水平3 ▸ ${targetThree.toFixed(2)}`,
         tone: "target",
         color: bullColor,
         fromTimestamp: projectionStart,
@@ -425,8 +425,8 @@ function runTrendTargetsStrategy(
       signalCount: directionalSignals.length,
     },
     logs: [
-      `Trend Targets 已生成 ${direction === "bullish" ? "上行" : "下行"}基准线和目标位。`,
-      `当前信号参考 ${entryPrice.toFixed(2)}，风险线 ${stopPrice.toFixed(2)}，目标3 ${targetThree.toFixed(2)}。`,
+      `Trend Targets 已生成 ${direction === "bullish" ? "上行" : "下行"}基准线和观察水平。`,
+      `当前条件触发参考 ${entryPrice.toFixed(2)}，风险线 ${stopPrice.toFixed(2)}，观察水平3 ${targetThree.toFixed(2)}。`,
     ],
     alerts: [...signals.map((signal) => signal.label ?? signal.type), ...setupAlerts],
   };
@@ -438,7 +438,7 @@ export function createTrendTargetsStrategyDefinition(): StrategyDefinition {
     name: "Trend Targets 趋势目标",
     version: "1.0.0",
     description:
-      "按 Pine Script 复刻 Supertrend 中线、WMA/EMA 平滑、趋势转变、拒绝确认与 ATR 目标位。",
+      "按 Pine Script 复刻 Supertrend 中线、WMA/EMA 平滑、趋势转变、拒绝确认与 ATR 观察水平。",
     sourceType: "preset",
     sourceFile: "trading-strategies/trend-targets.md",
     supportedMarkets: ["US", "HK", "CN"],
@@ -481,7 +481,7 @@ export function createTrendTargetsStrategyDefinition(): StrategyDefinition {
       },
       {
         key: "showTargets",
-        label: "显示目标水平",
+        label: "显示观察水平",
         type: "boolean",
         defaultValue: true,
       },
@@ -499,19 +499,19 @@ export function createTrendTargetsStrategyDefinition(): StrategyDefinition {
       },
       {
         key: "targetOneMultiplier",
-        label: "目标1 倍数",
+        label: "观察水平1倍数",
         type: "number",
         defaultValue: 0.5,
       },
       {
         key: "targetTwoMultiplier",
-        label: "目标2 倍数",
+        label: "观察水平2倍数",
         type: "number",
         defaultValue: 1,
       },
       {
         key: "targetThreeMultiplier",
-        label: "目标3 倍数",
+        label: "观察水平3倍数",
         type: "number",
         defaultValue: 1.5,
       },

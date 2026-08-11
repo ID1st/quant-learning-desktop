@@ -765,7 +765,7 @@ function runUtorbStrategy(strategy: StrategyDefinition, input: StrategyInput): S
       timezoneMode === "market"
         ? `UTORB 已按市场时区 ${sessionTimeZone} 追踪 ${totalSessions} 个开盘区间。`
         : `UTORB 已按 UTC${timezoneOffsetHours >= 0 ? "+" : ""}${timezoneOffsetHours} 追踪 ${totalSessions} 个开盘区间。`,
-      `最新区间 ${openingRangeLow.toFixed(2)} - ${openingRangeHigh.toFixed(2)}，生成 ${directionalSignalCount} 个突破信号。`,
+      `最新区间 ${openingRangeLow.toFixed(2)} - ${openingRangeHigh.toFixed(2)}，生成 ${directionalSignalCount} 个突破条件事件。`,
     ],
     alerts: [...signals.map((signal) => signal.label ?? signal.type), ...targetAlerts],
   };
@@ -777,7 +777,7 @@ export function createUtorbStrategyDefinition(): StrategyDefinition {
     name: "UTORB 开盘区间突破",
     version: "1.0.0",
     description:
-      "按 Pine Script 复刻的逐日开盘区间突破策略，包含扩展目标、量能分类、成交量分布与 ATR 移动风险线。",
+      "按 Pine Script 复刻的逐日开盘区间突破策略，包含扩展观察水平、量能分类、成交量分布与 ATR 移动风险线。",
     sourceType: "preset",
     sourceFile: "trading-strategies/utorb.md",
     supportedMarkets: ["US", "HK", "CN"],
@@ -867,7 +867,7 @@ export function createUtorbStrategyDefinition(): StrategyDefinition {
       { key: "backgroundTransparency", label: "区域透明度", type: "number", defaultValue: 85 },
       {
         key: "signalLabelSize",
-        label: "信号标签大小",
+        label: "事件标签大小",
         type: "select",
         defaultValue: "small",
         options: [

@@ -116,7 +116,7 @@ export function ChartWorkspaceBottomPanel({ controller }: ChartWorkspaceBottomPa
           type="button"
         >
           <ShieldCheck size={14} />
-          信号
+          条件事件
         </button>
         <button
           className={bottomTab === "logs" ? "active" : ""}
@@ -148,7 +148,7 @@ export function ChartWorkspaceBottomPanel({ controller }: ChartWorkspaceBottomPa
               <strong>{enabledStrategyCount} 个策略启用</strong>
               <span>
                 {canShowStrategyLayers
-                  ? `${totalSignalCount} 个信号，${strategyLayerElementCount} 个图层元素`
+                  ? `${totalSignalCount} 个条件事件，${strategyLayerElementCount} 个图层元素`
                   : "策略图层已隐藏"}
               </span>
               <button
@@ -405,12 +405,12 @@ export function ChartWorkspaceBottomPanel({ controller }: ChartWorkspaceBottomPa
           <div className="bottom-single-panel">
             <div className="bottom-panel-heading">
               <strong>
-                {signalRows.length > 0 ? `${signalRows.length} 个策略信号` : "暂无策略信号"}
+                {signalRows.length > 0 ? `${signalRows.length} 个策略条件事件` : "暂无策略条件事件"}
               </strong>
               <span>仅展示当前标的和周期下的策略输出</span>
             </div>
             {signalRows.length > 0 ? (
-              <div className="signal-detail-list" aria-label="策略信号明细">
+              <div className="signal-detail-list" aria-label="策略条件事件明细">
                 {signalRows.map((signal) => (
                   <button
                     aria-pressed={selectedSignal?.id === signal.id}
@@ -430,10 +430,10 @@ export function ChartWorkspaceBottomPanel({ controller }: ChartWorkspaceBottomPa
                 ))}
               </div>
             ) : (
-              <span>当前参数下没有触发买卖信号。</span>
+              <span>当前参数下没有触发策略条件事件。</span>
             )}
             {selectedSignal && selectedSignalRun && (
-              <aside className="signal-research-inspector" aria-label="策略信号研究详情">
+              <aside className="signal-research-inspector" aria-label="策略条件事件研究详情">
                 <div>
                   <strong>{selectedSignal.strategyName}</strong>
                   <button onClick={() => setSelectedSignalId(null)} type="button">

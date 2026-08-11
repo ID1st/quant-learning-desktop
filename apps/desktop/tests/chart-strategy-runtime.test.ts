@@ -1,7 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { createPresetStrategyRegistry, type Bar } from "@quant/strategy-engine";
+import {
+  createPresetStrategyRegistry,
+  type Bar,
+  type StrategySignal,
+} from "@quant/strategy-engine";
 import {
   buildChartStrategyLogItems,
   buildChartStrategySignalRows,
@@ -55,11 +59,11 @@ describe("chart strategy runtime", () => {
 
     assert.equal(
       getMlptChartNotice([createRun(0, 420)]),
-      "MLPT 数据不足：已确认 420 / 1000 根分钟线，预测图层暂未加载",
+      "MLPT 数据不足：已确认 420 / 1000 根分钟线，模型估计图层暂未加载",
     );
     assert.equal(
       getMlptChartNotice([createRun(0, 1_000)]),
-      "MLPT 正在等待有效训练样本，预测图层暂未加载",
+      "MLPT 正在等待有效训练样本，模型估计图层暂未加载",
     );
     assert.equal(getMlptChartNotice([createRun(1, 1_200)]), null);
   });
@@ -82,6 +86,55 @@ describe("chart strategy runtime", () => {
         name: "Machine Learning Price Target Prediction Signals [AlgoAlpha]",
       }),
       "Machine Learning Price Target Prediction Signals",
+    );
+  });
+
+  it("presents internal strategy signal types as neutral condition events", () => {
+    const strategy = createPresetStrategyRegistry().get("utorb")!;
+    const signals: StrategySignal[] = [
+      { timestamp: bars[0]!.timestamp, type: "buy", price: 10 },
+      { timestamp: bars[1]!.timestamp, type: "sell", price: 11 },
+      { timestamp: bars[2]!.timestamp, type: "exit", price: 12 },
+      { timestamp: bars[3]!.timestamp, type: "alert", price: 11 },
+    ];
+    const run = {
+      strategy,
+      settings: { enabled: true, showLayer: true, parameters: {} },
+      result: {
+        strategy,
+        input: {
+          symbol: "AAPL.US",
+          market: "US" as const,
+          timeframe: "realtime" as const,
+          bars,
+          parameters: {},
+          runMode: "realtime" as const,
+        },
+        output: {
+          signals,
+          overlays: [],
+          render: {
+            strategyId: strategy.key,
+            strategyName: strategy.name,
+            enabled: true,
+            zIndex: 30,
+            elements: [],
+          },
+          metrics: {},
+          logs: [],
+          alerts: [],
+        },
+      },
+    };
+
+    assert.deepEqual(
+      buildChartStrategySignalRows([run]).map(({ direction, tone }) => ({ direction, tone })),
+      [
+        { direction: "向上条件触发", tone: "buy" },
+        { direction: "向下条件触发", tone: "sell" },
+        { direction: "条件失效", tone: "exit" },
+        { direction: "规则条件触发", tone: "alert" },
+      ],
     );
   });
 
@@ -226,7 +279,7 @@ describe("chart strategy runtime", () => {
     assert.ok(run?.result.output.logs.some((item) => item.includes("Trend Targets")));
 
     const signalRows = buildChartStrategySignalRows([run!]);
-    assert.ok(signalRows.some((row) => row.direction === "向上突破"));
+    assert.ok(signalRows.some((row) => row.direction === "向上条件触发"));
 
     const logItems = buildChartStrategyLogItems([run!], { symbol: "AAPL", timeframe: "realtime" });
     assert.ok(logItems.some((item) => item.includes("运行 Trend Targets")));

@@ -173,7 +173,7 @@ export function ChartWorkspaceToolbar({ controller }: ChartWorkspaceToolbarProps
           type="button"
         >
           <Gauge size={16} />
-          <span>信号</span>
+          <span>策略事件</span>
         </button>
         <button
           className={canShowStrategyLayers ? "active" : ""}

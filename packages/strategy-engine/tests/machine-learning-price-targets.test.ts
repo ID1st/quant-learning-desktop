@@ -176,6 +176,10 @@ describe("Machine Learning Price Targets preset", () => {
     assert.ok(elementKinds.has("band"));
     assert.ok(elementKinds.has("signal-marker"));
     assert.equal(output.render.hudPanels?.[0]?.rows.length, 6);
+    assert.deepEqual(
+      output.render.hudPanels?.[0]?.rows.map((row) => row.label),
+      ["模型状态", "有效训练样本", "模型波动估计", "历史条件达标率", "模型测算比率", "观察场景"],
+    );
     assert.ok(output.overlays.length <= 1_000);
     assert.ok(output.signals.some((signal) => signal.type === "buy"));
     assert.ok(output.signals.some((signal) => signal.type === "sell"));
