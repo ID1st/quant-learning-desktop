@@ -12,9 +12,9 @@
     "build": "vite build",
     "build:electron": "electron-vite build",
     "package:dir": "node ../../scripts/package-desktop.mjs --dir",
-    "package:mac": "node ../../scripts/package-desktop.mjs --mac dmg --x64 --arm64",
-    "package:mac:x64": "node ../../scripts/package-desktop.mjs --mac dmg --x64",
-    "package:mac:arm64": "node ../../scripts/package-desktop.mjs --mac dmg --arm64",
+    "package:mac": "node ../../scripts/package-desktop.mjs --mac dmg --x64 --arm64 --publish never",
+    "package:mac:x64": "node ../../scripts/package-desktop.mjs --mac dmg --x64 --publish never",
+    "package:mac:arm64": "node ../../scripts/package-desktop.mjs --mac dmg --arm64 --publish never",
     "package:win": "node ../../scripts/package-desktop.mjs --win nsis",
     "typecheck": "tsc -p tsconfig.check.json"
   },

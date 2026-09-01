@@ -16,13 +16,13 @@ const macPackageWorkflow = readFileSync(
 test("macOS package scripts build separate Intel and Apple Silicon DMGs", () => {
   assert.equal(
     desktopPackage.scripts["package:mac:x64"],
-    "node ../../scripts/package-desktop.mjs --mac dmg --x64",
+    "node ../../scripts/package-desktop.mjs --mac dmg --x64 --publish never",
   );
   assert.equal(
     desktopPackage.scripts["package:mac:arm64"],
-    "node ../../scripts/package-desktop.mjs --mac dmg --arm64",
+    "node ../../scripts/package-desktop.mjs --mac dmg --arm64 --publish never",
   );
-  assert.match(desktopPackage.scripts["package:mac"], /--x64 --arm64$/u);
+  assert.match(desktopPackage.scripts["package:mac"], /--x64 --arm64 --publish never$/u);
   assert.deepEqual(desktopPackage.build.mac.target, ["dmg"]);
   assert.match(desktopPackage.build.mac.artifactName, /\$\{arch\}/u);
 });
