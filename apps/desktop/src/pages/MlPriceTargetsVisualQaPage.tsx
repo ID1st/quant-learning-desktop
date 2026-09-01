@@ -1,4 +1,5 @@
 import { ChartViewport, type ChartLayer } from "@quant/chart";
+import { useI18n } from "../i18n/I18nProvider";
 import {
   createMachineLearningPriceTargetsVisualFixture,
   createPresetStrategyRegistry,
@@ -28,6 +29,7 @@ const fixtureLayer: ChartLayer = {
 };
 
 export function MlPriceTargetsVisualQaPage() {
+  const { formatChartTime } = useI18n();
   return (
     <main className="ml-price-targets-visual-qa">
       <div className="ml-price-targets-visual-qa-title">
@@ -39,10 +41,7 @@ export function MlPriceTargetsVisualQaPage() {
         canvasWidth={2026}
         candles={fixtureBars.map((bar) => ({
           ...bar,
-          time: new Date(bar.timestamp).toLocaleTimeString("zh-CN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+          time: formatChartTime(bar.timestamp, "realtime", ""),
         }))}
         context={{ symbol: "BTC/USDT", market: "US", timeframe: "realtime" }}
         displayMode="candlestick"

@@ -51,6 +51,7 @@ import {
   resolveIndicatorConvention,
 } from "../features/chartIndicators/chartIndicators";
 import { useChartStudySettingsStore } from "../features/chartWorkspace/chartStudySettingsStore";
+import { useI18n } from "../i18n/I18nProvider";
 
 import { createStrategyQuickMenuItems } from "../features/chartWorkspace/strategyQuickMenu";
 import {
@@ -98,6 +99,7 @@ import { useChartMarketData } from "./useChartMarketData";
 import { useChartStrategyRuns } from "./useChartStrategyRuns";
 
 export function useChartWorkspaceController() {
+  const { formatTime, t } = useI18n();
   const workspacePreferences = useMemo(() => readWorkspacePreferences(), []);
   const marketDataProviderSettings = useMemo(() => readMarketDataProviderSettings(), []);
   const importedDrafts = useUserStrategyDraftStore((state) => state.drafts);
@@ -460,12 +462,14 @@ export function useChartWorkspaceController() {
     () => createStrategyQuickMenuItems(chartStrategies, strategySettings),
     [chartStrategies, strategySettings],
   );
-  const strategyLogTime = formatLogTime(Date.now());
+  const strategyLogTime = formatLogTime(Date.now(), (value) => formatTime(value));
   const strategyLogItems = buildChartStrategyLogItems(strategyRuns, {
     symbol: activeSymbol.symbol,
     timeframe,
   });
-  const signalRows = buildChartStrategySignalRows(strategyRuns);
+  const signalRows = buildChartStrategySignalRows(strategyRuns, (timestamp) =>
+    formatTime(timestamp, false),
+  );
   const selectedSignal = signalRows.find((signal) => signal.id === selectedSignalId) ?? null;
   const selectedSignalRun = selectedSignal
     ? (strategyRuns.find(({ strategy }) => strategy.key === selectedSignal.strategyKey) ?? null)
@@ -626,10 +630,10 @@ export function useChartWorkspaceController() {
       appendMarketDataRuntimeEvent(current, {
         kind,
         timestamp: realtimeHealth.checkedAt ?? new Date().toISOString(),
-        message: formatRealtimeHealthDetail(realtimeHealth),
+        message: formatRealtimeHealthDetail(realtimeHealth, (value) => formatTime(value)),
       }),
     );
-  }, [realtimeHealth]);
+  }, [formatTime, realtimeHealth]);
 
   useChartMarketData({
     activeSymbol,
@@ -689,7 +693,7 @@ export function useChartWorkspaceController() {
     if (!query) {
       setInstrumentSearchResults([]);
       setInstrumentSearchState("empty");
-      setInstrumentSearchMessage("请输入股票代码、名称或拼音。");
+      setInstrumentSearchMessage(t("请输入股票代码、名称或拼音。"));
       return;
     }
 
@@ -709,7 +713,7 @@ export function useChartWorkspaceController() {
       }
       setInstrumentSearchResults(result.data);
       setInstrumentSearchState(result.data.length > 0 ? "idle" : "empty");
-      setInstrumentSearchMessage(result.data.length > 0 ? "" : "未找到可加入观察列表的证券。");
+      setInstrumentSearchMessage(result.data.length > 0 ? "" : t("未找到可加入观察列表的证券。"));
     } catch (error) {
       setInstrumentSearchResults([]);
       setInstrumentSearchState("error");
@@ -923,17 +927,17 @@ export function useChartWorkspaceController() {
     const drawing = drawings.find((item) => item.id === drawingId);
     if (!drawing) return;
     if (drawing.type === "text") {
-      const text = window.prompt("标注文字", drawing.text)?.trim();
+      const text = window.prompt(t("标注文字"), drawing.text)?.trim();
       if (text) executeDrawingCommand({ type: "update", drawingId, drawing: { ...drawing, text } });
       return;
     }
     if (drawing.type === "horizontal-line") {
-      const price = Number(window.prompt("参考线价格", String(drawing.price)));
+      const price = Number(window.prompt(t("参考线价格"), String(drawing.price)));
       if (Number.isFinite(price) && price > 0)
         executeDrawingCommand({ type: "update", drawingId, drawing: { ...drawing, price } });
       return;
     }
-    const endpoint = Number(window.prompt("趋势线终点价格", String(drawing.points[1].price)));
+    const endpoint = Number(window.prompt(t("趋势线终点价格"), String(drawing.points[1].price)));
     if (Number.isFinite(endpoint) && endpoint > 0)
       executeDrawingCommand({
         type: "update",

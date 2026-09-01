@@ -29,6 +29,8 @@ import { LogoutConfirmationDialog } from "../features/auth/LogoutConfirmationDia
 import { useToastStore } from "../features/feedback/toastStore";
 import { useAppStore } from "../state/appStore";
 import { ToastViewport } from "../ui/ToastViewport";
+import { LanguageSwitcher } from "../ui/LanguageSwitcher";
+import { useI18n } from "../i18n/I18nProvider";
 
 const navItems: Array<{ route: AppRoute; label: string; icon: typeof LayoutDashboard }> = [
   { route: "dashboard", label: "仪表盘", icon: LayoutDashboard },
@@ -40,6 +42,7 @@ const navItems: Array<{ route: AppRoute; label: string; icon: typeof LayoutDashb
 ];
 
 export function AppShell({ children }: PropsWithChildren) {
+  const { formatDateTime, t } = useI18n();
   const currentRoute = useAppStore((state) => state.currentRoute);
   const navigate = useAppStore((state) => state.navigate);
   const clearSession = useAuthStore((state) => state.clearSession);
@@ -55,13 +58,14 @@ export function AppShell({ children }: PropsWithChildren) {
     setIsLogoutConfirmOpen(false);
   }, []);
   const visibleCommands = useMemo(() => {
+    const localizedItems = navItems.map((item) => ({ ...item, label: t(item.label) }));
     const normalizedQuery = commandQuery.trim().toLowerCase();
     if (!normalizedQuery) {
-      return navItems;
+      return localizedItems;
     }
 
-    return navItems.filter((item) => item.label.toLowerCase().includes(normalizedQuery));
-  }, [commandQuery]);
+    return localizedItems.filter((item) => item.label.toLowerCase().includes(normalizedQuery));
+  }, [commandQuery, t]);
 
   useEffect(() => {
     if (currentRoute === "login") {
@@ -120,7 +124,7 @@ export function AppShell({ children }: PropsWithChildren) {
     navigate(route);
     setCommandQuery("");
     setIsCommandPaletteOpen(false);
-    pushToast({ tone: "success", title: `已打开${label}`, durationMs: 2200 });
+    pushToast({ tone: "success", title: t("已打开{name}", { name: label }), durationMs: 2200 });
   };
 
   const handleCommandKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -132,46 +136,48 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <main className="app-shell">
-      <aside className="app-sidebar" aria-label="主导航">
-        <nav aria-label="工作区导航">
+      <aside className="app-sidebar" aria-label={t("主导航")}>
+        <LanguageSwitcher compact />
+        <nav aria-label={t("工作区导航")}>
           {navItems.map((item) => {
             const Icon = item.icon;
+            const label = t(item.label);
             return (
               <button
-                aria-label={item.label}
+                aria-label={label}
                 className={currentRoute === item.route ? "active" : ""}
                 key={item.route}
                 onClick={() => navigate(item.route)}
-                title={item.label}
+                title={label}
                 type="button"
               >
                 <Icon size={18} />
-                <span>{item.label}</span>
+                <span>{label}</span>
               </button>
             );
           })}
         </nav>
         <button
-          aria-label="打开命令面板"
+          aria-label={t("打开命令面板")}
           className="command-launcher"
           onClick={() => setIsCommandPaletteOpen(true)}
-          title="命令面板 Ctrl+K"
+          title={t("命令面板 Ctrl+K")}
           type="button"
         >
           <Command size={18} />
-          <span>命令面板</span>
+          <span>{t("命令面板")}</span>
         </button>
         <button
           aria-haspopup="dialog"
-          aria-label="退出登录"
+          aria-label={t("退出登录")}
           className="logout-button"
           onClick={() => setIsLogoutConfirmOpen(true)}
           ref={logoutButtonRef}
-          title="退出登录"
+          title={t("退出登录")}
           type="button"
         >
           <LogOut size={18} />
-          <span>退出登录</span>
+          <span>{t("退出登录")}</span>
         </button>
       </aside>
       <section className="app-content">
@@ -179,14 +185,13 @@ export function AppShell({ children }: PropsWithChildren) {
           <div className={`offline-auth-banner ${offlineWarning ? "warning" : ""}`} role="status">
             {offlineWarning ? <AlertTriangle size={15} /> : <WifiOff size={15} />}
             <span>
-              当前使用离线授权，可用至
-              {new Date(session.offlineUntil).toLocaleString("zh-CN", {
-                hour12: false,
+              {t("当前使用离线授权，可用至{time}", {
+                time: formatDateTime(session.offlineUntil),
               })}
             </span>
             <button onClick={() => void revalidate()} type="button">
               <RefreshCw size={14} />
-              立即重新验证
+              {t("立即重新验证")}
             </button>
           </div>
         )}
@@ -199,7 +204,7 @@ export function AppShell({ children }: PropsWithChildren) {
           onClick={() => setIsCommandPaletteOpen(false)}
         >
           <section
-            aria-label="命令面板"
+            aria-label={t("命令面板")}
             className="command-palette"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
@@ -207,16 +212,16 @@ export function AppShell({ children }: PropsWithChildren) {
             <div className="command-palette-input">
               <Search size={17} />
               <input
-                aria-label="搜索命令"
+                aria-label={t("搜索命令")}
                 autoFocus
                 onChange={(event) => setCommandQuery(event.currentTarget.value)}
                 onKeyDown={handleCommandKeyDown}
-                placeholder="搜索页面或操作"
+                placeholder={t("搜索页面或操作")}
                 value={commandQuery}
               />
               <kbd>Esc</kbd>
               <button
-                aria-label="关闭命令面板"
+                aria-label={t("关闭命令面板")}
                 onClick={() => setIsCommandPaletteOpen(false)}
                 type="button"
               >
@@ -241,13 +246,13 @@ export function AppShell({ children }: PropsWithChildren) {
                         ? "G C"
                         : command.route === "dashboard"
                           ? "G D"
-                          : "打开"}
+                          : t("打开")}
                     </kbd>
                   </button>
                 );
               })}
               {visibleCommands.length === 0 && (
-                <div className="command-palette-empty">没有匹配的命令。</div>
+                <div className="command-palette-empty">{t("没有匹配的命令。")}</div>
               )}
             </div>
           </section>

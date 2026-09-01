@@ -43,8 +43,10 @@ import {
 } from "./strategyManagementModel";
 
 import { StrategyManagementView } from "./StrategyManagementView";
+import { useI18n } from "../i18n/I18nProvider";
 
 export function useStrategyManagementController() {
+  const { t } = useI18n();
   const navigate = useAppStore((state) => state.navigate);
   const pluginStrategies = usePluginRuntimeStore((state) => state.strategies);
   const refreshPluginRuntime = usePluginRuntimeStore((state) => state.refresh);
@@ -295,8 +297,11 @@ export function useStrategyManagementController() {
     }));
     pushToast({
       tone: nextStatus === "enabled" ? "success" : "info",
-      title: `${strategyName}已${nextStatus === "enabled" ? "启用" : "停用"}`,
-      detail: nextStatus === "enabled" ? "策略会在超级图表中生成图层。" : "策略图层已停止输出。",
+      title: t(nextStatus === "enabled" ? "{name}已启用" : "{name}已停用", {
+        name: strategyName,
+      }),
+      detail:
+        nextStatus === "enabled" ? t("策略会在超级图表中生成图层。") : t("策略图层已停止输出。"),
       durationMs: 2800,
     });
   };
@@ -324,8 +329,8 @@ export function useStrategyManagementController() {
     if (!selectedStrategy || !selectedBacktestContext) {
       pushToast({
         tone: "warning",
-        title: "没有可用于回测的行情缓存",
-        detail: "请先在超级图表加载该策略支持的标的和周期。",
+        title: t("没有可用于回测的行情缓存"),
+        detail: t("请先在超级图表加载该策略支持的标的和周期。"),
         durationMs: 3200,
       });
       return;
@@ -342,8 +347,8 @@ export function useStrategyManagementController() {
       if (bars.length < 2) {
         pushToast({
           tone: "warning",
-          title: "行情数据不足",
-          detail: "精简回测至少需要两根有效 K 线。",
+          title: t("行情数据不足"),
+          detail: t("精简回测至少需要两根有效 K 线。"),
           durationMs: 2800,
         });
         return;
@@ -384,15 +389,22 @@ export function useStrategyManagementController() {
       setIsBacktestDialogOpen(false);
       pushToast({
         tone: "success",
-        title: `${formatStrategyDisplayName(selectedStrategy.name)} 回测完成`,
-        detail: `${run.symbol} ${formatBacktestTimeframe(run.timeframe)}，生成 ${result.summary.tradeCount} 笔双向成交记录。`,
+        title: t("{name} 回测完成", {
+          name: formatStrategyDisplayName(selectedStrategy.name),
+        }),
+        detail: t("{symbol} {timeframe}，生成 {count} 笔双向成交记录。", {
+          symbol: run.symbol,
+          timeframe: formatBacktestTimeframe(run.timeframe),
+          count: result.summary.tradeCount,
+        }),
         durationMs: 3200,
       });
     } catch (error) {
       pushToast({
         tone: "error",
-        title: "回测未完成",
-        detail: error instanceof Error ? error.message : "回测发生未知错误，请检查行情缓存后重试。",
+        title: t("回测未完成"),
+        detail:
+          error instanceof Error ? t(error.message) : t("回测发生未知错误，请检查行情缓存后重试。"),
         durationMs: 4200,
       });
     }

@@ -57,6 +57,14 @@ export function normalizeInviteInput(inviteCode: string): string {
   return formatInviteCode(inviteCode);
 }
 
+export function renewalCredentialsRequired(verifiedEmail: string, enteredEmail: string): boolean {
+  const normalizedVerifiedEmail = verifiedEmail.trim().toLowerCase();
+  return (
+    normalizedVerifiedEmail.length === 0 ||
+    enteredEmail.trim().toLowerCase() !== normalizedVerifiedEmail
+  );
+}
+
 export function maskEmail(email: string): string {
   const [localPart, domain] = email.split("@");
   if (!localPart || !domain) {

@@ -19,25 +19,33 @@ import {
   maskEmail,
   normalizeInviteInput,
   passwordRulesSatisfied,
+  renewalCredentialsRequired,
 } from "../features/auth/authService";
 import { useAuthStore } from "../features/auth/authStore";
+import { useI18n } from "../i18n/I18nProvider";
+import type { Translate } from "../i18n/i18n";
+import { LanguageSwitcher } from "../ui/LanguageSwitcher";
 
 function AuthLayout({ children }: PropsWithChildren) {
+  const { t } = useI18n();
   return (
     <main className="auth-shell">
       <section className="login-page">
-        <header className="login-topbar" aria-label="登录页页眉">
+        <header className="login-topbar" aria-label={t("登录页页眉")}>
           <div className="brand-lockup">
-            <div className="login-mark">量</div>
-            <span>量化学习系统桌面版</span>
+            <div className="login-mark">{t("量")}</div>
+            <span>{t("量化学习系统桌面版")}</span>
           </div>
-          <span className="auth-environment-label">安全账号验证</span>
+          <div className="auth-topbar-actions">
+            <span className="auth-environment-label">{t("安全账号验证")}</span>
+            <LanguageSwitcher />
+          </div>
         </header>
         <div className="login-shell">
-          <aside className="login-brand-panel" aria-label="产品介绍">
+          <aside className="login-brand-panel" aria-label={t("产品介绍")}>
             <p>TradingView + Quant Learning Workstation</p>
-            <h1>专业量化学习工作台</h1>
-            <span>账号验证在云端完成；行情凭据、策略草稿和研究数据继续保留在本机。</span>
+            <h1>{t("专业量化学习工作台")}</h1>
+            <span>{t("账号验证在云端完成；行情凭据、策略草稿和研究数据继续保留在本机。")}</span>
           </aside>
           {children}
         </div>
@@ -60,9 +68,14 @@ function AuthMessage({ error, status }: { error: string; status: string }) {
   );
 }
 
-function errorText(error: AuthOperationError): string {
-  const message = authErrorMessage(error.code, error.retryAfterSeconds);
-  return error.requestId ? `${message} 请求编号：${error.requestId}` : message;
+function errorText(error: AuthOperationError, t: Translate): string {
+  const message =
+    error.code === "RATE_LIMITED" && error.retryAfterSeconds
+      ? t("操作过于频繁，请在 {seconds} 秒后重试。", {
+          seconds: error.retryAfterSeconds,
+        })
+      : t(authErrorMessage(error.code, error.retryAfterSeconds));
+  return error.requestId ? `${message} ${t("请求编号：{id}", { id: error.requestId })}` : message;
 }
 
 function useCountdown() {
@@ -82,27 +95,31 @@ function PasswordInput({
   onChange,
   autoComplete,
   label = "密码",
+  required = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   autoComplete: "current-password" | "new-password";
   label?: string;
+  required?: boolean;
 }) {
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   return (
     <label className="auth-field">
-      <span>{label}</span>
+      <span>{t(label)}</span>
       <div className="input-shell">
         <KeyRound size={16} />
         <input
           autoComplete={autoComplete}
           maxLength={64}
           onChange={(event) => onChange(event.currentTarget.value)}
+          required={required}
           type={visible ? "text" : "password"}
           value={value}
         />
         <button
-          aria-label={visible ? "隐藏密码" : "显示密码"}
+          aria-label={visible ? t("隐藏密码") : t("显示密码")}
           className="input-icon-button"
           onClick={() => setVisible((current) => !current)}
           type="button"
@@ -115,6 +132,7 @@ function PasswordInput({
 }
 
 function PasswordRules({ password }: { password: string }) {
+  const { t } = useI18n();
   const rules = evaluatePasswordRules(password);
   const items = [
     ["length", "8–64 位"],
@@ -125,11 +143,11 @@ function PasswordRules({ password }: { password: string }) {
     ["asciiNoWhitespace", "无空格 ASCII 字符"],
   ] as const;
   return (
-    <ul className="password-rule-list" aria-label="密码安全规则">
+    <ul className="password-rule-list" aria-label={t("密码安全规则")}>
       {items.map(([key, label]) => (
         <li className={rules[key] ? "valid" : ""} key={key}>
           <Check size={13} />
-          {label}
+          {t(label)}
         </li>
       ))}
     </ul>
@@ -147,6 +165,7 @@ function LoginForm({
   onEmailRemembered: (email: string) => void;
   onEntitlementExpired: (expiredAt: string) => void;
 }) {
+  const { t } = useI18n();
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -159,7 +178,7 @@ function LoginForm({
     event.preventDefault();
     const bridge = getAuthBridge();
     if (!bridge) {
-      setError("当前不是 Electron 桌面运行环境，无法安全登录。");
+      setError(t("当前不是 Electron 桌面运行环境，无法安全登录。"));
       return;
     }
     setSubmitting(true);
@@ -172,12 +191,12 @@ function LoginForm({
         password,
       });
       if (!result.ok) {
-        setError(errorText(result.error));
+        setError(errorText(result.error, t));
         return;
       }
       onEmailRemembered(normalizedEmail);
       if (result.data.kind === "ACCESS_DENIED") {
-        setError("该账号当前无法访问测试系统。");
+        setError(t("该账号当前无法访问测试系统。"));
       } else if (result.data.kind === "INVITE_REQUIRED") {
         setPhase("INVITE_REQUIRED");
       } else if (result.data.kind === "ENTITLEMENT_EXPIRED") {
@@ -193,12 +212,12 @@ function LoginForm({
   return (
     <form className="auth-card" onSubmit={submit}>
       <div className="auth-card-header">
-        <p>账号登录</p>
-        <h2 tabIndex={-1}>验证您的测试账号</h2>
-        <span>首次正确登录后，需要再核验一枚有效邀请码。</span>
+        <p>{t("账号登录")}</p>
+        <h2 tabIndex={-1}>{t("验证您的测试账号")}</h2>
+        <span>{t("首次正确登录后，需要再核验一枚有效邀请码。")}</span>
       </div>
       <label className="auth-field">
-        <span>邮箱</span>
+        <span>{t("邮箱")}</span>
         <div className="input-shell">
           <Mail size={16} />
           <input
@@ -214,16 +233,16 @@ function LoginForm({
       </label>
       <PasswordInput autoComplete="current-password" onChange={setPassword} value={password} />
       <button className="auth-link-button" onClick={() => setPhase("RESET_REQUEST")} type="button">
-        忘记密码
+        {t("忘记密码")}
       </button>
       <AuthMessage error={error} status={status || notice} />
       <button className="primary-auth-action" disabled={isSubmitting} type="submit">
-        {isSubmitting ? "正在验证…" : "登录"}
+        {isSubmitting ? t("正在验证…") : t("登录")}
       </button>
       <div className="auth-secondary-row">
-        <span>还没有账号？</span>
+        <span>{t("还没有账号？")}</span>
         <button onClick={() => setPhase("REGISTERING")} type="button">
-          注册测试账号
+          {t("注册测试账号")}
         </button>
       </div>
     </form>
@@ -237,6 +256,7 @@ function RegistrationForm({
   initialEmail: string;
   onEmailRemembered: (email: string) => void;
 }) {
+  const { t } = useI18n();
   const [email, setEmail] = useState(initialEmail);
   const [emailCode, setEmailCode] = useState("");
   const [password, setPassword] = useState("");
@@ -253,7 +273,7 @@ function RegistrationForm({
   const requestCode = async () => {
     const bridge = getAuthBridge();
     if (!bridge) {
-      setError("当前不是 Electron 桌面运行环境。");
+      setError(t("当前不是 Electron 桌面运行环境。"));
       return;
     }
     setRequestingCode(true);
@@ -264,11 +284,13 @@ function RegistrationForm({
         email: email.trim().toLowerCase(),
       });
       if (!result.ok) {
-        setError(errorText(result.error));
+        setError(errorText(result.error, t));
         return;
       }
       start(result.data.retryAfterSeconds);
-      setStatus("验证码已发送，请检查邮箱；验证码 10 分钟内有效。已注册邮箱验证后会引导您登录。");
+      setStatus(
+        t("验证码已发送，请检查邮箱；验证码 10 分钟内有效。已注册邮箱验证后会引导您登录。"),
+      );
     } finally {
       setRequestingCode(false);
     }
@@ -277,16 +299,16 @@ function RegistrationForm({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!passwordRulesSatisfied(password)) {
-      setError("请先满足全部密码安全规则。");
+      setError(t("请先满足全部密码安全规则。"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("两次输入的密码不一致。");
+      setError(t("两次输入的密码不一致。"));
       return;
     }
     const bridge = getAuthBridge();
     if (!bridge) {
-      setError("当前不是 Electron 桌面运行环境。");
+      setError(t("当前不是 Electron 桌面运行环境。"));
       return;
     }
     setSubmitting(true);
@@ -303,7 +325,7 @@ function RegistrationForm({
           onEmailRemembered(normalizedEmail);
           setAccountAlreadyExists(true);
         }
-        setError(errorText(result.error));
+        setError(errorText(result.error, t));
         return;
       }
       onEmailRemembered(normalizedEmail);
@@ -318,12 +340,12 @@ function RegistrationForm({
   return (
     <form className="auth-card" onSubmit={submit}>
       <div className="auth-card-header">
-        <p>账号注册</p>
-        <h2 tabIndex={-1}>创建测试账号</h2>
-        <span>注册只验证邮箱和密码；邀请码在首次登录时单独核验。</span>
+        <p>{t("账号注册")}</p>
+        <h2 tabIndex={-1}>{t("创建测试账号")}</h2>
+        <span>{t("注册只验证邮箱和密码；邀请码在首次登录时单独核验。")}</span>
       </div>
       <label className="auth-field">
-        <span>邮箱</span>
+        <span>{t("邮箱")}</span>
         <div className="input-shell">
           <Mail size={16} />
           <input
@@ -340,7 +362,7 @@ function RegistrationForm({
         </div>
       </label>
       <label className="auth-field">
-        <span>邮箱验证码</span>
+        <span>{t("邮箱验证码")}</span>
         <div className="inline-input">
           <div className="input-shell">
             <ShieldCheck size={16} />
@@ -356,7 +378,11 @@ function RegistrationForm({
             onClick={() => void requestCode()}
             type="button"
           >
-            {isRequestingCode ? "正在发送…" : seconds > 0 ? `${seconds} 秒` : "发送验证码"}
+            {isRequestingCode
+              ? t("正在发送…")
+              : seconds > 0
+                ? t("{seconds} 秒", { seconds })
+                : t("发送验证码")}
           </button>
         </div>
       </label>
@@ -372,23 +398,23 @@ function RegistrationForm({
       {accountAlreadyExists ? (
         <>
           <button className="primary-auth-action" onClick={() => setPhase("LOGIN")} type="button">
-            直接登录
+            {t("直接登录")}
           </button>
           <button
             className="secondary-auth-action"
             onClick={() => setPhase("RESET_REQUEST")}
             type="button"
           >
-            忘记密码，重置密码
+            {t("忘记密码，重置密码")}
           </button>
         </>
       ) : (
         <>
           <button className="primary-auth-action" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "正在创建…" : "完成注册"}
+            {isSubmitting ? t("正在创建…") : t("完成注册")}
           </button>
           <button className="secondary-auth-action" onClick={() => setPhase("LOGIN")} type="button">
-            已有账号，返回登录
+            {t("已有账号，返回登录")}
           </button>
         </>
       )}
@@ -400,23 +426,31 @@ function InviteForm({
   email,
   expired,
   expiredAt,
+  onEmailRemembered,
 }: {
   email: string;
   expired: boolean;
   expiredAt?: string;
+  onEmailRemembered: (email: string) => void;
 }) {
+  const { formatDateTime, t } = useI18n();
+  const [renewalEmail, setRenewalEmail] = useState(email);
+  const [password, setPassword] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
+  const [forceReauthentication, setForceReauthentication] = useState(email.length === 0);
   const isSubmitting = useAuthStore((state) => state.isSubmitting);
   const setSubmitting = useAuthStore((state) => state.setSubmitting);
   const setPhase = useAuthStore((state) => state.setPhase);
+  const credentialsRequired =
+    expired && (forceReauthentication || renewalCredentialsRequired(email, renewalEmail));
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const bridge = getAuthBridge();
     if (!bridge) {
-      setError("当前不是 Electron 桌面运行环境。");
+      setError(t("当前不是 Electron 桌面运行环境。"));
       return;
     }
     setSubmitting(true);
@@ -424,19 +458,53 @@ function InviteForm({
     setStatus("");
     try {
       const normalizedCode = normalizeInviteInput(inviteCode);
-      const result = expired
+      let shouldRenew = expired;
+
+      if (credentialsRequired) {
+        const normalizedEmail = renewalEmail.trim().toLowerCase();
+        if (!normalizedEmail || !password) {
+          setError(t("请输入邮箱和密码以验证续期账号。"));
+          return;
+        }
+        const loginResult = await bridge.login({ email: normalizedEmail, password });
+        if (!loginResult.ok) {
+          setError(errorText(loginResult.error, t));
+          return;
+        }
+        if (loginResult.data.kind === "ACCESS_DENIED") {
+          setError(t("该账号当前无法访问测试系统。"));
+          return;
+        }
+        onEmailRemembered(normalizedEmail);
+        setRenewalEmail(normalizedEmail);
+        setForceReauthentication(false);
+        if (loginResult.data.kind === "AUTHENTICATED") {
+          return;
+        }
+        shouldRenew = loginResult.data.kind === "ENTITLEMENT_EXPIRED";
+      }
+
+      const result = shouldRenew
         ? await bridge.renewEntitlement({ inviteCode: normalizedCode })
         : await bridge.redeemInvite({ inviteCode: normalizedCode });
       if (!result.ok) {
-        setError(errorText(result.error));
+        if (expired && result.error.code === "ACCESS_DENIED") {
+          setForceReauthentication(true);
+          setError(t("请重新输入邮箱和密码后再续期。"));
+          return;
+        }
+        setError(errorText(result.error, t));
         return;
       }
       setStatus(
-        `资格已生效，有效期至 ${new Date(result.data.entitlementEndsAt).toLocaleString("zh-CN", { hour12: false })}`,
+        t("资格已生效，有效期至 {time}", {
+          time: formatDateTime(result.data.entitlementEndsAt),
+        }),
       );
     } catch {
-      setError("邀请码格式不正确，请输入 QLD-XXXXX-XXXXX-XXXXX。");
+      setError(t("邀请码格式不正确，请输入 QLD-XXXXX-XXXXX-XXXXX。"));
     } finally {
+      setPassword("");
       setSubmitting(false);
     }
   };
@@ -444,32 +512,65 @@ function InviteForm({
   return (
     <form className="auth-card auth-blocking-card" onSubmit={submit}>
       <div className="auth-card-header">
-        <p>{expired ? "测试资格已到期" : "首次登录验证"}</p>
-        <h2 tabIndex={-1}>{expired ? "使用新邀请码续期" : "验证测试用户邀请码"}</h2>
+        <p>{expired ? t("测试资格已到期") : t("首次登录验证")}</p>
+        <h2 tabIndex={-1}>{expired ? t("使用新邀请码续期") : t("验证测试用户邀请码")}</h2>
         <span>
           {expired
-            ? "邮箱和密码已验证，但测试资格已经失效。"
-            : "邮箱和密码已验证，还需要邀请码确认测试资格。"}
+            ? credentialsRequired
+              ? t("请输入邮箱和密码验证账号，再使用新邀请码续期。")
+              : t("邮箱和密码已验证，但测试资格已经失效。")
+            : t("邮箱和密码已验证，还需要邀请码确认测试资格。")}
         </span>
         {expired && expiredAt && (
           <span>
-            原到期时间：
-            {new Date(expiredAt).toLocaleString("zh-CN", {
-              hour12: false,
-            })}
+            {t("原到期时间：")}
+            {formatDateTime(expiredAt)}
           </span>
         )}
       </div>
-      <div className="masked-account-row">
-        <Mail size={15} />
-        <span>{maskEmail(email)}</span>
-      </div>
+      {expired ? (
+        <>
+          <label className="auth-field">
+            <span>{t("邮箱")}</span>
+            <div className="input-shell">
+              <Mail size={16} />
+              <input
+                autoComplete="email"
+                autoFocus={!email}
+                maxLength={254}
+                onChange={(event) => {
+                  setRenewalEmail(event.currentTarget.value);
+                  setPassword("");
+                  setError("");
+                }}
+                placeholder="name@example.com"
+                required
+                type="email"
+                value={renewalEmail}
+              />
+            </div>
+          </label>
+          {credentialsRequired && (
+            <PasswordInput
+              autoComplete="current-password"
+              onChange={setPassword}
+              required
+              value={password}
+            />
+          )}
+        </>
+      ) : (
+        <div className="masked-account-row">
+          <Mail size={15} />
+          <span>{maskEmail(email)}</span>
+        </div>
+      )}
       <label className="auth-field">
-        <span>邀请码</span>
+        <span>{t("邀请码")}</span>
         <div className="input-shell">
           <ShieldCheck size={16} />
           <input
-            autoFocus
+            autoFocus={!expired || (!credentialsRequired && Boolean(email))}
             maxLength={64}
             onChange={(event) => setInviteCode(event.currentTarget.value)}
             onPaste={(event) => {
@@ -480,26 +581,27 @@ function InviteForm({
                 setError("");
               } catch {
                 setInviteCode(pastedCode);
-                setError("邀请码格式不正确，请核对后重试。");
+                setError(t("邀请码格式不正确，请核对后重试。"));
               }
             }}
             placeholder="QLD-XXXXX-XXXXX-XXXXX"
+            required
             value={inviteCode}
           />
         </div>
       </label>
       <AuthMessage error={error} status={status} />
       <button className="primary-auth-action" disabled={isSubmitting} type="submit">
-        {isSubmitting ? "正在核验…" : expired ? "续期并登录" : "验证并进入"}
+        {isSubmitting ? t("正在核验…") : expired ? t("续期并登录") : t("验证并进入")}
       </button>
       <div className="auth-secondary-row">
         {expired && (
           <button onClick={() => setPhase("RESET_REQUEST")} type="button">
-            忘记密码
+            {t("忘记密码")}
           </button>
         )}
         <button onClick={() => void getAuthBridge()?.logout()} type="button">
-          退出账号
+          {t("退出账号")}
         </button>
       </div>
     </form>
@@ -515,6 +617,7 @@ function PasswordResetFlow({
   onEmailRemembered: (email: string) => void;
   onResetCompleted: (message: string) => void;
 }) {
+  const { t } = useI18n();
   const phase = useAuthStore((state) => state.phase);
   const setPhase = useAuthStore((state) => state.setPhase);
   const [email, setEmail] = useState(initialEmail);
@@ -530,7 +633,7 @@ function PasswordResetFlow({
   const requestCode = async () => {
     const bridge = getAuthBridge();
     if (!bridge) {
-      setError("当前不是 Electron 桌面运行环境。");
+      setError(t("当前不是 Electron 桌面运行环境。"));
       return;
     }
     setSubmitting(true);
@@ -541,12 +644,12 @@ function PasswordResetFlow({
         email: normalizedEmail,
       });
       if (!result.ok) {
-        setError(errorText(result.error));
+        setError(errorText(result.error, t));
         return;
       }
       onEmailRemembered(normalizedEmail);
       start(result.data.retryAfterSeconds);
-      setStatus("如果账号存在，验证码已发送。");
+      setStatus(t("如果账号存在，验证码已发送。"));
       setPhase("RESET_PASSWORD");
     } finally {
       setSubmitting(false);
@@ -556,12 +659,12 @@ function PasswordResetFlow({
   const reset = async (event: FormEvent) => {
     event.preventDefault();
     if (!passwordRulesSatisfied(password) || password !== confirmPassword) {
-      setError("请满足密码规则，并确认两次输入一致。");
+      setError(t("请满足密码规则，并确认两次输入一致。"));
       return;
     }
     const bridge = getAuthBridge();
     if (!bridge) {
-      setError("当前不是 Electron 桌面运行环境。");
+      setError(t("当前不是 Electron 桌面运行环境。"));
       return;
     }
     setSubmitting(true);
@@ -575,10 +678,10 @@ function PasswordResetFlow({
       setPassword("");
       setConfirmPassword("");
       if (!result.ok) {
-        setError(errorText(result.error));
+        setError(errorText(result.error, t));
         return;
       }
-      onResetCompleted("密码已重置，所有设备均已退出。请使用新密码登录。");
+      onResetCompleted(t("密码已重置，所有设备均已退出。请使用新密码登录。"));
     } finally {
       setSubmitting(false);
     }
@@ -597,12 +700,12 @@ function PasswordResetFlow({
       }
     >
       <div className="auth-card-header">
-        <p>找回账号</p>
-        <h2 tabIndex={-1}>{phase === "RESET_REQUEST" ? "请求重置验证码" : "设置新密码"}</h2>
-        <span>验证码 10 分钟内有效，最多可以尝试 5 次。</span>
+        <p>{t("找回账号")}</p>
+        <h2 tabIndex={-1}>{phase === "RESET_REQUEST" ? t("请求重置验证码") : t("设置新密码")}</h2>
+        <span>{t("验证码 10 分钟内有效，最多可以尝试 5 次。")}</span>
       </div>
       <label className="auth-field">
-        <span>邮箱</span>
+        <span>{t("邮箱")}</span>
         <div className="input-shell">
           <Mail size={16} />
           <input
@@ -619,7 +722,7 @@ function PasswordResetFlow({
       {phase === "RESET_PASSWORD" && (
         <>
           <label className="auth-field">
-            <span>邮箱验证码</span>
+            <span>{t("邮箱验证码")}</span>
             <div className="input-shell">
               <ShieldCheck size={16} />
               <input
@@ -649,14 +752,14 @@ function PasswordResetFlow({
       <button className="primary-auth-action" disabled={isSubmitting} type="submit">
         {phase === "RESET_REQUEST"
           ? isSubmitting
-            ? "正在发送…"
-            : "发送重置验证码"
+            ? t("正在发送…")
+            : t("发送重置验证码")
           : isSubmitting
-            ? "正在重置…"
-            : "重置密码并退出所有设备"}
+            ? t("正在重置…")
+            : t("重置密码并退出所有设备")}
       </button>
       {phase === "RESET_PASSWORD" && seconds > 0 && (
-        <span className="auth-countdown-note">{seconds} 秒后可重新请求</span>
+        <span className="auth-countdown-note">{t("{seconds} 秒后可重新请求", { seconds })}</span>
       )}
       {phase === "RESET_PASSWORD" && seconds === 0 && (
         <button
@@ -665,17 +768,18 @@ function PasswordResetFlow({
           onClick={() => void requestCode()}
           type="button"
         >
-          重新发送验证码
+          {t("重新发送验证码")}
         </button>
       )}
       <button className="secondary-auth-action" onClick={() => setPhase("LOGIN")} type="button">
-        返回登录
+        {t("返回登录")}
       </button>
     </form>
   );
 }
 
 function ServiceUnavailable() {
+  const { t } = useI18n();
   const [isRetrying, setRetrying] = useState(false);
   const applyAuthState = useAuthStore((state) => state.applyAuthState);
   const retry = async () => {
@@ -694,9 +798,9 @@ function ServiceUnavailable() {
     <section className="auth-card auth-service-state">
       <AlertCircle size={24} />
       <div className="auth-card-header">
-        <p>服务暂不可用</p>
-        <h2 tabIndex={-1}>无法验证本机授权</h2>
-        <span>请检查网络连接，或稍后重试。未验证前不会加载工作区。</span>
+        <p>{t("服务暂不可用")}</p>
+        <h2 tabIndex={-1}>{t("无法验证本机授权")}</h2>
+        <span>{t("请检查网络连接，或稍后重试。未验证前不会加载工作区。")}</span>
       </div>
       <button
         className="primary-auth-action"
@@ -705,7 +809,7 @@ function ServiceUnavailable() {
         type="button"
       >
         <RefreshCw size={15} />
-        {isRetrying ? "正在重试…" : "重新验证"}
+        {isRetrying ? t("正在重试…") : t("重新验证")}
       </button>
     </section>
   );
@@ -727,10 +831,15 @@ export function LoginPage({ initialExpiredAt = "" }: { initialExpiredAt?: string
   if (phase === "REGISTERING") {
     content = <RegistrationForm initialEmail={flowEmail} onEmailRemembered={setFlowEmail} />;
   } else if (phase === "INVITE_REQUIRED") {
-    content = <InviteForm email={flowEmail} expired={false} />;
+    content = <InviteForm email={flowEmail} expired={false} onEmailRemembered={setFlowEmail} />;
   } else if (phase === "ENTITLEMENT_EXPIRED") {
     content = (
-      <InviteForm email={flowEmail || session?.email || ""} expired expiredAt={expiredAt} />
+      <InviteForm
+        email={flowEmail || session?.email || ""}
+        expired
+        expiredAt={expiredAt}
+        onEmailRemembered={setFlowEmail}
+      />
     );
   } else if (phase === "RESET_REQUEST" || phase === "RESET_PASSWORD") {
     content = (

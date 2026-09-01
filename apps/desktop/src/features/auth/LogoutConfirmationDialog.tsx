@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import type { AuthSessionSnapshot } from "@quant/shared";
 import { maskEmail } from "./authService";
 import { formatEntitlementRemaining } from "./entitlementTime";
+import { useI18n } from "../../i18n/I18nProvider";
 
 interface LogoutConfirmationDialogProps {
   isSubmitting: boolean;
@@ -19,6 +20,7 @@ export function LogoutConfirmationDialog({
   returnFocusRef,
   session,
 }: LogoutConfirmationDialogProps) {
+  const { formatDateTime, language, t } = useI18n();
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const [now, setNow] = useState(() => new Date());
@@ -88,11 +90,11 @@ export function LogoutConfirmationDialog({
             <LogOut size={18} />
           </div>
           <div>
-            <h2 id="logout-confirmation-title">确认退出登录？</h2>
-            <p>退出不会删除本机策略、图表标记或行情缓存。</p>
+            <h2 id="logout-confirmation-title">{t("确认退出登录？")}</h2>
+            <p>{t("退出不会删除本机策略、图表标记或行情缓存。")}</p>
           </div>
           <button
-            aria-label="关闭退出确认"
+            aria-label={t("关闭退出确认")}
             className="logout-confirmation-close"
             disabled={isSubmitting}
             onClick={onCancel}
@@ -105,30 +107,26 @@ export function LogoutConfirmationDialog({
         <div className="logout-entitlement-summary">
           <div className="logout-entitlement-heading">
             <CalendarClock size={17} />
-            <span>当前账号测试资格</span>
+            <span>{t("当前账号测试资格")}</span>
           </div>
           <dl>
             <div>
-              <dt>账号</dt>
+              <dt>{t("账号")}</dt>
               <dd>{maskEmail(session.email)}</dd>
             </div>
             <div>
-              <dt>资格档位</dt>
-              <dd>{session.entitlementDurationDays} 天</dd>
+              <dt>{t("资格档位")}</dt>
+              <dd>{t("{days} 天", { days: session.entitlementDurationDays })}</dd>
             </div>
             <div>
-              <dt>距离到期</dt>
+              <dt>{t("距离到期")}</dt>
               <dd className="logout-entitlement-remaining">
-                {formatEntitlementRemaining(session.entitlementEndsAt, now)}
+                {formatEntitlementRemaining(session.entitlementEndsAt, now, language)}
               </dd>
             </div>
             <div>
-              <dt>到期时间</dt>
-              <dd>
-                {new Date(session.entitlementEndsAt).toLocaleString("zh-CN", {
-                  hour12: false,
-                })}
-              </dd>
+              <dt>{t("到期时间")}</dt>
+              <dd>{formatDateTime(session.entitlementEndsAt)}</dd>
             </div>
           </dl>
         </div>
@@ -141,7 +139,7 @@ export function LogoutConfirmationDialog({
             ref={cancelButtonRef}
             type="button"
           >
-            继续使用
+            {t("继续使用")}
           </button>
           <button
             className="logout-confirm-action"
@@ -150,7 +148,7 @@ export function LogoutConfirmationDialog({
             type="button"
           >
             <LogOut size={15} />
-            {isSubmitting ? "正在退出…" : "确认退出"}
+            {isSubmitting ? t("正在退出…") : t("确认退出")}
           </button>
         </footer>
       </section>

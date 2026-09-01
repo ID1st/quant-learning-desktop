@@ -68,6 +68,14 @@ export function formatPrice(value: number) {
   return value.toFixed(2);
 }
 
+export function resolveCandleTimeLabel(
+  candle: CandlePoint,
+  timeframe: Timeframe,
+  formatter?: (candle: CandlePoint, timeframe: Timeframe) => string,
+) {
+  return formatter && candle.timestamp !== undefined ? formatter(candle, timeframe) : candle.time;
+}
+
 function formatBeijingChartTime(timestamp: number, timeframe: Timeframe) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Shanghai",

@@ -56,7 +56,11 @@
   font-weight: 800;
 }
 
-.language-button {
+.language-switcher {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   height: 34px;
   border: 1px solid rgba(91, 110, 132, 0.36);
   border-radius: 6px;
@@ -64,11 +68,24 @@
   color: #aab7c6;
   cursor: pointer;
   padding: 0 14px;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.language-button:hover {
+.auth-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.language-switcher:hover {
   border-color: rgba(91, 110, 132, 0.78);
   color: #f4f7fb;
+}
+
+.language-switcher:focus-visible {
+  outline: 2px solid rgba(51, 112, 255, 0.82);
+  outline-offset: 2px;
 }
 
 .login-shell {

@@ -46,6 +46,7 @@ import {
   writeMarketDataProviderSettings,
 } from "../features/marketData/marketDataProviderSettings";
 import { useAppStore } from "../state/appStore";
+import { useI18n } from "../i18n/I18nProvider";
 
 const defaultAlphaFeedForm: AlphaFeedApiForm = {
   apiUrl: ALPHAFEED_DEFAULT_API_URL,
@@ -119,17 +120,22 @@ function CredentialManagement({
   title: string;
   verifiedAt: string;
 }) {
+  const { formatDateTime, t } = useI18n();
   return (
     <div className="credential-management-card">
       <div>
-        <span>当前凭据</span>
+        <span>{t("当前凭据")}</span>
         <strong>{title}</strong>
         <small>{detail}</small>
-        <small>最近验证：{new Date(verifiedAt).toLocaleString("zh-CN", { hour12: false })}</small>
+        <small>
+          {t("最近验证：{date}", {
+            date: formatDateTime(verifiedAt),
+          })}
+        </small>
       </div>
       <div className="credential-management-actions">
         <button className="secondary-auth-action" onClick={onReplace} type="button">
-          修改 / 替换
+          {t("修改 / 替换")}
         </button>
         <button
           className="credential-delete-action"
@@ -137,7 +143,7 @@ function CredentialManagement({
           onClick={onDelete}
           type="button"
         >
-          {isDeleting ? "删除中..." : "删除凭据"}
+          {isDeleting ? t("删除中...") : t("删除凭据")}
         </button>
       </div>
     </div>
@@ -145,6 +151,7 @@ function CredentialManagement({
 }
 
 export function ApiConfigPage() {
+  const { t } = useI18n();
   const [storedAlphaFeedBinding, setStoredAlphaFeedBinding] = useState(() =>
     readAlphaFeedApiBinding(),
   );
@@ -387,7 +394,9 @@ export function ApiConfigPage() {
                   return `${request.item.symbol} ${request.timeframe}: ${reason}`;
                 })
                 .join("；");
-              throw new Error(`AlphaFeed 部分 K 线周期同步失败：${sampleFailures}`);
+              throw new Error(
+                t("AlphaFeed 部分 K 线周期同步失败：{details}", { details: sampleFailures }),
+              );
             }
 
             const failedRequestKeys = new Set(
@@ -417,24 +426,34 @@ export function ApiConfigPage() {
 
             if (blockingEmptyRequests.length > 0 || bars.length === 0) {
               throw new Error(
-                `AlphaFeed 部分必要 K 线周期未返回数据：${blockingEmptyRequests
-                  .slice(0, 6)
-                  .map((request) => `${request.item.symbol} ${request.timeframe}`)
-                  .join("、")}`,
+                t("AlphaFeed 部分必要 K 线周期未返回数据：{details}", {
+                  details: blockingEmptyRequests
+                    .slice(0, 6)
+                    .map((request) => `${request.item.symbol} ${request.timeframe}`)
+                    .join("、"),
+                }),
               );
             }
 
             const warningItems = [
-              ...recoverableFailures.map(
-                ({ request }) => `${request.item.symbol} ${request.timeframe} 无权限`,
+              ...recoverableFailures.map(({ request }) =>
+                t("{symbol} {timeframe} 无权限", {
+                  symbol: request.item.symbol,
+                  timeframe: request.timeframe,
+                }),
               ),
-              ...recoverableEmptyRequests.map(
-                (request) => `${request.item.symbol} ${request.timeframe} 暂无数据`,
+              ...recoverableEmptyRequests.map((request) =>
+                t("{symbol} {timeframe} 暂无数据", {
+                  symbol: request.item.symbol,
+                  timeframe: request.timeframe,
+                }),
               ),
             ];
 
             if (warningItems.length > 0) {
-              marketDataSyncWarning = `部分分钟 K 线未同步：${warningItems.slice(0, 6).join("、")}`;
+              marketDataSyncWarning = t("部分分钟 K 线未同步：{details}", {
+                details: warningItems.slice(0, 6).join("、"),
+              });
             }
 
             return bars.flat();
@@ -464,7 +483,7 @@ export function ApiConfigPage() {
         window.setTimeout(() => navigate("chart"), 420);
       }
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "行情数据源绑定失败。");
+      setError(nextError instanceof Error ? nextError.message : t("行情数据源绑定失败。"));
     } finally {
       setIsSubmitting(false);
     }
@@ -485,7 +504,7 @@ export function ApiConfigPage() {
       );
     } catch (nextError) {
       setStreamError(
-        nextError instanceof Error ? nextError.message : "AlphaFeed WebSocket 通道保存失败。",
+        nextError instanceof Error ? nextError.message : t("AlphaFeed WebSocket 通道保存失败。"),
       );
     } finally {
       setIsSavingStream(false);
@@ -529,8 +548,14 @@ export function ApiConfigPage() {
         ? "AlphaFeed REST"
         : providerId === "alphafeed-websocket"
           ? "AlphaFeed WebSocket"
-          : "长桥";
-    if (!window.confirm(`确定删除 ${providerName} 的已保存凭据吗？删除后需要重新填写并验证。`)) {
+          : t("长桥");
+    if (
+      !window.confirm(
+        t("确定删除 {provider} 的已保存凭据吗？删除后需要重新填写并验证。", {
+          provider: providerName,
+        }),
+      )
+    ) {
       return;
     }
 
@@ -556,7 +581,9 @@ export function ApiConfigPage() {
       }
     } catch (nextError) {
       const message =
-        nextError instanceof Error ? nextError.message : `${providerName} 凭据删除失败。`;
+        nextError instanceof Error
+          ? nextError.message
+          : t("{provider} 凭据删除失败。", { provider: providerName });
       if (providerId === "alphafeed-websocket") {
         setStreamError(message);
       } else {
@@ -570,19 +597,20 @@ export function ApiConfigPage() {
   return (
     <section className="api-config-page">
       <header className="module-header">
-        <p>行情数据源</p>
-        <h1>主行情源优先，备用源兜底</h1>
+        <p>{t("行情数据源")}</p>
+        <h1>{t("主行情源优先，备用源兜底")}</h1>
         <span>
-          Stock SDK 已作为主行情源启用；实时快照与证券搜索由官方 SDK 提供，历史 K
-          线与分时由桌面主进程的腾讯财经路由补强。AlphaFeed 与长桥保留为备用数据源。
+          {t(
+            "Stock SDK 已作为主行情源启用；实时快照与证券搜索由官方 SDK 提供，历史 K 线与分时由桌面主进程的腾讯财经路由补强。AlphaFeed 与长桥保留为备用数据源。",
+          )}
         </span>
       </header>
 
       <div className="data-source-workspace">
-        <aside className="data-source-provider-nav" aria-label="数据源优先级">
+        <aside className="data-source-provider-nav" aria-label={t("数据源优先级")}>
           <div className="data-source-panel-heading">
-            <span>数据源优先级</span>
-            <small>当前顺序</small>
+            <span>{t("数据源优先级")}</span>
+            <small>{t("当前顺序")}</small>
           </div>
           <ol className="provider-navigation-list">
             {apiProviderPriorityItems.map((provider) => {
@@ -600,11 +628,11 @@ export function ApiConfigPage() {
                     <span className="provider-order">{provider.order}</span>
                     {getProviderIcon(provider.id)}
                     <span className="provider-navigation-copy">
-                      <strong>{provider.name}</strong>
-                      <small>{provider.role === "primary" ? "主行情源" : "备用数据源"}</small>
+                      <strong>{t(provider.name)}</strong>
+                      <small>{provider.role === "primary" ? t("主行情源") : t("备用数据源")}</small>
                     </span>
                     <em className={`provider-status-pill ${providerStatus}`}>
-                      {formatApiProviderStatus(providerStatus)}
+                      {t(formatApiProviderStatus(providerStatus))}
                     </em>
                   </button>
                 </li>
@@ -612,7 +640,7 @@ export function ApiConfigPage() {
             })}
           </ol>
           <p className="provider-navigation-note">
-            数据源优先级由行情网关统一执行。配置页面只管理连接信息与可用状态。
+            {t("数据源优先级由行情网关统一执行。配置页面只管理连接信息与可用状态。")}
           </p>
         </aside>
 
@@ -628,9 +656,11 @@ export function ApiConfigPage() {
               <div className="module-card-header">
                 <ServerCog size={20} />
                 <div>
-                  <h2>Stock SDK 主行情源</h2>
+                  <h2>{t("Stock SDK 主行情源")}</h2>
                   <p>
-                    桌面版已接入主行情源适配器；该源不需要用户填写凭据，所有请求都由行情网关统一调度。
+                    {t(
+                      "桌面版已接入主行情源适配器；该源不需要用户填写凭据，所有请求都由行情网关统一调度。",
+                    )}
                   </p>
                 </div>
               </div>
@@ -638,16 +668,17 @@ export function ApiConfigPage() {
 
             <div className="api-provider-content provider-placeholder-panel">
               <div className="provider-status-row">
-                <span className="provider-status-pill enabled">已启用</span>
-                <strong>Stock SDK · 腾讯财经历史路由</strong>
+                <span className="provider-status-pill enabled">{t("已启用")}</span>
+                <strong>{t("Stock SDK · 腾讯财经历史路由")}</strong>
               </div>
               <p>
-                已负责 A股、港股、美股的实时快照、历史 K
-                线与分时数据。历史数据使用腾讯财经补强；遇到网络、限频或无数据时会自动降级到备用数据源。
+                {t(
+                  "已负责 A股、港股、美股的实时快照、历史 K 线与分时数据。历史数据使用腾讯财经补强；遇到网络、限频或无数据时会自动降级到备用数据源。",
+                )}
               </p>
               <div className="provider-badge-row">
                 {apiProviderPriorityItems[0]?.capabilityBadges.map((badge) => (
-                  <span key={badge}>{badge}</span>
+                  <span key={badge}>{t(badge)}</span>
                 ))}
               </div>
               <label className="provider-toggle-row">
@@ -657,16 +688,18 @@ export function ApiConfigPage() {
                   type="checkbox"
                 />
                 <span>
-                  <strong>启用 Stock SDK 主行情源</strong>
+                  <strong>{t("启用 Stock SDK 主行情源")}</strong>
                   <small>
-                    开启后图表优先尝试 Stock SDK；不可用、限频或无数据时自动降级到备用数据源。
+                    {t(
+                      "开启后图表优先尝试 Stock SDK；不可用、限频或无数据时自动降级到备用数据源。",
+                    )}
                   </small>
                 </span>
               </label>
             </div>
           </details>
 
-          <div className="api-section-label">备用数据源</div>
+          <div className="api-section-label">{t("备用数据源")}</div>
 
           <details
             className={`api-provider-section ${selectedProviderId === "alphafeed-rest" ? "selected" : ""}`}
@@ -677,7 +710,7 @@ export function ApiConfigPage() {
                 <DatabaseZap size={20} />
                 <div>
                   <h2>AlphaFeed REST</h2>
-                  <p>备用实时快照与 K 线轮询源；当前仍承担绑定后的初始同步任务。</p>
+                  <p>{t("备用实时快照与 K 线轮询源；当前仍承担绑定后的初始同步任务。")}</p>
                 </div>
               </div>
             </summary>
@@ -702,7 +735,7 @@ export function ApiConfigPage() {
                   <input
                     autoComplete="off"
                     onChange={(event) => updateAlphaFeedField("apiKey", event.target.value)}
-                    placeholder="请输入 AlphaFeed API Key"
+                    placeholder={t("请输入 AlphaFeed API Key")}
                     type="password"
                     value={alphaFeedForm.apiKey}
                   />
@@ -715,7 +748,7 @@ export function ApiConfigPage() {
                   isDeleting={deletingProvider === "alphafeed-rest"}
                   onDelete={() => void handleDeleteProvider("alphafeed-rest")}
                   onReplace={() => handleReplaceProvider("alphafeed-rest")}
-                  title="已保存的 AlphaFeed REST 凭据"
+                  title={t("已保存的 AlphaFeed REST 凭据")}
                   verifiedAt={storedAlphaFeedBinding.verifiedAt}
                 />
               )}
@@ -730,16 +763,16 @@ export function ApiConfigPage() {
               <div className="module-card-header">
                 <RadioTower size={20} />
                 <div>
-                  <h2>AlphaFeed WebSocket 会员通道</h2>
-                  <p>仅在用户单独购买会员通道时填写；保存后作为流式行情备用入口。</p>
+                  <h2>{t("AlphaFeed WebSocket 会员通道")}</h2>
+                  <p>{t("仅在用户单独购买会员通道时填写；保存后作为流式行情备用入口。")}</p>
                 </div>
               </div>
             </summary>
 
             <div className="api-provider-content stream-reserved-panel">
               <div>
-                <strong>流式行情配置</strong>
-                <small>用于后续 WebSocket 连接器、订阅协议和 REST fallback。</small>
+                <strong>{t("流式行情配置")}</strong>
+                <small>{t("用于后续 WebSocket 连接器、订阅协议和 REST fallback。")}</small>
               </div>
 
               <label>
@@ -761,7 +794,7 @@ export function ApiConfigPage() {
                   <input
                     autoComplete="off"
                     onChange={(event) => updateAlphaFeedStreamField("apiKey", event.target.value)}
-                    placeholder="请输入 AlphaFeed 会员 API Key"
+                    placeholder={t("请输入 AlphaFeed 会员 API Key")}
                     type="password"
                     value={alphaFeedStreamForm.apiKey}
                   />
@@ -769,39 +802,39 @@ export function ApiConfigPage() {
               </label>
 
               <label>
-                <span>订阅范围</span>
+                <span>{t("订阅范围")}</span>
                 <div className="input-shell">
                   <RefreshCw size={16} />
                   <select
-                    aria-label="AlphaFeed WebSocket 订阅范围"
+                    aria-label={t("AlphaFeed WebSocket 订阅范围")}
                     onChange={(event) => updateAlphaFeedStreamField("mode", event.target.value)}
                     value={alphaFeedStreamForm.mode}
                   >
-                    <option value="watchlist">仅关注列表</option>
-                    <option value="all-symbols">会员全标的流</option>
+                    <option value="watchlist">{t("仅关注列表")}</option>
+                    <option value="all-symbols">{t("会员全标的流")}</option>
                   </select>
                 </div>
               </label>
 
               {storedAlphaFeedStreamBinding && (
                 <CredentialManagement
-                  detail={`${storedAlphaFeedStreamBinding.mode === "all-symbols" ? "全标的流" : "关注列表流"} · WebSocket URL：${storedAlphaFeedStreamBinding.wsUrl} · API Key：${storedAlphaFeedStreamBinding.apiKeyPreview}`}
+                  detail={`${storedAlphaFeedStreamBinding.mode === "all-symbols" ? t("全标的流") : t("关注列表流")} · WebSocket URL: ${storedAlphaFeedStreamBinding.wsUrl} · API Key: ${storedAlphaFeedStreamBinding.apiKeyPreview}`}
                   isDeleting={deletingProvider === "alphafeed-websocket"}
                   onDelete={() => void handleDeleteProvider("alphafeed-websocket")}
                   onReplace={() => handleReplaceProvider("alphafeed-websocket")}
-                  title="已保存的 AlphaFeed WebSocket 凭据"
+                  title={t("已保存的 AlphaFeed WebSocket 凭据")}
                   verifiedAt={storedAlphaFeedStreamBinding.preparedAt}
                 />
               )}
-              {streamError && <div className="auth-message error">{streamError}</div>}
-              {streamStatus && <div className="auth-message success">{streamStatus}</div>}
+              {streamError && <div className="auth-message error">{t(streamError)}</div>}
+              {streamStatus && <div className="auth-message success">{t(streamStatus)}</div>}
               <button
                 className="secondary-auth-action"
                 disabled={isSavingStream || !hasDesktopBridge}
                 onClick={handleSaveAlphaFeedStream}
                 type="button"
               >
-                {isSavingStream ? "保存中..." : "保存 WebSocket 备用通道"}
+                {isSavingStream ? t("保存中...") : t("保存 WebSocket 备用通道")}
               </button>
             </div>
           </details>
@@ -814,15 +847,15 @@ export function ApiConfigPage() {
               <div className="module-card-header">
                 <ShieldCheck size={20} />
                 <div>
-                  <h2>长桥备用源</h2>
-                  <p>用于历史 K 线、分时回补和未来券商接口；A股/港股实时可能存在延迟。</p>
+                  <h2>{t("长桥备用源")}</h2>
+                  <p>{t("用于历史 K 线、分时回补和未来券商接口；A股/港股实时可能存在延迟。")}</p>
                 </div>
               </div>
             </summary>
 
             <div className="api-provider-content">
               <label>
-                <span>长桥 API URL</span>
+                <span>{t("长桥 API URL")}</span>
                 <div className="input-shell">
                   <Link2 size={16} />
                   <input
@@ -834,26 +867,26 @@ export function ApiConfigPage() {
               </label>
 
               <label>
-                <span>长桥 App Key</span>
+                <span>{t("长桥 App Key")}</span>
                 <div className="input-shell">
                   <KeyRound size={16} />
                   <input
                     autoComplete="off"
                     onChange={(event) => updateLongPortField("appKey", event.target.value)}
-                    placeholder="可选，作为备用源"
+                    placeholder={t("可选，作为备用源")}
                     value={longPortForm.appKey}
                   />
                 </div>
               </label>
 
               <label>
-                <span>长桥 API Secret</span>
+                <span>{t("长桥 API Secret")}</span>
                 <div className="input-shell">
                   <KeyRound size={16} />
                   <input
                     autoComplete="off"
                     onChange={(event) => updateLongPortField("appSecret", event.target.value)}
-                    placeholder="可选，作为备用源"
+                    placeholder={t("可选，作为备用源")}
                     type="password"
                     value={longPortForm.appSecret}
                   />
@@ -861,13 +894,13 @@ export function ApiConfigPage() {
               </label>
 
               <label>
-                <span>长桥 Access Token</span>
+                <span>{t("长桥 Access Token")}</span>
                 <div className="input-shell">
                   <KeyRound size={16} />
                   <input
                     autoComplete="off"
                     onChange={(event) => updateLongPortField("accessToken", event.target.value)}
-                    placeholder="可选，作为备用源"
+                    placeholder={t("可选，作为备用源")}
                     type="password"
                     value={longPortForm.accessToken}
                   />
@@ -880,7 +913,7 @@ export function ApiConfigPage() {
                   isDeleting={deletingProvider === "longbridge"}
                   onDelete={() => void handleDeleteProvider("longbridge")}
                   onReplace={() => handleReplaceProvider("longbridge")}
-                  title="已保存的长桥凭据"
+                  title={t("已保存的长桥凭据")}
                   verifiedAt={storedLongPortBinding.verifiedAt}
                 />
               )}
@@ -889,11 +922,11 @@ export function ApiConfigPage() {
 
           {!hasDesktopBridge && (
             <div className="auth-message error">
-              备用数据源的凭据验证和初始同步需要桌面安全桥，请在桌面应用中运行。
+              {t("备用数据源的凭据验证和初始同步需要桌面安全桥，请在桌面应用中运行。")}
             </div>
           )}
-          {error && <div className="auth-message error">{error}</div>}
-          {status && <div className="auth-message success">{status}</div>}
+          {error && <div className="auth-message error">{t(error)}</div>}
+          {status && <div className="auth-message success">{t(status)}</div>}
 
           <button
             className={
@@ -905,23 +938,23 @@ export function ApiConfigPage() {
             type="submit"
           >
             {isSubmitting
-              ? "验证中..."
+              ? t("验证中...")
               : selectedProviderId === "longbridge"
-                ? "验证并保存长桥备用源"
-                : "验证并保存备用数据源"}
+                ? t("验证并保存长桥备用源")
+                : t("验证并保存备用数据源")}
           </button>
         </form>
 
         <aside className="module-card api-status-card data-source-diagnostics">
           <div className="data-source-panel-heading diagnostics-heading">
-            <span>运行诊断</span>
-            <small>连接、同步与安全状态</small>
+            <span>{t("运行诊断")}</span>
+            <small>{t("连接、同步与安全状态")}</small>
           </div>
           <div className="module-card-header">
             <RefreshCw size={20} />
             <div>
-              <h2>数据源优先级</h2>
-              <p>图表、缓存和策略后续只读取 Market Data Gateway，不直接绑定具体供应商。</p>
+              <h2>{t("数据源优先级")}</h2>
+              <p>{t("图表、缓存和策略后续只读取 Market Data Gateway，不直接绑定具体供应商。")}</p>
             </div>
           </div>
 
@@ -934,16 +967,16 @@ export function ApiConfigPage() {
                   <span className="provider-order">{provider.order}</span>
                   {getProviderIcon(provider.id)}
                   <div>
-                    <strong>{provider.name}</strong>
-                    <small>{provider.role === "primary" ? "主行情源" : "备用数据源"}</small>
+                    <strong>{t(provider.name)}</strong>
+                    <small>{provider.role === "primary" ? t("主行情源") : t("备用数据源")}</small>
                     <div className="provider-badge-row">
                       {provider.capabilityBadges.map((badge) => (
-                        <span key={badge}>{badge}</span>
+                        <span key={badge}>{t(badge)}</span>
                       ))}
                     </div>
                   </div>
                   <em className={`provider-status-pill ${providerStatus}`}>
-                    {formatApiProviderStatus(providerStatus)}
+                    {t(formatApiProviderStatus(providerStatus))}
                   </em>
                 </li>
               );
@@ -952,7 +985,7 @@ export function ApiConfigPage() {
 
           <div className="binding-summary">
             <span>AlphaFeed REST</span>
-            <strong>{storedAlphaFeedBinding ? "已配置" : "未配置"}</strong>
+            <strong>{storedAlphaFeedBinding ? t("已配置") : t("未配置")}</strong>
             {storedAlphaFeedBinding && (
               <small>API Key：{storedAlphaFeedBinding.apiKeyPreview}</small>
             )}
@@ -960,19 +993,21 @@ export function ApiConfigPage() {
 
           <div className="binding-summary">
             <span>AlphaFeed WebSocket</span>
-            <strong>{storedAlphaFeedStreamBinding ? "已预留" : "未预留"}</strong>
+            <strong>{storedAlphaFeedStreamBinding ? t("已预留") : t("未预留")}</strong>
             {storedAlphaFeedStreamBinding && (
               <small>
-                {storedAlphaFeedStreamBinding.mode === "all-symbols" ? "全标的流" : "关注列表流"} ·
-                API Key：
+                {storedAlphaFeedStreamBinding.mode === "all-symbols"
+                  ? t("全标的流")
+                  : t("关注列表流")}{" "}
+                · API Key：
                 {storedAlphaFeedStreamBinding.apiKeyPreview}
               </small>
             )}
           </div>
 
           <div className="binding-summary">
-            <span>长桥备用源</span>
-            <strong>{storedLongPortBinding ? "已配置" : "未配置"}</strong>
+            <span>{t("长桥备用源")}</span>
+            <strong>{storedLongPortBinding ? t("已配置") : t("未配置")}</strong>
             {storedLongPortBinding && <small>App Key：{storedLongPortBinding.appKeyPreview}</small>}
           </div>
 
@@ -980,8 +1015,8 @@ export function ApiConfigPage() {
             <div className="module-card-header compact">
               <CircleDot size={18} />
               <div>
-                <h2>同步准备</h2>
-                <p>绑定备用源后会预热默认观察列表、快照与必要 K 线缓存。</p>
+                <h2>{t("同步准备")}</h2>
+                <p>{t("绑定备用源后会预热默认观察列表、快照与必要 K 线缓存。")}</p>
               </div>
             </div>
             <ol className="sync-step-list">
@@ -997,15 +1032,16 @@ export function ApiConfigPage() {
                   key={step.id}
                 >
                   <CheckCircle2 size={17} />
-                  <span>{step.label}</span>
+                  <span>{t(step.label)}</span>
                 </li>
               ))}
             </ol>
           </div>
 
           <p className="security-note">
-            API Key、Secret 与 Access Token
-            只通过桌面安全桥加密保存；普通本地缓存只保存脱敏摘要、供应商状态和行情缓存。
+            {t(
+              "API Key、Secret 与 Access Token 只通过桌面安全桥加密保存；普通本地缓存只保存脱敏摘要、供应商状态和行情缓存。",
+            )}
           </p>
         </aside>
       </div>

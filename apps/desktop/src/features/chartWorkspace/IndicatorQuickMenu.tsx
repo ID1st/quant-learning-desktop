@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Market } from "@quant/shared";
 import { Check, ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
+import { useI18n } from "../../i18n/I18nProvider";
 import {
   builtInChartIndicatorDefinitions,
   getIndicatorInstance,
@@ -33,6 +34,7 @@ export function IndicatorQuickMenu({
   onOpenParameters,
   definitions = builtInChartIndicatorDefinitions,
 }: IndicatorQuickMenuProps) {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -77,12 +79,14 @@ export function IndicatorQuickMenu({
               key={definition.id}
             >
               <span>
-                <strong>{definition.name}</strong>
-                <small>{placement === "overlay" ? "叠加在主图" : "显示在单独副图"}</small>
+                <strong>{t(definition.name)}</strong>
+                <small>{placement === "overlay" ? t("叠加在主图") : t("显示在单独副图")}</small>
               </span>
               <div>
                 <button
-                  aria-label={`${definition.name}${instance.enabled ? "关闭" : "打开"}`}
+                  aria-label={t(instance.enabled ? "关闭{name}" : "打开{name}", {
+                    name: definition.name,
+                  })}
                   aria-pressed={instance.enabled}
                   className={instance.enabled ? "active" : ""}
                   onClick={() =>
@@ -93,11 +97,11 @@ export function IndicatorQuickMenu({
                   type="button"
                 >
                   {instance.enabled && <Check size={13} />}
-                  {instance.enabled ? "已打开" : "打开"}
+                  {instance.enabled ? t("已打开") : t("打开")}
                 </button>
                 {definition.parameters.length > 0 && (
                   <button
-                    aria-label={`${definition.name} 参数`}
+                    aria-label={t("{name} 参数", { name: definition.name })}
                     onClick={() => {
                       setIsOpen(false);
                       onOpenParameters(definition.id);
@@ -105,7 +109,7 @@ export function IndicatorQuickMenu({
                     type="button"
                   >
                     <SlidersHorizontal size={13} />
-                    参数
+                    {t("参数")}
                   </button>
                 )}
               </div>
@@ -126,7 +130,7 @@ export function IndicatorQuickMenu({
         type="button"
       >
         <SlidersHorizontal size={16} />
-        <span>指标</span>
+        <span>{t("指标")}</span>
         {enabledCount > 0 && <small>{enabledCount}</small>}
         {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
       </button>
@@ -134,16 +138,22 @@ export function IndicatorQuickMenu({
         <section
           className="strategy-quick-menu-panel indicator-quick-menu"
           role="menu"
-          aria-label="技术指标"
+          aria-label={t("技术指标")}
         >
           <header>
             <span>
-              <strong>技术指标</strong>
-              <small>{enabledCount > 0 ? `${enabledCount} 个已打开` : "默认全部关闭"}</small>
+              <strong>{t("技术指标")}</strong>
+              <small>
+                {enabledCount > 0
+                  ? t("{count} 个已打开", { count: enabledCount })
+                  : t("默认全部关闭")}
+              </small>
             </span>
-            <small>{market === "CN" ? "当前市场：中国 A 股" : `当前市场：${market}`}</small>
+            <small>
+              {market === "CN" ? t("当前市场：中国 A 股") : t("当前市场：{market}", { market })}
+            </small>
           </header>
-          <div className="indicator-convention-switch" aria-label="指标口径">
+          <div className="indicator-convention-switch" aria-label={t("指标口径")}>
             {conventionOptions.map((option) => (
               <button
                 aria-pressed={settings.conventionMode === option.value}
@@ -154,12 +164,12 @@ export function IndicatorQuickMenu({
                 }
                 type="button"
               >
-                {option.label}
+                {t(option.label)}
               </button>
             ))}
           </div>
-          {renderGroup("overlay", "主图指标", "可同时打开多个")}
-          {renderGroup("pane", "副图指标", "始终只保留一个")}
+          {renderGroup("overlay", t("主图指标"), t("可同时打开多个"))}
+          {renderGroup("pane", t("副图指标"), t("始终只保留一个"))}
         </section>
       )}
     </div>

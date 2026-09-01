@@ -411,12 +411,8 @@ export function saveWorkspacePreferences(preferences: ChartWorkspacePreferences)
   }
 }
 
-export function formatLogTime(timestamp: number) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(timestamp);
+export function formatLogTime(timestamp: number, formatter: (value: number) => string) {
+  return formatter(timestamp);
 }
 
 export function getErrorMessage(error: unknown) {
@@ -671,7 +667,10 @@ export function getRealtimeHealthBadgeClass(status: RealtimeProviderHealthView["
   return "data-source-badge";
 }
 
-export function formatRealtimeHealthDetail(health: RealtimeProviderHealthView) {
+export function formatRealtimeHealthDetail(
+  health: RealtimeProviderHealthView,
+  formatter: (value: string) => string,
+) {
   const parts = [health.message];
 
   if (typeof health.latencyMs === "number") {
@@ -679,23 +678,18 @@ export function formatRealtimeHealthDetail(health: RealtimeProviderHealthView) {
   }
 
   if (health.checkedAt) {
-    parts.push(new Date(health.checkedAt).toLocaleTimeString("zh-CN", { hour12: false }));
+    parts.push(formatter(health.checkedAt));
   }
 
   return parts.join(" · ");
 }
 
-export function formatStatusClock(value: string | undefined) {
+export function formatStatusClock(value: string | undefined, formatter: (value: string) => string) {
   if (!value) {
     return "--:--:--";
   }
 
-  return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(new Date(value));
+  return formatter(value);
 }
 
 export function formatQuotePrice(snapshot: MarketQuoteSnapshot | undefined, fallback: string) {

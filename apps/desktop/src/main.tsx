@@ -5,6 +5,7 @@ import { MlPriceTargetsVisualQaPage } from "./pages/MlPriceTargetsVisualQaPage";
 import { SmcVisualQaPage } from "./pages/SmcVisualQaPage";
 import { IndicatorPaneVisualQaPage } from "./pages/IndicatorPaneVisualQaPage";
 import { AuthVisualQaPage } from "./pages/AuthVisualQaPage";
+import { I18nProvider } from "./i18n/I18nProvider";
 import "./styles.css";
 
 const RootComponent =
@@ -23,6 +24,8 @@ const RootComponent =
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <RootComponent />
+    <I18nProvider>
+      <RootComponent />
+    </I18nProvider>
   </React.StrictMode>,
 );

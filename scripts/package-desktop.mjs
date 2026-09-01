@@ -22,14 +22,19 @@ const npmCli =
   process.env.npm_execpath ||
   join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
 const npxCli = join(dirname(npmCli), "npx-cli.js");
-const builderArgs = process.argv.slice(2);
+const internalPackage = process.argv.includes("--internal");
+const builderArgs = process.argv.slice(2).filter((argument) => argument !== "--internal");
 const productionAuthBaseUrl = "https://auth.fnndp.xyz";
-const formalWindowsRelease = builderArgs.includes("--win");
+const windowsRelease = builderArgs.includes("--win");
+const formalWindowsRelease = windowsRelease && !internalPackage;
 const macRelease = builderArgs.includes("--mac");
+const packageEnvironment = internalPackage
+  ? createUnsignedPackageEnvironment(process.env)
+  : process.env;
 
 if (builderArgs.length === 0) {
   console.error(
-    "Usage: node scripts/package-desktop.mjs --dir | --win nsis | --mac dmg --x64|--arm64",
+    "Usage: node scripts/package-desktop.mjs [--internal] --dir | --win nsis | --mac dmg --x64|--arm64",
   );
   process.exit(1);
 }
@@ -92,9 +97,13 @@ try {
     "electron-builder",
     ...builderArgs,
     ...(formalWindowsRelease ? ["--config.forceCodeSigning=true"] : []),
+    ...(internalPackage ? ["--config.forceCodeSigning=false"] : []),
+    ...(internalPackage && macRelease
+      ? ["--config.mac.identity=null", "--config.mac.notarize=false"]
+      : []),
     `--config.directories.output=${releaseDir}`,
   ];
-  runRequired(process.execPath, packageArguments, desktopAppDir);
+  runRequired(process.execPath, packageArguments, desktopAppDir, false, packageEnvironment);
 
   if (formalWindowsRelease) {
     const desktopPackage = JSON.parse(readFileSync(join(desktopAppDir, "package.json"), "utf8"));
@@ -142,9 +151,29 @@ try {
   process.exit(1);
 }
 
-function runRequired(command, args, cwd, captureOutput = false) {
+function createUnsignedPackageEnvironment(environment) {
+  const unsignedEnvironment = {
+    ...environment,
+    CSC_IDENTITY_AUTO_DISCOVERY: "false",
+  };
+  for (const variable of [
+    "CSC_LINK",
+    "CSC_KEY_PASSWORD",
+    "WIN_CSC_LINK",
+    "WIN_CSC_KEY_PASSWORD",
+    "APPLE_ID",
+    "APPLE_APP_SPECIFIC_PASSWORD",
+    "APPLE_TEAM_ID",
+  ]) {
+    delete unsignedEnvironment[variable];
+  }
+  return unsignedEnvironment;
+}
+
+function runRequired(command, args, cwd, captureOutput = false, environment = process.env) {
   const result = spawnSync(command, args, {
     cwd,
+    env: environment,
     stdio: captureOutput ? "pipe" : "inherit",
     encoding: captureOutput ? "utf8" : undefined,
     shell: false,

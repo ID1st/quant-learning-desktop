@@ -5,6 +5,7 @@ import {
 
 import { IndicatorQuickMenu } from "../features/chartWorkspace/IndicatorQuickMenu";
 import { toggleStrategyFromQuickMenu } from "../features/chartWorkspace/strategyQuickMenu";
+import { useI18n } from "../i18n/I18nProvider";
 
 import {
   ChevronDown,
@@ -28,6 +29,7 @@ interface ChartWorkspaceToolbarProps {
 }
 
 export function ChartWorkspaceToolbar({ controller }: ChartWorkspaceToolbarProps) {
+  const { t } = useI18n();
   const {
     indicatorSettings,
     updateIndicatorSettings,
@@ -61,7 +63,7 @@ export function ChartWorkspaceToolbar({ controller }: ChartWorkspaceToolbarProps
     <header className="chart-topbar">
       <ChartWorkspaceStatusBar controller={controller} />
 
-      <div className="timeframe-tabs" aria-label="周期选择">
+      <div className="timeframe-tabs" aria-label={t("周期选择")}>
         {timeframes.map((item) => (
           <button
             className={item === timeframe ? "active" : ""}
@@ -90,23 +92,26 @@ export function ChartWorkspaceToolbar({ controller }: ChartWorkspaceToolbarProps
             type="button"
           >
             <Layers3 size={16} />
-            <span>策略</span>
+            <span>{t("策略")}</span>
             <small>{enabledStrategyCount}</small>
             <ChevronDown className={isStrategyMenuOpen ? "expanded" : ""} size={13} />
           </button>
 
           {isStrategyMenuOpen && (
             <section
-              aria-label="策略快捷菜单"
+              aria-label={t("策略快捷菜单")}
               className="strategy-quick-menu-panel"
               id="chart-strategy-quick-menu"
               role="dialog"
             >
               <header>
                 <span>
-                  <strong>可用策略</strong>
+                  <strong>{t("可用策略")}</strong>
                   <small>
-                    {strategyQuickMenuItems.length} 个策略 · {enabledStrategyCount} 个已打开
+                    {t("{total} 个策略 · {enabled} 个已打开", {
+                      total: strategyQuickMenuItems.length,
+                      enabled: enabledStrategyCount,
+                    })}
                   </small>
                 </span>
               </header>
@@ -124,34 +129,34 @@ export function ChartWorkspaceToolbar({ controller }: ChartWorkspaceToolbarProps
                       <strong>{item.name}</strong>
                       <small>
                         {item.sourceType === "preset"
-                          ? "内置策略"
+                          ? t("内置策略")
                           : item.sourceType === "user"
-                            ? "用户策略"
-                            : "插件策略"}
+                            ? t("用户策略")
+                            : t("插件策略")}
                       </small>
                     </span>
                     <div>
                       <button
-                        aria-label={`${item.name} 打开`}
+                        aria-label={t("{name} 打开", { name: item.name })}
                         aria-pressed={item.enabled}
                         className={item.enabled ? "active" : ""}
                         onClick={() => updateStrategyState(item.key, toggleStrategyFromQuickMenu)}
                         type="button"
                       >
                         <Power size={13} />
-                        {item.enabled ? "已打开" : "打开"}
+                        {item.enabled ? t("已打开") : t("打开")}
                       </button>
                       <button
-                        aria-label={`${item.name} 参数调整`}
+                        aria-label={t("{name} 参数调整", { name: item.name })}
                         onClick={() => {
                           setIsStrategyMenuOpen(false);
                           setActiveConfigStrategyKey(item.key);
                         }}
-                        title={item.hasParameters ? "调整策略参数" : "查看策略配置"}
+                        title={item.hasParameters ? t("调整策略参数") : t("查看策略配置")}
                         type="button"
                       >
                         <SlidersHorizontal size={13} />
-                        参数
+                        {t("参数")}
                       </button>
                     </div>
                   </div>
@@ -173,7 +178,7 @@ export function ChartWorkspaceToolbar({ controller }: ChartWorkspaceToolbarProps
           type="button"
         >
           <Gauge size={16} />
-          <span>策略事件</span>
+          <span>{t("策略事件")}</span>
         </button>
         <button
           className={canShowStrategyLayers ? "active" : ""}
@@ -181,7 +186,7 @@ export function ChartWorkspaceToolbar({ controller }: ChartWorkspaceToolbarProps
           type="button"
         >
           <Layers3 size={16} />
-          <span>策略图层</span>
+          <span>{t("策略图层")}</span>
         </button>
         <button
           className={isChartSettingsOpen ? "active" : ""}
@@ -189,36 +194,36 @@ export function ChartWorkspaceToolbar({ controller }: ChartWorkspaceToolbarProps
           type="button"
         >
           <Settings2 size={16} />
-          <span>图表设置</span>
+          <span>{t("图表设置")}</span>
         </button>
         <button
-          aria-label={isWatchlistCollapsed ? "show watchlist" : "hide watchlist"}
+          aria-label={isWatchlistCollapsed ? t("显示观察列表") : t("隐藏观察列表")}
           className={!isWatchlistCollapsed ? "active" : ""}
           onClick={() => setIsWatchlistCollapsed((value) => !value)}
           type="button"
         >
           {isWatchlistCollapsed ? <ChevronRight size={16} /> : <Eye size={16} />}
-          <span>观察</span>
+          <span>{t("观察")}</span>
         </button>
         {timeframe === "realtime" && (
           <label className="polling-interval-control">
-            <span>分时形态</span>
+            <span>{t("分时形态")}</span>
             <select
-              aria-label="分时图表形态"
+              aria-label={t("分时图表形态")}
               onChange={(event) =>
                 setIntradayDisplayMode(sanitizeChartDisplayMode(event.currentTarget.value))
               }
               value={intradayDisplayMode}
             >
-              <option value="line">折线</option>
-              <option value="candlestick">K线</option>
+              <option value="line">{t("折线")}</option>
+              <option value="candlestick">{t("K线")}</option>
             </select>
           </label>
         )}
         <label className="polling-interval-control">
-          <span>轮询</span>
+          <span>{t("轮询")}</span>
           <select
-            aria-label="AlphaFeed REST 轮询频率"
+            aria-label={t("AlphaFeed REST 轮询频率")}
             onChange={(event) =>
               setRealtimePollIntervalMs(
                 sanitizeRealtimePollIntervalMs(Number(event.currentTarget.value)),
@@ -228,7 +233,7 @@ export function ChartWorkspaceToolbar({ controller }: ChartWorkspaceToolbarProps
           >
             {realtimePollIntervalOptionsMs.map((intervalMs) => (
               <option key={intervalMs} value={intervalMs}>
-                {intervalMs / 1000}秒
+                {t("{seconds}秒", { seconds: intervalMs / 1000 })}
               </option>
             ))}
           </select>

@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
 import { useEffect } from "react";
 import { useToastStore, type ToastTone } from "../features/feedback/toastStore";
+import { useI18n } from "../i18n/I18nProvider";
 
 function getToastIcon(tone: ToastTone) {
   if (tone === "success") {
@@ -19,6 +20,7 @@ function getToastIcon(tone: ToastTone) {
 }
 
 export function ToastViewport() {
+  const { t } = useI18n();
   const toasts = useToastStore((state) => state.toasts);
   const dismiss = useToastStore((state) => state.dismiss);
 
@@ -41,7 +43,7 @@ export function ToastViewport() {
               <strong>{toast.title}</strong>
               {toast.detail && <small>{toast.detail}</small>}
             </span>
-            <button aria-label="关闭通知" onClick={() => dismiss(toast.id)} type="button">
+            <button aria-label={t("关闭通知")} onClick={() => dismiss(toast.id)} type="button">
               ×
             </button>
           </div>

@@ -3,6 +3,7 @@ import {
   Boxes,
   CalendarClock,
   CheckCircle2,
+  Clock3,
   DatabaseZap,
   FileArchive,
   FileInput,
@@ -31,6 +32,8 @@ import {
 } from "../features/auth/authService";
 import { useAuthStore } from "../features/auth/authStore";
 import { LogoutConfirmationDialog } from "../features/auth/LogoutConfirmationDialog";
+import { useI18n } from "../i18n/I18nProvider";
+import { APP_TIME_ZONE_OPTIONS, type AppTimeZone } from "../i18n/dateTime";
 import { useAppStore } from "../state/appStore";
 
 const capabilityLabels: Record<PluginCapability, string> = {
@@ -91,20 +94,8 @@ function formatCacheBytes(value: number) {
   return `${value} B`;
 }
 
-function formatCacheTime(value?: string) {
-  if (!value) {
-    return "暂无记录";
-  }
-
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
 export function SettingsPage() {
+  const { formatDateTime, resolvedTimeZone, setTimeZone, t, timeZone } = useI18n();
   const authSession = useAuthStore((state) => state.session);
   const clearAuthSession = useAuthStore((state) => state.clearSession);
   const navigate = useAppStore((state) => state.navigate);
@@ -130,6 +121,7 @@ export function SettingsPage() {
   const [isRenewingEntitlement, setRenewingEntitlement] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const logoutButtonRef = useRef<HTMLButtonElement>(null);
   const [manifestPreview, setManifestPreview] = useState<PluginManifestPreflightResult>({
     ok: false,
@@ -158,6 +150,11 @@ export function SettingsPage() {
   }, [refreshPluginRuntime]);
 
   useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(new Date()), 1_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     void getMarketBarCacheRepository()
       .summary()
@@ -168,13 +165,13 @@ export function SettingsPage() {
       })
       .catch(() => {
         if (!cancelled) {
-          setCacheMessage("行情缓存暂时不可用。");
+          setCacheMessage(t("行情缓存暂时不可用。"));
         }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const capabilitySummary = (
     ["strategy", "indicator", "data-source", "export"] as PluginCapability[]
@@ -197,10 +194,13 @@ export function SettingsPage() {
       const result = await getMarketBarCacheRepository().prune();
       await refreshCacheSummary();
       setCacheMessage(
-        `已按保留策略清理 ${result.removedBars} 根 K 线，移除 ${result.removedEntries} 个空缓存。`,
+        t("已按保留策略清理 {bars} 根 K 线，移除 {entries} 个空缓存。", {
+          bars: result.removedBars,
+          entries: result.removedEntries,
+        }),
       );
     } catch {
-      setCacheMessage("行情缓存清理失败，请稍后重试。");
+      setCacheMessage(t("行情缓存清理失败，请稍后重试。"));
     } finally {
       setCacheOperationPending(false);
     }
@@ -211,9 +211,9 @@ export function SettingsPage() {
     try {
       const removedEntries = await getMarketBarCacheRepository().clearAll();
       await refreshCacheSummary();
-      setCacheMessage(`已清空 ${removedEntries} 个行情缓存条目。`);
+      setCacheMessage(t("已清空 {count} 个行情缓存条目。", { count: removedEntries }));
     } catch {
-      setCacheMessage("行情缓存清空失败，请稍后重试。");
+      setCacheMessage(t("行情缓存清空失败，请稍后重试。"));
     } finally {
       setCacheOperationPending(false);
     }
@@ -222,7 +222,7 @@ export function SettingsPage() {
   const handleExportDiagnostics = async () => {
     const bridge = window.quantDesktop?.diagnostics;
     if (!bridge) {
-      setDiagnosticMessage("诊断导出仅在 Electron 桌面环境可用。");
+      setDiagnosticMessage(t("诊断导出仅在 Electron 桌面环境可用。"));
       return;
     }
     setDiagnosticExportPending(true);
@@ -234,10 +234,14 @@ export function SettingsPage() {
         return;
       }
       setDiagnosticMessage(
-        `已导出 ${result.data.fileName}，包含 ${result.data.includedMinidumps} 个安全 minidump，排除 ${result.data.excludedMinidumps} 个。`,
+        t("已导出 {fileName}，包含 {included} 个安全 minidump，排除 {excluded} 个。", {
+          fileName: result.data.fileName,
+          included: result.data.includedMinidumps,
+          excluded: result.data.excludedMinidumps,
+        }),
       );
     } catch {
-      setDiagnosticMessage("诊断包导出失败。原始日志和崩溃文件仍保留在本机。");
+      setDiagnosticMessage(t("诊断包导出失败。原始日志和崩溃文件仍保留在本机。"));
     } finally {
       setDiagnosticExportPending(false);
     }
@@ -253,22 +257,34 @@ export function SettingsPage() {
         inviteCode: normalizeInviteInput(renewInviteCode),
       });
       if (!result) {
-        setRenewMessage("当前不是 Electron 桌面运行环境。");
+        setRenewMessage(t("当前不是 Electron 桌面运行环境。"));
         return;
       }
       if (!result.ok) {
-        const message = authErrorMessage(result.error.code, result.error.retryAfterSeconds);
+        const message =
+          result.error.code === "RATE_LIMITED" && result.error.retryAfterSeconds
+            ? t("操作过于频繁，请在 {seconds} 秒后重试。", {
+                seconds: result.error.retryAfterSeconds,
+              })
+            : t(authErrorMessage(result.error.code, result.error.retryAfterSeconds));
         setRenewMessage(
-          result.error.requestId ? `${message} 请求编号：${result.error.requestId}` : message,
+          result.error.requestId
+            ? t("{message} 请求编号：{requestId}", {
+                message,
+                requestId: result.error.requestId,
+              })
+            : message,
         );
         return;
       }
       setRenewInviteCode("");
       setRenewMessage(
-        `续期成功，新的到期时间为 ${new Date(result.data.entitlementEndsAt).toLocaleString("zh-CN", { hour12: false })}`,
+        t("续期成功，新的到期时间为 {date}", {
+          date: formatDateTime(result.data.entitlementEndsAt),
+        }),
       );
     } catch {
-      setRenewMessage("邀请码格式不正确，请输入 QLD-XXXXX-XXXXX-XXXXX。");
+      setRenewMessage(t("邀请码格式不正确，请输入 QLD-XXXXX-XXXXX-XXXXX。"));
     } finally {
       setRenewingEntitlement(false);
     }
@@ -294,7 +310,11 @@ export function SettingsPage() {
   };
 
   const handleUninstallPlugin = (pluginId: string, pluginName: string) => {
-    if (window.confirm(`确定卸载插件“${pluginName}”吗？已保存的策略数据不会被删除。`)) {
+    if (
+      window.confirm(
+        t("确定卸载插件“{name}”吗？已保存的策略数据不会被删除。", { name: pluginName }),
+      )
+    ) {
       void uninstallPlugin(pluginId);
     }
   };
@@ -302,53 +322,84 @@ export function SettingsPage() {
   return (
     <article className="settings-page">
       <header className="module-header">
-        <p>系统设置</p>
-        <h1>插件与本地扩展</h1>
+        <p>{t("系统设置")}</p>
+        <h1>{t("插件与本地扩展")}</h1>
         <span>
-          统一管理策略插件、指标插件、数据源插件和导出插件。当前桌面版支持本地策略与指标插件的安装、启停和卸载；第三方插件执行将在隔离宿主完成后恢复。
+          {t(
+            "统一管理策略插件、指标插件、数据源插件和导出插件。当前桌面版支持本地策略与指标插件的安装、启停和卸载；第三方插件执行将在隔离宿主完成后恢复。",
+          )}
         </span>
       </header>
+
+      <section className="module-card locale-timezone-panel">
+        <div className="module-card-header">
+          <Clock3 size={20} />
+          <div>
+            <h2>{t("语言与时间")}</h2>
+            <p>{t("选择界面显示时区；交易日历、市场时段和策略计算仍使用交易所时区。")}</p>
+          </div>
+        </div>
+        <div className="timezone-settings-grid">
+          <label htmlFor="display-time-zone">
+            <span>{t("时区")}</span>
+            <select
+              id="display-time-zone"
+              onChange={(event) => setTimeZone(event.currentTarget.value as AppTimeZone)}
+              value={timeZone}
+            >
+              {APP_TIME_ZONE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {t(option.label)} · {option.value === "system" ? resolvedTimeZone : option.value}
+                </option>
+              ))}
+            </select>
+            <small>{t("当前时区：{zone}", { zone: resolvedTimeZone })}</small>
+          </label>
+          <div className="timezone-preview">
+            <span>{t("当前时间")}</span>
+            <time dateTime={currentTime.toISOString()}>{formatDateTime(currentTime, true)}</time>
+          </div>
+        </div>
+      </section>
 
       {authSession && (
         <section className="module-card account-entitlement-panel">
           <div className="module-card-header">
             <CalendarClock size={20} />
             <div>
-              <h2>账号与测试资格</h2>
-              <p>云端资格控制工作区访问；普通退出登录不会删除本机研究资料。</p>
+              <h2>{t("账号与测试资格")}</h2>
+              <p>{t("云端资格控制工作区访问；普通退出登录不会删除本机研究资料。")}</p>
             </div>
           </div>
           <dl className="account-entitlement-grid">
             <div>
-              <dt>当前邮箱</dt>
+              <dt>{t("当前邮箱")}</dt>
               <dd>{authSession.email}</dd>
             </div>
             <div>
-              <dt>资格档位</dt>
-              <dd>{authSession.entitlementDurationDays} 天</dd>
+              <dt>{t("资格档位")}</dt>
+              <dd>{t("{count} 天", { count: authSession.entitlementDurationDays })}</dd>
             </div>
             <div>
-              <dt>到期时间</dt>
-              <dd>
-                {new Date(authSession.entitlementEndsAt).toLocaleString("zh-CN", { hour12: false })}
-              </dd>
+              <dt>{t("到期时间")}</dt>
+              <dd>{formatDateTime(authSession.entitlementEndsAt)}</dd>
             </div>
             <div>
-              <dt>剩余天数</dt>
+              <dt>{t("剩余天数")}</dt>
               <dd>
                 {Math.max(
                   0,
                   Math.ceil((Date.parse(authSession.entitlementEndsAt) - Date.now()) / 86_400_000),
                 )}{" "}
-                天
+                {t("天")}
               </dd>
             </div>
             <div>
-              <dt>授权状态</dt>
-              <dd>{authSession.isOffline ? "离线授权" : "在线已验证"}</dd>
+              <dt>{t("授权状态")}</dt>
+              <dd>{authSession.isOffline ? t("离线授权") : t("在线已验证")}</dd>
             </div>
             <div>
-              <dt>活跃设备</dt>
+              <dt>{t("活跃设备")}</dt>
               <dd>{authSession.activeDeviceCount}/2</dd>
             </div>
           </dl>
@@ -356,10 +407,10 @@ export function SettingsPage() {
             <div className="input-shell">
               <KeyRound size={16} />
               <input
-                aria-label="提前续期邀请码"
+                aria-label={t("提前续期邀请码")}
                 maxLength={64}
                 onChange={(event) => setRenewInviteCode(event.currentTarget.value)}
-                placeholder="输入新邀请码提前续期"
+                placeholder={t("输入新邀请码提前续期")}
                 value={renewInviteCode}
               />
             </div>
@@ -368,7 +419,7 @@ export function SettingsPage() {
               onClick={() => void handleRenewEntitlement()}
               type="button"
             >
-              {isRenewingEntitlement ? "正在续期…" : "提前续期"}
+              {isRenewingEntitlement ? t("正在续期…") : t("提前续期")}
             </button>
             <button
               aria-haspopup="dialog"
@@ -378,7 +429,7 @@ export function SettingsPage() {
               type="button"
             >
               <LogOut size={14} />
-              退出登录
+              {t("退出登录")}
             </button>
           </div>
           {renewMessage && (
@@ -399,11 +450,13 @@ export function SettingsPage() {
         />
       )}
 
-      <section className="settings-summary-grid" aria-label="插件能力概览">
+      <section className="settings-summary-grid" aria-label={t("插件能力概览")}>
         {capabilitySummary.map((item) => (
           <div className="module-card settings-stat-card" key={item.capability}>
             <Boxes size={18} />
-            <span>{capabilityLabels[item.capability]}能力</span>
+            <span>
+              {t("{capability}能力", { capability: t(capabilityLabels[item.capability]) })}
+            </span>
             <strong>{item.count}</strong>
           </div>
         ))}
@@ -413,34 +466,37 @@ export function SettingsPage() {
         <div className="module-card-header">
           <DatabaseZap size={20} />
           <div>
-            <h2>行情缓存治理</h2>
+            <h2>{t("行情缓存治理")}</h2>
             <p>
-              本地 K
-              线缓存按市场、标的和周期建立索引，短周期数据使用更短保留策略，避免缓存长期膨胀。
+              {t(
+                "本地 K 线缓存按市场、标的和周期建立索引，短周期数据使用更短保留策略，避免缓存长期膨胀。",
+              )}
             </p>
           </div>
         </div>
 
         <div className="cache-governance-grid">
           <div className="cache-stat">
-            <span>缓存条目</span>
+            <span>{t("缓存条目")}</span>
             <strong>{cacheSummary.entries.length}</strong>
           </div>
           <div className="cache-stat">
-            <span>K 线数量</span>
+            <span>{t("K 线数量")}</span>
             <strong>{cacheSummary.totalBarCount}</strong>
           </div>
           <div className="cache-stat">
-            <span>估算大小</span>
+            <span>{t("估算大小")}</span>
             <strong>{formatCacheBytes(cacheSummary.totalEstimatedBytes)}</strong>
           </div>
           <div className="cache-stat">
-            <span>最近更新</span>
-            <strong>{formatCacheTime(cacheSummary.updatedAt)}</strong>
+            <span>{t("最近更新")}</span>
+            <strong>
+              {cacheSummary.updatedAt ? formatDateTime(cacheSummary.updatedAt) : t("暂无记录")}
+            </strong>
           </div>
         </div>
 
-        <div className="cache-entry-list" aria-label="行情缓存条目">
+        <div className="cache-entry-list" aria-label={t("行情缓存条目")}>
           {largestCacheEntries.length > 0 ? (
             largestCacheEntries.map((entry) => (
               <div
@@ -453,13 +509,13 @@ export function SettingsPage() {
                     {entry.market} / {entry.timeframe} / {entry.provider}
                   </small>
                 </span>
-                <em>{entry.barCount} 根</em>
-                <small>保留 {entry.retentionDays} 天</small>
+                <em>{t("{count} 根", { count: entry.barCount })}</em>
+                <small>{t("保留 {count} 天", { count: entry.retentionDays })}</small>
               </div>
             ))
           ) : (
             <div className="cache-empty-state">
-              暂无 K 线缓存。完成数据源绑定和初始同步后，这里会显示缓存治理状态。
+              {t("暂无 K 线缓存。完成数据源绑定和初始同步后，这里会显示缓存治理状态。")}
             </div>
           )}
         </div>
@@ -467,7 +523,7 @@ export function SettingsPage() {
         <div className="cache-governance-actions">
           <button disabled={isCacheOperationPending} onClick={handlePruneCache} type="button">
             <RefreshCw size={15} />
-            按策略清理
+            {t("按策略清理")}
           </button>
           <button
             className="danger"
@@ -476,7 +532,7 @@ export function SettingsPage() {
             type="button"
           >
             <Trash2 size={15} />
-            清空行情缓存
+            {t("清空行情缓存")}
           </button>
           {cacheMessage && <span>{cacheMessage}</span>}
         </div>
@@ -486,10 +542,11 @@ export function SettingsPage() {
         <div className="module-card-header">
           <FileArchive size={20} />
           <div>
-            <h2>本地诊断包</h2>
+            <h2>{t("本地诊断包")}</h2>
             <p>
-              导出应用与 Electron 版本、脱敏主进程日志、renderer
-              崩溃记录，以及通过敏感信息扫描的本地 minidump。崩溃数据不会自动上传。
+              {t(
+                "导出应用与 Electron 版本、脱敏主进程日志、renderer 崩溃记录，以及通过敏感信息扫描的本地 minidump。崩溃数据不会自动上传。",
+              )}
             </p>
           </div>
         </div>
@@ -500,7 +557,7 @@ export function SettingsPage() {
             type="button"
           >
             <FileArchive size={15} />
-            {isDiagnosticExportPending ? "正在导出…" : "导出脱敏诊断包"}
+            {isDiagnosticExportPending ? t("正在导出…") : t("导出脱敏诊断包")}
           </button>
           {diagnosticMessage && (
             <span aria-live="polite" role="status">
@@ -515,24 +572,25 @@ export function SettingsPage() {
           <div className="module-card-header">
             <FileInput size={20} />
             <div>
-              <h2>安装入口</h2>
-              <p>后续用户策略和第三方插件都从这里进入，不直接绕过插件清单与权限检查。</p>
+              <h2>{t("安装入口")}</h2>
+              <p>{t("后续用户策略和第三方插件都从这里进入，不直接绕过插件清单与权限检查。")}</p>
             </div>
           </div>
 
           <div className="plugin-drop-zone">
             <PlugZap size={24} />
-            <strong>选择插件包</strong>
+            <strong>{t("选择插件包")}</strong>
             <span>
-              选择包含 plugin.json
-              的本地目录。桌面主进程会校验清单、入口和权限后复制到受控插件目录。
+              {t(
+                "选择包含 plugin.json 的本地目录。桌面主进程会校验清单、入口和权限后复制到受控插件目录。",
+              )}
             </span>
             <button
               disabled={pluginRuntimeStatus === "loading" || pluginRuntimeStatus === "unavailable"}
               onClick={handleInstallPlugin}
               type="button"
             >
-              {pluginRuntimeStatus === "loading" ? "正在处理…" : "选择本地插件目录"}
+              {pluginRuntimeStatus === "loading" ? t("正在处理…") : t("选择本地插件目录")}
             </button>
           </div>
 
@@ -540,7 +598,7 @@ export function SettingsPage() {
             {installSteps.map((step, index) => (
               <li key={step}>
                 <span>{String(index + 1).padStart(2, "0")}</span>
-                <p>{step}</p>
+                <p>{t(step)}</p>
               </li>
             ))}
           </ol>
@@ -550,22 +608,27 @@ export function SettingsPage() {
           <div className="module-card-header">
             <ShieldCheck size={20} />
             <div>
-              <h2>权限策略</h2>
-              <p>未知权限会被阻断；权限清单会为后续隔离运行时保留，当前不会执行第三方插件源码。</p>
+              <h2>{t("权限策略")}</h2>
+              <p>
+                {t(
+                  "未知权限会被阻断；权限清单会为后续隔离运行时保留，当前不会执行第三方插件源码。",
+                )}
+              </p>
             </div>
           </div>
 
           <div className="permission-grid">
             {(Object.keys(permissionLabels) as PluginPermission[]).map((permission) => (
-              <span key={permission}>{permissionLabels[permission]}</span>
+              <span key={permission}>{t(permissionLabels[permission])}</span>
             ))}
           </div>
 
           <div className="settings-note warning">
             <AlertTriangle size={16} />
             <span>
-              插件包可先安装和管理，但当前不会执行。后续仅在独立 Worker
-              或工具进程中通过能力消息开放运行，交易凭证不会交给插件。
+              {t(
+                "插件包可先安装和管理，但当前不会执行。后续仅在独立 Worker 或工具进程中通过能力消息开放运行，交易凭证不会交给插件。",
+              )}
             </span>
           </div>
         </div>
@@ -575,10 +638,11 @@ export function SettingsPage() {
         <div className="module-card-header">
           <FileInput size={20} />
           <div>
-            <h2>插件清单预检</h2>
+            <h2>{t("插件清单预检")}</h2>
             <p>
-              先验证 plugin.json
-              的结构、权限、能力与版本要求。桌面安装时会对实际选择目录再次执行同一套校验。
+              {t(
+                "先验证 plugin.json 的结构、权限、能力与版本要求。桌面安装时会对实际选择目录再次执行同一套校验。",
+              )}
             </p>
           </div>
         </div>
@@ -587,7 +651,7 @@ export function SettingsPage() {
           <label className="manifest-editor">
             <span>plugin.json</span>
             <textarea
-              aria-label="插件清单 JSON"
+              aria-label={t("插件清单 JSON")}
               onChange={(event) => setManifestDraft(event.target.value)}
               spellCheck={false}
               value={manifestDraft}
@@ -598,28 +662,28 @@ export function SettingsPage() {
             {manifestPreview.ok ? (
               <>
                 <CheckCircle2 size={20} />
-                <strong>清单预检通过</strong>
+                <strong>{t("清单预检通过")}</strong>
                 <span>{manifestPreview.manifest.name}</span>
                 <dl>
                   <div>
-                    <dt>插件 ID</dt>
+                    <dt>{t("插件 ID")}</dt>
                     <dd>{manifestPreview.manifest.id}</dd>
                   </div>
                   <div>
-                    <dt>版本</dt>
+                    <dt>{t("版本")}</dt>
                     <dd>{manifestPreview.manifest.version}</dd>
                   </div>
                   <div>
-                    <dt>入口</dt>
+                    <dt>{t("入口")}</dt>
                     <dd>{manifestPreview.manifest.main}</dd>
                   </div>
                 </dl>
                 <div className="manifest-chip-group">
                   {manifestPreview.manifest.capabilities.map((capability) => (
-                    <b key={capability}>{capabilityLabels[capability]}</b>
+                    <b key={capability}>{t(capabilityLabels[capability])}</b>
                   ))}
                   {manifestPreview.manifest.permissions.map((permission) => (
-                    <em key={permission}>{permissionLabels[permission]}</em>
+                    <em key={permission}>{t(permissionLabels[permission])}</em>
                   ))}
                 </div>
                 <div className="plugin-confirm-actions">
@@ -630,20 +694,20 @@ export function SettingsPage() {
                     onClick={handleInstallPlugin}
                     type="button"
                   >
-                    安装本地插件目录
+                    {t("安装本地插件目录")}
                   </button>
                   <small>
                     {manifestPreview.summary.requiresPermissionApproval
-                      ? "安装时会复核目录中的清单与权限。"
-                      : "该插件未声明额外权限。"}
+                      ? t("安装时会复核目录中的清单与权限。")
+                      : t("该插件未声明额外权限。")}
                   </small>
                 </div>
               </>
             ) : (
               <>
                 <AlertTriangle size={20} />
-                <strong>清单预检未通过</strong>
-                <span>{manifestPreview.error.message}</span>
+                <strong>{t("清单预检未通过")}</strong>
+                <span>{t(manifestPreview.error.message)}</span>
               </>
             )}
           </div>
@@ -654,8 +718,8 @@ export function SettingsPage() {
         <div className="module-card-header">
           <PackageCheck size={20} />
           <div>
-            <h2>插件运行时状态</h2>
-            <p>第三方插件执行已暂停，等待独立运行宿主、资源限制和终止控制完成。</p>
+            <h2>{t("插件运行时状态")}</h2>
+            <p>{t("第三方插件执行已暂停，等待独立运行宿主、资源限制和终止控制完成。")}</p>
           </div>
         </div>
         <div
@@ -666,7 +730,7 @@ export function SettingsPage() {
           ) : (
             <CheckCircle2 size={16} />
           )}
-          <span>{pluginRuntimeMessage}</span>
+          <span>{t(pluginRuntimeMessage)}</span>
         </div>
       </section>
 
@@ -674,8 +738,8 @@ export function SettingsPage() {
         <div className="module-card-header">
           <PackageCheck size={20} />
           <div>
-            <h2>已安装插件</h2>
-            <p>启用状态会保留，但在隔离运行时交付前不会向策略引擎或图表注册第三方能力。</p>
+            <h2>{t("已安装插件")}</h2>
+            <p>{t("启用状态会保留，但在隔离运行时交付前不会向策略引擎或图表注册第三方能力。")}</p>
           </div>
         </div>
 
@@ -696,10 +760,10 @@ export function SettingsPage() {
                 </div>
                 <small>
                   {plugin.status === "enabled"
-                    ? "已启用"
+                    ? t("已启用")
                     : plugin.status === "disabled"
-                      ? "已停用"
-                      : "运行异常"}
+                      ? t("已停用")
+                      : t("运行异常")}
                 </small>
                 <button
                   onClick={() =>
@@ -708,7 +772,7 @@ export function SettingsPage() {
                   type="button"
                 >
                   <Power size={14} />
-                  {plugin.status === "enabled" ? "停用" : "启用"}
+                  {plugin.status === "enabled" ? t("停用") : t("启用")}
                 </button>
                 <button
                   className="danger"
@@ -716,13 +780,13 @@ export function SettingsPage() {
                   type="button"
                 >
                   <Trash2 size={14} />
-                  卸载
+                  {t("卸载")}
                 </button>
               </div>
             ))
           ) : (
             <div className="plugin-empty-state">
-              暂无已安装插件。请选择一个受信任的本地插件目录。
+              {t("暂无已安装插件。请选择一个受信任的本地插件目录。")}
             </div>
           )}
         </div>

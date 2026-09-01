@@ -10,14 +10,11 @@ import {
   strategyLearningEntries,
   type StrategyLearningCategory,
 } from "../features/learning/strategyLearningContent";
+import { useI18n } from "../i18n/I18nProvider";
 import { useAppStore } from "../state/appStore";
 
-const categoryLabels: Record<StrategyLearningCategory, string> = {
-  strategy: "策略",
-  indicator: "技术指标",
-};
-
 export function StrategyLearningPage() {
+  const { t } = useI18n();
   const [selectedId, setSelectedId] = useState(strategyLearningEntries[0]?.id ?? "utorb");
   const navigate = useAppStore((state) => state.navigate);
   const selectedEntry = useMemo(
@@ -27,19 +24,23 @@ export function StrategyLearningPage() {
     [selectedId],
   );
   const workspaceAction = selectedEntry.workspaceAction;
+  const categoryLabels: Record<StrategyLearningCategory, string> = {
+    strategy: t("策略"),
+    indicator: t("技术指标"),
+  };
 
   return (
     <section className="strategy-learning-page">
       <header className="module-header strategy-learning-header">
         <div>
-          <p>策略学习</p>
-          <h1>策略与指标学习</h1>
-          <span>阅读当前工作台内置策略和技术指标的逻辑、参数、图表表达与使用边界。</span>
+          <p>{t("策略学习")}</p>
+          <h1>{t("策略与指标学习")}</h1>
+          <span>{t("阅读当前工作台内置策略和技术指标的逻辑、参数、图表表达与使用边界。")}</span>
         </div>
       </header>
 
       <div className="strategy-learning-layout">
-        <aside className="strategy-learning-directory" aria-label="学习目录">
+        <aside className="strategy-learning-directory" aria-label={t("学习目录")}>
           {(Object.keys(categoryLabels) as StrategyLearningCategory[]).map((category) => {
             const entries = strategyLearningEntries.filter((entry) => entry.category === category);
             return (
@@ -53,10 +54,12 @@ export function StrategyLearningPage() {
                     onClick={() => setSelectedId(entry.id)}
                     type="button"
                   >
-                    <strong>{entry.title}</strong>
+                    <strong>{t(entry.title)}</strong>
                     <small>
-                      {entry.directoryLabel ??
-                        (entry.category === "strategy" ? "预制策略" : entry.placement)}
+                      {t(
+                        entry.directoryLabel ??
+                          (entry.category === "strategy" ? "预制策略" : (entry.placement ?? "")),
+                      )}
                     </small>
                   </button>
                 ))}
@@ -76,8 +79,8 @@ export function StrategyLearningPage() {
             </span>
             <div>
               <em>{categoryLabels[selectedEntry.category]}</em>
-              <h2>{selectedEntry.title}</h2>
-              <p>{selectedEntry.subtitle}</p>
+              <h2>{t(selectedEntry.title)}</h2>
+              <p>{t(selectedEntry.subtitle)}</p>
             </div>
             {workspaceAction && (
               <button
@@ -86,22 +89,24 @@ export function StrategyLearningPage() {
                 type="button"
               >
                 <ChartCandlestick aria-hidden="true" size={17} />
-                {workspaceAction.label}
+                {t(workspaceAction.label)}
               </button>
             )}
           </header>
 
           <div className="strategy-learning-meta">
-            <span>适用市场：{selectedEntry.markets.join(" / ")}</span>
-            <span>支持周期：{selectedEntry.timeframes.join(" / ")}</span>
-            {selectedEntry.placement && <span>{selectedEntry.placement}</span>}
+            <span>{t("适用市场：{markets}", { markets: selectedEntry.markets.join(" / ") })}</span>
+            <span>
+              {t("支持周期：{timeframes}", { timeframes: selectedEntry.timeframes.join(" / ") })}
+            </span>
+            {selectedEntry.placement && <span>{t(selectedEntry.placement)}</span>}
           </div>
 
           <section className="strategy-learning-section-grid">
             {selectedEntry.sections.map((section) => (
               <article key={section.title}>
-                <h3>{section.title}</h3>
-                <p>{section.content}</p>
+                <h3>{t(section.title)}</h3>
+                <p>{t(section.content)}</p>
               </article>
             ))}
           </section>
@@ -109,14 +114,14 @@ export function StrategyLearningPage() {
           <section className="strategy-learning-block">
             <div className="strategy-learning-block-heading">
               <SlidersHorizontal size={18} />
-              <h3>参数说明</h3>
+              <h3>{t("参数说明")}</h3>
             </div>
             <div className="strategy-learning-parameter-list">
               {selectedEntry.parameters.map((parameter) => (
                 <article key={parameter.name}>
-                  <strong>{parameter.name}</strong>
-                  <em>默认：{parameter.defaultValue}</em>
-                  <p>{parameter.description}</p>
+                  <strong>{t(parameter.name)}</strong>
+                  <em>{t("默认：{value}", { value: parameter.defaultValue })}</em>
+                  <p>{t(parameter.description)}</p>
                 </article>
               ))}
             </div>
@@ -125,11 +130,11 @@ export function StrategyLearningPage() {
           <section className="strategy-learning-block">
             <div className="strategy-learning-block-heading">
               <ChartNoAxesCombined size={18} />
-              <h3>图表输出</h3>
+              <h3>{t("图表输出")}</h3>
             </div>
             <div className="strategy-learning-chip-list">
               {selectedEntry.chartOutputs.map((output) => (
-                <span key={output}>{output}</span>
+                <span key={output}>{t(output)}</span>
               ))}
             </div>
           </section>
@@ -137,11 +142,11 @@ export function StrategyLearningPage() {
           <section className="strategy-learning-risk">
             <div className="strategy-learning-block-heading">
               <ShieldAlert size={18} />
-              <h3>使用边界与风险提示</h3>
+              <h3>{t("使用边界与风险提示")}</h3>
             </div>
             <ul>
               {selectedEntry.risks.map((risk) => (
-                <li key={risk}>{risk}</li>
+                <li key={risk}>{t(risk)}</li>
               ))}
             </ul>
           </section>

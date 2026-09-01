@@ -103,11 +103,3 @@ export function formatBacktestNumber(value: number) {
 export function formatBacktestPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
-
-export function formatBacktestDate(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "short",
-    timeStyle: "short",
-    hour12: false,
-  }).format(new Date(value));
-}

@@ -128,7 +128,10 @@ describe("chart strategy runtime", () => {
     };
 
     assert.deepEqual(
-      buildChartStrategySignalRows([run]).map(({ direction, tone }) => ({ direction, tone })),
+      buildChartStrategySignalRows([run], String).map(({ direction, tone }) => ({
+        direction,
+        tone,
+      })),
       [
         { direction: "向上条件触发", tone: "buy" },
         { direction: "向下条件触发", tone: "sell" },
@@ -278,7 +281,7 @@ describe("chart strategy runtime", () => {
     assert.ok((run?.result.output.render.elements.length ?? 0) > 0);
     assert.ok(run?.result.output.logs.some((item) => item.includes("Trend Targets")));
 
-    const signalRows = buildChartStrategySignalRows([run!]);
+    const signalRows = buildChartStrategySignalRows([run!], String);
     assert.ok(signalRows.some((row) => row.direction === "向上条件触发"));
 
     const logItems = buildChartStrategyLogItems([run!], { symbol: "AAPL", timeframe: "realtime" });

@@ -36,6 +36,7 @@ import {
   formatPrice,
   generateCandles,
   isFiniteNumber,
+  resolveCandleTimeLabel,
   type ChartScaleDomain,
 } from "./chartPrimitives.ts";
 import { SecondaryPaneCanvas, useResponsiveSvgViewBoxSize } from "./SecondaryPaneCanvas.tsx";
@@ -43,6 +44,7 @@ import { renderChartLayerElements } from "./ChartLayerRenderer.tsx";
 
 export function ChartViewport({
   candles: providedCandles,
+  formatTimeLabel,
   context = defaultContext,
   showSignals = true,
   strategyLayers = [],
@@ -76,6 +78,8 @@ export function ChartViewport({
     [context.symbol, context.market, context.timeframe],
   );
   const candles = providedCandles ?? generatedCandles;
+  const timeLabel = (candle: (typeof candles)[number]) =>
+    resolveCandleTimeLabel(candle, context.timeframe, formatTimeLabel);
   const contextKey = `${context.market}:${context.symbol}:${context.timeframe}`;
   const [visibleRange, setVisibleRange] = useState<ChartVisibleRange>(() =>
     createDefaultVisibleRange(candles.length, initialVisibleBars),
@@ -700,7 +704,7 @@ export function ChartViewport({
         <span>L {formatPrice(hoveredCandle.low)}</span>
         <span>C {formatPrice(hoveredCandle.close)}</span>
         <span>V {Math.round(hoveredCandle.volume).toLocaleString("zh-CN")}</span>
-        <span>{hoveredCandle.time}</span>
+        <span>{timeLabel(hoveredCandle)}</span>
         <span>
           {safeVisibleRange.start + 1}-{safeVisibleRange.end} / {candles.length}
         </span>
@@ -951,8 +955,12 @@ export function ChartViewport({
                 }
 
                 return (
-                  <text key={`${candle.time}-${index}`} x={indexToX(index)} y={height - 8}>
-                    {candle.time}
+                  <text
+                    key={`${candle.timestamp ?? candle.time}-${index}`}
+                    x={indexToX(index)}
+                    y={height - 8}
+                  >
+                    {timeLabel(candle)}
                   </text>
                 );
               })}
@@ -1042,7 +1050,7 @@ export function ChartViewport({
               timeTicks={timeTickOffsets.flatMap((offset) => {
                 const index = safeVisibleRange.start + offset;
                 const candle = candles[index];
-                return candle ? [{ x: indexToX(index), label: candle.time }] : [];
+                return candle ? [{ x: indexToX(index), label: timeLabel(candle) }] : [];
               })}
               timestampToX={timestampToX}
               width={width}

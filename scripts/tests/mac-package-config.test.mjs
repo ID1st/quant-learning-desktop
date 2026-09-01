@@ -12,6 +12,10 @@ const macPackageWorkflow = readFileSync(
   resolve(workspaceRoot, ".github", "workflows", "package-macos.yml"),
   "utf8",
 );
+const packageScript = readFileSync(
+  resolve(workspaceRoot, "scripts", "package-desktop.mjs"),
+  "utf8",
+);
 
 test("macOS package scripts build separate Intel and Apple Silicon DMGs", () => {
   assert.equal(
@@ -37,5 +41,36 @@ test("macOS package config enables hardened runtime and notarization", () => {
 test("macOS packaging runs each architecture on a matching GitHub runner", () => {
   assert.match(macPackageWorkflow, /arch: arm64\s+runner: macos-15/u);
   assert.match(macPackageWorkflow, /arch: x64\s+runner: macos-15-intel/u);
-  assert.match(macPackageWorkflow, /package:mac:\$\{\{ matrix\.arch \}\}/u);
+  assert.match(macPackageWorkflow, /package:internal:mac:\$\{\{ matrix\.arch \}\}/u);
+});
+
+test("internal packaging creates three explicitly unsigned 0.1.2 installers", () => {
+  assert.equal(desktopPackage.version, "0.1.2");
+  assert.equal(
+    desktopPackage.scripts["package:internal:win:x64"],
+    "node ../../scripts/package-desktop.mjs --internal --win nsis --x64 --publish never",
+  );
+  assert.equal(
+    desktopPackage.scripts["package:internal:mac:x64"],
+    "node ../../scripts/package-desktop.mjs --internal --mac dmg --x64 --publish never",
+  );
+  assert.equal(
+    desktopPackage.scripts["package:internal:mac:arm64"],
+    "node ../../scripts/package-desktop.mjs --internal --mac dmg --arm64 --publish never",
+  );
+  assert.equal(
+    desktopPackage.build.win.artifactName,
+    "quant-learning-desktop-${version}-win-${arch}.${ext}",
+  );
+  assert.match(packageScript, /formalWindowsRelease = windowsRelease && !internalPackage/u);
+  assert.match(packageScript, /CSC_IDENTITY_AUTO_DISCOVERY: "false"/u);
+});
+
+test("workflow uploads one Windows and two macOS architecture artifacts", () => {
+  assert.match(macPackageWorkflow, /Package Windows x64/u);
+  assert.match(macPackageWorkflow, /package:internal:win:x64/u);
+  assert.match(macPackageWorkflow, /Get-AuthenticodeSignature/u);
+  assert.match(macPackageWorkflow, /hdiutil verify/u);
+  assert.match(macPackageWorkflow, /quant-learning-desktop-windows-x64/u);
+  assert.match(macPackageWorkflow, /quant-learning-desktop-mac-\$\{\{ matrix\.arch \}\}/u);
 });

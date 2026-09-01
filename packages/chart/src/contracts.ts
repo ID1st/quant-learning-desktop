@@ -192,6 +192,7 @@ export interface ChartPaneModel {
 export interface ChartViewportProps {
   context?: ChartContext;
   candles?: CandlePoint[];
+  formatTimeLabel?: (candle: CandlePoint, timeframe: Timeframe) => string;
   showSignals?: boolean;
   strategyLayers?: ChartLayer[];
   layers?: ChartRenderLayer[];

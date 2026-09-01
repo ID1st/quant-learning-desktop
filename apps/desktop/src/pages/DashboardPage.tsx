@@ -15,6 +15,7 @@ import {
   readMarketWatchlistCache,
 } from "../features/marketData/marketDataSyncService";
 import { useAppStore } from "../state/appStore";
+import { useI18n } from "../i18n/I18nProvider";
 
 function formatPrice(value: number) {
   return value.toFixed(value >= 100 ? 2 : 3);
@@ -26,6 +27,7 @@ function formatChangePercent(value: number) {
 }
 
 export function DashboardPage() {
+  const { t } = useI18n();
   const alphaFeedBinding = readAlphaFeedApiBinding();
   const longPortBinding = readLongPortApiBinding();
   const providerSettings = readMarketDataProviderSettings();
@@ -39,25 +41,25 @@ export function DashboardPage() {
     ? "Stock SDK"
     : alphaFeedBinding
       ? "AlphaFeed REST"
-      : "未配置";
+      : t("未配置");
   const syncCompleted = syncState?.status === "completed";
   const requiresSetup = !alphaFeedBinding && !hasMarketData;
   const tasks = [
     ...(requiresSetup
       ? [
           {
-            title: "连接行情数据源",
-            detail: "配置主数据源或备用数据源后即可开始同步。",
-            action: "前往数据源中心",
+            title: t("连接行情数据源"),
+            detail: t("配置主数据源或备用数据源后即可开始同步。"),
+            action: t("前往数据源中心"),
           },
         ]
       : []),
     ...(!syncCompleted
       ? [
           {
-            title: "等待行情缓存准备",
-            detail: "缓存完成后可在超级图表中运行策略。",
-            action: "查看数据状态",
+            title: t("等待行情缓存准备"),
+            detail: t("缓存完成后可在超级图表中运行策略。"),
+            action: t("查看数据状态"),
           },
         ]
       : []),
@@ -67,12 +69,12 @@ export function DashboardPage() {
     <section className="dashboard-page today-workspace">
       <header className="today-workspace-header">
         <div>
-          <p>今日工作台</p>
-          <h1>{hasMarketData ? "行情与研究已就绪" : "先连接行情，再开始研究"}</h1>
+          <p>{t("今日工作台")}</p>
+          <h1>{hasMarketData ? t("行情与研究已就绪") : t("先连接行情，再开始研究")}</h1>
           <span>
             {hasMarketData
-              ? "查看关注标的、进入超级图表并运行当前策略。"
-              : "完成数据源连接后，系统会准备自选行情与必要的 K 线缓存。"}
+              ? t("查看关注标的、进入超级图表并运行当前策略。")
+              : t("完成数据源连接后，系统会准备自选行情与必要的 K 线缓存。")}
           </span>
         </div>
         <button
@@ -80,50 +82,58 @@ export function DashboardPage() {
           onClick={() => navigate(requiresSetup ? "apiConfig" : "chart")}
           type="button"
         >
-          {requiresSetup ? "连接数据源" : "打开超级图表"}
+          {requiresSetup ? t("连接数据源") : t("打开超级图表")}
           <ArrowRight size={16} />
         </button>
       </header>
 
-      <section className="today-status-band" aria-label="市场数据状态">
+      <section className="today-status-band" aria-label={t("市场数据状态")}>
         <article>
           <DatabaseZap size={18} />
           <span>
-            <small>主行情源</small>
+            <small>{t("主行情源")}</small>
             <strong>{primaryProvider}</strong>
           </span>
           <em className={hasMarketData ? "healthy" : "pending"}>
-            {hasMarketData ? "可用" : "待连接"}
+            {hasMarketData ? t("可用") : t("待连接")}
           </em>
         </article>
         <article>
           <ListChecks size={18} />
           <span>
-            <small>行情缓存</small>
-            <strong>{syncCompleted ? "已准备" : "等待同步"}</strong>
+            <small>{t("行情缓存")}</small>
+            <strong>{syncCompleted ? t("已准备") : t("等待同步")}</strong>
           </span>
-          <em className={syncCompleted ? "healthy" : "pending"}>{quoteSnapshots.length} 条快照</em>
+          <em className={syncCompleted ? "healthy" : "pending"}>
+            {t("{count} 条快照", { count: quoteSnapshots.length })}
+          </em>
         </article>
         <article>
           <Activity size={18} />
           <span>
-            <small>备用源</small>
-            <strong>{longPortBinding ? "LongBridge 已配置" : "尚未配置"}</strong>
+            <small>{t("备用源")}</small>
+            <strong>{longPortBinding ? t("LongBridge 已配置") : t("尚未配置")}</strong>
           </span>
           <em className={longPortBinding ? "healthy" : "neutral"}>
-            {longPortBinding ? "可回退" : "可选"}
+            {longPortBinding ? t("可回退") : t("可选")}
           </em>
         </article>
       </section>
 
       <div className="today-workspace-grid">
-        <section className="today-watchlist-panel" aria-label="关注标的">
+        <section className="today-watchlist-panel" aria-label={t("关注标的")}>
           <header className="today-panel-heading">
             <div>
-              <p>关注标的</p>
-              <h2>{watchlist.length > 0 ? `${watchlist.length} 个标的` : "等待生成"}</h2>
+              <p>{t("关注标的")}</p>
+              <h2>
+                {watchlist.length > 0
+                  ? t("{count} 个标的", { count: watchlist.length })
+                  : t("等待生成")}
+              </h2>
             </div>
-            {hasMarketData && <span>{quoteSnapshots.length} 条实时快照</span>}
+            {hasMarketData && (
+              <span>{t("{count} 条实时快照", { count: quoteSnapshots.length })}</span>
+            )}
           </header>
           {watchlist.length > 0 ? (
             <div className="today-watchlist-table">
@@ -143,7 +153,7 @@ export function DashboardPage() {
                         quote && quote.changePercent < 0 ? "negative" : quote ? "positive" : ""
                       }
                     >
-                      {quote ? formatChangePercent(quote.changePercent) : "等待报价"}
+                      {quote ? formatChangePercent(quote.changePercent) : t("等待报价")}
                     </em>
                   </div>
                 );
@@ -152,39 +162,43 @@ export function DashboardPage() {
           ) : (
             <div className="today-empty-state">
               <BarChart3 size={22} />
-              <span>完成数据源验证后，默认关注列表会在这里出现。</span>
+              <span>{t("完成数据源验证后，默认关注列表会在这里出现。")}</span>
             </div>
           )}
         </section>
 
-        <aside className="today-research-panel" aria-label="研究状态">
+        <aside className="today-research-panel" aria-label={t("研究状态")}>
           <div className="today-panel-heading">
             <div>
-              <p>研究状态</p>
-              <h2>当前会话</h2>
+              <p>{t("研究状态")}</p>
+              <h2>{t("当前会话")}</h2>
             </div>
           </div>
           <div className="today-research-row">
             <CheckCircle2 size={17} />
-            <span>预制策略</span>
-            <strong>2 个可用</strong>
+            <span>{t("预制策略")}</span>
+            <strong>{t("2 个可用")}</strong>
           </div>
           <div className="today-research-row">
             <BarChart3 size={17} />
-            <span>当前研究模式</span>
-            <strong>{hasMarketData ? "可进入图表" : "等待行情"}</strong>
+            <span>{t("当前研究模式")}</span>
+            <strong>{hasMarketData ? t("可进入图表") : t("等待行情")}</strong>
           </div>
           <div className="today-research-note">
-            策略、条件事件和日志会在超级图表的底部 Dock 中按需展开。
+            {t("策略、条件事件和日志会在超级图表的底部 Dock 中按需展开。")}
           </div>
         </aside>
       </div>
 
-      <section className="today-task-panel" aria-label="待处理任务">
+      <section className="today-task-panel" aria-label={t("待处理任务")}>
         <header className="today-panel-heading">
           <div>
-            <p>待处理任务</p>
-            <h2>{tasks.length > 0 ? `${tasks.length} 项需要关注` : "当前没有阻塞任务"}</h2>
+            <p>{t("待处理任务")}</p>
+            <h2>
+              {tasks.length > 0
+                ? t("{count} 项需要关注", { count: tasks.length })
+                : t("当前没有阻塞任务")}
+            </h2>
           </div>
         </header>
         {tasks.length > 0 ? (
@@ -206,7 +220,7 @@ export function DashboardPage() {
         ) : (
           <div className="today-clear-state">
             <CheckCircle2 size={17} />
-            <span>行情、缓存与研究入口均处于可用状态。</span>
+            <span>{t("行情、缓存与研究入口均处于可用状态。")}</span>
           </div>
         )}
       </section>

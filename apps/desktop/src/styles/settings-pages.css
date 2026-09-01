@@ -75,6 +75,71 @@
   line-height: 1.6;
 }
 
+.locale-timezone-panel {
+  max-width: 980px;
+}
+
+.timezone-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(220px, 0.7fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.timezone-settings-grid label,
+.timezone-preview {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(73, 91, 112, 0.42);
+  border-radius: 8px;
+  background: rgba(8, 13, 20, 0.48);
+  padding: 14px;
+}
+
+.timezone-settings-grid label > span,
+.timezone-preview span {
+  color: #8f9caf;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.timezone-settings-grid select {
+  width: 100%;
+  border: 1px solid rgba(73, 91, 112, 0.68);
+  border-radius: 6px;
+  background: #0a111b;
+  color: #f5f8ff;
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.timezone-settings-grid select:focus-visible {
+  outline: 2px solid #42dfad;
+  outline-offset: 2px;
+}
+
+.timezone-settings-grid small {
+  color: #7f8da0;
+  font-size: 11px;
+}
+
+.timezone-preview {
+  align-content: center;
+}
+
+.timezone-preview time {
+  color: #f5f8ff;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .timezone-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .api-config-form label {
   display: grid;
   gap: 8px;

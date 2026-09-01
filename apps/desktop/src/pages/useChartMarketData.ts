@@ -66,7 +66,6 @@ import {
   connectQuoteStreamForChart,
   readQuoteStreamSnapshotForChart,
   disconnectQuoteStreamForChart,
-  formatRealtimeHealthDetail,
   formatTimeframeLabel,
   formatRealtimeGapStatus,
 } from "./chartWorkspaceModel";
@@ -436,7 +435,7 @@ export function useChartMarketData({
           triedProviders: result.triedProviders,
         });
         setRealtimeHealth(healthView);
-        setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+        setRealtimeStatus(healthView.message);
         if (isRealtimeHistory && isMlptEnabled) {
           const confirmedBars = written.filter(
             (bar) => bar.timestamp <= confirmedThroughTimestamp,
@@ -795,7 +794,7 @@ export function useChartMarketData({
               )
             : createRealtimeHealthView("error", result.error.message);
           setRealtimeHealth(healthView);
-          setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+          setRealtimeStatus(healthView.message);
           return;
         }
 
@@ -832,7 +831,7 @@ export function useChartMarketData({
           },
         );
         setRealtimeHealth(healthView);
-        setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+        setRealtimeStatus(healthView.message);
       } catch (error) {
         const errorHealth = createRealtimeHealthView("error", getErrorMessage(error));
         setRealtimeHealth(errorHealth);
@@ -953,10 +952,10 @@ export function useChartMarketData({
 
             const healthView = createRealtimeHealthViewFromGateway(
               streamResult.health,
-              `WebSocket 流式更新 ${streamResult.snapshots.length} 只 · ${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`,
+              `WebSocket 流式更新 ${streamResult.snapshots.length} 只`,
             );
             setRealtimeHealth(healthView);
-            setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+            setRealtimeStatus(healthView.message);
             timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
             return;
           }
@@ -974,7 +973,7 @@ export function useChartMarketData({
                 )
               : createRealtimeHealthView("waiting", "WebSocket 正在连接，等待首批快照");
             setRealtimeHealth(streamHealth);
-            setRealtimeStatus(formatRealtimeHealthDetail(streamHealth));
+            setRealtimeStatus(streamHealth.message);
             timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);
             return;
           }
@@ -1026,7 +1025,7 @@ export function useChartMarketData({
                 )
               : createRealtimeHealthView("error", result.error.message);
             setRealtimeHealth(healthView);
-            setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+            setRealtimeStatus(healthView.message);
             timeoutId = window.setTimeout(() => void poll(), nextDelay);
             return;
           }
@@ -1063,10 +1062,11 @@ export function useChartMarketData({
             : createRealtimeHealthView("ok", "AlphaFeed 批量轮询成功");
           const healthView: RealtimeProviderHealthView = {
             ...baseHealth,
-            message: `${baseHealth.message} · 更新 ${snapshots.length} 只 · ${new Date(snapshot.receivedAt).toLocaleTimeString("zh-CN", { hour12: false })}`,
+            message: `${baseHealth.message} · 更新 ${snapshots.length} 只`,
+            checkedAt: new Date(snapshot.receivedAt).toISOString(),
           };
           setRealtimeHealth(healthView);
-          setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+          setRealtimeStatus(healthView.message);
         } else {
           const baseHealth = latestHealth
             ? createRealtimeHealthViewFromGateway(latestHealth, "批量轮询成功", {
@@ -1082,7 +1082,7 @@ export function useChartMarketData({
                 : `${baseHealth.message} · 暂无快照`,
           };
           setRealtimeHealth(healthView);
-          setRealtimeStatus(formatRealtimeHealthDetail(healthView));
+          setRealtimeStatus(healthView.message);
         }
 
         timeoutId = window.setTimeout(() => void poll(), realtimePollIntervalMs);

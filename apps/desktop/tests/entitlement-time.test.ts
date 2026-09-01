@@ -17,3 +17,16 @@ test("handles near-expiry, expired, and invalid entitlement times", () => {
   assert.equal(formatEntitlementRemaining("2026-07-30T11:59:59.000Z", now), "已到期");
   assert.equal(formatEntitlementRemaining("not-a-date", now), "无法计算");
 });
+
+test("formats entitlement time in English for account dialogs", () => {
+  const now = new Date("2026-07-30T12:00:00.000Z");
+
+  assert.equal(
+    formatEntitlementRemaining("2026-08-01T14:30:00.000Z", now, "en-US"),
+    "2 days 2 hours",
+  );
+  assert.equal(
+    formatEntitlementRemaining("2026-07-30T12:00:30.000Z", now, "en-US"),
+    "Less than 1 minute",
+  );
+});

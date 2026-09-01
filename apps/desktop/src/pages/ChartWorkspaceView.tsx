@@ -14,6 +14,7 @@ import {
   updateIndicatorParameter,
 } from "../features/chartIndicators/chartIndicators";
 import { formatStrategyDisplayName } from "../features/strategies/chartStrategyRuntime";
+import { useI18n } from "../i18n/I18nProvider";
 
 import {
   CircleAlert,
@@ -61,6 +62,7 @@ interface ChartWorkspaceViewProps {
 }
 
 export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
+  const { formatChartTime, formatTime, t } = useI18n();
   const {
     indicatorSettings,
     updateIndicatorSettings,
@@ -157,11 +159,11 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
           isWatchlistCollapsed ? "chart-workspace-grid watchlist-collapsed" : "chart-workspace-grid"
         }
       >
-        <aside className="chart-tool-rail" aria-label="画线工具">
-          <button className="active" type="button" title="光标">
+        <aside className="chart-tool-rail" aria-label={t("画线工具")}>
+          <button className="active" type="button" title={t("光标")}>
             <MousePointer2 size={18} />
           </button>
-          <button type="button" title="十字光标">
+          <button type="button" title={t("十字光标")}>
             <Crosshair size={18} />
           </button>
           <button
@@ -171,7 +173,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
               setPendingTrendPoint(null);
             }}
             type="button"
-            title="绘制趋势线"
+            title={t("绘制趋势线")}
           >
             <PencilLine size={18} />
           </button>
@@ -182,7 +184,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
               setPendingTrendPoint(null);
             }}
             type="button"
-            title="绘制水平线"
+            title={t("绘制水平线")}
           >
             <Ruler size={18} />
           </button>
@@ -193,7 +195,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
               setPendingTrendPoint(null);
             }}
             type="button"
-            title="添加文字标注"
+            title={t("添加文字标注")}
           >
             <Type size={18} />
           </button>
@@ -204,14 +206,14 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
               setPendingTrendPoint(null);
             }}
             type="button"
-            title="取消当前绘图工具"
+            title={t("取消当前绘图工具")}
           >
             <X size={18} />
           </button>
           <button
             onClick={() => setChartFocusLatestKey((value) => value + 1)}
             type="button"
-            title="回到最新数据"
+            title={t("回到最新数据")}
           >
             <RotateCcw size={18} />
           </button>
@@ -219,7 +221,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
             className={isPriceScaleLocked ? "active" : ""}
             onClick={() => setIsPriceScaleLocked((value) => !value)}
             type="button"
-            title={isPriceScaleLocked ? "解锁价格比例" : "锁定价格比例"}
+            title={isPriceScaleLocked ? t("解锁价格比例") : t("锁定价格比例")}
           >
             <Ruler size={18} />
           </button>
@@ -227,7 +229,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
             disabled={drawingCommandState.undoStack.length === 0}
             onClick={undoDrawingCommand}
             type="button"
-            title="撤销绘图"
+            title={t("撤销绘图")}
           >
             <Undo2 size={18} />
           </button>
@@ -235,7 +237,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
             disabled={drawingCommandState.redoStack.length === 0}
             onClick={redoDrawingCommand}
             type="button"
-            title="重做绘图"
+            title={t("重做绘图")}
           >
             <Redo2 size={18} />
           </button>
@@ -246,7 +248,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
               setSelectedDrawingId(null);
             }}
             type="button"
-            title="清空当前标的和周期的绘图"
+            title={t("清空当前标的和周期的绘图")}
           >
             <Trash2 size={18} />
           </button>
@@ -254,7 +256,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
             className={isChartSettingsOpen ? "active" : ""}
             onClick={() => setIsChartSettingsOpen((value) => !value)}
             type="button"
-            title="图表设置"
+            title={t("图表设置")}
           >
             <Settings2 size={18} />
           </button>
@@ -274,6 +276,11 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
           <ChartViewport
             candles={renderedCandles}
             context={{ symbol: activeSymbol.symbol, market: activeSymbol.market, timeframe }}
+            formatTimeLabel={(candle) =>
+              candle.timestamp === undefined
+                ? candle.time
+                : formatChartTime(candle.timestamp, timeframe, candle.time)
+            }
             displayMode={timeframe === "realtime" ? intradayDisplayMode : "candlestick"}
             showCrosshair={showCrosshair}
             showCurrentPriceLine={showCurrentPriceLine}
@@ -314,7 +321,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
           {mlptChartNotice && chartHasRenderableData && (
             <div aria-live="polite" className="mlpt-chart-notice" role="status">
               <CircleAlert aria-hidden="true" size={14} />
-              <span>{mlptChartNotice}</span>
+              <span>{t(mlptChartNotice)}</span>
             </div>
           )}
           {activeIndicatorConfigId &&
@@ -328,20 +335,22 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
               return (
                 <section
                   className="chart-settings-popover indicator-settings-popover"
-                  aria-label={`${definition.name} 参数`}
+                  aria-label={t("{name} 参数", { name: definition.name })}
                 >
                   <div className="chart-settings-heading">
                     <span>
-                      <strong>{definition.name} 参数</strong>
-                      <small>{indicatorConvention === "a-share" ? "A 股口径" : "跨市场口径"}</small>
+                      <strong>{t("{name} 参数", { name: definition.name })}</strong>
+                      <small>
+                        {indicatorConvention === "a-share" ? t("A 股口径") : t("跨市场口径")}
+                      </small>
                     </span>
                     <button onClick={() => setActiveIndicatorConfigId(null)} type="button">
-                      关闭
+                      {t("关闭")}
                     </button>
                   </div>
                   {definition.parameters.map((parameter) => (
                     <label key={parameter.key}>
-                      <span>{parameter.label}</span>
+                      <span>{t(parameter.label)}</span>
                       <input
                         max={parameter.maximum}
                         min={parameter.minimum}
@@ -365,8 +374,10 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                   ))}
                   <label className="parameter-toggle">
                     <span>
-                      <strong>指标状态</strong>
-                      <small>{definition.placement === "pane" ? "副图单选" : "主图可多选"}</small>
+                      <strong>{t("指标状态")}</strong>
+                      <small>
+                        {definition.placement === "pane" ? t("副图单选") : t("主图可多选")}
+                      </small>
                     </span>
                     <input
                       checked={instance.enabled}
@@ -387,15 +398,15 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
               );
             })()}
           {isChartSettingsOpen && (
-            <section className="chart-settings-popover" aria-label="图表设置">
+            <section className="chart-settings-popover" aria-label={t("图表设置")}>
               <div className="chart-settings-heading">
-                <strong>图表设置</strong>
+                <strong>{t("图表设置")}</strong>
                 <button onClick={() => setIsChartSettingsOpen(false)} type="button">
-                  关闭
+                  {t("关闭")}
                 </button>
               </div>
               <label>
-                <span>网格</span>
+                <span>{t("网格")}</span>
                 <input
                   checked={showGrid}
                   onChange={(event) => setShowGrid(event.currentTarget.checked)}
@@ -403,7 +414,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                 />
               </label>
               <label>
-                <span>十字光标</span>
+                <span>{t("十字光标")}</span>
                 <input
                   checked={showCrosshair}
                   onChange={(event) => setShowCrosshair(event.currentTarget.checked)}
@@ -411,7 +422,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                 />
               </label>
               <label>
-                <span>价格标签</span>
+                <span>{t("价格标签")}</span>
                 <input
                   checked={showPriceLabels}
                   onChange={(event) => setShowPriceLabels(event.currentTarget.checked)}
@@ -419,7 +430,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                 />
               </label>
               <label>
-                <span>当前价线</span>
+                <span>{t("当前价线")}</span>
                 <input
                   checked={showCurrentPriceLine}
                   onChange={(event) => setShowCurrentPriceLine(event.currentTarget.checked)}
@@ -428,23 +439,23 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
               </label>
               {timeframe === "realtime" && (
                 <label className="chart-settings-select">
-                  <span>分时形态</span>
+                  <span>{t("分时形态")}</span>
                   <select
-                    aria-label="分时图表形态"
+                    aria-label={t("分时图表形态")}
                     onChange={(event) =>
                       setIntradayDisplayMode(sanitizeChartDisplayMode(event.currentTarget.value))
                     }
                     value={intradayDisplayMode}
                   >
-                    <option value="line">折线</option>
-                    <option value="candlestick">K线</option>
+                    <option value="line">{t("折线")}</option>
+                    <option value="candlestick">{t("K线")}</option>
                   </select>
                 </label>
               )}
               <label className="chart-settings-select">
-                <span>刷新频率</span>
+                <span>{t("刷新频率")}</span>
                 <select
-                  aria-label="实时行情刷新频率"
+                  aria-label={t("实时行情刷新频率")}
                   onChange={(event) =>
                     setRealtimePollIntervalMs(
                       sanitizeRealtimePollIntervalMs(Number(event.currentTarget.value)),
@@ -454,14 +465,14 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                 >
                   {realtimePollIntervalOptionsMs.map((intervalMs) => (
                     <option key={intervalMs} value={intervalMs}>
-                      {intervalMs / 1000}秒
+                      {t("{seconds}秒", { seconds: intervalMs / 1000 })}
                     </option>
                   ))}
                 </select>
               </label>
               <button className="chart-settings-reset" onClick={resetChartView} type="button">
                 <RotateCcw size={14} />
-                重置视图
+                {t("重置视图")}
               </button>
             </section>
           )}
@@ -474,7 +485,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
             >
               <button onClick={resetChartView} role="menuitem" type="button">
                 <RotateCcw size={14} />
-                重置视图
+                {t("重置视图")}
               </button>
               <button
                 onClick={() => {
@@ -485,7 +496,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                 type="button"
               >
                 <Settings2 size={14} />
-                图表设置
+                {t("图表设置")}
               </button>
               <button
                 onClick={() => {
@@ -496,7 +507,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                 type="button"
               >
                 <Layers3 size={14} />
-                {showStrategyLayers ? "隐藏策略图层" : "显示策略图层"}
+                {showStrategyLayers ? t("隐藏策略图层") : t("显示策略图层")}
               </button>
               <button
                 onClick={() => {
@@ -507,7 +518,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                 type="button"
               >
                 <LineChart size={14} />
-                {showCurrentPriceLine ? "隐藏当前价线" : "显示当前价线"}
+                {showCurrentPriceLine ? t("隐藏当前价线") : t("显示当前价线")}
               </button>
             </div>
           )}
@@ -516,26 +527,26 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
         <aside className={isWatchlistCollapsed ? "watchlist-panel collapsed" : "watchlist-panel"}>
           <div className="panel-heading">
             <div>
-              <p>观察列表</p>
-              <h2>多市场</h2>
+              <p>{t("观察列表")}</p>
+              <h2>{t("多市场")}</h2>
             </div>
             <button
-              aria-label="搜索并添加证券"
+              aria-label={t("搜索并添加证券")}
               onClick={() => {
                 setIsInstrumentSearchOpen(true);
                 setInstrumentSearchState("idle");
                 setInstrumentSearchMessage("");
               }}
               type="button"
-              title="搜索并添加证券"
+              title={t("搜索并添加证券")}
             >
               <Plus size={17} />
             </button>
             <button
-              aria-label={isWatchlistCollapsed ? "show watchlist" : "hide watchlist"}
+              aria-label={isWatchlistCollapsed ? t("显示观察列表") : t("隐藏观察列表")}
               onClick={() => setIsWatchlistCollapsed((value) => !value)}
               type="button"
-              title={isWatchlistCollapsed ? "展开观察列表" : "折叠观察列表"}
+              title={isWatchlistCollapsed ? t("展开观察列表") : t("折叠观察列表")}
             >
               {isWatchlistCollapsed ? <ChevronRight size={17} /> : <EyeOff size={17} />}
             </button>
@@ -561,7 +572,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                       <strong>{item.symbol}</strong>
                       <small>{item.name}</small>
                       <em className={`watchlist-data-status ${dataStatus ?? "syncing"}`}>
-                        {formatWatchlistDataStatus(dataStatus)}
+                        {t(formatWatchlistDataStatus(dataStatus))}
                       </em>
                     </span>
                     <span>
@@ -572,11 +583,11 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                     </span>
                   </button>
                   <button
-                    aria-label={`移除 ${item.symbol}`}
+                    aria-label={t("移除 {symbol}", { symbol: item.symbol })}
                     className="watchlist-item-remove"
                     disabled={watchlist.length <= 1}
                     onClick={() => removeWatchlistItem(item)}
-                    title="移除观察"
+                    title={t("移除观察")}
                     type="button"
                   >
                     <Trash2 size={14} />
@@ -595,18 +606,18 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
           onClick={() => setIsInstrumentSearchOpen(false)}
         >
           <section
-            aria-label="搜索证券"
+            aria-label={t("搜索证券")}
             className="instrument-search-dialog"
             role="dialog"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="strategy-config-heading">
               <div>
-                <p>证券搜索</p>
-                <strong>添加到观察列表</strong>
+                <p>{t("证券搜索")}</p>
+                <strong>{t("添加到观察列表")}</strong>
               </div>
               <button
-                aria-label="关闭搜索"
+                aria-label={t("关闭搜索")}
                 onClick={() => setIsInstrumentSearchOpen(false)}
                 type="button"
               >
@@ -623,17 +634,17 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
               <input
                 autoFocus
                 onChange={(event) => setInstrumentSearchQuery(event.currentTarget.value)}
-                placeholder="代码、名称或拼音"
+                placeholder={t("代码、名称或拼音")}
                 value={instrumentSearchQuery}
               />
               <button type="submit">
                 <Search size={16} />
-                搜索
+                {t("搜索")}
               </button>
             </form>
             {instrumentSearchState === "loading" && (
               <p className="instrument-search-state">
-                <LoaderCircle className="spin" size={16} /> 正在查询主行情源
+                <LoaderCircle className="spin" size={16} /> {t("正在查询主行情源")}
               </p>
             )}
             {instrumentSearchMessage && (
@@ -660,7 +671,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                       onClick={() => addInstrumentToWatchlist(item)}
                       type="button"
                     >
-                      {added ? "已添加" : "添加"}
+                      {added ? t("已添加") : t("添加")}
                     </button>
                   </div>
                 );
@@ -677,25 +688,27 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
           onClick={() => setActiveConfigStrategyKey(null)}
         >
           <section
-            aria-label={`${formatStrategyDisplayName(activeConfigStrategyRun.strategy.name)} 参数配置`}
+            aria-label={t("{name} 参数配置", {
+              name: formatStrategyDisplayName(activeConfigStrategyRun.strategy.name),
+            })}
             className="strategy-config-dialog"
             role="dialog"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="strategy-config-heading">
               <div>
-                <p>策略参数</p>
+                <p>{t("策略参数")}</p>
                 <strong>{formatStrategyDisplayName(activeConfigStrategyRun.strategy.name)}</strong>
               </div>
               <button onClick={() => setActiveConfigStrategyKey(null)} type="button">
-                关闭
+                {t("关闭")}
               </button>
             </div>
 
             <div className="strategy-config-meta">
               <span>{formatStrategySource(activeConfigStrategyRun.strategy)}</span>
               <span>{activeConfigStrategyRun.strategy.version}</span>
-              <span>{activeConfigStrategyRun.strategy.sourceFile ?? "本地运行定义"}</span>
+              <span>{activeConfigStrategyRun.strategy.sourceFile ?? t("本地运行定义")}</span>
               <span>{activeConfigStrategyRun.strategy.supportedTimeframes.join(" / ")}</span>
             </div>
 
@@ -714,8 +727,8 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                         key={parameter.key}
                       >
                         <span>
-                          <strong>{parameter.label}</strong>
-                          <small>{value ? "已开启" : "已关闭"}</small>
+                          <strong>{t(parameter.label)}</strong>
+                          <small>{value ? t("已开启") : t("已关闭")}</small>
                         </span>
                         <input
                           checked={Boolean(value)}
@@ -740,7 +753,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                         htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
                         key={parameter.key}
                       >
-                        <span>{parameter.label}</span>
+                        <span>{t(parameter.label)}</span>
                         <select
                           id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
                           onChange={(event) =>
@@ -754,7 +767,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                         >
                           {parameter.options?.map((option) => (
                             <option key={option.value} value={option.value}>
-                              {option.label}
+                              {t(option.label)}
                             </option>
                           ))}
                         </select>
@@ -769,7 +782,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                         htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
                         key={parameter.key}
                       >
-                        <span>{parameter.label}</span>
+                        <span>{t(parameter.label)}</span>
                         <span className="parameter-color-field">
                           <input
                             id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
@@ -795,7 +808,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                       htmlFor={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
                       key={parameter.key}
                     >
-                      <span>{parameter.label}</span>
+                      <span>{t(parameter.label)}</span>
                       <input
                         id={`${activeConfigStrategyRun.strategy.key}-${parameter.key}`}
                         max={getNumberInputMaximum(parameter.key)}
@@ -816,10 +829,11 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                 })
               ) : (
                 <div className="strategy-config-empty-state">
-                  <strong>暂无可配置参数</strong>
+                  <strong>{t("暂无可配置参数")}</strong>
                   <span>
-                    该策略当前使用 Pine 最小子集生成的默认运行定义，后续可在策略管理中扩展参数
-                    Schema。
+                    {t(
+                      "该策略当前使用 Pine 最小子集生成的默认运行定义，后续可在策略管理中扩展参数 Schema。",
+                    )}
                   </span>
                 </div>
               )}
@@ -831,22 +845,24 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
       <ChartWorkspaceBottomPanel controller={controller} />
 
       {isDiagnosticsOpen && (
-        <aside className="chart-diagnostics-drawer" aria-label="数据诊断">
+        <aside className="chart-diagnostics-drawer" aria-label={t("数据诊断")}>
           <div className="chart-settings-heading">
-            <strong>数据诊断</strong>
+            <strong>{t("数据诊断")}</strong>
             <button onClick={() => setIsDiagnosticsOpen(false)} type="button">
-              关闭
+              {t("关闭")}
             </button>
           </div>
           <section>
-            <p>当前状态</p>
+            <p>{t("当前状态")}</p>
             <strong className={getRealtimeHealthBadgeClass(realtimeHealth.status)}>
               {realtimeHealth.status}
             </strong>
-            <small>{formatRealtimeHealthDetail(realtimeHealth)}</small>
+            <small>
+              {formatRealtimeHealthDetail(realtimeHealth, (value) => formatTime(value))}
+            </small>
           </section>
           <section>
-            <p>供应商健康</p>
+            <p>{t("供应商健康")}</p>
             {providerDiagnostics.length > 0 ? (
               providerDiagnostics.map((health) => (
                 <div className="diagnostic-provider-row" key={health.provider}>
@@ -870,17 +886,17 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
                 </div>
               ))
             ) : (
-              <small>当前运行环境未暴露桌面诊断桥。图表仍会显示实时状态。</small>
+              <small>{t("当前运行环境未暴露桌面诊断桥。图表仍会显示实时状态。")}</small>
             )}
           </section>
           <section>
-            <p>最近事件</p>
+            <p>{t("最近事件")}</p>
             {diagnosticTimeline.map((entry) => (
               <div
                 className={`diagnostic-timeline-row ${entry.kind}`}
                 key={`${entry.timestamp}-${entry.kind}-${entry.message}`}
               >
-                <time>{formatStatusClock(entry.timestamp)}</time>
+                <time>{formatStatusClock(entry.timestamp, (value) => formatTime(value))}</time>
                 <span>
                   <strong>{formatMarketDataRuntimeEventKind(entry.kind)}</strong>
                   {entry.message}

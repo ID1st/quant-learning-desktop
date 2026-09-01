@@ -1,4 +1,4 @@
-name: Package macOS
+name: Package desktop internal
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  package:
+  package-macos:
     name: Package macOS ${{ matrix.arch }}
     strategy:
       fail-fast: false
@@ -37,14 +37,49 @@ jobs:
       - name: Verify release configuration
         run: npm run test:release
       - name: Package DMG
-        run: npm run package:mac:${{ matrix.arch }} -w @quant/desktop
+        run: npm run package:internal:mac:${{ matrix.arch }} -w @quant/desktop
       - name: Verify artifact
         run: |
           artifacts=("$QUANT_DESKTOP_RELEASE_DIR"/*-mac-${{ matrix.arch }}.dmg)
           test "${#artifacts[@]}" -eq 1
+          hdiutil verify "${artifacts[0]}"
           shasum -a 256 "${artifacts[0]}"
       - uses: actions/upload-artifact@v4
         with:
           name: quant-learning-desktop-mac-${{ matrix.arch }}
           path: ${{ env.QUANT_DESKTOP_RELEASE_DIR }}/*.dmg
+          if-no-files-found: error
+
+  package-windows:
+    name: Package Windows x64
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      QUANT_DESKTOP_RELEASE_DIR: ${{ github.workspace }}\outputs\windows-x64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Use npm 11
+        run: npm install --global npm@11.12.1
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify release configuration
+        run: npm run test:release
+      - name: Package EXE
+        run: npm run package:internal:win:x64 -w @quant/desktop
+      - name: Verify artifact is unsigned
+        shell: pwsh
+        run: |
+          $artifacts = @(Get-ChildItem -LiteralPath $env:QUANT_DESKTOP_RELEASE_DIR -Filter '*-win-x64.exe' -File)
+          if ($artifacts.Count -ne 1) { throw "Expected one Windows installer, found $($artifacts.Count)." }
+          $signature = Get-AuthenticodeSignature -LiteralPath $artifacts[0].FullName
+          if ($signature.Status -ne 'NotSigned') { throw "Expected unsigned installer, got $($signature.Status)." }
+          Get-FileHash -Algorithm SHA256 -LiteralPath $artifacts[0].FullName
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quant-learning-desktop-windows-x64
+          path: ${{ env.QUANT_DESKTOP_RELEASE_DIR }}\*.exe
           if-no-files-found: error

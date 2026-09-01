@@ -228,6 +228,7 @@ export function buildChartStrategyLogItems(
 
 export function buildChartStrategySignalRows(
   runs: readonly ChartStrategyRunItem[],
+  formatSignalTime: (timestamp: number) => string,
 ): ChartStrategySignalRow[] {
   return runs.flatMap(({ result }) =>
     result.output.signals.map((signal, index) => ({
@@ -300,11 +301,4 @@ function getUnsupportedTimeframeMessage(strategy: StrategyDefinition, timeframe:
       : "当前图表周期不在该策略声明的支持范围内。";
 
   return `${dataLimitNote} 当前周期：${timeframe}；策略支持周期：${supported}。`;
-}
-
-function formatSignalTime(timestamp: number) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(timestamp));
 }

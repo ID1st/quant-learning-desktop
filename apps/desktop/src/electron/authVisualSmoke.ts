@@ -51,6 +51,7 @@ void app.whenReady().then(async () => {
     sidebarFits: boolean;
     focusRestored: boolean;
     logoutFocusDetail: string;
+    renewalEmailAvailable: boolean;
   }> = [];
 
   try {
@@ -92,6 +93,7 @@ void app.whenReady().then(async () => {
                 .querySelector(".app-sidebar")
                 ?.getBoundingClientRect();
               const inputs = [...document.querySelectorAll("input")];
+              const renewalEmail = document.querySelector('input[type="email"]');
               let focusRestored = true;
               let logoutFocusDetail = "not-applicable";
               if (isLogoutConfirmation) {
@@ -151,7 +153,12 @@ void app.whenReady().then(async () => {
                     sidebarRect.top >= 0 &&
                     sidebarRect.bottom <= window.innerHeight + 1),
                 focusRestored,
-                logoutFocusDetail
+                logoutFocusDetail,
+                renewalEmailAvailable:
+                  ${JSON.stringify(phase)} !== "ENTITLEMENT_EXPIRED" ||
+                  (renewalEmail instanceof HTMLInputElement &&
+                    !renewalEmail.disabled &&
+                    !renewalEmail.readOnly)
               };
             })()
           `,
@@ -171,7 +178,8 @@ void app.whenReady().then(async () => {
           check.mainContentScrolls &&
           check.primaryActionReachable &&
           check.sidebarFits &&
-          check.focusRestored,
+          check.focusRestored &&
+          check.renewalEmailAvailable,
       );
     console.log(
       JSON.stringify({
@@ -185,7 +193,8 @@ void app.whenReady().then(async () => {
             !check.mainContentScrolls ||
             !check.primaryActionReachable ||
             !check.sidebarFits ||
-            !check.focusRestored,
+            !check.focusRestored ||
+            !check.renewalEmailAvailable,
         ),
         consoleProblems,
       }),

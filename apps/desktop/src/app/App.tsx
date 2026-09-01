@@ -13,33 +13,34 @@ import { useAppStore } from "../state/appStore";
 import { AppErrorBoundary } from "../ui/AppErrorBoundary";
 import { AppRuntimeErrorReporter } from "../ui/AppRuntimeErrorReporter";
 import { resolveRequiredAppRoute } from "./authenticatedRouteGuard";
+import { useI18n } from "../i18n/I18nProvider";
 
 const queryClient = new QueryClient();
 
 function AuthBootstrapScreen() {
+  const { t } = useI18n();
   return (
     <main className="auth-bootstrap-screen" aria-live="polite">
       <LoaderCircle className="spin" size={24} />
       <div>
-        <strong>正在验证本机授权</strong>
-        <span>正在检查加密会话和测试资格…</span>
+        <strong>{t("正在验证本机授权")}</strong>
+        <span>{t("正在检查加密会话和测试资格…")}</span>
       </div>
     </main>
   );
 }
 
 function EntitlementActivatedScreen({ session }: { session: AuthSessionSnapshot }) {
+  const { formatDateTime, t } = useI18n();
   return (
     <main className="auth-bootstrap-screen" aria-live="polite">
       <ShieldCheck size={26} />
       <div>
-        <strong>{session.entitlementDurationDays} 天测试资格已生效</strong>
+        <strong>{t("{days} 天测试资格已生效", { days: session.entitlementDurationDays })}</strong>
         <span>
-          有效期至
-          {new Date(session.entitlementEndsAt).toLocaleString("zh-CN", {
-            hour12: false,
+          {t("有效期至{time}，正在进入工作区…", {
+            time: formatDateTime(session.entitlementEndsAt),
           })}
-          ，正在进入工作区…
         </span>
       </div>
     </main>
@@ -47,6 +48,7 @@ function EntitlementActivatedScreen({ session }: { session: AuthSessionSnapshot 
 }
 
 function LocalProfileConflictScreen() {
+  const { t } = useI18n();
   const [isClearing, setClearing] = useState(false);
   const pendingSession = useAuthStore((state) => state.pendingSession);
   const acceptPendingProfileSwitch = useAuthStore((state) => state.acceptPendingProfileSwitch);
@@ -59,7 +61,9 @@ function LocalProfileConflictScreen() {
   const confirm = async () => {
     if (
       !window.confirm(
-        "确认清除当前 Windows 用户下的策略草稿、画线、行情缓存和安全凭据，并切换云端账号？此操作不可撤销。",
+        t(
+          "确认清除当前 Windows 用户下的策略草稿、画线、行情缓存和安全凭据，并切换云端账号？此操作不可撤销。",
+        ),
       )
     ) {
       return;
@@ -75,12 +79,12 @@ function LocalProfileConflictScreen() {
       <section className="local-profile-conflict auth-card">
         <AlertTriangle size={24} />
         <div className="auth-card-header">
-          <p>本机账号隔离</p>
-          <h2>本机已绑定其他量化账号</h2>
+          <p>{t("本机账号隔离")}</p>
+          <h2>{t("本机已绑定其他量化账号")}</h2>
           <span>
-            为避免读取前一个账号的本地研究资料，账号
-            {pendingSession ? ` ${pendingSession.email} ` : " "}
-            暂不能进入工作区。
+            {t("为避免读取前一个账号的本地研究资料，账号 {email} 暂不能进入工作区。", {
+              email: pendingSession?.email ?? "",
+            })}
           </span>
         </div>
         <button
@@ -89,10 +93,10 @@ function LocalProfileConflictScreen() {
           onClick={() => void confirm()}
           type="button"
         >
-          {isClearing ? "正在清除本机资料…" : "清除本机用户资料并切换账号"}
+          {isClearing ? t("正在清除本机资料…") : t("清除本机用户资料并切换账号")}
         </button>
         <button className="secondary-auth-action" onClick={() => void cancel()} type="button">
-          取消并退出新账号
+          {t("取消并退出新账号")}
         </button>
       </section>
     </main>
