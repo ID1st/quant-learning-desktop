@@ -12,6 +12,9 @@
     "build": "vite build",
     "build:electron": "electron-vite build",
     "package:dir": "node ../../scripts/package-desktop.mjs --dir",
+    "package:mac": "node ../../scripts/package-desktop.mjs --mac dmg --x64 --arm64",
+    "package:mac:x64": "node ../../scripts/package-desktop.mjs --mac dmg --x64",
+    "package:mac:arm64": "node ../../scripts/package-desktop.mjs --mac dmg --arm64",
     "package:win": "node ../../scripts/package-desktop.mjs --win nsis",
     "typecheck": "tsc -p tsconfig.check.json"
   },
@@ -30,6 +33,20 @@
     "asarUnpack": [
       "node_modules/@duckdb/**/*"
     ],
+    "mac": {
+      "category": "public.app-category.finance",
+      "icon": "build/icon.icns",
+      "target": [
+        "dmg"
+      ],
+      "artifactName": "quant-learning-desktop-${version}-mac-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "notarize": true
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "backgroundColor": "#071019"
+    },
     "win": {
       "icon": "build/icon.ico",
       "target": [

@@ -25,13 +25,20 @@ const npxCli = join(dirname(npmCli), "npx-cli.js");
 const builderArgs = process.argv.slice(2);
 const productionAuthBaseUrl = "https://auth.fnndp.xyz";
 const formalWindowsRelease = builderArgs.includes("--win");
+const macRelease = builderArgs.includes("--mac");
 
 if (builderArgs.length === 0) {
-  console.error("Usage: node scripts/package-desktop.mjs --dir | --win nsis");
+  console.error(
+    "Usage: node scripts/package-desktop.mjs --dir | --win nsis | --mac dmg --x64|--arm64",
+  );
   process.exit(1);
 }
 
 try {
+  if (macRelease && process.platform !== "darwin") {
+    throw new Error("macOS desktop packages must be built on macOS.");
+  }
+
   if (formalWindowsRelease) {
     assertReleaseEnvironment(process.env);
     const previousInstaller = resolve(process.env.QUANT_PREVIOUS_INSTALLER);

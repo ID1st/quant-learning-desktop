@@ -1,0 +1,55 @@
+name: Package macOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/package-macos
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package macOS ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      QUANT_DESKTOP_RELEASE_DIR: ${{ runner.temp }}/quant-learning-desktop-release-${{ matrix.arch }}
+      CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Use npm 11
+        run: npm install --global npm@11.12.1
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify release configuration
+        run: npm run test:release
+      - name: Package DMG
+        run: npm run package:mac:${{ matrix.arch }} -w @quant/desktop
+      - name: Verify artifact
+        run: |
+          artifacts=("$QUANT_DESKTOP_RELEASE_DIR"/*-mac-${{ matrix.arch }}.dmg)
+          test "${#artifacts[@]}" -eq 1
+          shasum -a 256 "${artifacts[0]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quant-learning-desktop-mac-${{ matrix.arch }}
+          path: ${{ env.QUANT_DESKTOP_RELEASE_DIR }}/*.dmg
+          if-no-files-found: error

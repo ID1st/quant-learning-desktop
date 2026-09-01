@@ -28,3 +28,4 @@ apps/desktop/build/*
 !apps/desktop/build/icon-source.png
 !apps/desktop/build/icon.png
 !apps/desktop/build/icon.ico
+!apps/desktop/build/icon.icns
