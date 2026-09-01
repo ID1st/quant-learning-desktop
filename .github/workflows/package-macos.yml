@@ -23,7 +23,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     env:
-      QUANT_DESKTOP_RELEASE_DIR: ${{ runner.temp }}/quant-learning-desktop-release-${{ matrix.arch }}
+      QUANT_DESKTOP_RELEASE_DIR: ${{ github.workspace }}/outputs/macos-${{ matrix.arch }}
       CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
