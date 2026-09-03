@@ -41,7 +41,13 @@ jobs:
       - name: Verify artifact
         run: |
           artifacts=("$QUANT_DESKTOP_RELEASE_DIR"/*-mac-${{ matrix.arch }}.dmg)
+          apps=("$QUANT_DESKTOP_RELEASE_DIR"/mac*/量化学习桌面版.app)
           test "${#artifacts[@]}" -eq 1
+          test "${#apps[@]}" -eq 1
+          codesign --verify --deep --strict --verbose=2 "${apps[0]}"
+          signature_details=$(codesign --display --verbose=4 "${apps[0]}" 2>&1)
+          echo "$signature_details"
+          grep -q "Signature=adhoc" <<<"$signature_details"
           hdiutil verify "${artifacts[0]}"
           shasum -a 256 "${artifacts[0]}"
       - uses: actions/upload-artifact@v4

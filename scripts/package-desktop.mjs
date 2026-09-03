@@ -99,7 +99,12 @@ try {
     ...(formalWindowsRelease ? ["--config.forceCodeSigning=true"] : []),
     ...(internalPackage ? ["--config.forceCodeSigning=false"] : []),
     ...(internalPackage && macRelease
-      ? ["--config.mac.identity=null", "--config.mac.notarize=false"]
+      ? [
+          "--config.mac.identity=-",
+          "--config.mac.hardenedRuntime=false",
+          "--config.mac.notarize=false",
+          "--config.mac.gatekeeperAssess=false",
+        ]
       : []),
     `--config.directories.output=${releaseDir}`,
   ];

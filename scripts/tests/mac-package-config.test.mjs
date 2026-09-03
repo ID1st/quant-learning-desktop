@@ -44,8 +44,8 @@ test("macOS packaging runs each architecture on a matching GitHub runner", () =>
   assert.match(macPackageWorkflow, /package:internal:mac:\$\{\{ matrix\.arch \}\}/u);
 });
 
-test("internal packaging creates three explicitly unsigned 0.1.2 installers", () => {
-  assert.equal(desktopPackage.version, "0.1.2");
+test("internal packaging creates three 0.1.3 installers with runnable ad-hoc macOS apps", () => {
+  assert.equal(desktopPackage.version, "0.1.3");
   assert.equal(
     desktopPackage.scripts["package:internal:win:x64"],
     "node ../../scripts/package-desktop.mjs --internal --win nsis --x64 --publish never",
@@ -64,6 +64,9 @@ test("internal packaging creates three explicitly unsigned 0.1.2 installers", ()
   );
   assert.match(packageScript, /formalWindowsRelease = windowsRelease && !internalPackage/u);
   assert.match(packageScript, /CSC_IDENTITY_AUTO_DISCOVERY: "false"/u);
+  assert.match(packageScript, /--config\.mac\.identity=-/u);
+  assert.match(packageScript, /--config\.mac\.hardenedRuntime=false/u);
+  assert.match(packageScript, /--config\.mac\.notarize=false/u);
 });
 
 test("workflow uploads one Windows and two macOS architecture artifacts", () => {
@@ -71,6 +74,8 @@ test("workflow uploads one Windows and two macOS architecture artifacts", () => 
   assert.match(macPackageWorkflow, /package:internal:win:x64/u);
   assert.match(macPackageWorkflow, /Get-AuthenticodeSignature/u);
   assert.match(macPackageWorkflow, /hdiutil verify/u);
+  assert.match(macPackageWorkflow, /codesign --verify --deep --strict/u);
+  assert.match(macPackageWorkflow, /Signature=adhoc/u);
   assert.match(macPackageWorkflow, /quant-learning-desktop-windows-x64/u);
   assert.match(macPackageWorkflow, /quant-learning-desktop-mac-\$\{\{ matrix\.arch \}\}/u);
 });
