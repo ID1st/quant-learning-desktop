@@ -79,3 +79,50 @@ test("workflow uploads one Windows and two macOS architecture artifacts", () => 
   assert.match(macPackageWorkflow, /quant-learning-desktop-windows-x64/u);
   assert.match(macPackageWorkflow, /quant-learning-desktop-mac-\$\{\{ matrix\.arch \}\}/u);
 });
+
+test("longbridge macOS native bindings are pinned for every release architecture", () => {
+  for (const arch of ["arm64", "x64"]) {
+    const binding = `longbridge-darwin-${arch}`;
+    assert.equal(
+      desktopPackage.optionalDependencies[binding],
+      "4.3.3",
+      `${binding} must be a direct optional dependency of @quant/desktop`,
+    );
+  }
+  assert.ok(
+    desktopPackage.build.asarUnpack.some((pattern) => pattern.includes("longbridge")),
+    "longbridge native .node files must be unpacked from the asar archive",
+  );
+});
+
+test("package-lock.json contains the longbridge macOS native binding tarballs", () => {
+  const lockfile = JSON.parse(readFileSync(resolve(workspaceRoot, "package-lock.json"), "utf8"));
+  const longbridge = lockfile.packages["node_modules/longbridge"];
+  assert.ok(longbridge, "package-lock.json must contain the longbridge package");
+
+  for (const binding of Object.keys(longbridge.optionalDependencies)) {
+    if (!binding.startsWith("longbridge-darwin-")) {
+      continue;
+    }
+    const locked = lockfile.packages[`node_modules/${binding}`];
+    assert.ok(
+      locked,
+      `${binding} is missing from package-lock.json, so 'npm ci' on macOS silently skips it ` +
+        "and the packaged app fails at launch with 'Cannot find native binding'",
+    );
+    assert.equal(locked.version, longbridge.optionalDependencies[binding]);
+    assert.ok(
+      locked.resolved && locked.integrity,
+      `${binding} must pin resolved url and integrity`,
+    );
+    assert.deepEqual(locked.os, ["darwin"]);
+    assert.equal(locked.optional, true);
+  }
+});
+
+test("macOS packaging verifies the native binding inside the built application", () => {
+  assert.match(
+    macPackageWorkflow,
+    /app\.asar\.unpacked\/node_modules\/longbridge-darwin-\$\{\{ matrix\.arch \}\}/u,
+  );
+});

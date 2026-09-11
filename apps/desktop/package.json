@@ -34,7 +34,8 @@
     ],
     "asar": true,
     "asarUnpack": [
-      "node_modules/@duckdb/**/*"
+      "node_modules/@duckdb/**/*",
+      "node_modules/longbridge*/**/*"
     ],
     "mac": {
       "category": "public.app-category.finance",
@@ -74,6 +75,10 @@
     "@quant/ui": "*",
     "longbridge": "^4.3.3",
     "stock-sdk": "2.3.0"
+  },
+  "optionalDependencies": {
+    "longbridge-darwin-arm64": "4.3.3",
+    "longbridge-darwin-x64": "4.3.3"
   },
   "devDependencies": {
     "@types/node": "^26.0.1",
