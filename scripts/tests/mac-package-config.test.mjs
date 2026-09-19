@@ -44,8 +44,8 @@ test("macOS packaging runs each architecture on a matching GitHub runner", () =>
   assert.match(macPackageWorkflow, /package:internal:mac:\$\{\{ matrix\.arch \}\}/u);
 });
 
-test("internal packaging creates three 0.1.4 installers with runnable ad-hoc macOS apps", () => {
-  assert.equal(desktopPackage.version, "0.1.4");
+test("internal packaging creates three 0.1.5 installers with runnable ad-hoc macOS apps", () => {
+  assert.equal(desktopPackage.version, "0.1.5");
   assert.equal(
     desktopPackage.scripts["package:internal:win:x64"],
     "node ../../scripts/package-desktop.mjs --internal --win nsis --x64 --publish never",
@@ -97,14 +97,17 @@ test("longbridge macOS native bindings are pinned for every release architecture
 
 test("package-lock.json contains the longbridge macOS native binding tarballs", () => {
   const lockfile = JSON.parse(readFileSync(resolve(workspaceRoot, "package-lock.json"), "utf8"));
-  const longbridge = lockfile.packages["node_modules/longbridge"];
+  const packagePrefix = lockfile.packages["node_modules/longbridge"]
+    ? "node_modules"
+    : "apps/desktop/node_modules";
+  const longbridge = lockfile.packages[`${packagePrefix}/longbridge`];
   assert.ok(longbridge, "package-lock.json must contain the longbridge package");
 
   for (const binding of Object.keys(longbridge.optionalDependencies)) {
     if (!binding.startsWith("longbridge-darwin-")) {
       continue;
     }
-    const locked = lockfile.packages[`node_modules/${binding}`];
+    const locked = lockfile.packages[`${packagePrefix}/${binding}`];
     assert.ok(
       locked,
       `${binding} is missing from package-lock.json, so 'npm ci' on macOS silently skips it ` +

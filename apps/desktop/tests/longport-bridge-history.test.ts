@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  getLongPortConfigOptions,
   mapLongPortCandlesticksToBars,
   sanitizeLongPortCandlestickCount,
 } from "../src/electron/longPortBridge.ts";
+
+test("default LongBridge endpoint lets the SDK select the regional access point", () => {
+  assert.deepEqual(getLongPortConfigOptions("https://openapi.longbridge.com/"), { language: 0 });
+  assert.deepEqual(getLongPortConfigOptions("https://openapi.longbridge.cn"), {
+    httpUrl: "https://openapi.longbridge.cn",
+    language: 0,
+  });
+});
 
 function decimal(value: string) {
   return {

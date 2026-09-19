@@ -1,6 +1,6 @@
 {
   "name": "@quant/desktop",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "量化学习桌面版工作台",
   "author": "Quant Learning Desktop Team",
@@ -73,7 +73,7 @@
     "@quant/shared": "*",
     "@quant/strategy-engine": "*",
     "@quant/ui": "*",
-    "longbridge": "^4.3.3",
+    "longbridge": "4.3.3",
     "stock-sdk": "2.3.0"
   },
   "optionalDependencies": {

@@ -31,6 +31,10 @@ import {
 } from "../features/api/apiConfigService";
 import { verifySelectedBackupProvider } from "../features/api/apiConfigSubmissionService";
 import {
+  isAlphaFeedInitialSyncFailureBlocking,
+  isAlphaFeedRateLimitError,
+} from "../features/api/alphaFeedInitialSyncPolicy";
+import {
   apiProviderPriorityItems,
   formatApiProviderStatus,
   getApiProviderStatus,
@@ -81,9 +85,8 @@ const initialBarCountByTimeframe: Partial<Record<Timeframe, number>> = {
   "1w": 240,
 };
 
-function isAlphaFeedPermissionError(message: string) {
-  return message.includes("套餐无此功能或市场权限") || message.includes("HTTP 403");
-}
+const waitForAlphaFeedRequestSlot = () =>
+  new Promise<void>((resolve) => window.setTimeout(resolve, 250));
 
 function getRejectedMessage(result: PromiseRejectedResult) {
   return result.reason instanceof Error ? result.reason.message : "未知错误";
@@ -320,21 +323,49 @@ export function ApiConfigPage() {
                 mode: "intraday" as const,
               })),
             ]);
-            const results = await Promise.allSettled(
-              requests.map(async ({ item, timeframe, mode }) => {
-                if (mode === "intraday") {
-                  const result = await window.quantDesktop?.alphaFeed?.fetchIntradayBars(
+            const barResults: PromiseSettledResult<
+              import("@quant/api-client").AlphaFeedMarketDataBar[]
+            >[] = [];
+            for (const { item, timeframe, mode } of requests) {
+              const result = await Promise.resolve()
+                .then(async () => {
+                  if (mode === "intraday") {
+                    const result = await window.quantDesktop?.alphaFeed?.fetchIntradayBars(
+                      alphaFeedCredentials,
+                      {
+                        symbol: item.symbol,
+                        market: item.market,
+                        timeframe,
+                        count: initialBarCountByTimeframe[timeframe] ?? 240,
+                      },
+                    );
+
+                    if (!result) {
+                      throw new Error(
+                        "AlphaFeed 分钟 K 线同步需要桌面安全桥，请在桌面应用中运行。",
+                      );
+                    }
+
+                    if (!result.ok) {
+                      throw new Error(result.error.message);
+                    }
+
+                    return result.bars;
+                  }
+
+                  const result = await window.quantDesktop?.alphaFeed?.fetchHistoricalBars(
                     alphaFeedCredentials,
                     {
                       symbol: item.symbol,
                       market: item.market,
                       timeframe,
                       count: initialBarCountByTimeframe[timeframe] ?? 240,
+                      adjust: "forward",
                     },
                   );
 
                   if (!result) {
-                    throw new Error("AlphaFeed 分钟 K 线同步需要桌面安全桥，请在桌面应用中运行。");
+                    throw new Error("AlphaFeed K 线同步需要桌面安全桥，请在桌面应用中运行。");
                   }
 
                   if (!result.ok) {
@@ -342,30 +373,15 @@ export function ApiConfigPage() {
                   }
 
                   return result.bars;
-                }
-
-                const result = await window.quantDesktop?.alphaFeed?.fetchHistoricalBars(
-                  alphaFeedCredentials,
-                  {
-                    symbol: item.symbol,
-                    market: item.market,
-                    timeframe,
-                    count: initialBarCountByTimeframe[timeframe] ?? 240,
-                    adjust: "forward",
-                  },
+                })
+                .then(
+                  (value) => ({ status: "fulfilled", value }) as const,
+                  (reason: unknown) => ({ status: "rejected", reason }) as const,
                 );
-
-                if (!result) {
-                  throw new Error("AlphaFeed K 线同步需要桌面安全桥，请在桌面应用中运行。");
-                }
-
-                if (!result.ok) {
-                  throw new Error(result.error.message);
-                }
-
-                return result.bars;
-              }),
-            );
+              barResults.push(result);
+              await waitForAlphaFeedRequestSlot();
+            }
+            const results = barResults;
             const failures = results
               .map((result, index) => ({ result, request: requests[index] }))
               .filter(
@@ -377,10 +393,8 @@ export function ApiConfigPage() {
             const bars = results.flatMap((result) =>
               result.status === "fulfilled" ? result.value : [],
             );
-            const blockingFailures = failures.filter(
-              ({ result, request }) =>
-                request.mode === "historical" ||
-                !isAlphaFeedPermissionError(getRejectedMessage(result)),
+            const blockingFailures = failures.filter(({ result, request }) =>
+              isAlphaFeedInitialSyncFailureBlocking(getRejectedMessage(result), request.mode),
             );
             const recoverableFailures = failures.filter(
               (failure) => !blockingFailures.includes(failure),
@@ -424,7 +438,10 @@ export function ApiConfigPage() {
               (request) => request.mode === "intraday",
             );
 
-            if (blockingEmptyRequests.length > 0 || bars.length === 0) {
+            if (
+              blockingEmptyRequests.length > 0 ||
+              (bars.length === 0 && recoverableFailures.length === 0)
+            ) {
               throw new Error(
                 t("AlphaFeed 部分必要 K 线周期未返回数据：{details}", {
                   details: blockingEmptyRequests
@@ -436,11 +453,16 @@ export function ApiConfigPage() {
             }
 
             const warningItems = [
-              ...recoverableFailures.map(({ request }) =>
-                t("{symbol} {timeframe} 无权限", {
-                  symbol: request.item.symbol,
-                  timeframe: request.timeframe,
-                }),
+              ...recoverableFailures.map(({ result, request }) =>
+                t(
+                  isAlphaFeedRateLimitError(getRejectedMessage(result))
+                    ? "{symbol} {timeframe} 请求受限，请稍后重试"
+                    : "{symbol} {timeframe} 无权限",
+                  {
+                    symbol: request.item.symbol,
+                    timeframe: request.timeframe,
+                  },
+                ),
               ),
               ...recoverableEmptyRequests.map((request) =>
                 t("{symbol} {timeframe} 暂无数据", {
@@ -451,7 +473,7 @@ export function ApiConfigPage() {
             ];
 
             if (warningItems.length > 0) {
-              marketDataSyncWarning = t("部分分钟 K 线未同步：{details}", {
+              marketDataSyncWarning = t("数据源已保存；部分 K 线请稍后重试：{details}", {
                 details: warningItems.slice(0, 6).join("、"),
               });
             }

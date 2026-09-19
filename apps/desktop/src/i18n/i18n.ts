@@ -776,8 +776,12 @@ const englishMessages: Readonly<Record<string, string>> = {
   "AlphaFeed 部分必要 K 线周期未返回数据：{details}":
     "Some required AlphaFeed bar timeframes returned no data: {details}",
   "{symbol} {timeframe} 无权限": "{symbol} {timeframe} unauthorized",
+  "{symbol} {timeframe} 请求受限，请稍后重试":
+    "{symbol} {timeframe} rate limited; please retry later",
   "{symbol} {timeframe} 暂无数据": "{symbol} {timeframe} no data",
   "部分分钟 K 线未同步：{details}": "Some minute bars were not synchronized: {details}",
+  "数据源已保存；部分 K 线请稍后重试：{details}":
+    "Data source saved; please retry some bars later: {details}",
   "备用数据源已绑定：AlphaFeed REST 与长桥均可用。":
     "Backup sources connected: AlphaFeed REST and Longbridge are available.",
   "备用数据源已绑定：AlphaFeed REST 可用。":

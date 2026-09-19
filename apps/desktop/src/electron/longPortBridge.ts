@@ -96,16 +96,21 @@ function toSafeLongPortError(error: unknown, credentials: LongPortApiCredentials
   return `长桥 API ${action}失败，请检查 App Key、App Secret、Access Token 和网络连接。`;
 }
 
+export function getLongPortConfigOptions(apiUrl: string) {
+  const normalizedUrl = apiUrl.trim().replace(/\/+$/u, "");
+
+  return normalizedUrl === "https://openapi.longbridge.com"
+    ? { language: 0 }
+    : { httpUrl: normalizedUrl, language: 0 };
+}
+
 function createLongPortQuoteContext(credentials: LongPortApiCredentials) {
   const normalizedCredentials = normalizeLongPortApiCredentials(credentials);
   const config = Config.fromApikey(
     normalizedCredentials.appKey,
     normalizedCredentials.appSecret,
     normalizedCredentials.accessToken,
-    {
-      httpUrl: normalizedCredentials.apiUrl,
-      language: 0,
-    },
+    getLongPortConfigOptions(normalizedCredentials.apiUrl),
   );
 
   return QuoteContext.new(config);
