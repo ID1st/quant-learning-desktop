@@ -7,7 +7,7 @@ on:
       - codex/package-macos
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   package-macos:
@@ -56,11 +56,10 @@ jobs:
           grep -q "Signature=adhoc" <<<"$signature_details"
           hdiutil verify "${artifacts[0]}"
           shasum -a 256 "${artifacts[0]}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: quant-learning-desktop-mac-${{ matrix.arch }}
-          path: ${{ env.QUANT_DESKTOP_RELEASE_DIR }}/*.dmg
-          if-no-files-found: error
+      - name: Upload quant-learning-desktop-mac-${{ matrix.arch }} to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload codex-internal-v0.1.5 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
 
   package-windows:
     name: Package Windows x64
@@ -90,8 +89,8 @@ jobs:
           $signature = Get-AuthenticodeSignature -LiteralPath $artifacts[0].FullName
           if ($signature.Status -ne 'NotSigned') { throw "Expected unsigned installer, got $($signature.Status)." }
           Get-FileHash -Algorithm SHA256 -LiteralPath $artifacts[0].FullName
-      - uses: actions/upload-artifact@v4
-        with:
-          name: quant-learning-desktop-windows-x64
-          path: ${{ env.QUANT_DESKTOP_RELEASE_DIR }}\*.exe
-          if-no-files-found: error
+      - name: Upload quant-learning-desktop-windows-x64 to draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload codex-internal-v0.1.5 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.5-win-x64.exe" --clobber
