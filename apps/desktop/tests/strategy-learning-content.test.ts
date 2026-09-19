@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { strategyLearningEntries } from "../src/features/learning/strategyLearningContent.ts";
+import { createTranslator } from "../src/i18n/i18n.ts";
 
 test("strategy learning content covers the built-in strategies and indicators", () => {
   assert.deepEqual(
@@ -28,6 +29,33 @@ test("strategy learning content covers the built-in strategies and indicators", 
   assert.ok(
     strategyLearningEntries.every((entry) => entry.sections.length >= 3 && entry.risks.length > 0),
   );
+});
+
+test("every user-visible learning string has an English translation without Chinese characters", () => {
+  const translate = createTranslator("en-US");
+  const visibleStrings = strategyLearningEntries.flatMap((entry) => [
+    entry.title,
+    entry.subtitle,
+    ...entry.markets,
+    ...entry.timeframes,
+    entry.placement ?? "",
+    entry.directoryLabel ?? "",
+    entry.workspaceAction?.label ?? "",
+    ...entry.sections.flatMap((section) => [section.title, section.content]),
+    ...entry.parameters.flatMap((parameter) => [
+      parameter.name,
+      parameter.defaultValue,
+      parameter.description,
+    ]),
+    ...entry.chartOutputs,
+    ...entry.risks,
+  ]);
+
+  const untranslated = [
+    ...new Set(visibleStrings.filter((value) => /\p{Script=Han}/u.test(translate(value)))),
+  ];
+
+  assert.deepEqual(untranslated, []);
 });
 
 test("UTORB and Trend Targets learning entries link the audited originals and explain their reference layers", () => {

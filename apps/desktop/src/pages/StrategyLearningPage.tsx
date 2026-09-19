@@ -95,9 +95,15 @@ export function StrategyLearningPage() {
           </header>
 
           <div className="strategy-learning-meta">
-            <span>{t("适用市场：{markets}", { markets: selectedEntry.markets.join(" / ") })}</span>
             <span>
-              {t("支持周期：{timeframes}", { timeframes: selectedEntry.timeframes.join(" / ") })}
+              {t("适用市场：{markets}", {
+                markets: selectedEntry.markets.map((market) => t(market)).join(" / "),
+              })}
+            </span>
+            <span>
+              {t("支持周期：{timeframes}", {
+                timeframes: selectedEntry.timeframes.map((timeframe) => t(timeframe)).join(" / "),
+              })}
             </span>
             {selectedEntry.placement && <span>{t(selectedEntry.placement)}</span>}
           </div>
@@ -120,7 +126,7 @@ export function StrategyLearningPage() {
               {selectedEntry.parameters.map((parameter) => (
                 <article key={parameter.name}>
                   <strong>{t(parameter.name)}</strong>
-                  <em>{t("默认：{value}", { value: parameter.defaultValue })}</em>
+                  <em>{t("默认：{value}", { value: t(parameter.defaultValue) })}</em>
                   <p>{t(parameter.description)}</p>
                 </article>
               ))}

@@ -1,4 +1,5 @@
 import type { LocalDatabase } from "../features/persistence/localDatabase";
+import { strategyLearningEnglishMessages } from "../features/learning/strategyLearningEnglishMessages.ts";
 
 export type AppLanguage = "zh-CN" | "en-US";
 export type TranslationValues = Readonly<Record<string, string | number>>;
@@ -8,6 +9,7 @@ const LANGUAGE_COLLECTION = "preferences.language";
 const LANGUAGE_DOCUMENT_VERSION = 1;
 
 const englishMessages: Readonly<Record<string, string>> = {
+  ...strategyLearningEnglishMessages,
   登录: "Sign in",
   仪表盘: "Dashboard",
   超级图表: "Super Chart",
