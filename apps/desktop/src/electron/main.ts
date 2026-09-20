@@ -1,11 +1,9 @@
 import { app, BrowserWindow, powerMonitor } from "electron";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createMarketDataIpcHandlers, registerMarketDataIpcHandlers } from "./marketDataIpc";
 import { registerMarketBarCacheIpcHandlers } from "./marketBarCacheIpc";
 import { createMarketBarCacheIpcHandlers } from "./marketBarCacheIpcContract";
 import { createMemoryMarketBarRepository } from "../features/marketData/memoryMarketBarRepository";
-import { registerProviderDataIpcHandlers } from "./providerDataIpc";
 import { registerPluginIpcHandlers } from "./pluginIpc";
 import { createPluginManager } from "./pluginManager";
 import { createPluginIpcHandlers } from "./pluginIpcContract";
@@ -300,8 +298,15 @@ void app
       securityPolicy,
       createDiagnosticsIpcHandlers(desktopDiagnostics),
     );
-    registerMarketDataIpcHandlers(securityPolicy, createMarketDataIpcHandlers({ credentialStore }));
-    registerProviderDataIpcHandlers(securityPolicy);
+    const [marketDataIpc, providerDataIpc] = await Promise.all([
+      import("./marketDataIpc"),
+      import("./providerDataIpc"),
+    ]);
+    marketDataIpc.registerMarketDataIpcHandlers(
+      securityPolicy,
+      marketDataIpc.createMarketDataIpcHandlers({ credentialStore }),
+    );
+    providerDataIpc.registerProviderDataIpcHandlers(securityPolicy);
     registerSecureCredentialIpcHandlers(securityPolicy, credentialStore);
     const pluginManager = createPluginManager({
       pluginsDirectory: join(app.getPath("userData"), "plugins"),

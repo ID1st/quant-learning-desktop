@@ -45,6 +45,16 @@ test("the renderer window is loaded before asynchronous authentication initializ
   assert.ok(windowIndex < authIndex);
 });
 
+test("market data provider modules load only after the renderer window is created", () => {
+  assert.doesNotMatch(mainSource, /^import .*from "\.\/marketDataIpc"/mu);
+  assert.doesNotMatch(mainSource, /^import .*from "\.\/providerDataIpc"/mu);
+  const windowIndex = mainSource.indexOf("const mainWindow = createMainWindow");
+  const providerImportIndex = mainSource.indexOf('import("./marketDataIpc")');
+  assert.notEqual(windowIndex, -1);
+  assert.notEqual(providerImportIndex, -1);
+  assert.ok(windowIndex < providerImportIndex);
+});
+
 test("packaged renderer smoke result path can be supplied through LaunchServices arguments", () => {
   assert.match(mainSource, /readArgumentValue\("--packaged-renderer-smoke-result"\)/u);
 });
