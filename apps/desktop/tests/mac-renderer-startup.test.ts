@@ -35,6 +35,20 @@ test("macOS avoids blocking the main loop on the native DuckDB cache", () => {
   assert.match(mainSource, /import\("\.\/duckDbMarketBarRepository"\)/u);
 });
 
+test("the renderer window is loaded before asynchronous authentication initialization", () => {
+  const readyBlockIndex = mainSource.indexOf("const windowConfig = createMainWindowConfig()");
+  const windowIndex = mainSource.indexOf("const mainWindow = createMainWindow", readyBlockIndex);
+  const authIndex = mainSource.indexOf("await createMainAuthSessionManager()", readyBlockIndex);
+  assert.notEqual(readyBlockIndex, -1);
+  assert.notEqual(windowIndex, -1);
+  assert.notEqual(authIndex, -1);
+  assert.ok(windowIndex < authIndex);
+});
+
+test("packaged renderer smoke result path can be supplied through LaunchServices arguments", () => {
+  assert.match(mainSource, /readArgumentValue\("--packaged-renderer-smoke-result"\)/u);
+});
+
 test("LongBridge native SDK is loaded only when a provider operation needs it", () => {
   assert.match(longPortBridgeSource, /import type \{ QuoteContext \} from "longbridge"/u);
   assert.match(longPortBridgeSource, /import\("longbridge"\)/u);

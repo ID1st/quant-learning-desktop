@@ -63,7 +63,11 @@ jobs:
           export QUANT_RELEASE_SMOKE_USER_DATA="$smoke_root/user-data"
           smoke_log="$smoke_root/renderer-smoke.log"
           export QUANT_RENDERER_SMOKE_RESULT="$smoke_root/renderer-smoke.json"
-          open -W -n "${app[0]}" --args --packaged-renderer-smoke >"$smoke_log" 2>&1 &
+          open -W -n "${app[0]}" --args \
+            --packaged-renderer-smoke \
+            "--packaged-renderer-smoke-result=$QUANT_RENDERER_SMOKE_RESULT" \
+            "--release-smoke-user-data=$QUANT_RELEASE_SMOKE_USER_DATA" \
+            >"$smoke_log" 2>&1 &
           smoke_pid=$!
           smoke_ok=false
           for _ in {1..40}; do
@@ -78,6 +82,8 @@ jobs:
           wait "$smoke_pid" 2>/dev/null || true
           cat "$smoke_log"
           cat "$QUANT_RENDERER_SMOKE_RESULT" 2>/dev/null || true
+          find "$HOME/Library/Logs" -maxdepth 5 -type f -name 'main.log' \
+            -exec sh -c 'echo "--- $1"; tail -n 100 "$1"' _ {} \; 2>/dev/null || true
           test "$smoke_ok" = true
       - name: Upload quant-learning-desktop-mac-${{ matrix.arch }} to draft release
         env:

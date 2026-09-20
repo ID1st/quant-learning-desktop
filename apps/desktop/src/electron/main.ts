@@ -34,7 +34,11 @@ import {
 
 const releaseSmokeRequested = process.argv.includes("--release-smoke");
 const packagedRendererSmokeRequested = process.argv.includes("--packaged-renderer-smoke");
-const packagedRendererSmokeResultPath = process.env.QUANT_RENDERER_SMOKE_RESULT?.trim();
+const readArgumentValue = (name: string) =>
+  process.argv.find((argument) => argument.startsWith(`${name}=`))?.slice(name.length + 1).trim();
+const packagedRendererSmokeResultPath =
+  readArgumentValue("--packaged-renderer-smoke-result") ??
+  process.env.QUANT_RENDERER_SMOKE_RESULT?.trim();
 
 function finishPackagedRendererSmoke(result: Record<string, unknown>, exitCode: number) {
   const serialized = `${JSON.stringify(result)}\n`;
@@ -48,7 +52,9 @@ if (process.platform === "darwin") {
   app.disableHardwareAcceleration();
 }
 if (releaseSmokeRequested || packagedRendererSmokeRequested) {
-  const userDataPath = process.env.QUANT_RELEASE_SMOKE_USER_DATA?.trim();
+  const userDataPath =
+    readArgumentValue("--release-smoke-user-data") ??
+    process.env.QUANT_RELEASE_SMOKE_USER_DATA?.trim();
   if (!userDataPath) {
     throw new Error("QUANT_RELEASE_SMOKE_USER_DATA is required for release smoke mode.");
   }
@@ -261,11 +267,20 @@ void app
       rendererEntry: windowConfig.rendererEntry,
       rendererDevServerUrl: process.env.ELECTRON_RENDERER_URL,
     });
+    const mainWindow = createMainWindow(securityPolicy);
+    let authIpcReady = false;
+    let rendererLoadedBeforeAuthIpc = false;
+    mainWindow.webContents.once("did-finish-load", () => {
+      rendererLoadedBeforeAuthIpc = !authIpcReady;
+    });
     const credentialStore = createMainSecureCredentialStore();
     const authManager = await createMainAuthSessionManager();
     const disposeAuthIpc = registerAuthIpcHandlers(securityPolicy, authManager);
     const disposeAuthLifecycle = configureAuthLifecycle(authManager);
-    const mainWindow = createMainWindow(securityPolicy);
+    authIpcReady = true;
+    if (rendererLoadedBeforeAuthIpc) {
+      mainWindow.webContents.reload();
+    }
     mainWindow.on("focus", () => {
       void authManager.revalidate();
     });
