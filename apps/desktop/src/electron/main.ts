@@ -33,7 +33,10 @@ import {
 const releaseSmokeRequested = process.argv.includes("--release-smoke");
 const packagedRendererSmokeRequested = process.argv.includes("--packaged-renderer-smoke");
 const readArgumentValue = (name: string) =>
-  process.argv.find((argument) => argument.startsWith(`${name}=`))?.slice(name.length + 1).trim();
+  process.argv
+    .find((argument) => argument.startsWith(`${name}=`))
+    ?.slice(name.length + 1)
+    .trim();
 const packagedRendererSmokeResultPath =
   readArgumentValue("--packaged-renderer-smoke-result") ??
   process.env.QUANT_RENDERER_SMOKE_RESULT?.trim();
