@@ -99,7 +99,7 @@ import { useChartMarketData } from "./useChartMarketData";
 import { useChartStrategyRuns } from "./useChartStrategyRuns";
 
 export function useChartWorkspaceController() {
-  const { formatTime, t } = useI18n();
+  const { formatTime, language, t } = useI18n();
   const workspacePreferences = useMemo(() => readWorkspacePreferences(), []);
   const marketDataProviderSettings = useMemo(() => readMarketDataProviderSettings(), []);
   const importedDrafts = useUserStrategyDraftStore((state) => state.drafts);
@@ -459,16 +459,22 @@ export function useChartWorkspaceController() {
     ({ strategy }) => strategy.key === activeConfigStrategyKey,
   );
   const strategyQuickMenuItems = useMemo(
-    () => createStrategyQuickMenuItems(chartStrategies, strategySettings),
-    [chartStrategies, strategySettings],
+    () => createStrategyQuickMenuItems(chartStrategies, strategySettings, language),
+    [chartStrategies, language, strategySettings],
   );
   const strategyLogTime = formatLogTime(Date.now(), (value) => formatTime(value));
-  const strategyLogItems = buildChartStrategyLogItems(strategyRuns, {
-    symbol: activeSymbol.symbol,
-    timeframe,
-  });
-  const signalRows = buildChartStrategySignalRows(strategyRuns, (timestamp) =>
-    formatTime(timestamp, false),
+  const strategyLogItems = buildChartStrategyLogItems(
+    strategyRuns,
+    {
+      symbol: activeSymbol.symbol,
+      timeframe,
+    },
+    language,
+  );
+  const signalRows = buildChartStrategySignalRows(
+    strategyRuns,
+    (timestamp) => formatTime(timestamp, false),
+    language,
   );
   const selectedSignal = signalRows.find((signal) => signal.id === selectedSignalId) ?? null;
   const selectedSignalRun = selectedSignal

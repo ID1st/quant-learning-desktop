@@ -62,7 +62,7 @@ interface ChartWorkspaceViewProps {
 }
 
 export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
-  const { formatChartTime, formatTime, t } = useI18n();
+  const { formatChartTime, formatTime, language, t } = useI18n();
   const {
     indicatorSettings,
     updateIndicatorSettings,
@@ -689,7 +689,7 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
         >
           <section
             aria-label={t("{name} 参数配置", {
-              name: formatStrategyDisplayName(activeConfigStrategyRun.strategy.name),
+              name: formatStrategyDisplayName(activeConfigStrategyRun.strategy, language),
             })}
             className="strategy-config-dialog"
             role="dialog"
@@ -698,7 +698,9 @@ export function ChartWorkspaceView({ controller }: ChartWorkspaceViewProps) {
             <div className="strategy-config-heading">
               <div>
                 <p>{t("策略参数")}</p>
-                <strong>{formatStrategyDisplayName(activeConfigStrategyRun.strategy.name)}</strong>
+                <strong>
+                  {formatStrategyDisplayName(activeConfigStrategyRun.strategy, language)}
+                </strong>
               </div>
               <button onClick={() => setActiveConfigStrategyKey(null)} type="button">
                 {t("关闭")}

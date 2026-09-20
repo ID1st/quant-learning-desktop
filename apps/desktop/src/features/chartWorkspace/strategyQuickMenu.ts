@@ -2,6 +2,7 @@ import {
   formatStrategyDisplayName,
   type ChartStrategyWorkspaceState,
 } from "../strategies/chartStrategyRuntime.ts";
+import type { AppLanguage } from "../../i18n/i18n.ts";
 
 export interface StrategyQuickMenuDefinition {
   readonly key: string;
@@ -21,10 +22,11 @@ export interface StrategyQuickMenuItem {
 export function createStrategyQuickMenuItems(
   strategies: readonly StrategyQuickMenuDefinition[],
   settingsByStrategyKey: Readonly<Record<string, Pick<ChartStrategyWorkspaceState, "enabled">>>,
+  language: AppLanguage = "zh-CN",
 ): StrategyQuickMenuItem[] {
   return strategies.map((strategy) => ({
     key: strategy.key,
-    name: formatStrategyDisplayName(strategy.name),
+    name: formatStrategyDisplayName(strategy, language),
     sourceType: strategy.sourceType,
     enabled: settingsByStrategyKey[strategy.key]?.enabled ?? false,
     hasParameters: strategy.parameterSchema.length > 0,

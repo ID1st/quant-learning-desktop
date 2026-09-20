@@ -31,7 +31,10 @@ const fixtureOutput = runRegisteredStrategy(createPresetStrategyRegistry(), {
 
 const smcLayer: ChartLayer = {
   strategyId: fixtureOutput.render.strategyId,
-  strategyName: formatStrategyDisplayName(fixtureOutput.render.strategyName),
+  strategyName: formatStrategyDisplayName({
+    key: fixtureOutput.render.strategyId,
+    name: fixtureOutput.render.strategyName,
+  }),
   enabled: true,
   zIndex: fixtureOutput.render.zIndex,
   elements: fixtureOutput.render.elements.map(toChartLayerElement),
@@ -42,7 +45,7 @@ export function SmcVisualQaPage() {
     <main className="smc-visual-qa">
       <div className="smc-visual-qa-title">
         <strong>U.S. Dollar Index · SMC visual fixture</strong>
-        <span>Smart Money Concepts</span>
+        <span>Market Structure Map</span>
       </div>
       <ChartViewport
         canvasHeight={842}

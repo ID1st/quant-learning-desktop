@@ -19,6 +19,10 @@ const policy = createDesktopRendererSecurityPolicy({
 
 test("desktop navigation policy only trusts the packaged entry or configured dev origin", () => {
   assert.equal(isTrustedRendererUrl(`${pathToFileURL(rendererEntry).href}#/chart`, policy), true);
+  assert.equal(
+    isTrustedRendererUrl(`${pathToFileURL(rendererEntry).href}?startup=0.1.8-123#/chart`, policy),
+    true,
+  );
   assert.equal(isTrustedRendererUrl("file:///D:/quant-app/renderer/evil.html", policy), false);
   assert.equal(isTrustedRendererUrl("http://127.0.0.1:5173/chart", policy), true);
   assert.equal(isTrustedRendererUrl("http://127.0.0.1:5173.evil.example/chart", policy), false);

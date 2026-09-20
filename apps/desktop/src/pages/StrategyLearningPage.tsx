@@ -12,9 +12,10 @@ import {
 } from "../features/learning/strategyLearningContent";
 import { useI18n } from "../i18n/I18nProvider";
 import { useAppStore } from "../state/appStore";
+import { getStrategyDisplayName } from "../features/strategies/strategyDisplayName";
 
 export function StrategyLearningPage() {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const [selectedId, setSelectedId] = useState(strategyLearningEntries[0]?.id ?? "utorb");
   const navigate = useAppStore((state) => state.navigate);
   const selectedEntry = useMemo(
@@ -28,6 +29,10 @@ export function StrategyLearningPage() {
     strategy: t("策略"),
     indicator: t("技术指标"),
   };
+  const formatEntryTitle = (entry: (typeof strategyLearningEntries)[number]) =>
+    entry.category === "strategy"
+      ? getStrategyDisplayName({ key: entry.id, name: t(entry.title) }, language)
+      : t(entry.title);
 
   return (
     <section className="strategy-learning-page">
@@ -54,7 +59,7 @@ export function StrategyLearningPage() {
                     onClick={() => setSelectedId(entry.id)}
                     type="button"
                   >
-                    <strong>{t(entry.title)}</strong>
+                    <strong>{formatEntryTitle(entry)}</strong>
                     <small>
                       {t(
                         entry.directoryLabel ??
@@ -79,7 +84,7 @@ export function StrategyLearningPage() {
             </span>
             <div>
               <em>{categoryLabels[selectedEntry.category]}</em>
-              <h2>{t(selectedEntry.title)}</h2>
+              <h2>{formatEntryTitle(selectedEntry)}</h2>
               <p>{t(selectedEntry.subtitle)}</p>
             </div>
             {workspaceAction && (

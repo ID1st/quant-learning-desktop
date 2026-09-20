@@ -42,7 +42,7 @@ interface StrategyManagementViewProps {
 }
 
 export function StrategyManagementView({ controller }: StrategyManagementViewProps) {
-  const { formatDateTime, formatTime, t } = useI18n();
+  const { formatDateTime, formatTime, language, t } = useI18n();
   const {
     navigate,
     strategies,
@@ -775,7 +775,7 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
                   type="button"
                 >
                   <span>
-                    <strong>{formatStrategyDisplayName(strategy.name)}</strong>
+                    <strong>{formatStrategyDisplayName(strategy, language)}</strong>
                     <small>{strategy.sourceFile}</small>
                   </span>
                   <em className={isEnabled ? "enabled" : "disabled"}>
@@ -813,7 +813,7 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
           <div className="strategy-detail-header">
             <div>
               <p>{selectedStrategy.sourceType.toUpperCase()}</p>
-              <h2>{formatStrategyDisplayName(selectedStrategy.name)}</h2>
+              <h2>{formatStrategyDisplayName(selectedStrategy, language)}</h2>
               <span>{t(selectedStrategy.description)}</span>
             </div>
             <div className="strategy-detail-actions">
@@ -861,8 +861,14 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
                 <div>
                   <h3>{t("最近回测结果")}</h3>
                   <span>
-                    {selectedBacktestRun.strategyName} · {selectedBacktestRun.market} ·{" "}
-                    {selectedBacktestRun.symbol} ·{" "}
+                    {formatStrategyDisplayName(
+                      {
+                        key: selectedBacktestRun.strategyKey,
+                        name: selectedBacktestRun.strategyName,
+                      },
+                      language,
+                    )}{" "}
+                    · {selectedBacktestRun.market} · {selectedBacktestRun.symbol} ·{" "}
                     {formatBacktestTimeframe(selectedBacktestRun.timeframe)} ·{" "}
                     {formatDateTime(selectedBacktestRun.createdAt)}
                   </span>
@@ -1096,7 +1102,12 @@ export function StrategyManagementView({ controller }: StrategyManagementViewPro
                   type="button"
                 >
                   <span>
-                    <strong>{run.strategyName}</strong>
+                    <strong>
+                      {formatStrategyDisplayName(
+                        { key: run.strategyKey, name: run.strategyName },
+                        language,
+                      )}
+                    </strong>
                     <small>
                       {run.symbol} · {formatBacktestTimeframe(run.timeframe)}
                     </small>

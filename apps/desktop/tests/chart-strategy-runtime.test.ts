@@ -68,24 +68,24 @@ describe("chart strategy runtime", () => {
     assert.equal(getMlptChartNotice([createRun(1, 1_200)]), null);
   });
 
-  it("hides LuxAlgo and AlgoAlpha suffixes in strategy display names", () => {
+  it("uses compliant localized names for built-ins and preserves plugin names", () => {
     assert.equal(
       formatChartStrategySignalName({
         key: "smart-money-concepts",
         name: "Smart Money Concepts [LuxAlgo]",
       }),
-      "Smart Money Concepts",
+      "市场结构图谱",
     );
     assert.equal(
       formatChartStrategySignalName({ key: "example-plugin", name: "Example [LuxAlgo]" }),
-      "Example",
+      "Example [LuxAlgo]",
     );
     assert.equal(
       formatChartStrategySignalName({
         key: "machine-learning-price-targets",
         name: "Machine Learning Price Target Prediction Signals [AlgoAlpha]",
       }),
-      "Machine Learning Price Target Prediction Signals",
+      "数据驱动走势研究",
     );
   });
 
@@ -285,7 +285,7 @@ describe("chart strategy runtime", () => {
     assert.ok(signalRows.some((row) => row.direction === "向上条件触发"));
 
     const logItems = buildChartStrategyLogItems([run!], { symbol: "AAPL", timeframe: "realtime" });
-    assert.ok(logItems.some((item) => item.includes("运行 Trend Targets")));
+    assert.ok(logItems.some((item) => item.includes("运行 趋势路径参考")));
   });
 
   it("recomputes strategy input when parameter settings change", () => {

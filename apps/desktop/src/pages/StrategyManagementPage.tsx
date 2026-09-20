@@ -46,7 +46,7 @@ import { StrategyManagementView } from "./StrategyManagementView";
 import { useI18n } from "../i18n/I18nProvider";
 
 export function useStrategyManagementController() {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const navigate = useAppStore((state) => state.navigate);
   const pluginStrategies = usePluginRuntimeStore((state) => state.strategies);
   const refreshPluginRuntime = usePluginRuntimeStore((state) => state.refresh);
@@ -288,9 +288,8 @@ export function useStrategyManagementController() {
 
   const toggleStrategy = (strategyKey: string) => {
     const nextStatus = studyStrategySettings[strategyKey]?.enabled ? "disabled" : "enabled";
-    const strategyName = formatStrategyDisplayName(
-      strategies.find((strategy) => strategy.key === strategyKey)?.name ?? "策略",
-    );
+    const strategy = strategies.find((item) => item.key === strategyKey);
+    const strategyName = strategy ? formatStrategyDisplayName(strategy, language) : t("策略");
     updateStudyStrategy(strategyKey, (current) => ({
       ...current,
       enabled: nextStatus === "enabled",
@@ -375,7 +374,7 @@ export function useStrategyManagementController() {
           `backtest-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         createdAt: new Date().toISOString(),
         strategyKey: selectedStrategy.key,
-        strategyName: formatStrategyDisplayName(selectedStrategy.name),
+        strategyName: formatStrategyDisplayName(selectedStrategy, language),
         strategyVersion: selectedStrategy.version,
         symbol: selectedBacktestContext.symbol,
         market: selectedBacktestContext.market,
@@ -390,7 +389,7 @@ export function useStrategyManagementController() {
       pushToast({
         tone: "success",
         title: t("{name} 回测完成", {
-          name: formatStrategyDisplayName(selectedStrategy.name),
+          name: formatStrategyDisplayName(selectedStrategy, language),
         }),
         detail: t("{symbol} {timeframe}，生成 {count} 笔双向成交记录。", {
           symbol: run.symbol,

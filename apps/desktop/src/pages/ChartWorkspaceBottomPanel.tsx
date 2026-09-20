@@ -30,7 +30,7 @@ interface ChartWorkspaceBottomPanelProps {
 }
 
 export function ChartWorkspaceBottomPanel({ controller }: ChartWorkspaceBottomPanelProps) {
-  const { formatTime, t } = useI18n();
+  const { formatTime, language, t } = useI18n();
   const {
     updateIndicatorSettings,
     cachedCandles,
@@ -210,7 +210,7 @@ export function ChartWorkspaceBottomPanel({ controller }: ChartWorkspaceBottomPa
                   >
                     <span>
                       <strong>
-                        {formatStrategyDisplayName(strategy.name)}
+                        {formatStrategyDisplayName(strategy, language)}
                         <em className={`strategy-source-badge ${strategy.sourceType}`}>
                           {formatStrategySource(strategy)}
                         </em>
@@ -263,7 +263,7 @@ export function ChartWorkspaceBottomPanel({ controller }: ChartWorkspaceBottomPa
                       </button>
                       <button
                         aria-label={t("{name} 上移图层", {
-                          name: formatStrategyDisplayName(strategy.name),
+                          name: formatStrategyDisplayName(strategy, language),
                         })}
                         onClick={() => moveLayer(strategy.key, -1)}
                         title={t("上移图层")}
@@ -273,7 +273,7 @@ export function ChartWorkspaceBottomPanel({ controller }: ChartWorkspaceBottomPa
                       </button>
                       <button
                         aria-label={t("{name} 下移图层", {
-                          name: formatStrategyDisplayName(strategy.name),
+                          name: formatStrategyDisplayName(strategy, language),
                         })}
                         onClick={() => moveLayer(strategy.key, 1)}
                         title={t("下移图层")}

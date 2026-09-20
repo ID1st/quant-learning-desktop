@@ -29,6 +29,7 @@ import {
   validateReleaseSmokeUserDataPath,
   type ReleaseSmokeMode,
 } from "./releaseSmoke";
+import { createRendererStartupQuery } from "./rendererStartup";
 
 const releaseSmokeRequested = process.argv.includes("--release-smoke");
 const packagedRendererSmokeRequested = process.argv.includes("--packaged-renderer-smoke");
@@ -163,6 +164,17 @@ export function createMainWindow(securityPolicy?: DesktopRendererSecurityPolicy)
   };
   mainWindow.webContents.on("will-navigate", preventUntrustedNavigation);
   mainWindow.webContents.on("will-redirect", preventUntrustedNavigation);
+  mainWindow.webContents.on("dom-ready", () => {
+    desktopDiagnostics.log("info", "renderer-dom-ready");
+  });
+  mainWindow.webContents.on("did-finish-load", () => {
+    desktopDiagnostics.log("info", "renderer-load-finished");
+  });
+  mainWindow.webContents.on("console-message", (_event, level, message) => {
+    if (level >= 2) {
+      desktopDiagnostics.log(level >= 3 ? "error" : "warn", `renderer-console:${level}:${message}`);
+    }
+  });
   mainWindow.webContents.on(
     "did-fail-load",
     (_event, errorCode, errorDescription, validatedUrl) => {
@@ -230,11 +242,17 @@ export function createMainWindow(securityPolicy?: DesktopRendererSecurityPolicy)
   }
 
   if (rendererDevServer) {
+    desktopDiagnostics.log("info", "renderer-navigation-started:development");
     void mainWindow.loadURL(rendererDevServer);
   } else {
-    void mainWindow.loadFile(windowConfig.rendererEntry).catch((error: unknown) => {
-      desktopDiagnostics.log("error", "renderer-load-file-rejected", error);
-    });
+    desktopDiagnostics.log("info", "renderer-navigation-started:packaged");
+    void mainWindow
+      .loadFile(windowConfig.rendererEntry, {
+        query: createRendererStartupQuery(app.getVersion(), process.pid),
+      })
+      .catch((error: unknown) => {
+        desktopDiagnostics.log("error", "renderer-load-file-rejected", error);
+      });
   }
 
   return mainWindow;

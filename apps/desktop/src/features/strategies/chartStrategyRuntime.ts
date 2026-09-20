@@ -10,6 +10,8 @@ import {
   type StrategySignal,
 } from "@quant/strategy-engine";
 import type { Market, Timeframe } from "@quant/shared";
+import type { AppLanguage } from "../../i18n/i18n.ts";
+import { getStrategyDisplayName, replaceStrategyNameInDisplayText } from "./strategyDisplayName.ts";
 
 export interface ChartStrategyWorkspaceState {
   enabled: boolean;
@@ -214,28 +216,35 @@ export function runChartStrategies(options: RunChartStrategiesOptions): ChartStr
 export function buildChartStrategyLogItems(
   runs: readonly ChartStrategyRunItem[],
   context: { readonly symbol: string; readonly timeframe: Timeframe },
+  language: AppLanguage = "zh-CN",
 ): string[] {
   return runs.flatMap(({ result, settings }) =>
     settings.enabled
       ? [
-          `运行 ${formatStrategyDisplayName(result.strategy.name)}，标的 ${context.symbol}，周期 ${context.timeframe}。`,
-          ...result.output.logs,
-          ...result.output.alerts.map((alert) => `规则条件事件：${alert}`),
+          `运行 ${formatStrategyDisplayName(result.strategy, language)}，标的 ${context.symbol}，周期 ${context.timeframe}。`,
+          ...result.output.logs.map((log) =>
+            replaceStrategyNameInDisplayText(log, result.strategy, language),
+          ),
+          ...result.output.alerts.map(
+            (alert) =>
+              `规则条件事件：${replaceStrategyNameInDisplayText(alert, result.strategy, language)}`,
+          ),
         ]
-      : [`${formatStrategyDisplayName(result.strategy.name)} 当前已停用。`],
+      : [`${formatStrategyDisplayName(result.strategy, language)} 当前已停用。`],
   );
 }
 
 export function buildChartStrategySignalRows(
   runs: readonly ChartStrategyRunItem[],
   formatSignalTime: (timestamp: number) => string,
+  language: AppLanguage = "zh-CN",
 ): ChartStrategySignalRow[] {
   return runs.flatMap(({ result }) =>
     result.output.signals.map((signal, index) => ({
       id: `${result.strategy.key}-${signal.type}-${signal.timestamp}-${index}`,
       strategyKey: result.strategy.key,
       timestamp: signal.timestamp,
-      strategyName: formatChartStrategySignalName(result.strategy),
+      strategyName: formatChartStrategySignalName(result.strategy, language),
       time: formatSignalTime(signal.timestamp),
       direction: formatStrategyConditionEventType(signal.type),
       tone: signal.type,
@@ -245,12 +254,18 @@ export function buildChartStrategySignalRows(
   );
 }
 
-export function formatChartStrategySignalName(strategy: Pick<StrategyDefinition, "key" | "name">) {
-  return formatStrategyDisplayName(strategy.name);
+export function formatChartStrategySignalName(
+  strategy: Pick<StrategyDefinition, "key" | "name">,
+  language: AppLanguage = "zh-CN",
+) {
+  return getStrategyDisplayName(strategy, language);
 }
 
-export function formatStrategyDisplayName(name: string) {
-  return name.replace(/\s*\[(?:LuxAlgo|AlgoAlpha)\]$/u, "");
+export function formatStrategyDisplayName(
+  strategy: Pick<StrategyDefinition, "key" | "name">,
+  language: AppLanguage = "zh-CN",
+) {
+  return getStrategyDisplayName(strategy, language);
 }
 
 export function createFailedStrategyRunResult(
@@ -277,13 +292,13 @@ export function createFailedStrategyRunResult(
       overlays: [],
       render: {
         strategyId: strategy.key,
-        strategyName: formatStrategyDisplayName(strategy.name),
+        strategyName: formatStrategyDisplayName(strategy),
         enabled: false,
         zIndex: 10,
         elements: [],
       },
       metrics: {},
-      logs: [`${formatStrategyDisplayName(strategy.name)} 运行失败：${message}`],
+      logs: [`${formatStrategyDisplayName(strategy)} 运行失败：${message}`],
       alerts: [],
     },
   };

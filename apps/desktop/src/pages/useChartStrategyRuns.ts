@@ -18,6 +18,7 @@ import { createStrategySeriesByTimeframe } from "../features/strategies/strategy
 import { toChartLayerElement } from "../features/strategies/strategyVisualAdapter";
 import { isMarketSessionOpen } from "../features/marketData/intradayHistoryService";
 import { getDefaultStrategyState } from "./chartWorkspaceModel";
+import { useI18n } from "../i18n/I18nProvider";
 
 interface UseChartStrategyRunsOptions {
   readonly chartStrategies: readonly StrategyDefinition[];
@@ -45,6 +46,7 @@ export function useChartStrategyRuns({
   dailyStrategyBars,
   weeklyStrategyBars,
 }: UseChartStrategyRunsOptions) {
+  const { language } = useI18n();
   const runPluginStrategies = usePluginRuntimeStore((state) => state.runStrategies);
   const strategySeriesByTimeframe = useMemo(() => {
     return createStrategySeriesByTimeframe({
@@ -155,11 +157,11 @@ export function useChartStrategyRuns({
     () =>
       strategyRuns.map(({ result, settings }) => ({
         ...result.output.render,
-        strategyName: formatStrategyDisplayName(result.output.render.strategyName),
+        strategyName: formatStrategyDisplayName(result.strategy, language),
         enabled: result.output.render.enabled && settings.enabled && settings.showLayer,
         elements: result.output.render.elements.map(toChartLayerElement),
       })),
-    [strategyRuns],
+    [language, strategyRuns],
   );
   return {
     strategyRuns,

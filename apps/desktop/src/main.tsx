@@ -8,6 +8,8 @@ import { AuthVisualQaPage } from "./pages/AuthVisualQaPage";
 import { I18nProvider } from "./i18n/I18nProvider";
 import "./styles.css";
 
+window.dispatchEvent(new Event("quant-renderer-entry"));
+
 const RootComponent =
   (import.meta.env.DEV || import.meta.env.VITE_AUTH_VISUAL_QA === "true") &&
   new URLSearchParams(window.location.search).has("auth-visual-qa")
@@ -29,3 +31,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     </I18nProvider>
   </React.StrictMode>,
 );
+
+window.setTimeout(() => {
+  window.dispatchEvent(new Event("quant-renderer-mounted"));
+}, 0);

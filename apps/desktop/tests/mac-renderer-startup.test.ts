@@ -27,6 +27,20 @@ test("renderer displays a startup guard before loading the React module", () => 
   assert.ok(guardIndex >= 0 && guardIndex < applicationIndex);
   assert.match(guardSource, /dataset\.rendererStartupGuard/u);
   assert.match(guardSource, /Interface startup failed/u);
+  assert.match(guardSource, /setTimeout/u);
+  assert.match(guardSource, /startup-retry/u);
+  assert.match(guardSource, /Retry without cache/u);
+});
+
+test("packaged renderer navigation uses a unique startup cache key", () => {
+  assert.match(mainSource, /loadFile\(windowConfig\.rendererEntry,\s*\{\s*query:/u);
+  assert.match(mainSource, /createRendererStartupQuery/u);
+});
+
+test("renderer reports entry and mount milestones to the startup guard", () => {
+  const rendererSource = readFileSync(resolve(desktopRoot, "src/main.tsx"), "utf8");
+  assert.match(rendererSource, /quant-renderer-entry/u);
+  assert.match(rendererSource, /quant-renderer-mounted/u);
 });
 
 test("macOS avoids blocking the main loop on the native DuckDB cache", () => {
