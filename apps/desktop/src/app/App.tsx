@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { AuthSessionSnapshot, AuthStateSnapshot } from "@quant/shared";
 
 import { getAuthBridge } from "../features/auth/authService";
+import { runAuthBootstrapWithDeadline } from "../features/auth/authBootstrapDeadline";
 import { useAuthStore } from "../features/auth/authStore";
 import { clearLocalUserProfile } from "../features/auth/localProfileService";
 import { AppShell } from "../layouts/AppShell";
@@ -147,10 +148,15 @@ export function App() {
       return;
     }
     const unsubscribe = bridge.subscribe(handleAuthState);
-    void bridge.bootstrap().then((result) => {
+    void runAuthBootstrapWithDeadline(() => bridge.bootstrap()).then((settled) => {
       if (cancelled) {
         return;
       }
+      if (!settled.ok) {
+        setPhase("SERVICE_UNAVAILABLE");
+        return;
+      }
+      const result = settled.value;
       if (result.ok) {
         handleAuthState(result.data);
       } else {

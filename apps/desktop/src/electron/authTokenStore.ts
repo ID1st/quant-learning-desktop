@@ -59,8 +59,25 @@ function isPersistedMaterial(value: unknown): value is PersistedAuthTokenMateria
 export function createAuthTokenStore(
   persistence: AuthEncryptedPersistence,
   crypto: AuthTokenCrypto,
+  options: { restoreTimeoutMilliseconds?: number } = {},
 ): AuthTokenStore {
   let accessToken: string | null = null;
+  const restoreTimeoutMilliseconds = options.restoreTimeoutMilliseconds ?? 5_000;
+
+  const decryptWithDeadline = async (ciphertext: string) => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error("secure authentication restore timed out")),
+        restoreTimeoutMilliseconds,
+      );
+    });
+    try {
+      return await Promise.race([crypto.decrypt(ciphertext), timeout]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
 
   return {
     save: async (material) => {
@@ -91,7 +108,7 @@ export function createAuthTokenStore(
         if (envelope.version !== 1 || typeof envelope.encryptedPayload !== "string") {
           throw new Error("stored authentication envelope is invalid");
         }
-        const plaintext = await crypto.decrypt(envelope.encryptedPayload);
+        const plaintext = await decryptWithDeadline(envelope.encryptedPayload);
         const material: unknown = JSON.parse(plaintext);
         if (!isPersistedMaterial(material)) {
           throw new Error("stored authentication material is invalid");

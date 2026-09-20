@@ -85,3 +85,26 @@ test("malformed or undecryptable persisted material is discarded", async () => {
   assert.equal(await store.restore(), null);
   assert.equal(persistence.readRaw(), null);
 });
+
+test("a stalled macOS keychain restore is discarded instead of blocking startup", async () => {
+  const persistence = createMemoryPersistence();
+  const sourceStore = createAuthTokenStore(persistence, crypto);
+  await sourceStore.save({
+    accessToken: "qat_access-secret",
+    refreshToken: "qrt_refresh-secret",
+    offlineLease: "signed-offline-lease",
+    deviceId: "device-1234",
+    lastServerTime: "2026-07-28T00:00:00.000Z",
+  });
+  const stalledStore = createAuthTokenStore(
+    persistence,
+    {
+      ...crypto,
+      decrypt: () => new Promise<never>(() => undefined),
+    },
+    { restoreTimeoutMilliseconds: 5 },
+  );
+
+  assert.equal(await stalledStore.restore(), null);
+  assert.equal(persistence.readRaw(), null);
+});
