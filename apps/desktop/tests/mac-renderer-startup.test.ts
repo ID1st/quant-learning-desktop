@@ -24,3 +24,7 @@ test("renderer displays a startup guard before loading the React module", () => 
   assert.match(guardSource, /dataset\.rendererStartupGuard/u);
   assert.match(guardSource, /Interface startup failed/u);
 });
+
+test("macOS avoids blocking the main loop on the native DuckDB cache", () => {
+  assert.match(mainSource, /process\.platform === "darwin"\s*\? createMemoryMarketBarRepository/u);
+});

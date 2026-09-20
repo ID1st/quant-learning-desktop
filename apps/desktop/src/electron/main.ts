@@ -4,6 +4,7 @@ import { createMarketDataIpcHandlers, registerMarketDataIpcHandlers } from "./ma
 import { registerMarketBarCacheIpcHandlers } from "./marketBarCacheIpc";
 import { createMarketBarCacheIpcHandlers } from "./marketBarCacheIpcContract";
 import { createDuckDbMarketBarRepository } from "./duckDbMarketBarRepository";
+import { createMemoryMarketBarRepository } from "../features/marketData/memoryMarketBarRepository";
 import { registerProviderDataIpcHandlers } from "./providerDataIpc";
 import { registerPluginIpcHandlers } from "./pluginIpc";
 import { createPluginManager } from "./pluginManager";
@@ -250,9 +251,12 @@ void app
     mainWindow.on("focus", () => {
       void authManager.revalidate();
     });
-    const marketBarCacheRepository = await createDuckDbMarketBarRepository(
-      join(app.getPath("userData"), "data", "market-cache.duckdb"),
-    );
+    const marketBarCacheRepository =
+      process.platform === "darwin"
+        ? createMemoryMarketBarRepository()
+        : await createDuckDbMarketBarRepository(
+            join(app.getPath("userData"), "data", "market-cache.duckdb"),
+          );
     const disposeMarketBarCacheIpc = registerMarketBarCacheIpcHandlers(
       securityPolicy,
       createMarketBarCacheIpcHandlers(marketBarCacheRepository),
