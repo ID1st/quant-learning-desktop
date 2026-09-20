@@ -1,4 +1,4 @@
-import { Config, NaiveDate, NaiveDatetime, QuoteContext, Time } from "longbridge";
+import type { QuoteContext } from "longbridge";
 import type { Timeframe } from "@quant/shared";
 import {
   normalizeLongPortApiCredentials,
@@ -77,6 +77,12 @@ const longPortAllTradeSessions = 1 as LongPortTradeSessions;
 const maxLongPortCandlestickCount = 1_000;
 const maxLongPortHistoricalBarCount = 5_000;
 const longPortRateLimitRetryDelayMs = 200;
+let longPortSdkPromise: Promise<typeof import("longbridge")> | null = null;
+
+function loadLongPortSdk() {
+  longPortSdkPromise ??= import("longbridge");
+  return longPortSdkPromise;
+}
 
 function redactSecrets(message: string, credentials: LongPortApiCredentials) {
   return [credentials.appKey, credentials.appSecret, credentials.accessToken].reduce(
@@ -104,7 +110,8 @@ export function getLongPortConfigOptions(apiUrl: string) {
     : { httpUrl: normalizedUrl, language: 0 };
 }
 
-function createLongPortQuoteContext(credentials: LongPortApiCredentials) {
+async function createLongPortQuoteContext(credentials: LongPortApiCredentials) {
+  const { Config, QuoteContext } = await loadLongPortSdk();
   const normalizedCredentials = normalizeLongPortApiCredentials(credentials);
   const config = Config.fromApikey(
     normalizedCredentials.appKey,
@@ -268,7 +275,8 @@ function getLongPortMarketTimeZone(market: LongPortBarRequest["market"]) {
       : "Asia/Shanghai";
 }
 
-function toLongPortNaiveDatetime(timestamp: number, market: LongPortBarRequest["market"]) {
+async function toLongPortNaiveDatetime(timestamp: number, market: LongPortBarRequest["market"]) {
+  const { NaiveDate, NaiveDatetime, Time } = await loadLongPortSdk();
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: getLongPortMarketTimeZone(market),
     year: "numeric",
@@ -321,7 +329,7 @@ export async function verifyLongPortCredentialsWithSdk(
   try {
     const summary = await verifyLongPortApiCredentials(credentials, {
       probe: async (normalizedCredentials) => {
-        const quoteContext = createLongPortQuoteContext(normalizedCredentials);
+        const quoteContext = await createLongPortQuoteContext(normalizedCredentials);
         const memberId = await quoteContext.memberId();
 
         return {
@@ -350,7 +358,7 @@ export async function fetchLongPortQuoteSnapshotsWithSdk(
   watchlist: MarketWatchlistItem[],
 ): Promise<LongPortBridgeQuoteSnapshotResult> {
   try {
-    const quoteContext = createLongPortQuoteContext(credentials);
+    const quoteContext = await createLongPortQuoteContext(credentials);
     const symbols = watchlist.map((item) => item.symbol);
     const quotes = symbols.length > 0 ? await quoteContext.quote(symbols) : [];
     const receivedAt = new Date().toISOString();
@@ -398,7 +406,7 @@ export async function fetchLongPortHistoricalBarsWithSdk(
       throw new Error("长桥 K 线标的代码不能为空。");
     }
 
-    const quoteContext = createLongPortQuoteContext(credentials);
+    const quoteContext = await createLongPortQuoteContext(credentials);
     const requestedCount = Math.max(
       1,
       Math.min(
@@ -410,7 +418,7 @@ export async function fetchLongPortHistoricalBarsWithSdk(
       count: requestedCount,
       startTime: request.startTime,
       endTime: request.endTime,
-      fetchPage: (cursorTimestamp, count) =>
+      fetchPage: async (cursorTimestamp, count) =>
         quoteContext.historyCandlesticksByOffset(
           symbol,
           mapTimeframeToLongPortPeriod(request.timeframe),
@@ -418,7 +426,7 @@ export async function fetchLongPortHistoricalBarsWithSdk(
           false,
           cursorTimestamp === undefined
             ? null
-            : toLongPortNaiveDatetime(cursorTimestamp, request.market),
+            : await toLongPortNaiveDatetime(cursorTimestamp, request.market),
           sanitizeLongPortCandlestickCount(request.timeframe, count),
           longPortAllTradeSessions,
         ),
