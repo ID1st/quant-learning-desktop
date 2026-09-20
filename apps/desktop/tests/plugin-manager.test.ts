@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -69,6 +69,27 @@ test("plugin manager rejects entries that escape the selected package directory"
 
     await assert.rejects(() => manager.installFromDirectory(source), /entry path/i);
     assert.deepEqual(manager.list(), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("plugin manager rejects an entry reached through a directory link outside the package", async () => {
+  const root = await mkdtemp(join(tmpdir(), "quant-plugin-manager-"));
+
+  try {
+    const source = await createPluginDirectory(root, {
+      ...manifest,
+      id: "com.quant.strategy.link-escape",
+      main: "linked/index.js",
+    });
+    const outside = join(root, "outside");
+    await mkdir(outside);
+    await writeFile(join(outside, "index.js"), "export function activate() {}", "utf8");
+    await symlink(outside, join(source, "linked"), process.platform === "win32" ? "junction" : "dir");
+
+    const manager = createPluginManager({ pluginsDirectory: join(root, "installed") });
+    await assert.rejects(() => manager.installFromDirectory(source), /escapes the package/i);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

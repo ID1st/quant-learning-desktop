@@ -11,7 +11,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
-import { extname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { validatePluginManifest, type PluginManifest } from "@quant/plugin-loader";
 
@@ -303,8 +303,7 @@ async function resolvePluginEntry(root: string, entry: string) {
   }
 
   const realEntry = await realpath(resolvedEntry);
-  const realRoot = await realpath(root);
-  if (!isWithinDirectory(realRoot, realEntry)) {
+  if (!(await isPhysicalDescendant(root, realEntry))) {
     throw new Error("Plugin entry path escapes the package directory.");
   }
 
@@ -314,6 +313,33 @@ async function resolvePluginEntry(root: string, entry: string) {
   }
 
   return realEntry;
+}
+
+async function isPhysicalDescendant(root: string, target: string) {
+  const realRoot = await realpath(root);
+  const rootStats = await stat(root);
+  let current = await realpath(dirname(target));
+
+  while (true) {
+    const currentStats = await stat(current);
+    if (
+      rootStats.ino !== 0 &&
+      currentStats.dev === rootStats.dev &&
+      currentStats.ino === rootStats.ino
+    ) {
+      return true;
+    }
+
+    if (current === realRoot) {
+      return true;
+    }
+
+    const parent = dirname(current);
+    if (parent === current) {
+      return false;
+    }
+    current = parent;
+  }
 }
 
 async function copyPluginDirectory(source: string, destination: string) {
