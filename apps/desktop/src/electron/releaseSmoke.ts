@@ -1,4 +1,5 @@
-import { isAbsolute, relative, resolve } from "node:path";
+import { existsSync, realpathSync } from "node:fs";
+import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 
 import type { MarketBarCacheRepository } from "../features/marketData/marketBarCacheRepository.ts";
 import type {
@@ -25,9 +26,29 @@ export const releaseSmokeBar: MarketDataBar = {
   provider: "stock-sdk",
 };
 
-export function validateReleaseSmokeUserDataPath(candidate: string, temporaryRoot: string) {
-  const resolvedCandidate = resolve(candidate);
-  const resolvedRoot = resolve(temporaryRoot);
+type CanonicalizePath = (path: string) => string;
+
+function canonicalizePath(path: string) {
+  let existingPath = resolve(path);
+  const missingSegments: string[] = [];
+
+  while (!existsSync(existingPath)) {
+    const parent = dirname(existingPath);
+    if (parent === existingPath) break;
+    missingSegments.unshift(basename(existingPath));
+    existingPath = parent;
+  }
+
+  return resolve(realpathSync.native(existingPath), ...missingSegments);
+}
+
+export function validateReleaseSmokeUserDataPath(
+  candidate: string,
+  temporaryRoot: string,
+  canonicalize: CanonicalizePath = canonicalizePath,
+) {
+  const resolvedCandidate = canonicalize(resolve(candidate));
+  const resolvedRoot = canonicalize(resolve(temporaryRoot));
   const relativePath = relative(resolvedRoot, resolvedCandidate);
   if (
     !isAbsolute(resolvedCandidate) ||

@@ -70,3 +70,16 @@ test("release smoke userData path must be a descendant of the temporary root", (
     /temporary directory/u,
   );
 });
+
+test("release smoke accepts a macOS path after /var resolves to /private/var", () => {
+  const canonicalize = (path: string) =>
+    path.replace(/^C:\\var(?=\\|$)/iu, "C:\\private\\var");
+
+  assert.doesNotThrow(() =>
+    validateReleaseSmokeUserDataPath(
+      "C:\\private\\var\\folders\\quant-renderer-smoke\\user-data",
+      "C:\\var\\folders\\quant-renderer-smoke",
+      canonicalize,
+    ),
+  );
+});

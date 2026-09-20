@@ -303,7 +303,8 @@ async function resolvePluginEntry(root: string, entry: string) {
   }
 
   const realEntry = await realpath(resolvedEntry);
-  if (!isWithinDirectory(root, realEntry)) {
+  const realRoot = await realpath(root);
+  if (!isWithinDirectory(realRoot, realEntry)) {
     throw new Error("Plugin entry path escapes the package directory.");
   }
 
