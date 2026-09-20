@@ -246,6 +246,10 @@ void app
     const authManager = await createMainAuthSessionManager();
     const disposeAuthIpc = registerAuthIpcHandlers(securityPolicy, authManager);
     const disposeAuthLifecycle = configureAuthLifecycle(authManager);
+    const mainWindow = createMainWindow(securityPolicy);
+    mainWindow.on("focus", () => {
+      void authManager.revalidate();
+    });
     const marketBarCacheRepository = await createDuckDbMarketBarRepository(
       join(app.getPath("userData"), "data", "market-cache.duckdb"),
     );
@@ -280,10 +284,6 @@ void app
       desktopDiagnostics.dispose();
     });
     desktopDiagnostics.log("info", "desktop-ready");
-    const mainWindow = createMainWindow(securityPolicy);
-    mainWindow.on("focus", () => {
-      void authManager.revalidate();
-    });
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
