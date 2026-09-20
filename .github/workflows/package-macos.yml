@@ -61,9 +61,10 @@ jobs:
           app=("$QUANT_DESKTOP_RELEASE_DIR"/mac*/量化学习桌面版.app)
           smoke_root=$(mktemp -d "${RUNNER_TEMP}/quant-renderer-smoke.XXXXXX")
           export QUANT_RELEASE_SMOKE_USER_DATA="$smoke_root/user-data"
-          output=$("${app[0]}"/Contents/MacOS/量化学习桌面版 --packaged-renderer-smoke 2>&1)
-          echo "$output"
-          grep -q '"ok":true' <<<"$output"
+          smoke_log="$smoke_root/renderer-smoke.log"
+          "${app[0]}"/Contents/MacOS/量化学习桌面版 --packaged-renderer-smoke >"$smoke_log" 2>&1
+          cat "$smoke_log"
+          grep -q '"ok":true' "$smoke_log"
       - name: Upload quant-learning-desktop-mac-${{ matrix.arch }} to draft release
         env:
           GH_TOKEN: ${{ github.token }}
