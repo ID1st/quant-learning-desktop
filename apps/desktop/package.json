@@ -1,6 +1,6 @@
 {
   "name": "@quant/desktop",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "description": "量化学习桌面版工作台",
   "author": "Quant Learning Desktop Team",

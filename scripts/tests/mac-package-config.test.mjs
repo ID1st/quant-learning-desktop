@@ -44,8 +44,8 @@ test("macOS packaging runs each architecture on a matching GitHub runner", () =>
   assert.match(macPackageWorkflow, /package:internal:mac:\$\{\{ matrix\.arch \}\}/u);
 });
 
-test("internal packaging creates three 0.1.6 installers with runnable ad-hoc macOS apps", () => {
-  assert.equal(desktopPackage.version, "0.1.6");
+test("internal packaging creates three 0.1.7 installers with runnable ad-hoc macOS apps", () => {
+  assert.equal(desktopPackage.version, "0.1.7");
   assert.equal(
     desktopPackage.scripts["package:internal:win:x64"],
     "node ../../scripts/package-desktop.mjs --internal --win nsis --x64 --publish never",
@@ -76,6 +76,7 @@ test("workflow uploads one Windows and two macOS architecture artifacts", () => 
   assert.match(macPackageWorkflow, /hdiutil verify/u);
   assert.match(macPackageWorkflow, /codesign --verify --deep --strict/u);
   assert.match(macPackageWorkflow, /Signature=adhoc/u);
+  assert.match(macPackageWorkflow, /--packaged-renderer-smoke/u);
   assert.match(macPackageWorkflow, /quant-learning-desktop-windows-x64/u);
   assert.match(macPackageWorkflow, /quant-learning-desktop-mac-\$\{\{ matrix\.arch \}\}/u);
 });

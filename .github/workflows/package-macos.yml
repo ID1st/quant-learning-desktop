@@ -56,10 +56,18 @@ jobs:
           grep -q "Signature=adhoc" <<<"$signature_details"
           hdiutil verify "${artifacts[0]}"
           shasum -a 256 "${artifacts[0]}"
+      - name: Launch packaged renderer smoke test
+        run: |
+          app=("$QUANT_DESKTOP_RELEASE_DIR"/mac*/量化学习桌面版.app)
+          smoke_root=$(mktemp -d "${RUNNER_TEMP}/quant-renderer-smoke.XXXXXX")
+          export QUANT_RELEASE_SMOKE_USER_DATA="$smoke_root/user-data"
+          output=$("${app[0]}"/Contents/MacOS/量化学习桌面版 --packaged-renderer-smoke 2>&1)
+          echo "$output"
+          grep -q '"ok":true' <<<"$output"
       - name: Upload quant-learning-desktop-mac-${{ matrix.arch }} to draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.6 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
+        run: gh release upload codex-internal-v0.1.7 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
 
   package-windows:
     name: Package Windows x64
@@ -93,4 +101,4 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.6 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.6-win-x64.exe" --clobber
+        run: gh release upload codex-internal-v0.1.7 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.7-win-x64.exe" --clobber

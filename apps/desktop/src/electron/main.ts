@@ -32,7 +32,11 @@ import {
 } from "./releaseSmoke";
 
 const releaseSmokeRequested = process.argv.includes("--release-smoke");
-if (releaseSmokeRequested) {
+const packagedRendererSmokeRequested = process.argv.includes("--packaged-renderer-smoke");
+if (process.platform === "darwin") {
+  app.disableHardwareAcceleration();
+}
+if (releaseSmokeRequested || packagedRendererSmokeRequested) {
   const userDataPath = process.env.QUANT_RELEASE_SMOKE_USER_DATA?.trim();
   if (!userDataPath) {
     throw new Error("QUANT_RELEASE_SMOKE_USER_DATA is required for release smoke mode.");
@@ -141,11 +145,71 @@ export function createMainWindow(securityPolicy?: DesktopRendererSecurityPolicy)
   };
   mainWindow.webContents.on("will-navigate", preventUntrustedNavigation);
   mainWindow.webContents.on("will-redirect", preventUntrustedNavigation);
+  mainWindow.webContents.on(
+    "did-fail-load",
+    (_event, errorCode, errorDescription, validatedUrl) => {
+      desktopDiagnostics.log(
+        "error",
+        `renderer-load-failed:${errorCode}:${errorDescription}:${validatedUrl}`,
+      );
+    },
+  );
+  mainWindow.webContents.on("render-process-gone", (_event, details) => {
+    desktopDiagnostics.log("error", `renderer-process-gone:${details.reason}:${details.exitCode}`);
+  });
+  mainWindow.on("unresponsive", () => {
+    desktopDiagnostics.log("error", "renderer-unresponsive");
+  });
+  if (packagedRendererSmokeRequested) {
+    const timeout = setTimeout(() => {
+      process.stderr.write(
+        "Packaged renderer smoke timed out before a usable page was rendered.\n",
+      );
+      app.exit(1);
+    }, 20_000);
+    mainWindow.webContents.once("did-finish-load", () => {
+      void mainWindow.webContents
+        .executeJavaScript(
+          `(async () => {
+            const deadline = Date.now() + 15000;
+            while (Date.now() < deadline) {
+              const root = document.getElementById("root");
+              const guard = document.querySelector("[data-renderer-startup-guard]");
+              if (root?.innerText.trim() && !guard) {
+                return { ok: true, title: document.title, textLength: root.innerText.trim().length };
+              }
+              await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+            return {
+              ok: false,
+              title: document.title,
+              text: document.getElementById("root")?.innerText.slice(0, 500) ?? "",
+              guard: Boolean(document.querySelector("[data-renderer-startup-guard]"))
+            };
+          })()`,
+          true,
+        )
+        .then((result: unknown) => {
+          clearTimeout(timeout);
+          process.stdout.write(`${JSON.stringify(result)}\n`);
+          app.exit(
+            result && typeof result === "object" && "ok" in result && result.ok === true ? 0 : 1,
+          );
+        })
+        .catch((error: unknown) => {
+          clearTimeout(timeout);
+          process.stderr.write(`Packaged renderer smoke failed: ${String(error)}\n`);
+          app.exit(1);
+        });
+    });
+  }
 
   if (rendererDevServer) {
     void mainWindow.loadURL(rendererDevServer);
   } else {
-    void mainWindow.loadFile(windowConfig.rendererEntry);
+    void mainWindow.loadFile(windowConfig.rendererEntry).catch((error: unknown) => {
+      desktopDiagnostics.log("error", "renderer-load-file-rejected", error);
+    });
   }
 
   return mainWindow;
