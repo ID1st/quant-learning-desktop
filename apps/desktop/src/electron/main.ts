@@ -1,4 +1,5 @@
 import { app, BrowserWindow, powerMonitor } from "electron";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createMarketDataIpcHandlers, registerMarketDataIpcHandlers } from "./marketDataIpc";
 import { registerMarketBarCacheIpcHandlers } from "./marketBarCacheIpc";
@@ -33,6 +34,16 @@ import {
 
 const releaseSmokeRequested = process.argv.includes("--release-smoke");
 const packagedRendererSmokeRequested = process.argv.includes("--packaged-renderer-smoke");
+const packagedRendererSmokeResultPath = process.env.QUANT_RENDERER_SMOKE_RESULT?.trim();
+
+function finishPackagedRendererSmoke(result: Record<string, unknown>, exitCode: number) {
+  const serialized = `${JSON.stringify(result)}\n`;
+  if (packagedRendererSmokeResultPath) {
+    writeFileSync(packagedRendererSmokeResultPath, serialized, "utf8");
+  }
+  process.stdout.write(serialized);
+  app.exit(exitCode);
+}
 if (process.platform === "darwin") {
   app.disableHardwareAcceleration();
 }
@@ -162,10 +173,13 @@ export function createMainWindow(securityPolicy?: DesktopRendererSecurityPolicy)
   });
   if (packagedRendererSmokeRequested) {
     const timeout = setTimeout(() => {
-      process.stderr.write(
-        "Packaged renderer smoke timed out before a usable page was rendered.\n",
+      finishPackagedRendererSmoke(
+        {
+          ok: false,
+          error: "Packaged renderer smoke timed out before a usable page was rendered.",
+        },
+        1,
       );
-      app.exit(1);
     }, 20_000);
     mainWindow.webContents.once("did-finish-load", () => {
       void mainWindow.webContents
@@ -191,15 +205,19 @@ export function createMainWindow(securityPolicy?: DesktopRendererSecurityPolicy)
         )
         .then((result: unknown) => {
           clearTimeout(timeout);
-          process.stdout.write(`${JSON.stringify(result)}\n`);
-          app.exit(
+          finishPackagedRendererSmoke(
+            result && typeof result === "object"
+              ? (result as Record<string, unknown>)
+              : { ok: false, error: "Renderer smoke returned an invalid result." },
             result && typeof result === "object" && "ok" in result && result.ok === true ? 0 : 1,
           );
         })
         .catch((error: unknown) => {
           clearTimeout(timeout);
-          process.stderr.write(`Packaged renderer smoke failed: ${String(error)}\n`);
-          app.exit(1);
+          finishPackagedRendererSmoke(
+            { ok: false, error: `Packaged renderer smoke failed: ${String(error)}` },
+            1,
+          );
         });
     });
   }
