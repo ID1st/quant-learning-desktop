@@ -78,9 +78,17 @@ jobs:
             kill -0 "$smoke_pid" 2>/dev/null || break
             sleep 1
           done
+          if test "$smoke_ok" != true; then
+            app_pid=$(pgrep -f '量化学习桌面版.app/Contents/MacOS' | tail -n 1 || true)
+            ps -axww | grep -E '量化学习桌面版|Electron' | grep -v grep || true
+            if test -n "$app_pid"; then
+              sample "$app_pid" 3 1 || true
+            fi
+          fi
           kill "$smoke_pid" 2>/dev/null || true
           wait "$smoke_pid" 2>/dev/null || true
           cat "$smoke_log"
+          ls -la "$smoke_root"
           cat "$QUANT_RENDERER_SMOKE_RESULT" 2>/dev/null || true
           find "$HOME/Library/Logs" -maxdepth 5 -type f -name 'main.log' \
             -exec sh -c 'echo "--- $1"; tail -n 100 "$1"' _ {} \; 2>/dev/null || true
