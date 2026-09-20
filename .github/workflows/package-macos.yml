@@ -61,42 +61,46 @@ jobs:
           app=("$QUANT_DESKTOP_RELEASE_DIR"/mac*/量化学习桌面版.app)
           smoke_root=$(mktemp -d "${TMPDIR%/}/quant-renderer-smoke.XXXXXX")
           export QUANT_RELEASE_SMOKE_USER_DATA="$smoke_root/user-data"
-          smoke_log="$smoke_root/renderer-smoke.log"
-          export QUANT_RENDERER_SMOKE_RESULT="$smoke_root/renderer-smoke.json"
-          open -W -n "${app[0]}" --args \
-            --packaged-renderer-smoke \
-            "--packaged-renderer-smoke-result=$QUANT_RENDERER_SMOKE_RESULT" \
-            "--release-smoke-user-data=$QUANT_RELEASE_SMOKE_USER_DATA" \
-            >"$smoke_log" 2>&1 &
-          smoke_pid=$!
-          smoke_ok=false
-          for _ in {1..40}; do
-            if grep -q '"ok":true' "$QUANT_RENDERER_SMOKE_RESULT" 2>/dev/null; then
-              smoke_ok=true
-              break
+          run_renderer_smoke() {
+            phase="$1"
+            smoke_log="$smoke_root/renderer-smoke-$phase.log"
+            export QUANT_RENDERER_SMOKE_RESULT="$smoke_root/renderer-smoke-$phase.json"
+            open -W -n "${app[0]}" --args \
+              --packaged-renderer-smoke \
+              "--packaged-renderer-smoke-result=$QUANT_RENDERER_SMOKE_RESULT" \
+              "--release-smoke-user-data=$QUANT_RELEASE_SMOKE_USER_DATA" \
+              >"$smoke_log" 2>&1 &
+            smoke_pid=$!
+            smoke_ok=false
+            for _ in {1..40}; do
+              if grep -q '"ok":true' "$QUANT_RENDERER_SMOKE_RESULT" 2>/dev/null; then
+                smoke_ok=true
+                break
+              fi
+              kill -0 "$smoke_pid" 2>/dev/null || break
+              sleep 1
+            done
+            if test "$smoke_ok" != true; then
+              app_pid=$(pgrep -f '量化学习桌面版.app/Contents/MacOS' | tail -n 1 || true)
+              ps -axww | grep -E '量化学习桌面版|Electron' | grep -v grep || true
+              if test -n "$app_pid"; then
+                sample "$app_pid" 3 1 || true
+              fi
             fi
-            kill -0 "$smoke_pid" 2>/dev/null || break
-            sleep 1
-          done
-          if test "$smoke_ok" != true; then
-            app_pid=$(pgrep -f '量化学习桌面版.app/Contents/MacOS' | tail -n 1 || true)
-            ps -axww | grep -E '量化学习桌面版|Electron' | grep -v grep || true
-            if test -n "$app_pid"; then
-              sample "$app_pid" 3 1 || true
-            fi
-          fi
-          kill "$smoke_pid" 2>/dev/null || true
-          wait "$smoke_pid" 2>/dev/null || true
-          cat "$smoke_log"
+            kill "$smoke_pid" 2>/dev/null || true
+            wait "$smoke_pid" 2>/dev/null || true
+            cat "$smoke_log"
+            cat "$QUANT_RENDERER_SMOKE_RESULT" 2>/dev/null || true
+            test "$smoke_ok" = true
+          }
+          run_renderer_smoke fresh
+          test -d "$QUANT_RELEASE_SMOKE_USER_DATA"
+          run_renderer_smoke preserved-profile
           ls -la "$smoke_root"
-          cat "$QUANT_RENDERER_SMOKE_RESULT" 2>/dev/null || true
-          find "$HOME/Library/Logs" -maxdepth 5 -type f -name 'main.log' \
-            -exec sh -c 'echo "--- $1"; tail -n 100 "$1"' _ {} \; 2>/dev/null || true
-          test "$smoke_ok" = true
       - name: Upload quant-learning-desktop-mac-${{ matrix.arch }} to draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.7 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
+        run: gh release upload codex-internal-v0.1.8 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
 
   package-windows:
     name: Package Windows x64
@@ -130,4 +134,4 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.7 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.7-win-x64.exe" --clobber
+        run: gh release upload codex-internal-v0.1.8 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.8-win-x64.exe" --clobber
