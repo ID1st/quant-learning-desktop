@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { createMarketDataIpcHandlers, registerMarketDataIpcHandlers } from "./marketDataIpc";
 import { registerMarketBarCacheIpcHandlers } from "./marketBarCacheIpc";
 import { createMarketBarCacheIpcHandlers } from "./marketBarCacheIpcContract";
-import { createDuckDbMarketBarRepository } from "./duckDbMarketBarRepository";
 import { createMemoryMarketBarRepository } from "../features/marketData/memoryMarketBarRepository";
 import { registerProviderDataIpcHandlers } from "./providerDataIpc";
 import { registerPluginIpcHandlers } from "./pluginIpc";
@@ -220,6 +219,7 @@ void app
   .whenReady()
   .then(async () => {
     if (releaseSmokeRequested) {
+      const { createDuckDbMarketBarRepository } = await import("./duckDbMarketBarRepository");
       const mode = process.env.QUANT_RELEASE_SMOKE_MODE?.trim() as ReleaseSmokeMode;
       if (mode !== "seed" && mode !== "verify") {
         throw new Error("QUANT_RELEASE_SMOKE_MODE must be seed or verify.");
@@ -254,8 +254,10 @@ void app
     const marketBarCacheRepository =
       process.platform === "darwin"
         ? createMemoryMarketBarRepository()
-        : await createDuckDbMarketBarRepository(
-            join(app.getPath("userData"), "data", "market-cache.duckdb"),
+        : await import("./duckDbMarketBarRepository").then(({ createDuckDbMarketBarRepository }) =>
+            createDuckDbMarketBarRepository(
+              join(app.getPath("userData"), "data", "market-cache.duckdb"),
+            ),
           );
     const disposeMarketBarCacheIpc = registerMarketBarCacheIpcHandlers(
       securityPolicy,

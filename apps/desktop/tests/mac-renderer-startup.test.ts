@@ -31,6 +31,8 @@ test("renderer displays a startup guard before loading the React module", () => 
 
 test("macOS avoids blocking the main loop on the native DuckDB cache", () => {
   assert.match(mainSource, /process\.platform === "darwin"\s*\? createMemoryMarketBarRepository/u);
+  assert.doesNotMatch(mainSource, /^import .*duckDbMarketBarRepository/mu);
+  assert.match(mainSource, /import\("\.\/duckDbMarketBarRepository"\)/u);
 });
 
 test("LongBridge native SDK is loaded only when a provider operation needs it", () => {
