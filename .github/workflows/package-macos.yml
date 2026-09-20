@@ -59,7 +59,7 @@ jobs:
       - name: Launch packaged renderer smoke test
         run: |
           app=("$QUANT_DESKTOP_RELEASE_DIR"/mac*/量化学习桌面版.app)
-          smoke_root=$(mktemp -d "${RUNNER_TEMP}/quant-renderer-smoke.XXXXXX")
+          smoke_root=$(mktemp -d "${TMPDIR%/}/quant-renderer-smoke.XXXXXX")
           export QUANT_RELEASE_SMOKE_USER_DATA="$smoke_root/user-data"
           smoke_log="$smoke_root/renderer-smoke.log"
           export QUANT_RENDERER_SMOKE_RESULT="$smoke_root/renderer-smoke.json"

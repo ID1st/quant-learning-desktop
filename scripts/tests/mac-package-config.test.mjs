@@ -77,6 +77,8 @@ test("workflow uploads one Windows and two macOS architecture artifacts", () => 
   assert.match(macPackageWorkflow, /codesign --verify --deep --strict/u);
   assert.match(macPackageWorkflow, /Signature=adhoc/u);
   assert.match(macPackageWorkflow, /--packaged-renderer-smoke/u);
+  assert.match(macPackageWorkflow, /mktemp -d "\$\{TMPDIR%\/\}\/quant-renderer-smoke/u);
+  assert.doesNotMatch(macPackageWorkflow, /RUNNER_TEMP.*quant-renderer-smoke/u);
   assert.match(macPackageWorkflow, /quant-learning-desktop-windows-x64/u);
   assert.match(macPackageWorkflow, /quant-learning-desktop-mac-\$\{\{ matrix\.arch \}\}/u);
 });
