@@ -24,14 +24,18 @@ const RootComponent =
           ? MlPriceTargetsVisualQaPage
           : App;
 
+function RendererMountReporter() {
+  React.useEffect(() => {
+    window.dispatchEvent(new Event("quant-renderer-mounted"));
+  }, []);
+  return null;
+}
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <I18nProvider>
       <RootComponent />
+      <RendererMountReporter />
     </I18nProvider>
   </React.StrictMode>,
 );
-
-window.setTimeout(() => {
-  window.dispatchEvent(new Event("quant-renderer-mounted"));
-}, 0);

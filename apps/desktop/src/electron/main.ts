@@ -170,9 +170,14 @@ export function createMainWindow(securityPolicy?: DesktopRendererSecurityPolicy)
   mainWindow.webContents.on("did-finish-load", () => {
     desktopDiagnostics.log("info", "renderer-load-finished");
   });
-  mainWindow.webContents.on("console-message", (_event, level, message) => {
-    if (level >= 2) {
-      desktopDiagnostics.log(level >= 3 ? "error" : "warn", `renderer-console:${level}:${message}`);
+  mainWindow.webContents.on("console-message", (event) => {
+    const { level, message, sourceId, lineNumber } = event;
+    if (level === "warning" || level === "error" || message.startsWith("[renderer-startup]")) {
+      desktopDiagnostics.log(
+        level === "error" ? "error" : level === "warning" ? "warn" : "info",
+        "renderer-console",
+        { level, message, sourceId, lineNumber },
+      );
     }
   });
   mainWindow.webContents.on(
