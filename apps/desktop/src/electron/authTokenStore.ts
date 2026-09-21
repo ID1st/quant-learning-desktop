@@ -59,7 +59,7 @@ function isPersistedMaterial(value: unknown): value is PersistedAuthTokenMateria
 export function createAuthTokenStore(
   persistence: AuthEncryptedPersistence,
   crypto: AuthTokenCrypto,
-  options: { restoreTimeoutMilliseconds?: number } = {},
+  options: { restoreTimeoutMilliseconds?: number; allowMemoryOnlySession?: boolean } = {},
 ): AuthTokenStore {
   let accessToken: string | null = null;
   const restoreTimeoutMilliseconds = options.restoreTimeoutMilliseconds ?? 5_000;
@@ -87,18 +87,26 @@ export function createAuthTokenStore(
         deviceId: material.deviceId,
         lastServerTime: material.lastServerTime,
       };
-      const encryptedPayload = await withDeadline(async () => {
-        if (!(await crypto.isEncryptionAvailable())) {
-          throw new Error("Secure token encryption is unavailable");
+      try {
+        const encryptedPayload = await withDeadline(async () => {
+          if (!(await crypto.isEncryptionAvailable())) {
+            throw new Error("Secure token encryption is unavailable");
+          }
+          return crypto.encrypt(JSON.stringify(persisted));
+        });
+        const envelope: PersistedEnvelope = {
+          version: 1,
+          encryptedPayload,
+        };
+        await persistence.write(JSON.stringify(envelope));
+        accessToken = material.accessToken;
+      } catch (error) {
+        if (!options.allowMemoryOnlySession) {
+          throw error;
         }
-        return crypto.encrypt(JSON.stringify(persisted));
-      });
-      const envelope: PersistedEnvelope = {
-        version: 1,
-        encryptedPayload,
-      };
-      await persistence.write(JSON.stringify(envelope));
-      accessToken = material.accessToken;
+        await persistence.remove().catch(() => undefined);
+        accessToken = material.accessToken;
+      }
     },
     restore: async () => {
       try {

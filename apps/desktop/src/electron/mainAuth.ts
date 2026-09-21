@@ -25,6 +25,7 @@ export async function createMainAuthSessionManager(
   const tokenStore = createAuthTokenStore(
     createFileAuthPersistence(join(userDataDirectory, "auth-session.enc")),
     options.tokenCrypto ?? createAsyncAuthCrypto(safeStorage),
+    { allowMemoryOnlySession: process.platform === "darwin" },
   );
   const baseUrl = resolveAuthBaseUrl(__QUANT_AUTH_BASE_URL__, app.isPackaged);
   const offlinePublicKeyPem =

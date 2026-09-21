@@ -1,4 +1,4 @@
-# macOS 启动卡死修复（0.1.10）
+# macOS Keychain 启动与登录修复（0.1.11）
 
 ## 根因与证据
 
@@ -25,6 +25,8 @@
 Windows 上已验证 Electron 真实异步加解密与旧同步密文兼容性。Mac 上的系统钥匙串故障需用用户机器复验；故障注入测试覆盖恢复控制流程，不声称模拟了 macOS Security.framework 的全部内部行为。
 
 2026-09-21 验证记录：`npm run check` 通过；桌面全部 357 项测试通过、0 跳过；Windows 0.1.10 实际安装包中的应用通过三种启动场景。GitHub macOS arm64 runner 也已生成 DMG 并通过三种启动场景，故障注入结果为 `phase=SIGNED_OUT`、`loginShownWhileRestoring=true`、`keychainRestoreProbeUsed=true`。
+
+0.1.11 进一步覆盖登录后的 Keychain 写入故障。服务端已经验证登录、但 macOS 安全存储在 5 秒内无法完成加密时，客户端清除旧的加密会话文件并将访问令牌只保留在当前进程内存中。用户可以继续进入工作台，退出后令牌随进程销毁，重新启动时需要再次登录；不会写入明文凭据。Windows 仍要求安全存储成功，不采用此回退。
 
 [GitHub 打包与验证记录](https://github.com/ID1st/quant-learning-desktop/actions/runs/35569503265)。代码提交为 `047ed17`，本页后续文档更新不改变安装包内容。
 
