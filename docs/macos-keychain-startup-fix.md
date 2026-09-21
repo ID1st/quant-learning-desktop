@@ -32,7 +32,7 @@ Windows 上已验证 Electron 真实异步加解密与旧同步密文兼容性�
 
 0.1.13 修复 AlphaFeed 和长桥凭据保存时的 Keychain 写入超时。macOS 安全存储在 5 秒内没有返回时，已完成验证的凭据只保留在 Electron 主进程内存中并立即启用，重启后需要重新输入。界面会明确显示这一状态，脱敏绑定摘要也不会在此模式下写入普通本地数据库。Windows 和 Keychain 正常的 Mac 仍使用系统加密存储；任何平台都不会把原始密钥以明文写入磁盘。
 
-[GitHub 打包与验证记录](https://github.com/ID1st/quant-learning-desktop/actions/runs/35569503265)。代码提交为 `047ed17`，本页后续文档更新不改变安装包内容。
+[0.1.13 GitHub 打包与验证记录](https://github.com/ID1st/quant-learning-desktop/actions/runs/35588729126)。修复与安装包代码提交为 `6b199e8`。
 
 在已有 Mac 仓库中更新修复分支，并执行：
 
