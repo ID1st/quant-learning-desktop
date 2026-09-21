@@ -260,7 +260,7 @@ test("market data IPC handlers keep Chinese and pinyin search available when Lon
   const handlers = createMarketDataIpcHandlers({
     credentialStore: {
       ...createEmptyCredentialStore(),
-      readLongPortCredentials: () => ({
+      readLongPortCredentials: async () => ({
         apiUrl: "https://longbridge.example.test",
         appKey: "long-app-key",
         appSecret: "long-app-secret",
@@ -680,7 +680,7 @@ function createStreamHealth(
 function createCredentialStoreWithStreamCredentials(): SecureCredentialStore {
   return {
     ...createEmptyCredentialStore(),
-    readAlphaFeedStreamCredentials: () => ({
+    readAlphaFeedStreamCredentials: async () => ({
       wsUrl: "wss://stream.example.test",
       apiKey: "stream-key",
     }),
@@ -690,11 +690,11 @@ function createCredentialStoreWithStreamCredentials(): SecureCredentialStore {
 function createCredentialStoreWithFallbackCredentials(): SecureCredentialStore {
   return {
     ...createEmptyCredentialStore(),
-    readAlphaFeedCredentials: () => ({
+    readAlphaFeedCredentials: async () => ({
       apiUrl: "https://alpha.example.test",
       apiKey: "alpha-test-key",
     }),
-    readLongPortCredentials: () => ({
+    readLongPortCredentials: async () => ({
       apiUrl: "https://longbridge.example.test",
       appKey: "long-app-key",
       appSecret: "long-app-secret",
@@ -705,14 +705,14 @@ function createCredentialStoreWithFallbackCredentials(): SecureCredentialStore {
 
 function createEmptyCredentialStore(): SecureCredentialStore {
   return {
-    saveAlphaFeedCredentials: () => undefined,
-    readAlphaFeedCredentials: () => null,
+    saveAlphaFeedCredentials: async () => undefined,
+    readAlphaFeedCredentials: async () => null,
     clearAlphaFeedCredentials: () => undefined,
-    saveAlphaFeedStreamCredentials: () => undefined,
-    readAlphaFeedStreamCredentials: () => null,
+    saveAlphaFeedStreamCredentials: async () => undefined,
+    readAlphaFeedStreamCredentials: async () => null,
     clearAlphaFeedStreamCredentials: () => undefined,
-    saveLongPortCredentials: () => undefined,
-    readLongPortCredentials: () => null,
+    saveLongPortCredentials: async () => undefined,
+    readLongPortCredentials: async () => null,
     clearLongPortCredentials: () => undefined,
   };
 }

@@ -93,7 +93,7 @@ export function createMarketDataIpcHandlers(
   return {
     ...shell,
     async getProviderStatus() {
-      const providers = createMarketDataProviders(true, {
+      const providers = await createMarketDataProviders(true, {
         credentialStore,
         stockSdkOperations,
         yahooFinanceProvider: dependencies.yahooFinanceProvider,
@@ -111,7 +111,7 @@ export function createMarketDataIpcHandlers(
       };
     },
     async fetchQuoteSnapshot(request) {
-      const providers = createMarketDataProviders(
+      const providers = await createMarketDataProviders(
         request.providerPolicy?.stockSdkPrimaryEnabled ?? true,
         {
           credentialStore,
@@ -131,7 +131,7 @@ export function createMarketDataIpcHandlers(
       return toIpcGatewayResult(result);
     },
     async fetchHistoricalBars(request) {
-      const providers = createMarketDataProviders(
+      const providers = await createMarketDataProviders(
         request.providerPolicy?.stockSdkPrimaryEnabled ?? true,
         {
           credentialStore,
@@ -148,7 +148,7 @@ export function createMarketDataIpcHandlers(
       return toIpcGatewayResult(result);
     },
     async fetchIntradayBars(request) {
-      const providers = createMarketDataProviders(
+      const providers = await createMarketDataProviders(
         request.providerPolicy?.stockSdkPrimaryEnabled ?? true,
         {
           credentialStore,
@@ -193,7 +193,7 @@ export function createMarketDataIpcHandlers(
       // of making the user wait for the name-search endpoint to recover.
       // Use a separate provider instance: a failed optional search has already
       // marked the search provider unhealthy and must not suppress quote lookup.
-      const quoteProviders = createMarketDataProviders(
+      const quoteProviders = await createMarketDataProviders(
         request.providerPolicy?.stockSdkPrimaryEnabled ?? true,
         {
           credentialStore,
@@ -238,7 +238,7 @@ export function createMarketDataIpcHandlers(
       } as const;
     },
     async connectQuoteStream(request) {
-      const credentials = credentialStore.readAlphaFeedStreamCredentials();
+      const credentials = await credentialStore.readAlphaFeedStreamCredentials();
 
       if (!credentials) {
         return createProviderUnavailableResult(
@@ -369,7 +369,7 @@ function createMlptHistoricalHealth(
   };
 }
 
-function createMarketDataProviders(
+async function createMarketDataProviders(
   stockSdkPrimaryEnabled: boolean,
   dependencies: {
     readonly credentialStore: SecureCredentialStore;
@@ -391,7 +391,10 @@ function createMarketDataProviders(
     );
   }
 
-  const alphaFeedCredentials = dependencies.credentialStore.readAlphaFeedCredentials();
+  const [alphaFeedCredentials, longPortCredentials] = await Promise.all([
+    dependencies.credentialStore.readAlphaFeedCredentials(),
+    dependencies.credentialStore.readLongPortCredentials(),
+  ]);
   if (alphaFeedCredentials) {
     providers.push(
       createAlphaFeedRestGatewayProvider({
@@ -405,7 +408,6 @@ function createMarketDataProviders(
     );
   }
 
-  const longPortCredentials = dependencies.credentialStore.readLongPortCredentials();
   if (longPortCredentials) {
     providers.push(
       createLongBridgeGatewayProvider({

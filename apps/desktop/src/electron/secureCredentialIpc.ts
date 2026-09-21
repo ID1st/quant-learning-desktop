@@ -9,6 +9,7 @@ import {
   createSecureCredentialStore,
   type AlphaFeedStreamCredentials,
 } from "./secureCredentialStore";
+import { createAsyncAuthCrypto } from "./asyncAuthCrypto.ts";
 import {
   assertAlphaFeedCredentials,
   assertAlphaFeedStreamCredentials,
@@ -38,11 +39,7 @@ export function createMainSecureCredentialStore() {
     createJsonFilePersistenceStore(
       createNodeJsonFilePersistenceDriver(join(app.getPath("userData"), "secure-credentials.json")),
     ),
-    {
-      encrypt: (value) => safeStorage.encryptString(value).toString("base64"),
-      decrypt: (value) => safeStorage.decryptString(Buffer.from(value, "base64")),
-      isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
-    },
+    createAsyncAuthCrypto(safeStorage),
   );
 }
 
@@ -52,11 +49,13 @@ export function registerSecureCredentialIpcHandlers(
 ) {
   ipcMain.handle(
     "secureCredentials:saveAlphaFeed",
-    (event, credentials: unknown): SecureCredentialInvokeResult<null> => {
+    async (event, credentials: unknown): Promise<SecureCredentialInvokeResult<null>> => {
       try {
         assertTrustedIpcSender(event, securityPolicy);
         assertAlphaFeedCredentials(credentials);
-        credentialStore.saveAlphaFeedCredentials(credentials as unknown as AlphaFeedApiCredentials);
+        await credentialStore.saveAlphaFeedCredentials(
+          credentials as unknown as AlphaFeedApiCredentials,
+        );
         return { ok: true, value: null };
       } catch (error) {
         return { ok: false, error: { message: toSafeCredentialError(error) } };
@@ -79,11 +78,11 @@ export function registerSecureCredentialIpcHandlers(
 
   ipcMain.handle(
     "secureCredentials:saveAlphaFeedStream",
-    (event, credentials: unknown): SecureCredentialInvokeResult<null> => {
+    async (event, credentials: unknown): Promise<SecureCredentialInvokeResult<null>> => {
       try {
         assertTrustedIpcSender(event, securityPolicy);
         assertAlphaFeedStreamCredentials(credentials);
-        credentialStore.saveAlphaFeedStreamCredentials(
+        await credentialStore.saveAlphaFeedStreamCredentials(
           credentials as unknown as AlphaFeedStreamCredentials,
         );
         return { ok: true, value: null };
@@ -108,11 +107,13 @@ export function registerSecureCredentialIpcHandlers(
 
   ipcMain.handle(
     "secureCredentials:saveLongPort",
-    (event, credentials: unknown): SecureCredentialInvokeResult<null> => {
+    async (event, credentials: unknown): Promise<SecureCredentialInvokeResult<null>> => {
       try {
         assertTrustedIpcSender(event, securityPolicy);
         assertLongPortCredentials(credentials);
-        credentialStore.saveLongPortCredentials(credentials as unknown as LongPortApiCredentials);
+        await credentialStore.saveLongPortCredentials(
+          credentials as unknown as LongPortApiCredentials,
+        );
         return { ok: true, value: null };
       } catch (error) {
         return { ok: false, error: { message: toSafeCredentialError(error) } };

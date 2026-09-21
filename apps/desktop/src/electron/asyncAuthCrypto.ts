@@ -6,9 +6,13 @@ export interface AsyncSafeStorage {
   decryptStringAsync(value: Buffer): Promise<{ result: string }>;
 }
 
+export interface AsyncAuthTokenCrypto extends AuthTokenCrypto {
+  isEncryptionAvailable(): Promise<boolean>;
+}
+
 // Electron's async implementation moves Keychain work off the main thread.
 // An async JS wrapper around decryptString() does NOT provide this isolation.
-export function createAsyncAuthCrypto(storage: AsyncSafeStorage): AuthTokenCrypto {
+export function createAsyncAuthCrypto(storage: AsyncSafeStorage): AsyncAuthTokenCrypto {
   return {
     isEncryptionAvailable: () => storage.isAsyncEncryptionAvailable(),
     encrypt: async (value) => (await storage.encryptStringAsync(value)).toString("base64"),

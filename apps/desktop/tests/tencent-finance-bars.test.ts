@@ -407,8 +407,8 @@ test("Stock SDK gateway retains Tencent provenance while keeping the product pro
 test("Electron market-data IPC uses the Tencent history route for the Stock SDK primary provider", async () => {
   const handlers = createMarketDataIpcHandlers({
     credentialStore: {
-      readAlphaFeedCredentials: () => null,
-      readLongPortCredentials: () => null,
+      readAlphaFeedCredentials: async () => null,
+      readLongPortCredentials: async () => null,
     } as never,
     tencentFinanceBars: {
       async fetchHistoricalBars() {

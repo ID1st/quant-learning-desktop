@@ -64,14 +64,14 @@ void app.whenReady().then(async () => {
 
 function createSmokeCredentialStore(): SecureCredentialStore {
   return {
-    saveAlphaFeedCredentials: () => undefined,
-    readAlphaFeedCredentials: () => null,
+    saveAlphaFeedCredentials: async () => undefined,
+    readAlphaFeedCredentials: async () => null,
     clearAlphaFeedCredentials: () => undefined,
-    saveAlphaFeedStreamCredentials: () => undefined,
-    readAlphaFeedStreamCredentials: () => null,
+    saveAlphaFeedStreamCredentials: async () => undefined,
+    readAlphaFeedStreamCredentials: async () => null,
     clearAlphaFeedStreamCredentials: () => undefined,
-    saveLongPortCredentials: () => undefined,
-    readLongPortCredentials: () => null,
+    saveLongPortCredentials: async () => undefined,
+    readLongPortCredentials: async () => null,
     clearLongPortCredentials: () => undefined,
   };
 }

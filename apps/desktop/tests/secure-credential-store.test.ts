@@ -8,8 +8,8 @@ import {
 
 function createTestCrypto(overrides: Partial<SecureCredentialCrypto> = {}): SecureCredentialCrypto {
   return {
-    encrypt: (value) => Buffer.from(`sealed:${value}`, "utf8").toString("base64"),
-    decrypt: (value) => {
+    encrypt: async (value) => Buffer.from(`sealed:${value}`, "utf8").toString("base64"),
+    decrypt: async (value) => {
       const rawValue = Buffer.from(value, "base64").toString("utf8");
       if (!rawValue.startsWith("sealed:")) {
         throw new Error("bad payload");
@@ -17,16 +17,16 @@ function createTestCrypto(overrides: Partial<SecureCredentialCrypto> = {}): Secu
 
       return rawValue.slice("sealed:".length);
     },
-    isEncryptionAvailable: () => true,
+    isEncryptionAvailable: async () => true,
     ...overrides,
   };
 }
 
-test("secure credential store saves encrypted AlphaFeed credentials", () => {
+test("secure credential store saves encrypted AlphaFeed credentials", async () => {
   const store = createMemoryPersistenceStore();
   const secureStore = createSecureCredentialStore(store, createTestCrypto());
 
-  secureStore.saveAlphaFeedCredentials({
+  await secureStore.saveAlphaFeedCredentials({
     apiUrl: " https://api.alphafeed.org ",
     apiKey: " alpha-secret ",
   });
@@ -34,16 +34,16 @@ test("secure credential store saves encrypted AlphaFeed credentials", () => {
   const rawValue = store.getItem("secure-credentials.alphafeed") ?? "";
   assert.match(rawValue, /encryptedPayload/);
   assert.doesNotMatch(rawValue, /alpha-secret/);
-  assert.deepEqual(secureStore.readAlphaFeedCredentials(), {
+  assert.deepEqual(await secureStore.readAlphaFeedCredentials(), {
     apiUrl: "https://api.alphafeed.org",
     apiKey: "alpha-secret",
   });
 });
 
-test("secure credential store keeps legacy AlphaFeed credentials inactive until explicitly re-saved", () => {
+test("secure credential store keeps legacy AlphaFeed credentials inactive until explicitly re-saved", async () => {
   const store = createMemoryPersistenceStore();
   const crypto = createTestCrypto();
-  const encryptedPayload = crypto.encrypt(
+  const encryptedPayload = await crypto.encrypt(
     JSON.stringify({
       apiUrl: "https://api.alphafeed.org",
       apiKey: "legacy-alpha-secret",
@@ -60,23 +60,23 @@ test("secure credential store keeps legacy AlphaFeed credentials inactive until 
   );
   const secureStore = createSecureCredentialStore(store, crypto);
 
-  assert.equal(secureStore.readAlphaFeedCredentials(), null);
+  assert.equal(await secureStore.readAlphaFeedCredentials(), null);
 
-  secureStore.saveAlphaFeedCredentials({
+  await secureStore.saveAlphaFeedCredentials({
     apiUrl: "https://api.alphafeed.org",
     apiKey: "new-alpha-secret",
   });
-  assert.deepEqual(secureStore.readAlphaFeedCredentials(), {
+  assert.deepEqual(await secureStore.readAlphaFeedCredentials(), {
     apiUrl: "https://api.alphafeed.org",
     apiKey: "new-alpha-secret",
   });
 });
 
-test("secure credential store saves encrypted LongBridge credentials", () => {
+test("secure credential store saves encrypted LongBridge credentials", async () => {
   const store = createMemoryPersistenceStore();
   const secureStore = createSecureCredentialStore(store, createTestCrypto());
 
-  secureStore.saveLongPortCredentials({
+  await secureStore.saveLongPortCredentials({
     apiUrl: "https://openapi.longportapp.com",
     appKey: "app-key",
     appSecret: "app-secret",
@@ -85,7 +85,7 @@ test("secure credential store saves encrypted LongBridge credentials", () => {
 
   const rawValue = store.getItem("secure-credentials.longport") ?? "";
   assert.doesNotMatch(rawValue, /app-secret/);
-  assert.deepEqual(secureStore.readLongPortCredentials(), {
+  assert.deepEqual(await secureStore.readLongPortCredentials(), {
     apiUrl: "https://openapi.longportapp.com",
     appKey: "app-key",
     appSecret: "app-secret",
@@ -93,10 +93,10 @@ test("secure credential store saves encrypted LongBridge credentials", () => {
   });
 });
 
-test("secure credential store keeps legacy LongBridge credentials inactive until explicitly re-saved", () => {
+test("secure credential store keeps legacy LongBridge credentials inactive until explicitly re-saved", async () => {
   const store = createMemoryPersistenceStore();
   const crypto = createTestCrypto();
-  const encryptedPayload = crypto.encrypt(
+  const encryptedPayload = await crypto.encrypt(
     JSON.stringify({
       apiUrl: "https://openapi.longportapp.com",
       appKey: "legacy-app-key",
@@ -115,15 +115,15 @@ test("secure credential store keeps legacy LongBridge credentials inactive until
   );
   const secureStore = createSecureCredentialStore(store, crypto);
 
-  assert.equal(secureStore.readLongPortCredentials(), null);
+  assert.equal(await secureStore.readLongPortCredentials(), null);
 
-  secureStore.saveLongPortCredentials({
+  await secureStore.saveLongPortCredentials({
     apiUrl: "https://openapi.longportapp.com",
     appKey: "new-app-key",
     appSecret: "new-app-secret",
     accessToken: "new-access-token",
   });
-  assert.deepEqual(secureStore.readLongPortCredentials(), {
+  assert.deepEqual(await secureStore.readLongPortCredentials(), {
     apiUrl: "https://openapi.longportapp.com",
     appKey: "new-app-key",
     appSecret: "new-app-secret",
@@ -131,11 +131,11 @@ test("secure credential store keeps legacy LongBridge credentials inactive until
   });
 });
 
-test("secure credential store saves encrypted AlphaFeed stream credentials", () => {
+test("secure credential store saves encrypted AlphaFeed stream credentials", async () => {
   const store = createMemoryPersistenceStore();
   const secureStore = createSecureCredentialStore(store, createTestCrypto());
 
-  secureStore.saveAlphaFeedStreamCredentials({
+  await secureStore.saveAlphaFeedStreamCredentials({
     wsUrl: " wss://api.tickflow.org/v1/ws/stream ",
     apiKey: " stream-secret ",
   });
@@ -143,43 +143,43 @@ test("secure credential store saves encrypted AlphaFeed stream credentials", () 
   const rawValue = store.getItem("secure-credentials.alphafeed-stream") ?? "";
   assert.match(rawValue, /encryptedPayload/);
   assert.doesNotMatch(rawValue, /stream-secret/);
-  assert.deepEqual(secureStore.readAlphaFeedStreamCredentials(), {
+  assert.deepEqual(await secureStore.readAlphaFeedStreamCredentials(), {
     wsUrl: "wss://api.tickflow.org/v1/ws/stream",
     apiKey: "stream-secret",
   });
 });
 
-test("secure credential store clears AlphaFeed stream credentials independently", () => {
+test("secure credential store clears AlphaFeed stream credentials independently", async () => {
   const store = createMemoryPersistenceStore();
   const secureStore = createSecureCredentialStore(store, createTestCrypto());
 
-  secureStore.saveAlphaFeedCredentials({
+  await secureStore.saveAlphaFeedCredentials({
     apiUrl: "https://api.alphafeed.org",
     apiKey: "rest-secret",
   });
-  secureStore.saveAlphaFeedStreamCredentials({
+  await secureStore.saveAlphaFeedStreamCredentials({
     wsUrl: "wss://api.tickflow.org/v1/ws/stream",
     apiKey: "stream-secret",
   });
 
   secureStore.clearAlphaFeedStreamCredentials();
 
-  assert.equal(secureStore.readAlphaFeedStreamCredentials(), null);
-  assert.deepEqual(secureStore.readAlphaFeedCredentials(), {
+  assert.equal(await secureStore.readAlphaFeedStreamCredentials(), null);
+  assert.deepEqual(await secureStore.readAlphaFeedCredentials(), {
     apiUrl: "https://api.alphafeed.org",
     apiKey: "rest-secret",
   });
 });
 
-test("secure credential store rejects saves when encryption is unavailable", () => {
+test("secure credential store rejects saves when encryption is unavailable", async () => {
   const secureStore = createSecureCredentialStore(
     createMemoryPersistenceStore(),
     createTestCrypto({
-      isEncryptionAvailable: () => false,
+      isEncryptionAvailable: async () => false,
     }),
   );
 
-  assert.throws(
+  await assert.rejects(
     () =>
       secureStore.saveAlphaFeedCredentials({
         apiUrl: "https://api.alphafeed.org",
@@ -189,7 +189,7 @@ test("secure credential store rejects saves when encryption is unavailable", () 
   );
 });
 
-test("secure credential store returns null for malformed encrypted payloads", () => {
+test("secure credential store returns null for malformed encrypted payloads", async () => {
   const store = createMemoryPersistenceStore({
     "secure-credentials.alphafeed": JSON.stringify({
       version: 1,
@@ -200,5 +200,39 @@ test("secure credential store returns null for malformed encrypted payloads", ()
   });
   const secureStore = createSecureCredentialStore(store, createTestCrypto());
 
-  assert.equal(secureStore.readAlphaFeedCredentials(), null);
+  assert.equal(await secureStore.readAlphaFeedCredentials(), null);
+});
+
+test("stalled Keychain credential reads keep the event loop responsive and degrade to no credentials", async () => {
+  const store = createMemoryPersistenceStore({
+    "secure-credentials.alphafeed": JSON.stringify({
+      version: 1,
+      provider: "alphafeed",
+      encryptedPayload: "stalled-payload",
+      updatedAt: "2026-07-01T00:00:00.000Z",
+      activatedAt: "2026-07-01T00:00:00.000Z",
+    }),
+  });
+  let heartbeat = false;
+  let decryptCalls = 0;
+  const secureStore = createSecureCredentialStore(
+    store,
+    {
+      isEncryptionAvailable: async () => true,
+      encrypt: async () => "unused",
+      decrypt: () => {
+        decryptCalls += 1;
+        return new Promise<never>(() => undefined);
+      },
+    },
+    { operationTimeoutMilliseconds: 10 },
+  );
+
+  setTimeout(() => {
+    heartbeat = true;
+  }, 0);
+  assert.equal(await secureStore.readAlphaFeedCredentials(), null);
+  assert.equal(heartbeat, true);
+  assert.equal(await secureStore.readAlphaFeedCredentials(), null);
+  assert.equal(decryptCalls, 1);
 });

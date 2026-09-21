@@ -1,4 +1,4 @@
-# macOS Keychain 启动与登录修复（0.1.11）
+# macOS Keychain 启动、登录与工作区修复（0.1.12）
 
 ## 根因与证据
 
@@ -27,6 +27,8 @@ Windows 上已验证 Electron 真实异步加解密与旧同步密文兼容性�
 2026-09-21 验证记录：`npm run check` 通过；桌面全部 357 项测试通过、0 跳过；Windows 0.1.10 实际安装包中的应用通过三种启动场景。GitHub macOS arm64 runner 也已生成 DMG 并通过三种启动场景，故障注入结果为 `phase=SIGNED_OUT`、`loginShownWhileRestoring=true`、`keychainRestoreProbeUsed=true`。
 
 0.1.11 进一步覆盖登录后的 Keychain 写入故障。服务端已经验证登录、但 macOS 安全存储在 5 秒内无法完成加密时，客户端清除旧的加密会话文件并将访问令牌只保留在当前进程内存中。用户可以继续进入工作台，退出后令牌随进程销毁，重新启动时需要再次登录；不会写入明文凭据。Windows 仍要求安全存储成功，不采用此回退。
+
+0.1.12 修复登录后加载工作区时的第二条同步 Keychain 路径。行情凭据存储原先仍通过 `safeStorage.decryptString()` 在 Electron 主线程读取 AlphaFeed、AlphaFeed Stream 和 LongBridge 密文；macOS Security.framework 阻塞时，窗口停在“正在加载工作区”并失去输入响应。该存储现在复用原生异步安全存储适配器，所有加解密都有 5 秒期限。读取失败时只把对应行情源视为本次运行未配置，不删除密文，也不阻止工作区使用 Stock SDK、腾讯财经或其他可用数据源；同一故障密文在本次运行中不会反复触发 Keychain。
 
 [GitHub 打包与验证记录](https://github.com/ID1st/quant-learning-desktop/actions/runs/35569503265)。代码提交为 `047ed17`，本页后续文档更新不改变安装包内容。
 

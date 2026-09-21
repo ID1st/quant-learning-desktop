@@ -18,9 +18,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view codex-internal-v0.1.11 >/dev/null 2>&1 || \
-            gh release create codex-internal-v0.1.11 --draft --target "$GITHUB_SHA" \
-              --title "Desktop 0.1.11 internal" --notes "macOS falls back to an in-memory session when Keychain persistence is unavailable."
+          gh release view codex-internal-v0.1.12 >/dev/null 2>&1 || \
+            gh release create codex-internal-v0.1.12 --draft --target "$GITHUB_SHA" \
+              --title "Desktop 0.1.12 internal" --notes "macOS workspace credential reads use bounded native async Keychain operations."
 
   package-macos:
     needs: prepare-release
@@ -117,7 +117,7 @@ jobs:
       - name: Upload quant-learning-desktop-mac-${{ matrix.arch }} to draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.11 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
+        run: gh release upload codex-internal-v0.1.12 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
 
   package-windows:
     needs: prepare-release
@@ -152,4 +152,4 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.11 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.11-win-x64.exe" --clobber
+        run: gh release upload codex-internal-v0.1.12 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.12-win-x64.exe" --clobber
