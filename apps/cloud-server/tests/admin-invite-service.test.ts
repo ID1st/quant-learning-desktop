@@ -8,6 +8,21 @@ import {
 
 const now = new Date("2026-07-31T07:00:00.000Z");
 
+test("request IDs determine batch identity and malformed keys are rejected", async () => {
+  const service = new AdminInviteService({ pepper: "test", repository: createRepository() });
+  const requestId = "35d7c9b9-5eb1-4b09-813c-c25c191af3f8";
+  const input = { entries: [{ durationDays: 7 as const, count: 1 }], claimDays: 7 };
+  assert.equal(
+    (await service.createBatch(input, "admin@example.test", now, { requestId, sourceIp: null }))
+      .batch.batchId,
+    requestId,
+  );
+  await assert.rejects(
+    service.createBatch(input, "admin@example.test", now, { requestId: "invalid", sourceIp: null }),
+    /UUID/,
+  );
+});
+
 function createRepository(overrides: Partial<AdminInviteRepository> = {}): AdminInviteRepository {
   return {
     createBatch: async () => undefined,

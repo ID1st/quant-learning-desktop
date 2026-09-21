@@ -57,9 +57,14 @@ test(
         });
         assert.deepEqual(
           first.applied.map((migration) => migration.version),
-          [1, 2],
+          [1, 2, 3],
         );
         assert.deepEqual(repeated.applied, []);
+        const adminTables = await client.query(
+          "SELECT to_regclass('admin_accounts') AS users, to_regclass('admin_sessions') AS sessions",
+        );
+        assert.ok(adminTables.rows[0].users);
+        assert.ok(adminTables.rows[0].sessions);
         const columns = await client.query<{ column_name: string }>(
           `SELECT column_name
            FROM information_schema.columns
@@ -92,7 +97,7 @@ test(
         });
         assert.deepEqual(
           result.applied.map((migration) => migration.version),
-          [1, 2],
+          [1, 2, 3],
         );
       });
 

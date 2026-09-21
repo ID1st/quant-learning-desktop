@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { InviteBatchConflictError } from "../services/inviteBatchService.ts";
 
 import type {
   CreateInviteBatchRecord,
@@ -45,7 +46,7 @@ export class PgInviteBatchRepository implements InviteBatchRepository {
 
   public async createBatch(input: CreateInviteBatchRecord): Promise<void> {
     await withTransaction(this.pool, async (client) => {
-      await client.query(
+      const inserted = await client.query(
         `
           INSERT INTO invite_batches (
             id,
@@ -55,9 +56,13 @@ export class PgInviteBatchRepository implements InviteBatchRepository {
             created_at
           )
           VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (id) DO NOTHING
+          RETURNING id
         `,
         [input.batchId, input.claimExpiresAt, input.codes.length, input.createdBy, input.createdAt],
       );
+
+      if (inserted.rowCount === 0) throw new InviteBatchConflictError();
 
       await client.query(
         `
@@ -83,6 +88,17 @@ export class PgInviteBatchRepository implements InviteBatchRepository {
           input.createdAt,
         ],
       );
+      if (input.auditSourceIp !== undefined) {
+        await recordInviteAudit(
+          client,
+          "ADMIN_INVITE_BATCH_CREATED",
+          input.createdBy,
+          input.auditSourceIp,
+          input.batchId,
+          input.codes.length,
+          input.createdAt,
+        );
+      }
     });
   }
 
@@ -221,7 +237,11 @@ export class PgInviteBatchRepository implements InviteBatchRepository {
     };
   }
 
-  public async revokeBatch(batchId: string, now: Date): Promise<InviteBatchStatus | null> {
+  public async revokeBatch(
+    batchId: string,
+    now: Date,
+    audit?: { email: string; sourceIp: string | null },
+  ): Promise<InviteBatchStatus | null> {
     await withTransaction(this.pool, async (client) => {
       const batchResult = await client.query(
         `
@@ -243,8 +263,38 @@ export class PgInviteBatchRepository implements InviteBatchRepository {
         `,
         [batchId, now],
       );
+      if (audit) {
+        const batch = await client.query<{ total_count: number }>(
+          "SELECT total_count FROM invite_batches WHERE id = $1",
+          [batchId],
+        );
+        await recordInviteAudit(
+          client,
+          "ADMIN_INVITE_BATCH_REVOKED",
+          audit.email,
+          audit.sourceIp,
+          batchId,
+          batch.rows[0]!.total_count,
+          now,
+        );
+      }
     });
 
     return this.inspectBatch(batchId);
   }
+}
+
+async function recordInviteAudit(
+  client: PoolClient,
+  eventType: string,
+  email: string,
+  sourceIp: string | null,
+  batchId: string,
+  totalCount: number,
+  now: Date,
+) {
+  await client.query(
+    "INSERT INTO auth_audit_events (email, event_type, source_ip, metadata, created_at) VALUES ($1, $2, $3, $4::jsonb, $5)",
+    [email, eventType, sourceIp, JSON.stringify({ batchId, totalCount }), now],
+  );
 }

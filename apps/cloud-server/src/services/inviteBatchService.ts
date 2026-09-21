@@ -21,6 +21,13 @@ export interface CreateInviteBatchRecord {
   codes: PersistedInviteCode[];
   createdAt: Date;
   createdBy: string;
+  auditSourceIp?: string | null;
+}
+
+export class InviteBatchConflictError extends Error {
+  constructor() {
+    super("This request already created a batch. Check batch history before creating another.");
+  }
 }
 
 export interface InviteBatchRepository {

@@ -1,6 +1,7 @@
 export interface CloudAuthConfig {
   host: string;
   port: number;
+  trustedProxies?: string;
   databaseUrl: string;
   inviteCodePepper: string;
   tokenPepper: string;
@@ -55,6 +56,7 @@ export function loadCloudAuthConfig(environment: NodeJS.ProcessEnv = process.env
   return {
     host: environment.AUTH_HOST?.trim() || "127.0.0.1",
     port: parsePort(environment.AUTH_PORT, 8787, "AUTH_PORT"),
+    trustedProxies: environment.AUTH_TRUSTED_PROXIES?.trim() || "loopback",
     databaseUrl: requireEnvironmentValue(environment, "DATABASE_URL"),
     inviteCodePepper: requireEnvironmentValue(environment, "AUTH_INVITE_CODE_PEPPER", 32),
     tokenPepper: requireEnvironmentValue(environment, "AUTH_TOKEN_PEPPER", 32),

@@ -36,6 +36,54 @@ function createPool(query: (sql?: string, values?: unknown[]) => Promise<unknown
   } as unknown as Pool;
 }
 
+test("invalid body errors preserve safe client error statuses", async () => {
+  const server = await buildAuthServer(
+    createConfig(),
+    createPool(async () => ({ rows: [] })),
+  );
+  try {
+    for (const [payload, contentType, status] of [
+      ["x".repeat(17000), "application/json", 413],
+      ["x", "application/x-unsupported", 415],
+      ["{", "application/json", 400],
+      ["", "application/json", 400],
+    ] as const) {
+      const response = await server.inject({
+        method: "POST",
+        url: "/v1/auth/sessions",
+        headers: { "content-type": contentType },
+        payload,
+      });
+      assert.equal(response.statusCode, status);
+      assert.doesNotMatch(response.body, /stack|FST_ERR|postgres/i);
+    }
+  } finally {
+    await server.close();
+  }
+});
+
+test("only configured proxy peers can supply the client address", async () => {
+  const server = await buildAuthServer(
+    createConfig(),
+    createPool(async () => ({ rows: [] })),
+  );
+  server.get("/test-peer", (request) => ({ ip: request.ip }));
+  try {
+    const headers = { "x-forwarded-for": "203.0.113.77" };
+    assert.equal(
+      (await server.inject({ url: "/test-peer", remoteAddress: "198.51.100.1", headers })).json()
+        .ip,
+      "198.51.100.1",
+    );
+    assert.equal(
+      (await server.inject({ url: "/test-peer", remoteAddress: "127.0.0.1", headers })).json().ip,
+      "203.0.113.77",
+    );
+  } finally {
+    await server.close();
+  }
+});
+
 test("liveness does not depend on PostgreSQL", async () => {
   let queryCount = 0;
   const server = await buildAuthServer(

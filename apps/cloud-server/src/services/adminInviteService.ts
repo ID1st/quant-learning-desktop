@@ -15,7 +15,11 @@ export interface AdminInviteRepository {
     page: number;
     pageSize: number;
   }): Promise<{ items: InviteBatchStatus[]; totalItems: number }>;
-  revokeBatch(batchId: string, now: Date): Promise<InviteBatchStatus | null>;
+  revokeBatch(
+    batchId: string,
+    now: Date,
+    audit?: { email: string; sourceIp: string | null },
+  ): Promise<InviteBatchStatus | null>;
 }
 
 export interface AdminInviteBatchInput {
@@ -80,6 +84,7 @@ export class AdminInviteService {
     input: AdminInviteBatchInput,
     createdBy: string,
     now: Date,
+    context: { sourceIp: string | null; requestId?: string } = { sourceIp: null },
   ): Promise<{
     batch: InviteBatchStatus;
     codes: Array<{
@@ -89,7 +94,15 @@ export class AdminInviteService {
     }>;
   }> {
     const totalCount = validateBatchInput(input);
-    const batchId = randomUUID();
+    if (
+      context.requestId !== undefined &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        context.requestId,
+      )
+    ) {
+      throw new AdminInviteError("idempotency key must be a UUID v4", 400);
+    }
+    const batchId = context.requestId ?? randomUUID();
     const claimExpiresAt = new Date(now.getTime() + input.claimDays * 24 * 60 * 60 * 1_000);
     const codes = input.entries.flatMap((entry) =>
       Array.from({ length: entry.count }, () => ({
@@ -103,6 +116,7 @@ export class AdminInviteService {
       claimExpiresAt,
       createdAt: now,
       createdBy,
+      auditSourceIp: context.sourceIp,
       codes: codes.map((code) => ({
         codeDigest: digestInviteCode(normalizeInviteCode(code.inviteCode), this.pepper),
         durationDays: code.durationDays,
@@ -139,8 +153,12 @@ export class AdminInviteService {
     return this.repository.listBatches({ page, pageSize });
   }
 
-  public async revokeBatch(batchId: string, now: Date): Promise<InviteBatchStatus> {
-    const result = await this.repository.revokeBatch(batchId, now);
+  public async revokeBatch(
+    batchId: string,
+    now: Date,
+    audit?: { email: string; sourceIp: string | null },
+  ): Promise<InviteBatchStatus> {
+    const result = await this.repository.revokeBatch(batchId, now, audit);
     if (!result) {
       throw new AdminInviteError("invite batch was not found", 404);
     }

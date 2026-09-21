@@ -87,12 +87,16 @@ export const adminApi = {
   logout() {
     return request<{ loggedOut: boolean }>("/session", { method: "DELETE" });
   },
-  createBatch(input: {
-    claimDays: number;
-    entries: Array<{ durationDays: DurationTier; count: number }>;
-  }) {
+  createBatch(
+    input: {
+      claimDays: number;
+      entries: Array<{ durationDays: DurationTier; count: number }>;
+    },
+    requestId: string = crypto.randomUUID(),
+  ) {
     return request<{ batch: InviteBatch; codes: InviteCodeResult[] }>("/invite-batches", {
       method: "POST",
+      headers: { "idempotency-key": requestId },
       body: JSON.stringify(input),
     });
   },
