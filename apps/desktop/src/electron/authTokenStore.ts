@@ -8,7 +8,7 @@ export interface AuthEncryptedPersistence {
 }
 
 export interface AuthTokenCrypto {
-  isEncryptionAvailable(): boolean;
+  isEncryptionAvailable(): boolean | Promise<boolean>;
   encrypt(plaintext: string): Promise<string>;
   decrypt(ciphertext: string): Promise<string>;
 }
@@ -64,16 +64,16 @@ export function createAuthTokenStore(
   let accessToken: string | null = null;
   const restoreTimeoutMilliseconds = options.restoreTimeoutMilliseconds ?? 5_000;
 
-  const decryptWithDeadline = async (ciphertext: string) => {
+  const withDeadline = async <T>(operation: () => Promise<T>) => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_resolve, reject) => {
       timeoutId = setTimeout(
-        () => reject(new Error("secure authentication restore timed out")),
+        () => reject(new Error("secure authentication operation timed out")),
         restoreTimeoutMilliseconds,
       );
     });
     try {
-      return await Promise.race([crypto.decrypt(ciphertext), timeout]);
+      return await Promise.race([operation(), timeout]);
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
     }
@@ -81,16 +81,18 @@ export function createAuthTokenStore(
 
   return {
     save: async (material) => {
-      if (!crypto.isEncryptionAvailable()) {
-        throw new Error("Secure token encryption is unavailable");
-      }
       const persisted: PersistedAuthTokenMaterial = {
         refreshToken: material.refreshToken,
         offlineLease: material.offlineLease,
         deviceId: material.deviceId,
         lastServerTime: material.lastServerTime,
       };
-      const encryptedPayload = await crypto.encrypt(JSON.stringify(persisted));
+      const encryptedPayload = await withDeadline(async () => {
+        if (!(await crypto.isEncryptionAvailable())) {
+          throw new Error("Secure token encryption is unavailable");
+        }
+        return crypto.encrypt(JSON.stringify(persisted));
+      });
       const envelope: PersistedEnvelope = {
         version: 1,
         encryptedPayload,
@@ -108,7 +110,7 @@ export function createAuthTokenStore(
         if (envelope.version !== 1 || typeof envelope.encryptedPayload !== "string") {
           throw new Error("stored authentication envelope is invalid");
         }
-        const plaintext = await decryptWithDeadline(envelope.encryptedPayload);
+        const plaintext = await withDeadline(() => crypto.decrypt(envelope.encryptedPayload!));
         const material: unknown = JSON.parse(plaintext);
         if (!isPersistedMaterial(material)) {
           throw new Error("stored authentication material is invalid");

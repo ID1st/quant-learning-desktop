@@ -6,22 +6,25 @@ import { createCloudAuthClient } from "../../../../packages/api-client/src/auth.
 
 import { resolveAuthBaseUrl } from "./authRuntimeConfig.ts";
 import { createAuthSessionManager } from "./authSessionManager.ts";
-import { createAuthTokenStore, createFileAuthPersistence } from "./authTokenStore.ts";
+import {
+  createAuthTokenStore,
+  createFileAuthPersistence,
+  type AuthTokenCrypto,
+} from "./authTokenStore.ts";
+import { createAsyncAuthCrypto } from "./asyncAuthCrypto.ts";
 import { readOrCreateDeviceId } from "./deviceIdentity.ts";
 
 declare const __QUANT_AUTH_BASE_URL__: string;
 declare const __QUANT_AUTH_OFFLINE_PUBLIC_KEY_PEM__: string;
 
-export async function createMainAuthSessionManager() {
+export async function createMainAuthSessionManager(
+  options: { tokenCrypto?: AuthTokenCrypto } = {},
+) {
   const userDataDirectory = app.getPath("userData");
   const deviceId = await readOrCreateDeviceId(join(userDataDirectory, "auth-device.json"));
   const tokenStore = createAuthTokenStore(
     createFileAuthPersistence(join(userDataDirectory, "auth-session.enc")),
-    {
-      isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
-      encrypt: async (plaintext) => safeStorage.encryptString(plaintext).toString("base64"),
-      decrypt: async (ciphertext) => safeStorage.decryptString(Buffer.from(ciphertext, "base64")),
-    },
+    options.tokenCrypto ?? createAsyncAuthCrypto(safeStorage),
   );
   const baseUrl = resolveAuthBaseUrl(__QUANT_AUTH_BASE_URL__, app.isPackaged);
   const offlinePublicKeyPem =
