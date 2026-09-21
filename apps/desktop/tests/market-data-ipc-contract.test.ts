@@ -322,6 +322,36 @@ test("market data IPC handlers expose provider status from secure main-side prov
   assert.equal(result.data.capabilities.length, 4);
 });
 
+test("market data provider creation reads macOS secure credentials sequentially", async () => {
+  let activeReads = 0;
+  let maximumConcurrentReads = 0;
+  const trackRead = async <T>(value: T) => {
+    activeReads += 1;
+    maximumConcurrentReads = Math.max(maximumConcurrentReads, activeReads);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    activeReads -= 1;
+    return value;
+  };
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: {
+      ...createEmptyCredentialStore(),
+      readAlphaFeedCredentials: () =>
+        trackRead({ apiUrl: "https://alpha.example.test", apiKey: "alpha-test-key" }),
+      readLongPortCredentials: () =>
+        trackRead({
+          apiUrl: "https://longbridge.example.test",
+          appKey: "long-app-key",
+          appSecret: "long-app-secret",
+          accessToken: "long-access-token",
+        }),
+    },
+  });
+
+  await handlers.getProviderStatus({ source: "diagnostics" });
+
+  assert.equal(maximumConcurrentReads, 1);
+});
+
 test("market data IPC handlers fetch quote snapshots through stock sdk primary without renderer credentials", async () => {
   const handlers = createMarketDataIpcHandlers({
     credentialStore: createEmptyCredentialStore(),

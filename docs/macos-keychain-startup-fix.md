@@ -1,4 +1,4 @@
-# macOS Keychain 启动、登录、工作区与行情凭据修复（0.1.13）
+# macOS Keychain 启动、登录、工作区与行情凭据修复（0.1.14）
 
 ## 根因与证据
 
@@ -31,6 +31,8 @@ Windows 上已验证 Electron 真实异步加解密与旧同步密文兼容性�
 0.1.12 修复登录后加载工作区时的第二条同步 Keychain 路径。行情凭据存储原先仍通过 `safeStorage.decryptString()` 在 Electron 主线程读取 AlphaFeed、AlphaFeed Stream 和 LongBridge 密文；macOS Security.framework 阻塞时，窗口停在“正在加载工作区”并失去输入响应。该存储现在复用原生异步安全存储适配器，所有加解密都有 5 秒期限。读取失败时只把对应行情源视为本次运行未配置，不删除密文，也不阻止工作区使用 Stock SDK、腾讯财经或其他可用数据源；同一故障密文在本次运行中不会反复触发 Keychain。
 
 0.1.13 修复 AlphaFeed 和长桥凭据保存时的 Keychain 写入超时。macOS 安全存储在 5 秒内没有返回时，已完成验证的凭据只保留在 Electron 主进程内存中并立即启用，重启后需要重新输入。界面会明确显示这一状态，脱敏绑定摘要也不会在此模式下写入普通本地数据库。Windows 和 Keychain 正常的 Mac 仍使用系统加密存储；任何平台都不会把原始密钥以明文写入磁盘。
+
+0.1.14 修复备用行情源已经配置却被分时请求跳过的问题。长桥原先虽然声明支持分时，但能力周期只包含 `realtime`、`1d` 和 `1w`，图表发出的 `1m` 请求会在调用前被过滤，随后直接降级到 Yahoo Finance；现在长桥支持的 `1m/5m/15m/30m/1h` 周期均进入能力表。AlphaFeed 和长桥凭据不再并发访问 macOS Keychain，成功解密或保存后会在当前主进程内复用，避免每次行情请求重复解密和两路 Keychain 竞争。
 
 [0.1.13 GitHub 打包与验证记录](https://github.com/ID1st/quant-learning-desktop/actions/runs/35588729126)。修复与安装包代码提交为 `6b199e8`。
 

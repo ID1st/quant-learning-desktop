@@ -44,8 +44,8 @@ test("macOS packaging runs each architecture on a matching GitHub runner", () =>
   assert.match(macPackageWorkflow, /package:internal:mac:\$\{\{ matrix\.arch \}\}/u);
 });
 
-test("internal packaging creates three 0.1.13 installers with runnable ad-hoc macOS apps", () => {
-  assert.equal(desktopPackage.version, "0.1.13");
+test("internal packaging creates three 0.1.14 installers with runnable ad-hoc macOS apps", () => {
+  assert.equal(desktopPackage.version, "0.1.14");
   assert.equal(
     desktopPackage.scripts["package:internal:win:x64"],
     "node ../../scripts/package-desktop.mjs --internal --win nsis --x64 --publish never",

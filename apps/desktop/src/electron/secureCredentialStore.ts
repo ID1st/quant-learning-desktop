@@ -186,7 +186,7 @@ export function createSecureCredentialStore(
           ),
         ),
       );
-      memoryCredentials.delete(key);
+      memoryCredentials.set(key, credentials);
       unavailableCredentialKeys.delete(key);
       return { persistence: "secure" };
     } catch (error) {
@@ -200,7 +200,7 @@ export function createSecureCredentialStore(
     }
   };
 
-  const readCredentials = async <T>(
+  const readCredentials = async <T extends object>(
     key: string,
     provider: SecureCredentialProvider,
     sanitize: (value: unknown) => T | null,
@@ -220,9 +220,13 @@ export function createSecureCredentialStore(
     }
 
     try {
-      return sanitize(
+      const credentials = sanitize(
         JSON.parse(await withDeadline(() => crypto.decrypt(envelope.encryptedPayload))),
       );
+      if (credentials) {
+        memoryCredentials.set(key, credentials);
+      }
+      return credentials;
     } catch {
       unavailableCredentialKeys.add(key);
       return null;

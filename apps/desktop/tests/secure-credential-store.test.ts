@@ -288,3 +288,37 @@ test("secure credential saves report durable system storage", async () => {
     { persistence: "secure" },
   );
 });
+
+test("successfully decrypted credentials are reused for the rest of the process", async () => {
+  const store = createMemoryPersistenceStore();
+  const crypto = createTestCrypto();
+  const encryptedPayload = await crypto.encrypt(
+    JSON.stringify({ apiUrl: "https://api.alphafeed.org", apiKey: "cached-alpha-secret" }),
+  );
+  store.setItem(
+    "secure-credentials.alphafeed",
+    JSON.stringify({
+      version: 1,
+      provider: "alphafeed",
+      encryptedPayload,
+      updatedAt: "2026-09-21T00:00:00.000Z",
+      activatedAt: "2026-09-21T00:00:00.000Z",
+    }),
+  );
+  let decryptCalls = 0;
+  const secureStore = createSecureCredentialStore(
+    store,
+    createTestCrypto({
+      decrypt: async (value) => {
+        decryptCalls += 1;
+        const rawValue = Buffer.from(value, "base64").toString("utf8");
+        return rawValue.slice("sealed:".length);
+      },
+    }),
+  );
+
+  await secureStore.readAlphaFeedCredentials();
+  await secureStore.readAlphaFeedCredentials();
+
+  assert.equal(decryptCalls, 1);
+});

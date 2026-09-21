@@ -391,10 +391,11 @@ async function createMarketDataProviders(
     );
   }
 
-  const [alphaFeedCredentials, longPortCredentials] = await Promise.all([
-    dependencies.credentialStore.readAlphaFeedCredentials(),
-    dependencies.credentialStore.readLongPortCredentials(),
-  ]);
+  // macOS Keychain operations share system state and can block one another.
+  // Read the two encrypted providers in a stable order instead of decrypting
+  // them concurrently on every status or market-data request.
+  const alphaFeedCredentials = await dependencies.credentialStore.readAlphaFeedCredentials();
+  const longPortCredentials = await dependencies.credentialStore.readLongPortCredentials();
   if (alphaFeedCredentials) {
     providers.push(
       createAlphaFeedRestGatewayProvider({

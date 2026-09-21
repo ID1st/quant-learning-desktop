@@ -18,9 +18,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view codex-internal-v0.1.13 >/dev/null 2>&1 || \
-            gh release create codex-internal-v0.1.13 --draft --target "$GITHUB_SHA" \
-              --title "Desktop 0.1.13 internal" --notes "macOS provider credentials fall back to memory for the current session when Keychain writes time out. Secrets are never written to plaintext storage."
+          gh release view codex-internal-v0.1.14 >/dev/null 2>&1 || \
+            gh release create codex-internal-v0.1.14 --draft --target "$GITHUB_SHA" \
+              --title "Desktop 0.1.14 internal" --notes "LongBridge one-minute data now participates before Yahoo fallback; macOS credential decryptions are serialized and cached for the current process."
 
   package-macos:
     needs: prepare-release
@@ -117,7 +117,7 @@ jobs:
       - name: Upload quant-learning-desktop-mac-${{ matrix.arch }} to draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.13 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
+        run: gh release upload codex-internal-v0.1.14 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
 
   package-windows:
     needs: prepare-release
@@ -152,4 +152,4 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.13 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.13-win-x64.exe" --clobber
+        run: gh release upload codex-internal-v0.1.14 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.14-win-x64.exe" --clobber

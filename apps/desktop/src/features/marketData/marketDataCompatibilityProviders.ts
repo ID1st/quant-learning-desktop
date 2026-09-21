@@ -119,7 +119,6 @@ const quoteAndBarTimeframes: readonly Timeframe[] = [
   "1d",
   "1w",
 ];
-const visibleChartTimeframes: readonly Timeframe[] = ["realtime", "1d", "1w"];
 
 const alphaFeedRestCapability: MarketDataProviderCapability = {
   realtimeQuote: true,
@@ -155,7 +154,7 @@ const longBridgeCapability: MarketDataProviderCapability = {
   websocket: false,
   batchQuote: true,
   markets: allMarkets,
-  timeframes: visibleChartTimeframes,
+  timeframes: quoteAndBarTimeframes,
   delayLevel: "delayed",
 };
 
