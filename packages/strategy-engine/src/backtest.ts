@@ -98,7 +98,9 @@ function isTradableBar(bar: Bar) {
     bar.high > 0 &&
     bar.low > 0 &&
     bar.close > 0 &&
-    bar.volume >= 0
+    bar.volume >= 0 &&
+    bar.high >= Math.max(bar.open, bar.close, bar.low) &&
+    bar.low <= Math.min(bar.open, bar.close)
   );
 }
 
@@ -156,6 +158,11 @@ export function runStrategyBacktest(request: StrategyBacktestRequest): BacktestR
     .filter(hasFiniteBarFields)
     .sort((left, right) => left.timestamp - right.timestamp);
   const warnings: string[] = [];
+  if (bars.some((bar, index) => index > 0 && bar.timestamp === bars[index - 1].timestamp)) {
+    throw new Error(
+      "Backtest bars contain duplicate timestamps; resolve conflicting data before running.",
+    );
+  }
 
   if (bars.filter(isTradableBar).length < 2) {
     return createEmptyResult(

@@ -1,11 +1,49 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, renameSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   createDesktopBridgeFromPersistenceStore,
   createJsonFilePersistenceStore,
   createMemoryPersistenceStore,
+  createNodeJsonFilePersistenceDriver,
   type JsonFilePersistenceDriver,
 } from "../src/electron/localPersistence.ts";
+
+test("atomic file writes preserve old data when writing or replacement fails", () => {
+  const directory = mkdtempSync(join(tmpdir(), "quant-persistence-"));
+  const path = join(directory, "credentials.json");
+  try {
+    const driver = createNodeJsonFilePersistenceDriver(path);
+    driver.writeText("old");
+    for (const operations of [
+      {
+        writeFileSync: (() => {
+          throw new Error("disk full");
+        }) as typeof writeFileSync,
+        renameSync,
+      },
+      {
+        writeFileSync,
+        renameSync: (() => {
+          throw new Error("replace failed");
+        }) as typeof renameSync,
+      },
+    ]) {
+      assert.throws(() => createNodeJsonFilePersistenceDriver(path, operations).writeText("new"));
+      assert.equal(readFileSync(path, "utf8"), "old");
+      assert.deepEqual(readdirSync(directory), ["credentials.json"]);
+    }
+    driver.writeText("new");
+    assert.equal(driver.readText(), "new");
+    driver.remove();
+    assert.equal(driver.readText(), null);
+    driver.remove();
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 function createMemoryJsonDriver(
   initialValue: string | null = null,
@@ -45,14 +83,24 @@ test("JSON file persistence store removes the backing file when empty", () => {
   assert.equal(driver.currentValue(), null);
 });
 
-test("JSON file persistence store ignores malformed stored JSON", () => {
+test("JSON file persistence store preserves malformed stored JSON", () => {
   const driver = createMemoryJsonDriver("{bad json");
   const store = createJsonFilePersistenceStore(driver);
 
-  assert.equal(store.getItem("quant-learning.sample"), null);
+  assert.throws(() => store.getItem("quant-learning.sample"), /损坏/);
+  assert.throws(() => store.setItem("quant-learning.sample", "alpha"), /损坏/);
+  assert.equal(driver.currentValue(), "{bad json");
+});
 
-  store.setItem("quant-learning.sample", "alpha");
-  assert.equal(store.getItem("quant-learning.sample"), "alpha");
+test("missing inherited keys return null and malformed record shapes cannot be replaced", () => {
+  const store = createJsonFilePersistenceStore(createMemoryJsonDriver());
+  assert.equal(store.getItem("toString"), null);
+  assert.equal(store.getItem("__proto__"), null);
+  for (const value of ["[]", "null", "42", '{"key":42}']) {
+    const driver = createMemoryJsonDriver(value);
+    assert.throws(() => createJsonFilePersistenceStore(driver).setItem("new", "value"), /损坏/);
+    assert.equal(driver.currentValue(), value);
+  }
 });
 
 test("local persistence rejects unsafe keys and oversized values", () => {
