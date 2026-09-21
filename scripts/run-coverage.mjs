@@ -1,6 +1,8 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { resolve, relative, matchesGlob } from "node:path";
+import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 
 const root = resolve(import.meta.dirname, "..");
 const requestedDomains = new Set(process.argv.slice(2));
@@ -141,10 +143,43 @@ for (const domain of selectedDomains) {
   console.info(
     `Coverage ${domain.id}: lines ${domain.thresholds.lines}%, branches ${domain.thresholds.branches}%${functionThreshold}`,
   );
+  const rawCoverage = mkdtempSync(resolve(tmpdir(), "quant-coverage-"));
   const result = spawnSync(process.execPath, coverageArguments, {
     cwd: root,
     stdio: "inherit",
+    env: { ...process.env, NODE_V8_COVERAGE: rawCoverage },
   });
+  try {
+    const loaded = new Set(
+      readdirSync(rawCoverage)
+        .filter((name) => name.endsWith(".json"))
+        .flatMap((name) =>
+          JSON.parse(readFileSync(resolve(rawCoverage, name), "utf8"))
+            .result.filter((entry) => entry.url.startsWith("file:"))
+            .map((entry) => relative(root, fileURLToPath(entry.url)).replaceAll("\\", "/")),
+        ),
+    );
+    const sourceRoot = domain.testDirectory.replace(/\/tests$/u, "/src");
+    const sourceFiles = readdirSync(resolve(root, sourceRoot), { recursive: true })
+      .map((name) => `${sourceRoot}/${String(name).replaceAll("\\", "/")}`)
+      .filter((name) => domain.include.some((pattern) => matchesGlob(name, pattern)));
+    mkdirSync(resolve(root, "coverage"), { recursive: true });
+    const inventory = {
+      domain: domain.id,
+      note: "Thresholds apply to loaded modules; unloaded files are explicitly listed and are not claimed as covered.",
+      loaded: sourceFiles.filter((name) => loaded.has(name)),
+      unloaded: sourceFiles.filter((name) => !loaded.has(name)),
+    };
+    writeFileSync(
+      resolve(root, `coverage/${domain.id}-inventory.json`),
+      JSON.stringify(inventory, null, 2),
+    );
+    console.info(
+      `Source inventory ${domain.id}: ${inventory.loaded.length} loaded, ${inventory.unloaded.length} unloaded (coverage/${domain.id}-inventory.json).`,
+    );
+  } finally {
+    rmSync(rawCoverage, { recursive: true, force: true });
+  }
   if (result.error) {
     throw result.error;
   }

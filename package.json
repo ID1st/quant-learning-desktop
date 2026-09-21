@@ -44,7 +44,7 @@
     "auth:invite:batch-verify": "npm run auth:invite:batch-verify -w @quant/cloud-server --",
     "auth:admin:provision": "npm run auth:admin:provision -w @quant/cloud-server --",
     "ops:cloud:audit": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/codex-cloud-audit.ps1",
-    "quality": "npm run lint && npm run format:check && npm run typecheck && npm run coverage",
+    "quality": "npm run lint && npm run format:check && npm run typecheck && npm run test:admin-web && npm run test:release && npm run check:market-calendar && npm run coverage",
     "check": "npm run quality && npm run build:admin-web && npm run build:cloud && npm run build && npm run build:electron -w @quant/desktop",
     "clean": "node scripts/clean.mjs"
   },
