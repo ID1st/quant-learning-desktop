@@ -14,14 +14,24 @@ export interface SecureCredentialCrypto {
   isEncryptionAvailable(): Promise<boolean>;
 }
 
+export type SecureCredentialPersistence = "secure" | "memory";
+
+export interface SecureCredentialSaveResult {
+  persistence: SecureCredentialPersistence;
+}
+
 export interface SecureCredentialStore {
-  saveAlphaFeedCredentials(credentials: AlphaFeedApiCredentials): Promise<void>;
+  saveAlphaFeedCredentials(
+    credentials: AlphaFeedApiCredentials,
+  ): Promise<SecureCredentialSaveResult>;
   readAlphaFeedCredentials(): Promise<AlphaFeedApiCredentials | null>;
   clearAlphaFeedCredentials(): void;
-  saveAlphaFeedStreamCredentials(credentials: AlphaFeedStreamCredentials): Promise<void>;
+  saveAlphaFeedStreamCredentials(
+    credentials: AlphaFeedStreamCredentials,
+  ): Promise<SecureCredentialSaveResult>;
   readAlphaFeedStreamCredentials(): Promise<AlphaFeedStreamCredentials | null>;
   clearAlphaFeedStreamCredentials(): void;
-  saveLongPortCredentials(credentials: LongPortApiCredentials): Promise<void>;
+  saveLongPortCredentials(credentials: LongPortApiCredentials): Promise<SecureCredentialSaveResult>;
   readLongPortCredentials(): Promise<LongPortApiCredentials | null>;
   clearLongPortCredentials(): void;
 }
@@ -132,10 +142,11 @@ function createEnvelope(
 export function createSecureCredentialStore(
   store: LocalPersistenceStore,
   crypto: SecureCredentialCrypto,
-  options: { operationTimeoutMilliseconds?: number } = {},
+  options: { operationTimeoutMilliseconds?: number; allowMemoryFallback?: boolean } = {},
 ): SecureCredentialStore {
   const operationTimeoutMilliseconds = options.operationTimeoutMilliseconds ?? 5_000;
   const unavailableCredentialKeys = new Set<string>();
+  const memoryCredentials = new Map<string, object>();
   const withDeadline = async <T>(operation: () => Promise<T>) => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_resolve, reject) => {
@@ -156,19 +167,37 @@ export function createSecureCredentialStore(
     provider: SecureCredentialProvider,
     credentials: object,
     activate = false,
-  ) => {
-    if (!(await withDeadline(() => crypto.isEncryptionAvailable()))) {
-      throw new Error("当前系统不支持安全凭据加密。");
-    }
+  ): Promise<SecureCredentialSaveResult> => {
+    try {
+      if (!(await withDeadline(() => crypto.isEncryptionAvailable()))) {
+        throw new Error("当前系统不支持安全凭据加密。");
+      }
 
-    const encryptedPayload = await withDeadline(() => crypto.encrypt(JSON.stringify(credentials)));
-    store.setItem(
-      key,
-      JSON.stringify(
-        createEnvelope(provider, encryptedPayload, activate ? new Date().toISOString() : undefined),
-      ),
-    );
-    unavailableCredentialKeys.delete(key);
+      const encryptedPayload = await withDeadline(() =>
+        crypto.encrypt(JSON.stringify(credentials)),
+      );
+      store.setItem(
+        key,
+        JSON.stringify(
+          createEnvelope(
+            provider,
+            encryptedPayload,
+            activate ? new Date().toISOString() : undefined,
+          ),
+        ),
+      );
+      memoryCredentials.delete(key);
+      unavailableCredentialKeys.delete(key);
+      return { persistence: "secure" };
+    } catch (error) {
+      if (!options.allowMemoryFallback) {
+        throw error;
+      }
+
+      memoryCredentials.set(key, credentials);
+      unavailableCredentialKeys.add(key);
+      return { persistence: "memory" };
+    }
   };
 
   const readCredentials = async <T>(
@@ -177,6 +206,10 @@ export function createSecureCredentialStore(
     sanitize: (value: unknown) => T | null,
     requireActivation = false,
   ): Promise<T | null> => {
+    const memoryValue = memoryCredentials.get(key);
+    if (memoryValue) {
+      return sanitize(memoryValue);
+    }
     if (unavailableCredentialKeys.has(key)) {
       return null;
     }
@@ -205,11 +238,12 @@ export function createSecureCredentialStore(
 
       // AlphaFeed REST is opt-in. Legacy encrypted entries without this marker
       // remain inert until the user explicitly fills and verifies the current form.
-      await saveCredentials(ALPHAFEED_CREDENTIAL_KEY, "alphafeed", sanitized, true);
+      return saveCredentials(ALPHAFEED_CREDENTIAL_KEY, "alphafeed", sanitized, true);
     },
     readAlphaFeedCredentials: () =>
       readCredentials(ALPHAFEED_CREDENTIAL_KEY, "alphafeed", sanitizeAlphaFeedCredentials, true),
     clearAlphaFeedCredentials: () => {
+      memoryCredentials.delete(ALPHAFEED_CREDENTIAL_KEY);
       unavailableCredentialKeys.delete(ALPHAFEED_CREDENTIAL_KEY);
       store.removeItem(ALPHAFEED_CREDENTIAL_KEY);
     },
@@ -219,7 +253,7 @@ export function createSecureCredentialStore(
         throw new Error("AlphaFeed WebSocket 凭据不完整。");
       }
 
-      await saveCredentials(ALPHAFEED_STREAM_CREDENTIAL_KEY, "alphafeed-stream", sanitized);
+      return saveCredentials(ALPHAFEED_STREAM_CREDENTIAL_KEY, "alphafeed-stream", sanitized);
     },
     readAlphaFeedStreamCredentials: () =>
       readCredentials(
@@ -228,6 +262,7 @@ export function createSecureCredentialStore(
         sanitizeAlphaFeedStreamCredentials,
       ),
     clearAlphaFeedStreamCredentials: () => {
+      memoryCredentials.delete(ALPHAFEED_STREAM_CREDENTIAL_KEY);
       unavailableCredentialKeys.delete(ALPHAFEED_STREAM_CREDENTIAL_KEY);
       store.removeItem(ALPHAFEED_STREAM_CREDENTIAL_KEY);
     },
@@ -239,11 +274,12 @@ export function createSecureCredentialStore(
 
       // LongBridge is opt-in. Legacy encrypted entries without this marker stay
       // inert until the user explicitly fills and verifies the current form.
-      await saveCredentials(LONGPORT_CREDENTIAL_KEY, "longport", sanitized, true);
+      return saveCredentials(LONGPORT_CREDENTIAL_KEY, "longport", sanitized, true);
     },
     readLongPortCredentials: () =>
       readCredentials(LONGPORT_CREDENTIAL_KEY, "longport", sanitizeLongPortCredentials, true),
     clearLongPortCredentials: () => {
+      memoryCredentials.delete(LONGPORT_CREDENTIAL_KEY);
       unavailableCredentialKeys.delete(LONGPORT_CREDENTIAL_KEY);
       store.removeItem(LONGPORT_CREDENTIAL_KEY);
     },

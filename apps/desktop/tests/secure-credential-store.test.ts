@@ -236,3 +236,55 @@ test("stalled Keychain credential reads keep the event loop responsive and degra
   assert.equal(await secureStore.readAlphaFeedCredentials(), null);
   assert.equal(decryptCalls, 1);
 });
+
+test("stalled macOS Keychain saves fall back to current-session credentials without writing secrets", async () => {
+  const store = createMemoryPersistenceStore();
+  let heartbeat = false;
+  const secureStore = createSecureCredentialStore(
+    store,
+    createTestCrypto({
+      encrypt: () => new Promise<never>(() => undefined),
+    }),
+    {
+      operationTimeoutMilliseconds: 10,
+      allowMemoryFallback: true,
+    },
+  );
+
+  setTimeout(() => {
+    heartbeat = true;
+  }, 0);
+  const persistence = await secureStore.saveAlphaFeedCredentials({
+    apiUrl: " https://api.alphafeed.org ",
+    apiKey: " alpha-session-secret ",
+  });
+
+  assert.deepEqual(persistence, { persistence: "memory" });
+  assert.equal(heartbeat, true);
+  assert.equal(store.getItem("secure-credentials.alphafeed"), null);
+  assert.deepEqual(await secureStore.readAlphaFeedCredentials(), {
+    apiUrl: "https://api.alphafeed.org",
+    apiKey: "alpha-session-secret",
+  });
+
+  secureStore.clearAlphaFeedCredentials();
+  assert.equal(await secureStore.readAlphaFeedCredentials(), null);
+});
+
+test("secure credential saves report durable system storage", async () => {
+  const secureStore = createSecureCredentialStore(
+    createMemoryPersistenceStore(),
+    createTestCrypto(),
+    { allowMemoryFallback: true },
+  );
+
+  assert.deepEqual(
+    await secureStore.saveLongPortCredentials({
+      apiUrl: "https://openapi.longportapp.com",
+      appKey: "app-key",
+      appSecret: "app-secret",
+      accessToken: "access-token",
+    }),
+    { persistence: "secure" },
+  );
+});

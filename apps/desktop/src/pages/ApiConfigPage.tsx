@@ -257,7 +257,11 @@ export function ApiConfigPage() {
       if (verification.provider === "longbridge") {
         setApiBound(true);
         setStoredLongPortBinding(verification.binding);
-        setStatus("长桥备用源已验证并保存。");
+        setStatus(
+          verification.binding.credentialPersistence === "memory"
+            ? "长桥备用源已验证并在本次运行中启用。macOS 安全存储暂不可用，重启后需要重新输入凭据。"
+            : "长桥备用源已验证并保存。",
+        );
         return;
       }
 
@@ -495,13 +499,18 @@ export function ApiConfigPage() {
       setApiBound(true);
       setStoredAlphaFeedBinding(alphaFeedBinding);
       setStoredLongPortBinding(longPortBinding ?? null);
+      const usesMemoryCredentials =
+        alphaFeedBinding.credentialPersistence === "memory" ||
+        longPortBinding?.credentialPersistence === "memory";
       setStatus(
-        marketDataSyncWarning ||
+        (usesMemoryCredentials
+          ? "备用数据源已验证并在本次运行中启用。macOS 安全存储暂不可用，重启后需要重新输入凭据。"
+          : marketDataSyncWarning) ||
           (canUseLongPortFallback
             ? "备用数据源已绑定：AlphaFeed REST 与长桥均可用。"
             : "备用数据源已绑定：AlphaFeed REST 可用。"),
       );
-      if (!marketDataSyncWarning) {
+      if (!marketDataSyncWarning && !usesMemoryCredentials) {
         window.setTimeout(() => navigate("chart"), 420);
       }
     } catch (nextError) {
@@ -520,9 +529,11 @@ export function ApiConfigPage() {
       const binding = await saveAlphaFeedStreamConfig(alphaFeedStreamForm);
       setStoredAlphaFeedStreamBinding(binding);
       setStreamStatus(
-        binding.mode === "all-symbols"
-          ? "AlphaFeed WebSocket 全标的会员通道已预留。后续行情网关会在可用时优先使用该通道。"
-          : "AlphaFeed WebSocket 关注列表通道已预留。后续行情网关会在可用时优先使用该通道。",
+        binding.credentialPersistence === "memory"
+          ? "AlphaFeed WebSocket 已在本次运行中启用。macOS 安全存储暂不可用，重启后需要重新输入凭据。"
+          : binding.mode === "all-symbols"
+            ? "AlphaFeed WebSocket 全标的会员通道已预留。后续行情网关会在可用时优先使用该通道。"
+            : "AlphaFeed WebSocket 关注列表通道已预留。后续行情网关会在可用时优先使用该通道。",
       );
     } catch (nextError) {
       setStreamError(
@@ -896,6 +907,7 @@ export function ApiConfigPage() {
                     autoComplete="off"
                     onChange={(event) => updateLongPortField("appKey", event.target.value)}
                     placeholder={t("可选，作为备用源")}
+                    type="password"
                     value={longPortForm.appKey}
                   />
                 </div>
@@ -931,7 +943,7 @@ export function ApiConfigPage() {
 
               {storedLongPortBinding && (
                 <CredentialManagement
-                  detail={`API URL：${storedLongPortBinding.apiUrl} · App Key：${storedLongPortBinding.appKeyPreview} · Access Token：${storedLongPortBinding.accessTokenPreview}`}
+                  detail={`${t("API URL")}：${storedLongPortBinding.apiUrl} · ${t("敏感凭据已隐藏")}`}
                   isDeleting={deletingProvider === "longbridge"}
                   onDelete={() => void handleDeleteProvider("longbridge")}
                   onReplace={() => handleReplaceProvider("longbridge")}
@@ -1030,7 +1042,7 @@ export function ApiConfigPage() {
           <div className="binding-summary">
             <span>{t("长桥备用源")}</span>
             <strong>{storedLongPortBinding ? t("已配置") : t("未配置")}</strong>
-            {storedLongPortBinding && <small>App Key：{storedLongPortBinding.appKeyPreview}</small>}
+            {storedLongPortBinding && <small>{t("敏感凭据已隐藏")}</small>}
           </div>
 
           <div className="sync-progress-panel">
@@ -1062,7 +1074,7 @@ export function ApiConfigPage() {
 
           <p className="security-note">
             {t(
-              "API Key、Secret 与 Access Token 只通过桌面安全桥加密保存；普通本地缓存只保存脱敏摘要、供应商状态和行情缓存。",
+              "API Key、Secret 与 Access Token 优先通过桌面安全桥加密保存；macOS 安全存储超时时仅在本次运行的内存中使用，普通本地缓存只保存脱敏摘要、供应商状态和行情缓存。",
             )}
           </p>
         </aside>

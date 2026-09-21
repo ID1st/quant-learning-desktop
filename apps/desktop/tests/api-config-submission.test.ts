@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { verifySelectedBackupProvider } from "../src/features/api/apiConfigSubmissionService.ts";
 
@@ -42,4 +43,15 @@ test("selecting LongBridge verifies LongBridge without requiring AlphaFeed crede
 
   assert.equal(result.provider, "longbridge");
   assert.deepEqual(calls, ["verify-longbridge"]);
+});
+
+test("LongBridge App Key is masked and never rendered in saved credential summaries", () => {
+  const source = readFileSync(new URL("../src/pages/ApiConfigPage.tsx", import.meta.url), "utf8");
+  const appKeyInput = source.match(
+    /onChange=\{\(event\) => updateLongPortField\("appKey", event\.target\.value\)\}[\s\S]{0,200}?value=\{longPortForm\.appKey\}/u,
+  );
+
+  assert.ok(appKeyInput, "LongBridge App Key input must exist");
+  assert.match(appKeyInput[0], /type="password"/u);
+  assert.doesNotMatch(source, /storedLongPortBinding\.appKeyPreview/u);
 });

@@ -17,6 +17,7 @@ export { ALPHAFEED_DEFAULT_API_URL, LONGPORT_DEFAULT_HTTP_URL };
 export type LongPortApiForm = LongPortApiCredentials;
 export type AlphaFeedApiForm = AlphaFeedApiCredentials;
 export type AlphaFeedStreamMode = "watchlist" | "all-symbols";
+export type CredentialPersistence = "secure" | "memory";
 
 export interface AlphaFeedStreamForm {
   wsUrl: string;
@@ -33,6 +34,7 @@ export interface LongPortApiBinding {
   accountId?: string;
   authMode: "legacy-api-key";
   activatedAt?: string;
+  credentialPersistence?: CredentialPersistence;
 }
 
 export interface AlphaFeedApiBinding {
@@ -42,6 +44,7 @@ export interface AlphaFeedApiBinding {
   verifiedAt: string;
   authMode: "api-key";
   activatedAt?: string;
+  credentialPersistence?: CredentialPersistence;
 }
 
 export interface AlphaFeedStreamBinding {
@@ -50,6 +53,7 @@ export interface AlphaFeedStreamBinding {
   mode: AlphaFeedStreamMode;
   preparedAt: string;
   status: "prepared";
+  credentialPersistence?: CredentialPersistence;
 }
 
 const LONGPORT_COLLECTION_KEY = "longport-api-binding";
@@ -82,13 +86,14 @@ function sanitizeBinding(value: unknown): LongPortApiBinding | null {
 
   return {
     apiUrl: binding.apiUrl,
-    appKeyPreview,
-    accessTokenPreview: binding.accessTokenPreview ?? "********",
+    appKeyPreview: "********",
+    accessTokenPreview: "********",
     markets: binding.markets,
     verifiedAt,
     accountId: binding.accountId,
     authMode: binding.authMode ?? "legacy-api-key",
     activatedAt: binding.activatedAt,
+    credentialPersistence: "secure",
   };
 }
 
@@ -128,6 +133,7 @@ function sanitizeAlphaFeedBinding(value: unknown): AlphaFeedApiBinding | null {
     verifiedAt: binding.verifiedAt,
     authMode: "api-key",
     activatedAt: binding.activatedAt,
+    credentialPersistence: "secure",
   };
 }
 
@@ -167,6 +173,7 @@ function sanitizeAlphaFeedStreamBinding(value: unknown): AlphaFeedStreamBinding 
     mode: sanitizeAlphaFeedStreamMode(binding.mode),
     preparedAt: binding.preparedAt,
     status: "prepared",
+    credentialPersistence: "secure",
   };
 }
 
@@ -210,6 +217,7 @@ async function saveAlphaFeedCredentials(form: AlphaFeedApiForm) {
   if (!result.ok) {
     throw new Error(result.error.message);
   }
+  return result.persistence;
 }
 
 async function saveAlphaFeedStreamCredentials(form: AlphaFeedStreamForm) {
@@ -225,6 +233,7 @@ async function saveAlphaFeedStreamCredentials(form: AlphaFeedStreamForm) {
   if (!result.ok) {
     throw new Error(result.error.message);
   }
+  return result.persistence;
 }
 
 async function saveLongPortCredentials(form: LongPortApiForm) {
@@ -237,6 +246,7 @@ async function saveLongPortCredentials(form: LongPortApiForm) {
   if (!result.ok) {
     throw new Error(result.error.message);
   }
+  return result.persistence;
 }
 
 export async function readSavedAlphaFeedCredentials(): Promise<AlphaFeedApiForm | null> {
@@ -289,7 +299,7 @@ export async function saveAlphaFeedStreamConfig(
 ): Promise<AlphaFeedStreamBinding> {
   const normalized = normalizeAlphaFeedStreamForm(form);
 
-  await saveAlphaFeedStreamCredentials(normalized);
+  const credentialPersistence = await saveAlphaFeedStreamCredentials(normalized);
 
   const binding: AlphaFeedStreamBinding = {
     wsUrl: normalized.wsUrl,
@@ -297,9 +307,12 @@ export async function saveAlphaFeedStreamConfig(
     mode: normalized.mode,
     preparedAt: new Date().toISOString(),
     status: "prepared",
+    credentialPersistence,
   };
 
-  appLocalDatabase.writeDocument(ALPHAFEED_STREAM_COLLECTION_KEY, STORAGE_VERSION, binding);
+  if (credentialPersistence === "secure") {
+    appLocalDatabase.writeDocument(ALPHAFEED_STREAM_COLLECTION_KEY, STORAGE_VERSION, binding);
+  }
   return binding;
 }
 
@@ -387,15 +400,20 @@ export async function verifyLongPortApiConfig(form: LongPortApiForm): Promise<Lo
   });
   const binding: LongPortApiBinding = {
     ...verifiedBinding,
+    appKeyPreview: "********",
+    accessTokenPreview: "********",
     activatedAt: new Date().toISOString(),
   };
 
-  await saveLongPortCredentials({
+  const credentialPersistence = await saveLongPortCredentials({
     ...credentials,
     apiUrl: credentials.apiUrl || LONGPORT_DEFAULT_HTTP_URL,
   });
-  appLocalDatabase.writeDocument(LONGPORT_COLLECTION_KEY, STORAGE_VERSION, binding);
-  return binding;
+  const savedBinding = { ...binding, credentialPersistence };
+  if (credentialPersistence === "secure") {
+    appLocalDatabase.writeDocument(LONGPORT_COLLECTION_KEY, STORAGE_VERSION, savedBinding);
+  }
+  return savedBinding;
 }
 
 async function verifyAlphaFeedWithDesktopBridge(
@@ -457,10 +475,13 @@ export async function verifyAlphaFeedApiConfig(
     activatedAt: new Date().toISOString(),
   };
 
-  await saveAlphaFeedCredentials({
+  const credentialPersistence = await saveAlphaFeedCredentials({
     ...credentials,
     apiUrl: credentials.apiUrl || ALPHAFEED_DEFAULT_API_URL,
   });
-  appLocalDatabase.writeDocument(ALPHAFEED_COLLECTION_KEY, STORAGE_VERSION, binding);
-  return binding;
+  const savedBinding = { ...binding, credentialPersistence };
+  if (credentialPersistence === "secure") {
+    appLocalDatabase.writeDocument(ALPHAFEED_COLLECTION_KEY, STORAGE_VERSION, savedBinding);
+  }
+  return savedBinding;
 }
