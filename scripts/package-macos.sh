@@ -43,6 +43,7 @@ application="${apps[0]}"
 test -f "$application/Contents/Resources/app.asar.unpacked/node_modules/longbridge-darwin-$arch/longbridge.darwin-$arch.node"
 codesign --verify --deep --strict --verbose=2 "$application"
 hdiutil verify "$artifact"
+node scripts/packaged-desktop-smoke.mjs "$application"
 if test "$mode" = signed; then
   xcrun stapler validate "$application"
   spctl --assess --type execute --verbose=2 "$application"

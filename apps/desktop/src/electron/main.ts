@@ -30,6 +30,10 @@ import {
   type ReleaseSmokeMode,
 } from "./releaseSmoke";
 import { createRendererStartupQuery } from "./rendererStartup";
+import { createPackagedRendererSmokeScript } from "./packagedRendererSmoke";
+
+let desktopServicesReady = false;
+let keychainRestoreProbeUsed = false;
 
 const releaseSmokeRequested = process.argv.includes("--release-smoke");
 const packagedRendererSmokeRequested = process.argv.includes("--packaged-renderer-smoke");
@@ -207,31 +211,24 @@ export function createMainWindow(securityPolicy?: DesktopRendererSecurityPolicy)
     }, 20_000);
     mainWindow.webContents.once("did-finish-load", () => {
       void mainWindow.webContents
-        .executeJavaScript(
-          `(async () => {
-            const deadline = Date.now() + 15000;
-            while (Date.now() < deadline) {
-              const root = document.getElementById("root");
-              const guard = document.querySelector("[data-renderer-startup-guard]");
-              if (root?.innerText.trim() && !guard) {
-                return { ok: true, title: document.title, textLength: root.innerText.trim().length };
-              }
-              await new Promise((resolve) => setTimeout(resolve, 100));
-            }
-            return {
-              ok: false,
-              title: document.title,
-              text: document.getElementById("root")?.innerText.slice(0, 500) ?? "",
-              guard: Boolean(document.querySelector("[data-renderer-startup-guard]"))
-            };
-          })()`,
-          true,
-        )
-        .then((result: unknown) => {
+        .executeJavaScript(createPackagedRendererSmokeScript(), true)
+        .then(async (result: unknown) => {
+          if (!desktopServicesReady) {
+            clearTimeout(timeout);
+            finishPackagedRendererSmoke(
+              { ok: false, error: "Desktop services were not ready." },
+              1,
+            );
+            return;
+          }
+          if (packagedRendererSmokeResultPath) {
+            const screenshot = await mainWindow.webContents.capturePage();
+            writeFileSync(`${packagedRendererSmokeResultPath}.png`, screenshot.toPNG());
+          }
           clearTimeout(timeout);
           finishPackagedRendererSmoke(
             result && typeof result === "object"
-              ? (result as Record<string, unknown>)
+              ? { ...(result as Record<string, unknown>), keychainRestoreProbeUsed }
               : { ok: false, error: "Renderer smoke returned an invalid result." },
             result && typeof result === "object" && "ok" in result && result.ok === true ? 0 : 1,
           );
@@ -298,7 +295,25 @@ void app
       rendererLoadedBeforeAuthIpc = !authIpcReady;
     });
     const credentialStore = createMainSecureCredentialStore();
-    const authManager = await createMainAuthSessionManager();
+    const authManager = await createMainAuthSessionManager(
+      packagedRendererSmokeRequested && process.argv.includes("--smoke-stalled-keychain")
+        ? {
+            tokenCrypto: {
+              isEncryptionAvailable: () => false,
+              encrypt: async () => {
+                throw new Error("Smoke encryption is disabled");
+              },
+              decrypt: () => {
+                keychainRestoreProbeUsed = true;
+                return new Promise<never>(() => undefined);
+              },
+            },
+          }
+        : {},
+    );
+    const disposeAuthDiagnostics = authManager.subscribe((state) => {
+      desktopDiagnostics.log("info", "authentication-phase", { phase: state.phase });
+    });
     const disposeAuthIpc = registerAuthIpcHandlers(securityPolicy, authManager);
     const disposeAuthLifecycle = configureAuthLifecycle(authManager);
     authIpcReady = true;
@@ -345,6 +360,7 @@ void app
       createPluginIpcHandlers(pluginManager, pluginRuntime),
     );
     app.once("before-quit", () => {
+      disposeAuthDiagnostics();
       disposeAuthLifecycle();
       disposeAuthIpc();
       disposeMarketBarCacheIpc();
@@ -353,6 +369,7 @@ void app
       pluginRuntime.dispose();
       desktopDiagnostics.dispose();
     });
+    desktopServicesReady = true;
     desktopDiagnostics.log("info", "desktop-ready");
 
     app.on("activate", () => {

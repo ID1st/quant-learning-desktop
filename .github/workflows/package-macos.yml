@@ -18,9 +18,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view codex-internal-v0.1.9 >/dev/null 2>&1 || \
-            gh release create codex-internal-v0.1.9 --draft --target "$GITHUB_SHA" \
-              --title "Desktop 0.1.9 internal" --notes "Internal installers with audit remediation."
+          gh release view codex-internal-v0.1.10 >/dev/null 2>&1 || \
+            gh release create codex-internal-v0.1.10 --draft --target "$GITHUB_SHA" \
+              --title "Desktop 0.1.10 internal" --notes "Non-blocking Keychain authentication restore."
 
   package-macos:
     needs: prepare-release
@@ -110,10 +110,14 @@ jobs:
           test -d "$QUANT_RELEASE_SMOKE_USER_DATA"
           run_renderer_smoke preserved-profile
           ls -la "$smoke_root"
+      - name: Verify startup with a stalled legacy credential
+        run: |
+          app=("$QUANT_DESKTOP_RELEASE_DIR"/mac*/量化学习桌面版.app)
+          node scripts/packaged-desktop-smoke.mjs "${app[0]}"
       - name: Upload quant-learning-desktop-mac-${{ matrix.arch }} to draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.9 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
+        run: gh release upload codex-internal-v0.1.10 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
 
   package-windows:
     needs: prepare-release
@@ -148,4 +152,4 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.9 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.9-win-x64.exe" --clobber
+        run: gh release upload codex-internal-v0.1.10 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.10-win-x64.exe" --clobber
