@@ -34,7 +34,7 @@ Windows 上已验证 Electron 真实异步加解密与旧同步密文兼容性�
 
 0.1.14 修复备用行情源已经配置却被分时请求跳过的问题。长桥原先虽然声明支持分时，但能力周期只包含 `realtime`、`1d` 和 `1w`，图表发出的 `1m` 请求会在调用前被过滤，随后直接降级到 Yahoo Finance；现在长桥支持的 `1m/5m/15m/30m/1h` 周期均进入能力表。AlphaFeed 和长桥凭据不再并发访问 macOS Keychain，成功解密或保存后会在当前主进程内复用，避免每次行情请求重复解密和两路 Keychain 竞争。
 
-[0.1.13 GitHub 打包与验证记录](https://github.com/ID1st/quant-learning-desktop/actions/runs/35588729126)。修复与安装包代码提交为 `6b199e8`。
+[0.1.14 GitHub 三平台打包与验证记录](https://github.com/ID1st/quant-learning-desktop/actions/runs/35594064586)。备用行情路由与凭据复用修复提交为 `3836bb1`；流水线已生成 Windows x64、macOS arm64 和 macOS x64 安装包。
 
 在已有 Mac 仓库中更新修复分支，并执行：
 
