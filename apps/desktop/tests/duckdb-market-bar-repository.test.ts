@@ -98,6 +98,34 @@ test("DuckDB market cache merges, prunes and clears entries transactionally", as
   }
 });
 
+test("DuckDB market cache keeps all intraday batches and replaces overlapping timestamps", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "quant-duckdb-cache-"));
+  try {
+    const repository = await createDuckDbMarketBarRepository(
+      join(directory, "market-cache.duckdb"),
+    );
+    const bars = Array.from({ length: 2_500 }, (_, index) =>
+      bar(Date.UTC(2026, 6, 6) + index * 60_000, 100 + index),
+    );
+    await repository.write(key, bars.slice(0, 1_000));
+    await repository.write(key, bars.slice(1_000, 2_000), { mergeExisting: true });
+    await repository.write(key, bars.slice(2_000), { mergeExisting: true });
+    const replacement = { ...bar(bars[1_500]!.timestamp, 777), provider: "longbridge" as const };
+    const updated = await repository.write(key, [replacement], { mergeExisting: true });
+
+    assert.equal(updated.length, 2_500);
+    assert.deepEqual(updated[1_500], replacement);
+    assert.equal((await repository.read(key)).length, 2_500);
+    assert.deepEqual((await repository.summary()).entries[0]?.providers, [
+      "stock-sdk",
+      "longbridge",
+    ]);
+    await repository.dispose();
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("DuckDB market cache rejects mismatched bars and closes idempotently", async () => {
   const directory = await mkdtemp(join(tmpdir(), "quant-duckdb-cache-"));
   try {

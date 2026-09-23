@@ -507,22 +507,9 @@ export function useChartWorkspaceController() {
     setChartResetViewKey((value) => value + 1);
     setChartContextMenu(null);
   };
-  const selectActiveSymbol = async (item: ChartWatchlistItem) => {
-    const bars = await marketBarCacheRepository.read({
-      symbol: item.dataSymbol,
-      market: item.market,
-      timeframe: getChartCacheTimeframe(timeframe),
-    });
-    setCachedMarketBars(bars);
-    setChartLoadState(
-      createChartLoadState(
-        hasRenderableChartData(timeframe, bars.length) ? "ready" : "cache",
-        item.symbol,
-        timeframe,
-        bars.length,
-      ),
-    );
+  const selectActiveSymbol = (item: ChartWatchlistItem) => {
     setActiveSymbol(item);
+    setChartLoadState(createChartLoadState("cache", item.symbol, timeframe, 0));
   };
   const mergeActiveSnapshotBars = useCallback(
     (currentBars: MarketDataBar[], snapshot: MarketQuoteSnapshot) => {

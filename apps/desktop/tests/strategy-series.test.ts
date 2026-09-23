@@ -98,6 +98,24 @@ describe("strategy timeframe series", () => {
     assert.equal(aggregated.at(-1)?.timestamp, Date.UTC(2026, 6, 2, 19, 30));
   });
 
+  it("skips extended-hours bars while keeping separate trading days", () => {
+    const firstSession = createMinuteBars(Date.UTC(2026, 6, 6, 13, 30), 390);
+    const extendedHours = createMinuteBars(Date.UTC(2026, 6, 6, 20, 0), 120);
+    const secondSession = createMinuteBars(Date.UTC(2026, 6, 7, 13, 30), 390);
+
+    const aggregated = aggregateBarsToTimeframe({
+      bars: [...firstSession, ...extendedHours, ...secondSession],
+      market: "US",
+      timeframe: "1h",
+      asOfTimestamp: Date.UTC(2026, 6, 7, 20, 0),
+    });
+
+    assert.equal(aggregated.length, 14);
+    assert.equal(aggregated[0]?.timestamp, Date.UTC(2026, 6, 6, 13, 30));
+    assert.equal(aggregated[7]?.timestamp, Date.UTC(2026, 6, 7, 13, 30));
+    assert.equal(aggregated.at(-1)?.timestamp, Date.UTC(2026, 6, 7, 19, 30));
+  });
+
   it("does not aggregate CN minute bars across the lunch break", () => {
     const morning = createMinuteBars(Date.UTC(2026, 6, 30, 1, 30), 120);
     const afternoon = createMinuteBars(Date.UTC(2026, 6, 30, 5, 0), 120);

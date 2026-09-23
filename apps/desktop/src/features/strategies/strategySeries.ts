@@ -1,6 +1,12 @@
 import type { Bar } from "@quant/strategy-engine";
 import type { Market, Timeframe } from "@quant/shared";
-import { getSessionSegments, resolveTradingSessionAt } from "../marketData/marketCalendar.ts";
+import {
+  formatMarketDate,
+  getMarketTimeZone,
+  getSessionSegments,
+  getZonedDateParts,
+  resolveTradingDate,
+} from "../marketData/marketCalendar.ts";
 
 const aggregationMinutes: Partial<Record<Timeframe, number>> = {
   "5m": 5,
@@ -29,16 +35,17 @@ export function aggregateBarsToTimeframe(input: AggregateBarsInput): Bar[] {
     }
   >();
   let cachedSegments: ReturnType<typeof getSessionSegments> | null = null;
+  let cachedDate = "";
+  const timeZone = getMarketTimeZone(input.market);
 
   [...input.bars]
     .sort((left, right) => left.timestamp - right.timestamp)
     .forEach((bar) => {
-      if (
-        !cachedSegments ||
-        bar.timestamp < cachedSegments[0]!.startTime ||
-        bar.timestamp >= cachedSegments.at(-1)!.endTime
-      ) {
-        const resolution = resolveTradingSessionAt(input.market, bar.timestamp);
+      const dateParts = getZonedDateParts(new Date(bar.timestamp), timeZone);
+      const marketDate = formatMarketDate(dateParts);
+      if (marketDate !== cachedDate) {
+        const resolution = resolveTradingDate(input.market, dateParts);
+        cachedDate = marketDate;
         cachedSegments =
           resolution.ok && resolution.session ? getSessionSegments(resolution.session) : null;
       }
