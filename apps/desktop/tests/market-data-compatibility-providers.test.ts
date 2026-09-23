@@ -278,4 +278,27 @@ describe("LongBridge gateway compatibility provider", () => {
     assert.equal(barResult.data[0]?.provider, "longbridge");
     assert.equal(barResult.health.status, "delayed");
   });
+
+  it("serves one-minute intraday bars before an emergency provider is needed", async () => {
+    const provider = createLongBridgeGatewayProvider({
+      fetchQuoteSnapshot: async () => ({ ok: true, snapshots: [] }),
+      fetchHistoricalBars: async () => ({
+        ok: true,
+        bars: [{ ...marketBar, timeframe: "1m", provider: "longport" }],
+      }),
+    });
+    const gateway = createMarketDataGateway(createMarketDataProviderRegistry([provider]), [
+      "longbridge",
+    ]);
+
+    const result = await gateway.fetchIntradayBars({
+      market: "US",
+      symbol: "SNDK.US",
+      timeframe: "1m",
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.ok ? result.provider : "", "longbridge");
+    assert.equal(result.ok ? result.data[0]?.timeframe : "", "1m");
+  });
 });

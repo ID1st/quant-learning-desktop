@@ -25,6 +25,11 @@ jobs:
         run: npm run check
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org
+      - name: Verify Electron authentication and plugin boundaries
+        run: |
+          node scripts/auth-electron-smoke.mjs
+          node scripts/plugin-runtime-electron-smoke.mjs
+          npm run smoke:auth:visual
 
   cloud-integration:
     runs-on: ubuntu-latest

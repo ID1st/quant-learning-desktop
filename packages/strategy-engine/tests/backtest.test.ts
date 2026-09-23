@@ -13,6 +13,28 @@ function bar(timestamp: number, open: number, close = open): Bar {
   };
 }
 
+test("backtest rejects duplicate timestamps rather than trading on the signal bar", () => {
+  for (const duplicate of [bar(1, 100), bar(1, 110)]) {
+    assert.throws(
+      () =>
+        runStrategyBacktest({
+          bars: [bar(1, 100), duplicate, bar(2, 120)],
+          signals: [{ timestamp: 1, type: "buy" }],
+        }),
+      /duplicate/i,
+    );
+  }
+});
+
+test("backtest skips inconsistent OHLC execution bars and keeps chronological fills", () => {
+  const result = runStrategyBacktest({
+    bars: [bar(3, 120), bar(1, 100), { ...bar(2, 110), high: 90 }],
+    signals: [{ timestamp: 1, type: "buy" }],
+  });
+  assert.equal(result.trades.length, 0);
+  assert.ok(result.warnings.length > 0);
+});
+
 test("backtest disables short entries by default", () => {
   const result = runStrategyBacktest({
     bars: [bar(1, 100), bar(2, 100), bar(3, 90)],

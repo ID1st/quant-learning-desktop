@@ -3,6 +3,8 @@ dist/
 build/
 out/
 release/
+release-*/
+outputs/
 .turbo/
 .vite/
 .npm-cache/

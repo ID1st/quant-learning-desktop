@@ -260,7 +260,7 @@ test("market data IPC handlers keep Chinese and pinyin search available when Lon
   const handlers = createMarketDataIpcHandlers({
     credentialStore: {
       ...createEmptyCredentialStore(),
-      readLongPortCredentials: () => ({
+      readLongPortCredentials: async () => ({
         apiUrl: "https://longbridge.example.test",
         appKey: "long-app-key",
         appSecret: "long-app-secret",
@@ -320,6 +320,36 @@ test("market data IPC handlers expose provider status from secure main-side prov
     ["healthy", "healthy", "delayed", "healthy"],
   );
   assert.equal(result.data.capabilities.length, 4);
+});
+
+test("market data provider creation reads macOS secure credentials sequentially", async () => {
+  let activeReads = 0;
+  let maximumConcurrentReads = 0;
+  const trackRead = async <T>(value: T) => {
+    activeReads += 1;
+    maximumConcurrentReads = Math.max(maximumConcurrentReads, activeReads);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    activeReads -= 1;
+    return value;
+  };
+  const handlers = createMarketDataIpcHandlers({
+    credentialStore: {
+      ...createEmptyCredentialStore(),
+      readAlphaFeedCredentials: () =>
+        trackRead({ apiUrl: "https://alpha.example.test", apiKey: "alpha-test-key" }),
+      readLongPortCredentials: () =>
+        trackRead({
+          apiUrl: "https://longbridge.example.test",
+          appKey: "long-app-key",
+          appSecret: "long-app-secret",
+          accessToken: "long-access-token",
+        }),
+    },
+  });
+
+  await handlers.getProviderStatus({ source: "diagnostics" });
+
+  assert.equal(maximumConcurrentReads, 1);
 });
 
 test("market data IPC handlers fetch quote snapshots through stock sdk primary without renderer credentials", async () => {
@@ -680,7 +710,7 @@ function createStreamHealth(
 function createCredentialStoreWithStreamCredentials(): SecureCredentialStore {
   return {
     ...createEmptyCredentialStore(),
-    readAlphaFeedStreamCredentials: () => ({
+    readAlphaFeedStreamCredentials: async () => ({
       wsUrl: "wss://stream.example.test",
       apiKey: "stream-key",
     }),
@@ -690,11 +720,11 @@ function createCredentialStoreWithStreamCredentials(): SecureCredentialStore {
 function createCredentialStoreWithFallbackCredentials(): SecureCredentialStore {
   return {
     ...createEmptyCredentialStore(),
-    readAlphaFeedCredentials: () => ({
+    readAlphaFeedCredentials: async () => ({
       apiUrl: "https://alpha.example.test",
       apiKey: "alpha-test-key",
     }),
-    readLongPortCredentials: () => ({
+    readLongPortCredentials: async () => ({
       apiUrl: "https://longbridge.example.test",
       appKey: "long-app-key",
       appSecret: "long-app-secret",
@@ -705,14 +735,14 @@ function createCredentialStoreWithFallbackCredentials(): SecureCredentialStore {
 
 function createEmptyCredentialStore(): SecureCredentialStore {
   return {
-    saveAlphaFeedCredentials: () => undefined,
-    readAlphaFeedCredentials: () => null,
+    saveAlphaFeedCredentials: async () => ({ persistence: "secure" }),
+    readAlphaFeedCredentials: async () => null,
     clearAlphaFeedCredentials: () => undefined,
-    saveAlphaFeedStreamCredentials: () => undefined,
-    readAlphaFeedStreamCredentials: () => null,
+    saveAlphaFeedStreamCredentials: async () => ({ persistence: "secure" }),
+    readAlphaFeedStreamCredentials: async () => null,
     clearAlphaFeedStreamCredentials: () => undefined,
-    saveLongPortCredentials: () => undefined,
-    readLongPortCredentials: () => null,
+    saveLongPortCredentials: async () => ({ persistence: "secure" }),
+    readLongPortCredentials: async () => null,
     clearLongPortCredentials: () => undefined,
   };
 }

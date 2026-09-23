@@ -714,10 +714,15 @@ export function useChartMarketData({
       }
     };
 
-    void warmWatchlistCaches().catch(() => undefined);
+    // Let the selected chart read its cache before background symbols start
+    // requesting and writing their own history.
+    const warmupTimer = window.setTimeout(() => {
+      void warmWatchlistCaches().catch(() => undefined);
+    }, 750);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(warmupTimer);
     };
   }, [
     activeSymbol.dataSymbol,

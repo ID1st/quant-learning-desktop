@@ -25,6 +25,7 @@ import type { MarketDataProviderId } from "../features/marketData/marketDataProv
 import type { MarketDataUpstream } from "../features/marketData/marketDataProviderGateway.ts";
 
 const millisecondsPerDay = 24 * 60 * 60 * 1_000;
+const insertBatchSize = 250;
 
 const schemaMigrations = [
   {
@@ -273,9 +274,12 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
     options: MarketBarCacheWriteOptions,
   ) {
     const normalizedKey = normalizeMarketBarCacheKey(key);
-    const candidateBars = options.mergeExisting
-      ? [...(await this.readRaw(normalizedKey)), ...bars]
-      : bars;
+    const appendIntradayBars =
+      options.mergeExisting && !isHistoricalTimeframe(normalizedKey.timeframe);
+    const candidateBars =
+      options.mergeExisting && !appendIntradayBars
+        ? [...(await this.readRaw(normalizedKey)), ...bars]
+        : bars;
     const normalizedBars = normalizeMarketDataBars(
       candidateBars.filter(
         (bar) =>
@@ -287,60 +291,63 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
     );
 
     if (normalizedBars.length === 0) {
+      if (appendIntradayBars) {
+        return this.readRaw(normalizedKey);
+      }
       await this.clearRaw(normalizedKey);
       return [];
     }
 
     const values = keyValues(normalizedKey);
-    const providers = Array.from(new Set(normalizedBars.map((bar) => bar.provider)));
-    const metadataProvider = normalizedBars[0]!.provider;
-    const upstream = normalizedBars[0]!.upstream;
     const historicalCompletion = options.historicalCompletion;
     const updatedAt = new Date().toISOString();
 
     await this.connection.run("BEGIN TRANSACTION");
     try {
-      await this.connection.run(
-        `DELETE FROM market_bars
-         WHERE market = ? AND symbol = ? AND timeframe = ? AND adjustment = ?`,
-        values,
-      );
+      if (!appendIntradayBars) {
+        await this.connection.run(
+          `DELETE FROM market_bars
+           WHERE market = ? AND symbol = ? AND timeframe = ? AND adjustment = ?`,
+          values,
+        );
+      }
       await this.connection.run(
         `DELETE FROM market_bar_cache_entries
          WHERE market = ? AND symbol = ? AND timeframe = ? AND adjustment = ?`,
         values,
       );
 
-      const insertBar = await this.connection.prepare(`
-        INSERT INTO market_bars (
-          market, symbol, timeframe, adjustment, timestamp,
-          open, high, low, close, volume, amount, provider, upstream
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      try {
-        for (const bar of normalizedBars) {
-          insertBar.bind([
-            normalizedKey.market,
-            normalizedKey.symbol,
-            normalizedKey.timeframe,
-            databaseAdjustment(normalizedKey),
-            BigInt(bar.timestamp),
-            bar.open,
-            bar.high,
-            bar.low,
-            bar.close,
-            bar.volume,
-            bar.amount ?? null,
-            bar.provider,
-            bar.upstream ?? null,
-          ]);
-          await insertBar.run();
-          insertBar.clearBindings();
-        }
-      } finally {
-        insertBar.destroySync();
+      for (let offset = 0; offset < normalizedBars.length; offset += insertBatchSize) {
+        const batch = normalizedBars.slice(offset, offset + insertBatchSize);
+        const placeholders = batch.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ");
+        const values: DuckDBValue[] = batch.flatMap((bar) => [
+          normalizedKey.market,
+          normalizedKey.symbol,
+          normalizedKey.timeframe,
+          databaseAdjustment(normalizedKey),
+          BigInt(bar.timestamp),
+          bar.open,
+          bar.high,
+          bar.low,
+          bar.close,
+          bar.volume,
+          bar.amount ?? null,
+          bar.provider,
+          bar.upstream ?? null,
+        ]);
+        await this.connection.run(
+          `INSERT ${appendIntradayBars ? "OR REPLACE " : ""}INTO market_bars (
+            market, symbol, timeframe, adjustment, timestamp,
+            open, high, low, close, volume, amount, provider, upstream
+          ) VALUES ${placeholders}`,
+          values,
+        );
       }
 
+      const storedBars = appendIntradayBars ? await this.readRaw(normalizedKey) : normalizedBars;
+      const providers = Array.from(new Set(storedBars.map((bar) => bar.provider)));
+      const metadataProvider = storedBars[0]!.provider;
+      const upstream = storedBars[0]!.upstream;
       await this.connection.run(
         `INSERT INTO market_bar_cache_entries (
           market, symbol, timeframe, adjustment, provider, providers_json,
@@ -351,10 +358,10 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
           ...values,
           metadataProvider,
           JSON.stringify(providers),
-          BigInt(normalizedBars[0]!.timestamp),
-          BigInt(normalizedBars.at(-1)!.timestamp),
-          normalizedBars.length,
-          BigInt(Buffer.byteLength(JSON.stringify(normalizedBars), "utf8")),
+          BigInt(storedBars[0]!.timestamp),
+          BigInt(storedBars.at(-1)!.timestamp),
+          storedBars.length,
+          BigInt(Buffer.byteLength(JSON.stringify(storedBars), "utf8")),
           getDefaultMarketBarRetentionDays(normalizedKey.timeframe),
           updatedAt,
           upstream ?? null,
@@ -362,7 +369,7 @@ class DuckDbMarketBarCacheRepository implements MarketBarCacheRepository {
         ],
       );
       await this.connection.run("COMMIT");
-      return normalizedBars;
+      return storedBars;
     } catch (error) {
       await this.connection.run("ROLLBACK");
       throw error;

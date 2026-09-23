@@ -12,6 +12,60 @@ interface SampleDocument {
   count: number;
 }
 
+test("current documents are readable when storage is read-only", () => {
+  let writes = 0;
+  const database = new LocalDatabase({
+    getItem: () =>
+      JSON.stringify({ version: 1, data: { id: "saved", count: 2 }, updatedAt: "2026-09-21" }),
+    setItem: () => {
+      writes++;
+      throw new Error("QuotaExceededError");
+    },
+    removeItem: () => {},
+  });
+  assert.deepEqual(
+    database.readDocument("sample", {
+      version: 1,
+      fallback: null,
+      sanitize: sanitizeSampleDocument,
+    }),
+    { id: "saved", count: 2 },
+  );
+  assert.equal(writes, 0);
+});
+
+test("failed legacy migration preserves readable data and future versions are not overwritten", () => {
+  let raw = JSON.stringify({ id: "legacy", count: 3 });
+  let writes = 0;
+  const database = new LocalDatabase({
+    getItem: () => raw,
+    setItem: () => {
+      writes++;
+      throw new Error("read-only");
+    },
+    removeItem: () => {},
+  });
+  assert.deepEqual(
+    database.readDocument("sample", {
+      version: 1,
+      fallback: null,
+      sanitize: sanitizeSampleDocument,
+    }),
+    { id: "legacy", count: 3 },
+  );
+  assert.equal(writes, 1);
+  raw = JSON.stringify({ version: 2, data: { id: "future", count: 3 }, updatedAt: "2026-09-21" });
+  assert.equal(
+    database.readDocument("sample", {
+      version: 1,
+      fallback: null,
+      sanitize: sanitizeSampleDocument,
+    }),
+    null,
+  );
+  assert.equal(writes, 1);
+});
+
 function sanitizeSampleDocument(value: unknown): SampleDocument | null {
   if (!value || typeof value !== "object") {
     return null;

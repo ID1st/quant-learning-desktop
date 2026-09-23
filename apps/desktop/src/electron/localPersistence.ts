@@ -1,5 +1,6 @@
 import { dirname } from "node:path";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, renameSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 
 const MAX_STORAGE_KEY_LENGTH = 180;
 const MAX_STORAGE_VALUE_LENGTH = 5 * 1024 * 1024;
@@ -75,9 +76,18 @@ export function createJsonFilePersistenceStore(
     }
 
     try {
-      return sanitizeRecord(JSON.parse(rawValue));
+      const parsed: unknown = JSON.parse(rawValue);
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed) ||
+        !Object.values(parsed).every((value) => typeof value === "string")
+      ) {
+        throw new Error("invalid record");
+      }
+      return parsed as Record<string, string>;
     } catch {
-      return {};
+      throw new Error("本地持久化文件损坏，已保留原文件，请恢复备份后重试。");
     }
   };
 
@@ -93,7 +103,8 @@ export function createJsonFilePersistenceStore(
   return {
     getItem: (key) => {
       ensureStorageKey(key);
-      return readStore()[key] ?? null;
+      const store = readStore();
+      return Object.hasOwn(store, key) ? store[key] : null;
     },
     setItem: (key, value) => {
       ensureStorageKey(key);
@@ -109,7 +120,10 @@ export function createJsonFilePersistenceStore(
   };
 }
 
-export function createNodeJsonFilePersistenceDriver(filePath: string): JsonFilePersistenceDriver {
+export function createNodeJsonFilePersistenceDriver(
+  filePath: string,
+  operations = { writeFileSync, renameSync },
+): JsonFilePersistenceDriver {
   return {
     readText: () => {
       if (!existsSync(filePath)) {
@@ -120,7 +134,18 @@ export function createNodeJsonFilePersistenceDriver(filePath: string): JsonFileP
     },
     writeText: (value) => {
       mkdirSync(dirname(filePath), { recursive: true });
-      writeFileSync(filePath, value, { encoding: "utf8", mode: 0o600 });
+      const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
+      try {
+        operations.writeFileSync(temporaryPath, value, {
+          encoding: "utf8",
+          mode: 0o600,
+          flag: "wx",
+          flush: true,
+        });
+        operations.renameSync(temporaryPath, filePath);
+      } finally {
+        rmSync(temporaryPath, { force: true });
+      }
     },
     remove: () => {
       if (existsSync(filePath)) {

@@ -12,7 +12,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AdminApiError,
@@ -434,6 +434,7 @@ function AdminDashboard({
   const [error, setError] = useState("");
 
   const entries = useMemo(() => buildInviteEntries(counts), [counts]);
+  const batchRequest = useRef<{ payload: string; id: string } | null>(null);
   const total = entries.reduce((sum, entry) => sum + entry.count, 0);
 
   const handleApiError = useCallback(
@@ -471,7 +472,12 @@ function AdminDashboard({
     setBusy(true);
     setError("");
     try {
-      const created = await adminApi.createBatch({ entries, claimDays });
+      const payload = JSON.stringify({ entries, claimDays });
+      if (batchRequest.current?.payload !== payload) {
+        batchRequest.current = { payload, id: crypto.randomUUID() };
+      }
+      const created = await adminApi.createBatch({ entries, claimDays }, batchRequest.current.id);
+      batchRequest.current = null;
       setResult(created);
       setCounts(EMPTY_COUNTS);
       await loadHistory();

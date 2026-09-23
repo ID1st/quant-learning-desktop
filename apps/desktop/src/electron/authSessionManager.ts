@@ -368,6 +368,9 @@ export function createAuthSessionManager(input: CreateAuthSessionManagerInput): 
       }
     },
     login: async (request) => {
+      // The visible login form may be submitted during background restoration.
+      // Finish the bounded restore before a new login can write token material.
+      await bootstrapPromise?.catch(() => undefined);
       loginChallenge = null;
       try {
         const result = await input.client.login(request, input.device);

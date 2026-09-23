@@ -52,7 +52,7 @@ test("macOS avoids blocking the main loop on the native DuckDB cache", () => {
 test("the renderer window is loaded before asynchronous authentication initialization", () => {
   const readyBlockIndex = mainSource.indexOf("const windowConfig = createMainWindowConfig()");
   const windowIndex = mainSource.indexOf("const mainWindow = createMainWindow", readyBlockIndex);
-  const authIndex = mainSource.indexOf("await createMainAuthSessionManager()", readyBlockIndex);
+  const authIndex = mainSource.indexOf("await createMainAuthSessionManager(", readyBlockIndex);
   assert.notEqual(readyBlockIndex, -1);
   assert.notEqual(windowIndex, -1);
   assert.notEqual(authIndex, -1);

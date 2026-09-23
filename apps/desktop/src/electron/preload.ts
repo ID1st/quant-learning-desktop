@@ -215,9 +215,10 @@ export const desktopBridge: DesktopBridge = {
   secureCredentials: {
     saveAlphaFeed: async (credentials) => {
       const result = await invokeSecureCredential<
-        { ok: true; value: null } | { ok: false; error: { message: string } }
+        | { ok: true; value: { persistence: "secure" | "memory" } }
+        | { ok: false; error: { message: string } }
       >("secureCredentials:saveAlphaFeed", credentials);
-      return result.ok ? { ok: true } : result;
+      return result.ok ? { ok: true, persistence: result.value.persistence } : result;
     },
     clearAlphaFeed: async () => {
       const result = await invokeSecureCredential<
@@ -227,9 +228,10 @@ export const desktopBridge: DesktopBridge = {
     },
     saveAlphaFeedStream: async (credentials) => {
       const result = await invokeSecureCredential<
-        { ok: true; value: null } | { ok: false; error: { message: string } }
+        | { ok: true; value: { persistence: "secure" | "memory" } }
+        | { ok: false; error: { message: string } }
       >("secureCredentials:saveAlphaFeedStream", credentials);
-      return result.ok ? { ok: true } : result;
+      return result.ok ? { ok: true, persistence: result.value.persistence } : result;
     },
     clearAlphaFeedStream: async () => {
       const result = await invokeSecureCredential<
@@ -239,9 +241,10 @@ export const desktopBridge: DesktopBridge = {
     },
     saveLongPort: async (credentials) => {
       const result = await invokeSecureCredential<
-        { ok: true; value: null } | { ok: false; error: { message: string } }
+        | { ok: true; value: { persistence: "secure" | "memory" } }
+        | { ok: false; error: { message: string } }
       >("secureCredentials:saveLongPort", credentials);
-      return result.ok ? { ok: true } : result;
+      return result.ok ? { ok: true, persistence: result.value.persistence } : result;
     },
     clearLongPort: async () => {
       const result = await invokeSecureCredential<

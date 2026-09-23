@@ -14,11 +14,13 @@ The current implementation is an npm workspace monorepo using React 19, TypeScri
 - Type check all configured packages: `npm run typecheck`
 - Clean generated outputs: `npm run clean`
 
-There is no root test script yet. When changing strategy math, data transforms, plugin loading, or behavior-heavy UI, add the smallest useful test setup before expanding the feature.
+Run `npm test` for all suites and `npm run check` for quality gates and builds. PostgreSQL integration tests require an isolated `TEST_DATABASE_URL`; missing database configuration is not a passing integration result. Coverage inventories in `coverage/` identify source files that were not loaded. Add focused behavior regressions when changing strategy math, data transforms, plugin loading, or behavior-heavy UI.
 
 ## Project Structure
 
 - `apps/desktop/`: Vite React desktop workbench, Electron-facing entry points, routes, pages, layouts, app state, and styles.
+- `apps/cloud-server/`: Fastify authentication, administration, PostgreSQL and email services.
+- `apps/admin-web/`: React administrator website.
 - `packages/shared/`: shared types, constants, and cross-package contracts.
 - `packages/api-client/`: API client boundary for local/cloud services.
 - `packages/chart/`: chart adapter and React chart-facing package.

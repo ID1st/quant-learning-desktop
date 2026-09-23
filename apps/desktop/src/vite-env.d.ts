@@ -373,19 +373,25 @@ interface QuantDesktopBridge {
     saveAlphaFeed(credentials: {
       apiUrl: string;
       apiKey: string;
-    }): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
+    }): Promise<
+      { ok: true; persistence: "secure" | "memory" } | { ok: false; error: { message: string } }
+    >;
     clearAlphaFeed(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     saveAlphaFeedStream(credentials: {
       wsUrl: string;
       apiKey: string;
-    }): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
+    }): Promise<
+      { ok: true; persistence: "secure" | "memory" } | { ok: false; error: { message: string } }
+    >;
     clearAlphaFeedStream(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
     saveLongPort(credentials: {
       apiUrl: string;
       appKey: string;
       appSecret: string;
       accessToken: string;
-    }): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
+    }): Promise<
+      { ok: true; persistence: "secure" | "memory" } | { ok: false; error: { message: string } }
+    >;
     clearLongPort(): Promise<{ ok: true } | { ok: false; error: { message: string } }>;
   };
   readonly marketData?: QuantDesktopMarketDataBridge;

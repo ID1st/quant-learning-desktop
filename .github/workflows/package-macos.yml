@@ -10,7 +10,20 @@ permissions:
   contents: write
 
 jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view codex-internal-v0.1.15 >/dev/null 2>&1 || \
+            gh release create codex-internal-v0.1.15 --draft --target "$GITHUB_SHA" \
+              --title "Desktop 0.1.15 internal" --notes "Chart cache writes use batched SQL and incremental intraday updates; cached chart selection and extended-hours strategy aggregation are more responsive."
+
   package-macos:
+    needs: prepare-release
     name: Package macOS ${{ matrix.arch }}
     strategy:
       fail-fast: false
@@ -97,12 +110,17 @@ jobs:
           test -d "$QUANT_RELEASE_SMOKE_USER_DATA"
           run_renderer_smoke preserved-profile
           ls -la "$smoke_root"
+      - name: Verify startup with a stalled legacy credential
+        run: |
+          app=("$QUANT_DESKTOP_RELEASE_DIR"/mac*/量化学习桌面版.app)
+          node scripts/packaged-desktop-smoke.mjs "${app[0]}"
       - name: Upload quant-learning-desktop-mac-${{ matrix.arch }} to draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.8 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
+        run: gh release upload codex-internal-v0.1.15 "$QUANT_DESKTOP_RELEASE_DIR"/*.dmg --clobber
 
   package-windows:
+    needs: prepare-release
     name: Package Windows x64
     runs-on: windows-2025
     timeout-minutes: 30
@@ -134,4 +152,4 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload codex-internal-v0.1.8 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.8-win-x64.exe" --clobber
+        run: gh release upload codex-internal-v0.1.15 "$env:QUANT_DESKTOP_RELEASE_DIR\quant-learning-desktop-0.1.15-win-x64.exe" --clobber

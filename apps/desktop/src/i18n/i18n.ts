@@ -517,6 +517,7 @@ const englishMessages: Readonly<Record<string, string>> = {
   "确定卸载插件“{name}”吗？已保存的策略数据不会被删除。":
     "Uninstall plugin “{name}”? Saved strategy data will not be deleted.",
   当前凭据: "Current credentials",
+  敏感凭据已隐藏: "Sensitive credentials hidden",
   "最近验证：{date}": "Last verified: {date}",
   "修改 / 替换": "Edit / Replace",
   "删除中...": "Deleting...",
@@ -765,6 +766,14 @@ const englishMessages: Readonly<Record<string, string>> = {
   "AlphaFeed WebSocket 会员通道已预留，行情网关可在后续阶段接入。":
     "The AlphaFeed WebSocket member channel is reserved and can be connected to the Market Data Gateway later.",
   "长桥备用源已验证并保存。": "Longbridge backup verified and saved.",
+  "长桥备用源已验证并在本次运行中启用。macOS 安全存储暂不可用，重启后需要重新输入凭据。":
+    "Longbridge backup is verified and active for this session. macOS secure storage is temporarily unavailable, so credentials must be entered again after restart.",
+  "备用数据源已验证并在本次运行中启用。macOS 安全存储暂不可用，重启后需要重新输入凭据。":
+    "The backup source is verified and active for this session. macOS secure storage is temporarily unavailable, so credentials must be entered again after restart.",
+  "AlphaFeed WebSocket 已在本次运行中启用。macOS 安全存储暂不可用，重启后需要重新输入凭据。":
+    "AlphaFeed WebSocket is active for this session. macOS secure storage is temporarily unavailable, so credentials must be entered again after restart.",
+  "API Key、Secret 与 Access Token 优先通过桌面安全桥加密保存；macOS 安全存储超时时仅在本次运行的内存中使用，普通本地缓存只保存脱敏摘要、供应商状态和行情缓存。":
+    "API keys, secrets, and access tokens are encrypted through the desktop security bridge when available. If macOS secure storage times out, they are used only in memory for this session; ordinary local storage contains only redacted summaries, provider status, and market-data cache.",
   "AlphaFeed 实时行情需要桌面安全桥，请在桌面应用中运行。":
     "AlphaFeed live quotes require the secure desktop bridge. Run this in the desktop app.",
   "AlphaFeed 分钟 K 线同步需要桌面安全桥，请在桌面应用中运行。":

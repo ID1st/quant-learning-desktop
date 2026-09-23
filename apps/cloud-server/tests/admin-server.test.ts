@@ -175,18 +175,27 @@ test("authenticated administrators can create, list and revoke invite batches", 
       },
     },
     adminInviteService: {
-      createBatch: async () => ({
-        batch,
-        codes: [
-          {
-            inviteCode: "QLD-ABCDE-FGHJK-MNPQR",
-            durationDays: 7 as const,
-            claimExpiresAt: batch.claimExpiresAt,
-          },
-        ],
-      }),
+      createBatch: async (_input, email, _now, context) => {
+        assert.equal(email, "admin@example.com");
+        assert.ok(context);
+        actions.push("ADMIN_INVITE_BATCH_CREATED");
+        return {
+          batch,
+          codes: [
+            {
+              inviteCode: "QLD-ABCDE-FGHJK-MNPQR",
+              durationDays: 7 as const,
+              claimExpiresAt: batch.claimExpiresAt,
+            },
+          ],
+        };
+      },
       listBatches: async () => ({ items: [batch], totalItems: 1 }),
-      revokeBatch: async () => ({ ...batch, status: "REVOKED" as const }),
+      revokeBatch: async (_batchId, _now, audit) => {
+        assert.equal(audit?.email, "admin@example.com");
+        actions.push("ADMIN_INVITE_BATCH_REVOKED");
+        return { ...batch, status: "REVOKED" as const };
+      },
     },
   });
   const headers = {

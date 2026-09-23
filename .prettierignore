@@ -5,6 +5,8 @@ dist/
 build/
 out/
 release/
+release-*/
+outputs/
 prototype/
 trading-strategies/
 docs/generated/

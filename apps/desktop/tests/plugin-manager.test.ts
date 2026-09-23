@@ -86,7 +86,11 @@ test("plugin manager rejects an entry reached through a directory link outside t
     const outside = join(root, "outside");
     await mkdir(outside);
     await writeFile(join(outside, "index.js"), "export function activate() {}", "utf8");
-    await symlink(outside, join(source, "linked"), process.platform === "win32" ? "junction" : "dir");
+    await symlink(
+      outside,
+      join(source, "linked"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
 
     const manager = createPluginManager({ pluginsDirectory: join(root, "installed") });
     await assert.rejects(() => manager.installFromDirectory(source), /escapes the package/i);

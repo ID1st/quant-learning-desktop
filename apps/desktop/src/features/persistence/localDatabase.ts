@@ -84,6 +84,10 @@ export class LocalDatabase {
       }
 
       const parsedValue = JSON.parse(rawValue) as unknown;
+      const versioned = isLocalDatabaseDocument(parsedValue);
+      if (versioned && parsedValue.version > options.version) {
+        return options.fallback;
+      }
       const candidate = isLocalDatabaseDocument(parsedValue) ? parsedValue.data : parsedValue;
       const sanitized = options.sanitize(candidate);
 
@@ -91,7 +95,15 @@ export class LocalDatabase {
         return options.fallback;
       }
 
-      this.writeDocument(collection, options.version, sanitized);
+      if (!versioned || parsedValue.version !== options.version) {
+        try {
+          this.writeDocument(collection, options.version, sanitized);
+        } catch {
+          console.warn(
+            "Local document migration could not be persisted; readable data was retained.",
+          );
+        }
+      }
       return sanitized;
     } catch {
       return options.fallback;

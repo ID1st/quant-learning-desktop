@@ -6,6 +6,7 @@ import { latestPostgresMigrationVersion } from "./db/migrationVersion.ts";
 
 import type { CloudAuthConfig } from "./config.ts";
 import { AuthDomainError } from "./domain/authErrors.ts";
+import { InviteBatchConflictError } from "./services/inviteBatchService.ts";
 import { PgAuthRepository } from "./repositories/pgAuthRepository.ts";
 import { PgAdminRepository } from "./repositories/pgAdminRepository.ts";
 import { PgInviteBatchRepository } from "./repositories/pgInviteBatchRepository.ts";
@@ -288,9 +289,8 @@ export async function buildAuthServer(
   validateOfflineLeaseKeyPair(config.offlineLeasePrivateKeyPem, config.offlineLeasePublicKeyPem);
 
   const server = Fastify({
-    // The container is reachable only through the host-loopback Nginx proxy.
-    // Trust exactly that hop so rate limits key on the real client address.
-    trustProxy: 1,
+    // Configure the exact host gateway address when running behind Docker/Nginx.
+    trustProxy: config.trustedProxies ?? "loopback",
     bodyLimit: 16 * 1024,
     requestIdHeader: "x-request-id",
     logger: {
@@ -344,6 +344,11 @@ export async function buildAuthServer(
     });
 
   server.setErrorHandler((error, request, reply) => {
+    if (error instanceof InviteBatchConflictError) {
+      return reply
+        .status(409)
+        .send({ error: { code: "BATCH_ALREADY_CREATED", message: error.message } });
+    }
     if (error instanceof AuthDomainError) {
       return reply.status(error.statusCode).send({
         error: {
@@ -401,6 +406,21 @@ export async function buildAuthServer(
       });
     }
 
+    const frameworkStatus =
+      error && typeof error === "object" && "code" in error
+        ? (
+            {
+              FST_ERR_CTP_BODY_TOO_LARGE: 413,
+              FST_ERR_CTP_INVALID_MEDIA_TYPE: 415,
+              FST_ERR_CTP_EMPTY_JSON_BODY: 400,
+            } as Record<string, number>
+          )[String(error.code)]
+        : undefined;
+    if (frameworkStatus) {
+      return reply
+        .status(frameworkStatus)
+        .send({ error: { code: "INVALID_REQUEST", message: "Request body is not supported" } });
+    }
     const errorRecord =
       error && typeof error === "object" ? (error as Record<string, unknown>) : null;
     const errorCode =
@@ -641,14 +661,13 @@ export async function buildAuthServer(
       assertAdminOrigin(request);
       const context = requestContext(request);
       const admin = await adminService.getSession(readAdminSessionCookie(request), context);
-      const result = await adminInviteService.createBatch(request.body, admin.email, context.now);
-      await adminService.recordInviteAction(
-        "ADMIN_INVITE_BATCH_CREATED",
-        admin.email,
-        result.batch.batchId,
-        result.batch.totalCount,
-        context,
-      );
+      const key = request.headers["idempotency-key"];
+      if (key !== undefined && typeof key !== "string")
+        throw new AdminInviteError("invalid idempotency key", 400);
+      const result = await adminInviteService.createBatch(request.body, admin.email, context.now, {
+        sourceIp: context.sourceIp,
+        requestId: key,
+      });
       return success(result);
     },
   );
@@ -682,14 +701,10 @@ export async function buildAuthServer(
       assertAdminOrigin(request);
       const context = requestContext(request);
       const admin = await adminService.getSession(readAdminSessionCookie(request), context);
-      const result = await adminInviteService.revokeBatch(request.params.batchId, context.now);
-      await adminService.recordInviteAction(
-        "ADMIN_INVITE_BATCH_REVOKED",
-        admin.email,
-        result.batchId,
-        result.totalCount,
-        context,
-      );
+      const result = await adminInviteService.revokeBatch(request.params.batchId, context.now, {
+        email: admin.email,
+        sourceIp: context.sourceIp,
+      });
       return success(result);
     },
   );

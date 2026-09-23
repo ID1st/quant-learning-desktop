@@ -1,4 +1,4 @@
-import { AlertTriangle, LoaderCircle, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ShieldCheck } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import type { AuthSessionSnapshot, AuthStateSnapshot } from "@quant/shared";
@@ -17,19 +17,6 @@ import { resolveRequiredAppRoute } from "./authenticatedRouteGuard";
 import { useI18n } from "../i18n/I18nProvider";
 
 const queryClient = new QueryClient();
-
-function AuthBootstrapScreen() {
-  const { t } = useI18n();
-  return (
-    <main className="auth-bootstrap-screen" aria-live="polite">
-      <LoaderCircle className="spin" size={24} />
-      <div>
-        <strong>{t("正在验证本机授权")}</strong>
-        <span>{t("正在检查加密会话和测试资格…")}</span>
-      </div>
-    </main>
-  );
-}
 
 function EntitlementActivatedScreen({ session }: { session: AuthSessionSnapshot }) {
   const { formatDateTime, t } = useI18n();
@@ -185,9 +172,7 @@ export function App() {
   }, [authenticated, currentRoute, navigate]);
 
   let content;
-  if (phase === "BOOTSTRAPPING") {
-    content = <AuthBootstrapScreen />;
-  } else if (profileConflictUserId) {
+  if (profileConflictUserId) {
     content = <LocalProfileConflictScreen />;
   } else if (authenticated && entitlementNotice) {
     content = <EntitlementActivatedScreen session={entitlementNotice} />;
@@ -205,7 +190,9 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppErrorBoundary onRecover={() => navigate(authenticated ? "chart" : "login")}>
-        <div data-theme={theme}>{content}</div>
+        <div data-theme={theme} data-desktop-auth-phase={phase}>
+          {content}
+        </div>
       </AppErrorBoundary>
     </QueryClientProvider>
   );

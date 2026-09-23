@@ -112,6 +112,79 @@ function createManager(
   });
 }
 
+test("verified login survives a stalled Keychain write without persisting plaintext", async () => {
+  let writes = 0;
+  let raw: string | null = "old encrypted session";
+  let finishEncryption!: (value: string) => void;
+  const store = createAuthTokenStore(
+    {
+      read: async () => raw,
+      write: async (value) => {
+        writes++;
+        raw = value;
+      },
+      remove: async () => {
+        raw = null;
+      },
+    },
+    {
+      isEncryptionAvailable: () => true,
+      encrypt: () =>
+        new Promise((resolve) => {
+          finishEncryption = resolve;
+        }),
+      decrypt: async () => {
+        throw new Error("unavailable");
+      },
+    },
+    { restoreTimeoutMilliseconds: 10, allowMemoryOnlySession: true },
+  );
+  const manager = createManager(
+    createClient({
+      login: async () => ({ kind: "AUTHENTICATED", bundle: onlineBundle }),
+    }),
+    store,
+  );
+  const result = await manager.login({ email: "learner@example.com", password: "test-password" });
+  assert.equal(result.ok, true);
+  assert.equal(store.getAccessToken(), onlineBundle.accessToken);
+  assert.equal(raw, null);
+  finishEncryption("late encrypted result");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(writes, 0);
+  await store.clear();
+  assert.equal(store.getAccessToken(), null);
+  assert.equal(await store.restore(), null);
+});
+
+test("login during background restoration waits before writing a new session", async () => {
+  const store = createStore();
+  let finishRestore!: () => void;
+  let loggedIn = false;
+  store.restore = () =>
+    new Promise((resolve) => {
+      finishRestore = () => resolve(null);
+    });
+  const manager = createManager(
+    createClient({
+      login: async () => {
+        loggedIn = true;
+        return { kind: "AUTHENTICATED", bundle: onlineBundle };
+      },
+    }),
+    store,
+  );
+  const restoration = manager.bootstrap();
+  const login = manager.login({ email: "learner@example.com", password: "test-password" });
+  await Promise.resolve();
+  assert.equal(loggedIn, false);
+  finishRestore();
+  await restoration;
+  assert.equal((await login).ok, true);
+  assert.equal(loggedIn, true);
+  assert.equal(store.getAccessToken(), onlineBundle.accessToken);
+});
+
 test("bootstrap refreshes an encrypted session before exposing the workspace", async () => {
   const store = createStore();
   await store.save({

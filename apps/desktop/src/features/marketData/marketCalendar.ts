@@ -239,13 +239,20 @@ export function formatMarketDate(parts: MarketDateParts) {
     .padStart(2, "0")}-${parts.day.toString().padStart(2, "0")}`;
 }
 
+const zonedDateFormatters = new Map<string, Intl.DateTimeFormat>();
+
 export function getZonedDateParts(date: Date, timeZone: string): MarketDateParts {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
+  let formatter = zonedDateFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    zonedDateFormatters.set(timeZone, formatter);
+  }
+  const parts = formatter.formatToParts(date);
   const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
   return {
     year: value("year"),
